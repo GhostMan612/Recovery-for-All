@@ -17,8 +17,8 @@ class Profiles extends Table {
   TextColumn get anonymousUsername => text().nullable()();
   IntColumn get createdAt => integer()();
   BoolColumn get biometricLockEnabled => boolean().withDefault(const Constant(false))();
-  TextColumn get selectedGoals => text();
-  TextColumn get activePaths => text();
+  TextColumn get selectedGoals => text()();
+  TextColumn get activePaths => text()();
   TextColumn get selectedValues => text().nullable()();
 
   // SOS contact numbers
@@ -32,7 +32,7 @@ class Profiles extends Table {
 @DataClassName('Counter')
 class Counters extends Table {
   TextColumn get id => text()();
-  TextColumn get label => text();
+  TextColumn get label => text()();
   IntColumn get startDateTime => integer()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
@@ -45,7 +45,7 @@ class JournalEntries extends Table {
   TextColumn get id => text()();
   IntColumn get timestamp => integer()();
   IntColumn get moodRating => integer()();
-  TextColumn get contentEncrypted => text();
+  TextColumn get contentEncrypted => text()();
   BoolColumn get isSyncedToCloud => boolean().withDefault(const Constant(false))();
 
   @override
@@ -55,8 +55,8 @@ class JournalEntries extends Table {
 @DataClassName('ConstellationPoint')
 class ConstellationPoints extends Table {
   TextColumn get id => text()();
-  TextColumn get title => text();
-  TextColumn get category => text();
+  TextColumn get title => text()();
+  TextColumn get category => text()();
   IntColumn get timestamp => integer()();
   RealColumn get positionX => real()();
   RealColumn get positionY => real()();
@@ -68,7 +68,7 @@ class ConstellationPoints extends Table {
 @DataClassName('WeeklyGoal')
 class WeeklyGoals extends Table {
   TextColumn get id => text()();
-  TextColumn get title => text();
+  TextColumn get title => text()();
   IntColumn get targetCount => integer()();
   IntColumn get currentCount => integer().withDefault(const Constant(0))();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
