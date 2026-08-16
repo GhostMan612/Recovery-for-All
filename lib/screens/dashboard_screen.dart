@@ -6,6 +6,12 @@
 import 'package:flutter/material.dart';
 import '../database/recovery_database.dart';
 import 'chatbot_screen.dart';
+import 'journal_screen.dart';
+import 'meeting_map_screen.dart';
+import 'coping_tool_screen.dart';
+import 'gratitude_entry_screen.dart';
+import 'constellation_canvas.dart';
+import 'daily_reflection_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -47,6 +53,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'title': 'Step Tracker', 'icon': Icons.check_circle_outline, 'color': const Color(0xFF8B5CF6)},
     {'title': 'Reflections', 'icon': Icons.wb_sunny_outlined, 'color': const Color(0xFFEAB308)},
   ];
+
+  void _handleToolTap(BuildContext context, int toolIndex) {
+    final toolNames = ['Private Journal', 'Meeting Finder', 'Urge Coping', 'Daily Gratitude', 'Step Tracker', 'Reflections'];
+    
+    switch (toolNames[toolIndex]) {
+      case 'Private Journal':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => JournalScreen(database: widget.database)),
+        );
+        break;
+      case 'Meeting Finder':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MeetingMapScreen(initialMeetings: const []),
+          ),
+        );
+        break;
+      case 'Urge Coping':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => CopingToolScreen(database: widget.database)),
+        );
+        break;
+      case 'Daily Gratitude':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => GratitudeEntryScreen(database: widget.database)),
+        );
+        break;
+      case 'Step Tracker':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              backgroundColor: const Color(0xFF0F172A),
+              appBar: AppBar(
+                backgroundColor: const Color(0xFF1E293B),
+                elevation: 0,
+                title: const Text(
+                  'Step Tracker',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              body: const SafeArea(
+                child: RecoveryConstellationWidget(nodes: []),
+              ),
+            ),
+          ),
+        );
+        break;
+      case 'Reflections':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => DailyReflectionScreen(database: widget.database)),
+        );
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,11 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 itemBuilder: (context, index) {
                   final tool = _dashboardTools[index];
                   return InkWell(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Opening ${tool['title']}...')),
-                      );
-                    },
+                    onTap: () => _handleToolTap(context, index),
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       decoration: BoxDecoration(

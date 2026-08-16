@@ -25,7 +25,7 @@ class _JournalScreenState extends State<JournalScreen> {
   int _selectedMood = 3; // Neutral default mood (3 = Okay)
   bool _isLocked = true;
   final TextEditingController _pinController = TextEditingController();
-  String _savedPin = "123456"; // Default 6-digit PIN privacy wall
+  final String _savedPin = "123456"; // Default 6-digit PIN privacy wall
 
   // A simple AES/Symmetric mock encryption block matching Local-First guidelines.
   // In production, use standard packages like encrypt (AES-256-CBC).
@@ -118,7 +118,7 @@ class _JournalScreenState extends State<JournalScreen> {
                 const SizedBox(height: 8),
                 const Text(
                   'Enter your 6-digit PIN to access your private encrypted reflections.',
-                  textAlign: Center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                 ),
                 const SizedBox(height: 24),
@@ -275,7 +275,7 @@ class _JournalScreenState extends State<JournalScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color, width: 1.0),
       ),

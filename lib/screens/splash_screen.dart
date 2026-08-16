@@ -43,22 +43,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     final profile = await widget.database.getProfile('active_user_profile');
     
-    if (profile == null) {
+    if (profile == null && mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => OnboardingScreen(
             database: widget.database,
             onOnboardingComplete: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => DashboardScreen(database: widget.database)),
-              );
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => DashboardScreen(database: widget.database)),
+                );
+              }
             },
           ),
         ),
       );
-    } else {
+    } else if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => DashboardScreen(database: widget.database)),

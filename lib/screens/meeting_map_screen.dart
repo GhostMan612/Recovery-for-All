@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'meeting_finder_service.dart';
+import '../services/meeting_finder_service.dart';
 class MeetingMapScreen extends StatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   const MeetingMapScreen({
@@ -20,7 +20,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   final Completer<GoogleMapController> _mapController = Completer<GoogleMapController>();
   final Set<Marker> _markers = {};
   Position? _currentPosition;
-  RecoveryMeeting? _selectedMeeting;
   bool _isLoading = true;
   static const CameraPosition _defaultPosition = CameraPosition(
     target: LatLng(46.2276, -94.3411),
@@ -34,7 +33,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   Future<void> _initializeMapData() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
       _buildMarkers(widget.initialMeetings);
     } catch (e) {
@@ -59,9 +58,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             snippet: '${meeting.time} - ${meeting.address}',
           ),
           onTap: () {
-            setState(() {
-              _selectedMeeting = meeting;
-            });
+            // TODO: Handle meeting selection and show details
           },
         ),
       );
