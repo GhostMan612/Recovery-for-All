@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../database/recovery_database.dart';
+
 class OnboardingScreen extends StatefulWidget {
   final RecoveryDatabase database;
   final VoidCallback onOnboardingComplete;
@@ -16,6 +17,7 @@ class OnboardingScreen extends StatefulWidget {
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
+
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
@@ -25,16 +27,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<String> _selectedValues = [];
   double _stressResponse = 0.5;
   final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _sponsorPhoneController = TextEditingController();
   final List<String> _goalsPool = [
-    'Alcohol', 'Opioids', 'Nicotine', 'Cannabis', 'Stimulants', 
+    'Alcohol', 'Opioids', 'Nicotine', 'Cannabis', 'Stimulants',
     'Prescription Meds', 'Vaporizers', 'Gambling', 'Gaming'
   ];
+
   @override
   void dispose() {
     _pageController.dispose();
     _usernameController.dispose();
+    _sponsorPhoneController.dispose();
     super.dispose();
   }
+
   void _nextStep() {
     if (_currentStep < 7) {
       setState(() {
@@ -49,6 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _finalizeOnboarding();
     }
   }
+
   void _previousStep() {
     if (_currentStep > 0) {
       setState(() {
@@ -61,6 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     }
   }
+
   Future<void> _finalizeOnboarding() async {
     setState(() {
       _isFinalizing = true;
@@ -68,12 +76,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       final profile = Profile(
         id: 'active_user_profile',
-        anonymousUsername: _usernameController.text.isNotEmpty ? _usernameController.text : 'Anonymous',
+        anonymousUsername: _usernameController.text.isNotEmpty
+            ? _usernameController.text
+            : 'Anonymous',
         createdAt: DateTime.now().millisecondsSinceEpoch,
         biometricLockEnabled: false,
         selectedGoals: jsonEncode(_selectedGoals.toList()),
         activePaths: jsonEncode(_selectedPaths.toList()),
         selectedValues: jsonEncode(_selectedValues),
+        sponsorPhone: _sponsorPhoneController.text.trim().isEmpty
+            ? null
+            : _sponsorPhoneController.text.trim(),
+        customHelpPhone: null,
       );
       await widget.database.saveProfile(profile);
       widget.onOnboardingComplete();
@@ -88,6 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,6 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
   Widget _buildNavigationControls() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -142,13 +158,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
   Widget _buildStep0Welcome() {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Text(
               'Welcome back.\nRecovery is built one choice at a time.',
               textAlign: TextAlign.center,
@@ -171,6 +188,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
   Widget _buildStep1Goals() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -208,15 +226,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
   Widget _buildStep2Paths() {
     return const Center(child: Text('Pathways Selection Placeholder', style: TextStyle(color: Colors.white)));
   }
+
   Widget _buildStep3Tools() {
     return const Center(child: Text('Toolbox Construction Placeholder', style: TextStyle(color: Colors.white)));
   }
+
   Widget _buildStep4Values() {
     return const Center(child: Text('Values Sorting Placeholder', style: TextStyle(color: Colors.white)));
   }
+
   Widget _buildStep5Purpose() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -237,10 +259,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
           ),
+          const SizedBox(height: 28),
+          const Text(
+            'Sponsor phone (optional)',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Used for one-tap Call / Text Sponsor in the SOS notification.',
+            style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _sponsorPhoneController,
+            style: const TextStyle(color: Colors.white),
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              hintText: 'e.g. 6125550199',
+              hintStyle: const TextStyle(color: Color(0xFF475569)),
+              filled: true,
+              fillColor: const Color(0xFF1E293B),
+              prefixIcon: const Icon(Icons.phone, color: Color(0xFF64748B)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
         ],
       ),
     );
   }
+
   Widget _buildStep6Dynamics() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -250,9 +297,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Text('How do you process stress?', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Text('Withdraw & Reflect', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
               Text('Seek Accountability', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
             ],
@@ -270,13 +317,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
   Widget _buildStep7Provisioning() {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             CircularProgressIndicator(color: Color(0xFF38BDF8)),
             SizedBox(height: 24),
             Text(
