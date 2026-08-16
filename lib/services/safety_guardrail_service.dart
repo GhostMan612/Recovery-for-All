@@ -3,6 +3,8 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/services/safety_guardrail_service.dart
+
 class SafetyAssessment {
   final bool isCrisisTriggered;
   final String matchedPattern;
