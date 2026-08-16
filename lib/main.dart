@@ -3,6 +3,8 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
