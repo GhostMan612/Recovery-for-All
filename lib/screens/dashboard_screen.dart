@@ -28,11 +28,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadUserData() async {
     final profile = await widget.database.getProfile('active_user_profile');
-    
+
     if (mounted) {
       setState(() {
-        if (profile != null) {
-          _username = profile.anonymousUsername;
+        if (profile != null && profile.anonymousUsername != null) {
+          _username = profile.anonymousUsername!;
         }
         _isLoading = false;
       });
@@ -70,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF38BDF8).withOpacity(0.2),
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -116,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: const Color(0xFF334155)),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF38BDF8).withOpacity(0.1),
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     )
