@@ -172,7 +172,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _selectedPathway,
+                      initialValue: _selectedPathway,
                       dropdownColor: const Color(0xFF1E293B),
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
@@ -303,7 +303,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
               child: Center(
                 child: Text(
                   'No sponsor or support contacts saved yet.\nTap the + icon above to secure your circle.',
-                  textAlign: Center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.4),
                 ),
               ),
@@ -357,7 +357,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: pathwayColor.withOpacity(0.1),
+                                    color: pathwayColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(color: pathwayColor, width: 0.5),
                                   ),

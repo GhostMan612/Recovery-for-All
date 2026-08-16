@@ -24,7 +24,7 @@ class OllamaService {
         'model': modelName,
         'prompt': prompt,
         'stream': false,
-        if (options != null) 'options': options,
+        ...?options,
       }),
     );
 
@@ -45,7 +45,7 @@ class OllamaService {
         'model': modelName,
         'messages': messages,
         'stream': false,
-        if (options != null) 'options': options,
+        ...?options,
       }),
     );
 
@@ -65,7 +65,7 @@ class OllamaService {
         'model': modelName,
         'messages': messages,
         'stream': true,
-        if (options != null) 'options': options,
+        ...?options,
       });
 
     final response = await http.Client().send(request);
