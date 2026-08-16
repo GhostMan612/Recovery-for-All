@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../database/recovery_database.dart';
+import '../services/recovery_pet_service.dart';
+import '../widgets/themed_background.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -90,6 +92,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         customHelpPhone: null,
       );
       await widget.database.saveProfile(profile);
+
+      // Hatch Path Companion
+      await RecoveryPetService.ensureHatched(
+        name: _usernameController.text.isNotEmpty ? null : 'Kin',
+      );
+
       widget.onOnboardingComplete();
     } catch (e) {
       setState(() {
@@ -106,8 +114,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: ThemedBackground(
+        enableKenBurns: _currentStep == 0,
+        scrimOpacity: 0.75,
         child: Column(
           children: [
             Expanded(
@@ -333,7 +343,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             SizedBox(height: 8),
             Text(
-              'Spinning up local Drift SQLite schemas and encrypting secure database tables.',
+              'Spinning up local Drift SQLite schemas and hatching your Path Companion.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF94A3B8)),
             ),
