@@ -4,13 +4,24 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'database/recovery_database.dart';
 import 'screens/splash_screen.dart';
+import 'services/sos_notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SosNotificationService.initialize();
+
   final database = RecoveryDatabase();
-  runApp(RecoveryCompanionApp(database: database));
+
+  runApp(
+    ProviderScope(
+      child: RecoveryCompanionApp(database: database),
+    ),
+  );
 }
 
 class RecoveryCompanionApp extends StatelessWidget {

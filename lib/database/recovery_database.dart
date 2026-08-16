@@ -3,7 +3,6 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
-import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -18,9 +17,13 @@ class Profiles extends Table {
   TextColumn get anonymousUsername => text().nullable()();
   IntColumn get createdAt => integer()();
   BoolColumn get biometricLockEnabled => boolean().withDefault(const Constant(false))();
-  TextColumn get selectedGoals => text()(); 
-  TextColumn get activePaths => text()();   
-  TextColumn get selectedValues => text().nullable()(); 
+  TextColumn get selectedGoals => text();
+  TextColumn get activePaths => text();
+  TextColumn get selectedValues => text().nullable()();
+
+  // SOS contact numbers
+  TextColumn get sponsorPhone => text().nullable()();
+  TextColumn get customHelpPhone => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -29,8 +32,8 @@ class Profiles extends Table {
 @DataClassName('Counter')
 class Counters extends Table {
   TextColumn get id => text()();
-  TextColumn get label => text()(); 
-  IntColumn get startDateTime => integer()(); 
+  TextColumn get label => text();
+  IntColumn get startDateTime => integer()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
   @override
@@ -41,9 +44,9 @@ class Counters extends Table {
 class JournalEntries extends Table {
   TextColumn get id => text()();
   IntColumn get timestamp => integer()();
-  IntColumn get moodRating => integer()(); 
-  TextColumn get contentEncrypted => text()(); 
-  BoolColumn get isSyncedToCloud => boolean().withDefault(const Constant(false))(); 
+  IntColumn get moodRating => integer()();
+  TextColumn get contentEncrypted => text();
+  BoolColumn get isSyncedToCloud => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -52,10 +55,10 @@ class JournalEntries extends Table {
 @DataClassName('ConstellationPoint')
 class ConstellationPoints extends Table {
   TextColumn get id => text()();
-  TextColumn get title => text()(); 
-  TextColumn get category => text()(); 
+  TextColumn get title => text();
+  TextColumn get category => text();
   IntColumn get timestamp => integer()();
-  RealColumn get positionX => real()(); 
+  RealColumn get positionX => real()();
   RealColumn get positionY => real()();
 
   @override
@@ -65,7 +68,7 @@ class ConstellationPoints extends Table {
 @DataClassName('WeeklyGoal')
 class WeeklyGoals extends Table {
   TextColumn get id => text()();
-  TextColumn get title => text()();
+  TextColumn get title => text();
   IntColumn get targetCount => integer()();
   IntColumn get currentCount => integer().withDefault(const Constant(0))();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
@@ -94,7 +97,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -109,12 +112,16 @@ class RecoveryDatabase extends _$RecoveryDatabase {
           if (from < 3) {
             await m.createTable(wellnessCheckIns);
           }
+          if (from < 4) {
+            await m.addColumn(profiles, profiles.sponsorPhone);
+            await m.addColumn(profiles, profiles.customHelpPhone);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
-  
+
   Future<int> saveProfile(Profile profile) => into(profiles).insertOnConflictUpdate(profile);
   Future<Profile?> getProfile(String id) => (select(profiles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 

@@ -26,6 +26,8 @@ dependencies:
   onnxruntime: any
   flutter_riverpod: ^2.4.9
   powersync: ^1.0.0
+  awesome_notifications: ^0.10.1
+  url_launcher: ^6.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
