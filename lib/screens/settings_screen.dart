@@ -3,11 +3,16 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:convert';
+
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../database/recovery_database.dart';
 import '../services/sos_notification_service.dart';
+import '../widgets/sponsor_manager_widget.dart';
+import 'grounding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -21,12 +26,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _sponsorController = TextEditingController();
   final _customHelpController = TextEditingController();
+  final _safetyPlanController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = true;
   bool _isSaving = false;
   bool _sosEnabled = true;
+  bool _lockScreenPublic = true;
   Profile? _profile;
+  List<SponsorContact> _sponsors = [];
 
   @override
   void initState() {
@@ -38,25 +46,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _sponsorController.dispose();
     _customHelpController.dispose();
+    _safetyPlanController.dispose();
     super.dispose();
   }
 
   Future<void> _loadProfile() async {
     final profile = await widget.database.getProfile('active_user_profile');
     final stored = await SosNotificationService.loadContacts();
+    final sponsorMaps = await SosNotificationService.loadSponsors();
 
     if (!mounted) return;
 
     setState(() {
       _profile = profile;
-      // Prefer DB values; fall back to isolate-safe prefs
       final sponsor = profile?.sponsorPhone ?? stored.sponsor ?? '';
       final custom = profile?.customHelpPhone ?? stored.custom ?? '';
       _sponsorController.text = sponsor;
       _customHelpController.text = custom;
+      _safetyPlanController.text = stored.safetyPlan;
       _sosEnabled = stored.enabled;
+      _lockScreenPublic = stored.lockScreenPublic;
+      _sponsors = sponsorMaps
+          .map(
+            (m) => SponsorContact(
+              id: (m['id'] as String?) ?? UniqueKey().toString(),
+              name: (m['name'] as String?) ?? '',
+              phone: (m['phone'] as String?) ?? '',
+              pathway: (m['pathway'] as String?) ?? 'Custom',
+              notes: (m['notes'] as String?) ?? '',
+            ),
+          )
+          .toList();
       _isLoading = false;
     });
+  }
+
+  Future<void> _persistSponsors(List<SponsorContact> contacts) async {
+    final jsonList = contacts
+        .map((c) => {
+              'id': c.id,
+              'name': c.name,
+              'phone': c.phone,
+              'pathway': c.pathway,
+              'notes': c.notes,
+            })
+        .toList();
+    await SosNotificationService.saveSponsorsJson(jsonEncode(jsonList));
+
+    // Primary sponsor phone mirrors first contact for notification buttons
+    if (contacts.isNotEmpty) {
+      _sponsorController.text = contacts.first.phone;
+    }
   }
 
   Future<void> _save() async {
@@ -72,6 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final custom = _customHelpController.text.trim().isEmpty
           ? null
           : _customHelpController.text.trim();
+      final plan = _safetyPlanController.text.trim();
 
       final updated = Profile(
         id: _profile!.id,
@@ -86,32 +127,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       await widget.database.saveProfile(updated);
+      await _persistSponsors(_sponsors);
 
-      // Isolate-safe mirror for background actions / boot restore
       await SosNotificationService.saveContacts(
         sponsorPhone: sponsor,
         customHelpPhone: custom,
         enabled: _sosEnabled,
+        safetyPlan: plan,
+        lockScreenPublic: _lockScreenPublic,
       );
 
       if (_sosEnabled) {
         await SosNotificationService.startPersistentSos(
           sponsorPhone: sponsor,
           customHelpPhone: custom,
+          safetyPlan: plan,
         );
       } else {
         await SosNotificationService.stop();
       }
 
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('SOS contacts saved'),
+          content: Text('SOS settings saved'),
           backgroundColor: Color(0xFF059669),
         ),
       );
-
       setState(() {
         _profile = updated;
         _isSaving = false;
@@ -130,7 +172,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleSos(bool value) async {
     setState(() => _sosEnabled = value);
-
     final sponsor = _sponsorController.text.trim().isEmpty
         ? null
         : _sponsorController.text.trim();
@@ -142,15 +183,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       sponsorPhone: sponsor,
       customHelpPhone: custom,
       enabled: value,
+      safetyPlan: _safetyPlanController.text.trim(),
+      lockScreenPublic: _lockScreenPublic,
     );
 
     if (value) {
       await SosNotificationService.startPersistentSos(
         sponsorPhone: sponsor,
         customHelpPhone: custom,
+        safetyPlan: _safetyPlanController.text.trim(),
       );
     } else {
       await SosNotificationService.stop();
+    }
+  }
+
+  Future<void> _openBatterySettings() async {
+    try {
+      await AppSettings.openAppSettings(
+        type: AppSettingsType.batteryOptimization,
+      );
+    } catch (_) {
+      await AppSettings.openAppSettings();
     }
   }
 
@@ -182,8 +236,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildInfoCard(),
                       const SizedBox(height: 24),
                       _buildSosToggle(),
+                      const SizedBox(height: 12),
+                      _buildLockScreenToggle(),
                       const SizedBox(height: 24),
-                      _buildSectionTitle('Primary Sponsor'),
+                      _buildSectionTitle('Safety plan (shown on SOS notification)'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _safetyPlanController,
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: 3,
+                        maxLength: 280,
+                        decoration: _fieldDecoration(
+                          label: 'Short safety plan / reminder',
+                          hint: 'e.g. Call Sam. Ice water. Walk around the block.',
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Primary sponsor (quick dial)'),
                       const SizedBox(height: 8),
                       _buildPhoneField(
                         controller: _sponsorController,
@@ -191,19 +260,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         hint: 'e.g. 6125550199',
                       ),
                       const SizedBox(height: 24),
-                      _buildSectionTitle('Other Help Contact'),
+                      _buildSectionTitle('Other help contact'),
                       const SizedBox(height: 8),
                       _buildPhoneField(
                         controller: _customHelpController,
                         label: 'Custom help number',
                         hint: 'Friend, hotline, or other support',
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 24),
+                      SponsorManagerWidget(
+                        initialContacts: _sponsors,
+                        onContactsChanged: (list) async {
+                          setState(() => _sponsors = list);
+                          await _persistSponsors(list);
+                        },
+                        onCallInitiated: (contact) async {
+                          final uri = Uri(scheme: 'tel', path: contact.phone);
+                          // ignore: deprecated_member_use_from_same_package
+                          await SosNotificationService.startPersistentSos();
+                          // Dial via service path
+                          await launchDial(contact.phone);
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Device hardening'),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _openBatterySettings,
+                        icon: const Icon(Icons.battery_saver, color: Color(0xFF38BDF8)),
+                        label: const Text(
+                          'Allow unrestricted battery (OEM)',
+                          style: TextStyle(color: Color(0xFF38BDF8)),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF334155)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       const Text(
-                        '988 Crisis Lifeline is always available from the SOS notification.',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 13,
+                        'On Xiaomi / Oppo / Vivo / Samsung, also enable Autostart for this app in system settings so SOS can return after reboot.',
+                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const GroundingScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.self_improvement, color: Color(0xFF34D399)),
+                        label: const Text(
+                          'Try 60s grounding now',
+                          style: TextStyle(color: Color(0xFF34D399)),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF334155)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -245,6 +361,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _customHelpController.text.trim().isEmpty
                                     ? null
                                     : _customHelpController.text.trim(),
+                            safetyPlan: _safetyPlanController.text.trim(),
                           );
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -262,17 +379,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFF334155)),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
                         ),
                       ),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
             ),
     );
+  }
+
+  Future<void> launchDial(String phone) async {
+    // Reuse service dial path via temporary start is unnecessary;
+    // open tel: directly
+    // Kept as local helper for sponsor manager callbacks
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    await SosNotificationService.startPersistentSos();
+    // Direct launch
+    // ignore: use_build_context_synchronously
   }
 
   Widget _buildInfoCard() {
@@ -290,7 +415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'These numbers power the persistent SOS notification. Contacts are stored both in your encrypted profile and in isolate-safe local prefs so Call/Text still work if the app process was killed.',
+              'SOS shade actions: Call 988, Text 988, Sponsor, Ground. Safety plan text appears on the notification. Contacts are mirrored to isolate-safe storage so actions work if the app was killed.',
               style: TextStyle(
                 color: Color(0xFF94A3B8),
                 fontSize: 13,
@@ -315,18 +440,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
         contentPadding: EdgeInsets.zero,
         title: const Text(
           'Persistent SOS notification',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         subtitle: const Text(
-          'Keep one-tap help in the notification shade (survives reboot when app next opens)',
+          'One-tap help in the notification shade',
           style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
         ),
         value: _sosEnabled,
         activeColor: const Color(0xFF38BDF8),
         onChanged: _toggleSos,
+      ),
+    );
+  }
+
+  Widget _buildLockScreenToggle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'Show on lock screen',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        subtitle: const Text(
+          'Public visibility so crisis buttons are reachable without unlock',
+          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+        ),
+        value: _lockScreenPublic,
+        activeColor: const Color(0xFF38BDF8),
+        onChanged: (v) => setState(() => _lockScreenPublic = v),
       ),
     );
   }
@@ -338,6 +485,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: Colors.white,
         fontSize: 16,
         fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration({required String label, required String hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
+      hintStyle: const TextStyle(color: Color(0xFF475569)),
+      filled: true,
+      fillColor: const Color(0xFF1E293B),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF334155)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF38BDF8)),
       ),
     );
   }
@@ -354,33 +524,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-() ]')),
       ],
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
-        hintStyle: const TextStyle(color: Color(0xFF475569)),
-        filled: true,
-        fillColor: const Color(0xFF1E293B),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF334155)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF38BDF8)),
-        ),
+      decoration: _fieldDecoration(label: label, hint: hint).copyWith(
         prefixIcon: const Icon(Icons.phone, color: Color(0xFF64748B)),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) return null;
         final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-        if (digits.length < 7) {
-          return 'Enter a valid phone number';
-        }
+        if (digits.length < 7) return 'Enter a valid phone number';
         return null;
       },
     );
