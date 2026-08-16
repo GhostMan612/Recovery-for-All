@@ -15,6 +15,9 @@ void main() async {
 
   await SosNotificationService.initialize();
 
+  // Post-boot / cold-start: restore persistent SOS if user left it enabled
+  await SosNotificationService.restoreIfEnabled();
+
   final database = RecoveryDatabase();
 
   runApp(
