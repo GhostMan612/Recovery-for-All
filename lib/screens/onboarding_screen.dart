@@ -75,7 +75,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         activePaths: jsonEncode(_selectedPaths.toList()),
         selectedValues: jsonEncode(_selectedValues),
       );
-      await widget.database.addProfile(profile);
+      await widget.database.saveProfile(profile);
       widget.onOnboardingComplete();
     } catch (e) {
       setState(() {
