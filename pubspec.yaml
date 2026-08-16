@@ -29,6 +29,7 @@ dependencies:
   awesome_notifications: ^0.10.1
   url_launcher: ^6.3.1
   shared_preferences: ^2.3.3
+  app_settings: ^5.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
