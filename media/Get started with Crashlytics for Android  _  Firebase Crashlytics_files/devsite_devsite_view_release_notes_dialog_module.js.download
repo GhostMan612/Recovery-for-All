@@ -1,0 +1,46 @@
+(function(_ds){var window=this;var eEa=function(a){a.eventHandler.listen(a,"DropdownItemClicked",b=>{dEa(a,b)})},dEa=async function(a,b){var c=b.getBrowserEvent().detail.id;b=a.querySelector(".devsite-dialog-contents");var d=a.querySelector(`#date-section-${c}`),e,f,g,h,k=((g=d==null?void 0:(e=d.getBoundingClientRect())==null?void 0:e.top)!=null?g:0)-((h=b==null?void 0:(f=b.getBoundingClientRect())==null?void 0:f.top)!=null?h:0);d&&b&&b.scrollBy({top:k,behavior:"smooth"});var l,m;a.bk=(m=(l=a.wl.find(n=>n.id===c))==null?void 0:
+l.title)!=null?m:"";a.o.Ua(a.bk)},gEa=function(a){var b=new IntersectionObserver(c=>{c.forEach(d=>{fEa(a,d.isIntersecting,d)})},{root:a.querySelector(".devsite-dialog-contents")});a.querySelectorAll(".release-note-date-section .release-note").forEach(c=>{b.observe(c)})},fEa=function(a,b,c){var d,e={id:(d=c.target.getAttribute("id"))!=null?d:"",type:Number(c.target.getAttribute("type"))};if(b){let f;a.Qh=[...((f=a.Qh)!=null?f:[]),e]}else a.Qh=[...a.Qh.filter(f=>f.id!==e.id)]},hEa=function(a){switch(a){case 4:return{title:"Feature",
+color:"green"};case 8:return{title:"Announcement",color:"yellow"};case 2:return{title:"Change",color:"yellow"};case 9:return{title:"Libraries",color:"blue"};case 3:return{title:"Fixed",color:"blue"};case 1:return{title:"Breaking",color:"red"};case 5:return{title:"Deprecated",color:"red"};case 6:return{title:"Issue",color:"red"};case 7:return{title:"Security",color:"orange"};default:return{title:"Unspecified",color:"grey"}}},c9=function(a,b){b=hEa(b);return(0,_ds.N)` <span
+      class="release-note-type-chip
+          ${a} ${b.color}">
+      ${b.title}
+    </span>`},iEa=function(a,b){var c=b.replace(/,?\s/g,"").toLowerCase(),d;return(0,_ds.N)`
+      <div class="release-note-date-section" id="date-section-${c}">
+        <h3 class="release-note-date-header">${b}</h3>
+        ${[...((d=a.releaseNotes.get(b))!=null?d:[])].map((e,f)=>{f=`${c}-${f}`;var g;(g=_ds.y(e,_ds.Oca,4))?(g=_ds.Jk(g,2),g=g===null||g===void 0?null:_ds.zg(g)):g=null;return(0,_ds.N)` <div
+        class="release-note"
+        id="${f}"
+        type="${_ds.Ek(e,2)}">
+        ${c9("large",_ds.Ek(e,2))}
+        <div class="release-note-content">
+          ${g?(0,_ds.N)`${(0,_ds.jP)(g)}`:(0,_ds.N)`<p>${_ds.z(e,1)}</p>`}
+        </div>
+      </div>`})}
+      </div>
+    `},d9=class extends _ds.DC{constructor(){super(["devsite-dialog","devsite-dropdown-list"]);this.eventHandler=new _ds.u;this.releaseNotes=new Map;this.hideFooter=!1;this.bk="";this.wl=[];this.Qh=[];this.o=new _ds.mi(async a=>{this.Ca({category:"Site-Wide Custom Events",action:"release notes: view old note",label:`${await _ds.px(_ds.D().href)} : ${a}`})},100)}Na(){return this}async connectedCallback(){super.connectedCallback();this.bk=[...this.releaseNotes.keys()][0];this.wl=[...this.releaseNotes.keys()].map(a=>
+({id:a.replace(/,?\s/g,"").toLowerCase(),title:a}));eEa(this)}disconnectedCallback(){super.disconnectedCallback()}j(a){super.j(a);gEa(this)}render(){return(0,_ds.N)`
+      <div class="devsite-dialog-header">
+        <div>
+          <h3 class="no-link title">
+            ${"Release Notes"}
+          </h3>
+          <div class="chip-wrapper">
+            ${[...(new Set(this.Qh.map(a=>a.type)))].map(a=>c9("small",a))}
+          </div>
+        </div>
+        <devsite-dropdown-list
+            .listItems=${this.wl}>
+          <p slot="toggle" class="selected-date-toggle">${this.bk}</p>
+        </devsite-dropdown-list>
+      </div>
+      <div class="devsite-dialog-contents">
+        ${[...this.releaseNotes.keys()].map(a=>iEa(this,a))}
+      </div>
+      ${_ds.M(this.hideFooter,()=>"",()=>(0,_ds.N)`
+              <div class="devsite-dialog-footer devsite-dialog-buttons">
+                <button class="button devsite-dialog-close">
+                  Close
+                </button>
+              </div>
+            `)}
+      `}};_ds.w([_ds.F({type:Map}),_ds.x("design:type",Object)],d9.prototype,"releaseNotes",void 0);_ds.w([_ds.F({type:Boolean}),_ds.x("design:type",Object)],d9.prototype,"hideFooter",void 0);_ds.w([_ds.J(),_ds.x("design:type",Object)],d9.prototype,"bk",void 0);_ds.w([_ds.J(),_ds.x("design:type",Array)],d9.prototype,"wl",void 0);_ds.w([_ds.J(),_ds.x("design:type",Array)],d9.prototype,"Qh",void 0);try{customElements.define("devsite-view-release-notes-dialog",d9)}catch(a){console.warn("devsite.app.customElement.DevsiteViewReleaseNotesDialog",a)};})(_ds_www);
