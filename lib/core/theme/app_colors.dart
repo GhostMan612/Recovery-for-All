@@ -3,9 +3,10 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/core/theme/app_colors.dart
+
 import 'package:flutter/material.dart';
 
-/// Shared design tokens for Recovery Companion.
 class AppColors {
   static const Color bgDeep = Color(0xFF0F172A);
   static const Color bgCard = Color(0xFF1E293B);
@@ -18,6 +19,5 @@ class AppColors {
   static const Color textDim = Color(0xFF64748B);
   static const Color textHint = Color(0xFF475569);
 
-  /// Default scrim over photographic backgrounds so body text stays readable.
   static Color scrim([double opacity = 0.72]) => bgDeep.withValues(alpha: opacity);
 }
