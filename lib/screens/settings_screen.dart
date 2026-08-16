@@ -43,16 +43,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await widget.database.getProfile('active_user_profile');
+    final stored = await SosNotificationService.loadContacts();
+
     if (!mounted) return;
 
     setState(() {
       _profile = profile;
-      if (profile != null) {
-        _sponsorController.text = profile.sponsorPhone ?? '';
-        _customHelpController.text = profile.customHelpPhone ?? '';
-        // Treat SOS as enabled if either number exists or user left it on by default
-        _sosEnabled = true;
-      }
+      // Prefer DB values; fall back to isolate-safe prefs
+      final sponsor = profile?.sponsorPhone ?? stored.sponsor ?? '';
+      final custom = profile?.customHelpPhone ?? stored.custom ?? '';
+      _sponsorController.text = sponsor;
+      _customHelpController.text = custom;
+      _sosEnabled = stored.enabled;
       _isLoading = false;
     });
   }
@@ -64,6 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final sponsor = _sponsorController.text.trim().isEmpty
+          ? null
+          : _sponsorController.text.trim();
+      final custom = _customHelpController.text.trim().isEmpty
+          ? null
+          : _customHelpController.text.trim();
+
       final updated = Profile(
         id: _profile!.id,
         anonymousUsername: _profile!.anonymousUsername,
@@ -72,20 +81,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         selectedGoals: _profile!.selectedGoals,
         activePaths: _profile!.activePaths,
         selectedValues: _profile!.selectedValues,
-        sponsorPhone: _sponsorController.text.trim().isEmpty
-            ? null
-            : _sponsorController.text.trim(),
-        customHelpPhone: _customHelpController.text.trim().isEmpty
-            ? null
-            : _customHelpController.text.trim(),
+        sponsorPhone: sponsor,
+        customHelpPhone: custom,
       );
 
       await widget.database.saveProfile(updated);
 
+      // Isolate-safe mirror for background actions / boot restore
+      await SosNotificationService.saveContacts(
+        sponsorPhone: sponsor,
+        customHelpPhone: custom,
+        enabled: _sosEnabled,
+      );
+
       if (_sosEnabled) {
         await SosNotificationService.startPersistentSos(
-          sponsorPhone: updated.sponsorPhone,
-          customHelpPhone: updated.customHelpPhone,
+          sponsorPhone: sponsor,
+          customHelpPhone: custom,
         );
       } else {
         await SosNotificationService.stop();
@@ -119,14 +131,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleSos(bool value) async {
     setState(() => _sosEnabled = value);
 
+    final sponsor = _sponsorController.text.trim().isEmpty
+        ? null
+        : _sponsorController.text.trim();
+    final custom = _customHelpController.text.trim().isEmpty
+        ? null
+        : _customHelpController.text.trim();
+
+    await SosNotificationService.saveContacts(
+      sponsorPhone: sponsor,
+      customHelpPhone: custom,
+      enabled: value,
+    );
+
     if (value) {
       await SosNotificationService.startPersistentSos(
-        sponsorPhone: _sponsorController.text.trim().isEmpty
-            ? null
-            : _sponsorController.text.trim(),
-        customHelpPhone: _customHelpController.text.trim().isEmpty
-            ? null
-            : _customHelpController.text.trim(),
+        sponsorPhone: sponsor,
+        customHelpPhone: custom,
       );
     } else {
       await SosNotificationService.stop();
@@ -269,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'These numbers power the persistent SOS notification in your notification shade. Call Sponsor, Text Sponsor, Call 988, and Other Help stay one tap away.',
+              'These numbers power the persistent SOS notification. Contacts are stored both in your encrypted profile and in isolate-safe local prefs so Call/Text still work if the app process was killed.',
               style: TextStyle(
                 color: Color(0xFF94A3B8),
                 fontSize: 13,
@@ -300,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         subtitle: const Text(
-          'Keep one-tap help in the notification shade',
+          'Keep one-tap help in the notification shade (survives reboot when app next opens)',
           style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
         ),
         value: _sosEnabled,
