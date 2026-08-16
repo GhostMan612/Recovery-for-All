@@ -2,6 +2,9 @@
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
+
+// lib/core/native_service.dart
+
 import '../services/llama_ffi_service.dart';
 
 class NativeService {
