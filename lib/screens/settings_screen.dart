@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../database/recovery_database.dart';
 import '../services/sos_notification_service.dart';
@@ -93,9 +94,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .toList();
     await SosNotificationService.saveSponsorsJson(jsonEncode(jsonList));
 
-    // Primary sponsor phone mirrors first contact for notification buttons
     if (contacts.isNotEmpty) {
       _sponsorController.text = contacts.first.phone;
+    }
+  }
+
+  Future<void> _dial(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri(scheme: 'tel', path: cleaned);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      try {
+        await launchUrl(Uri.parse('tel:$cleaned'));
+      } catch (_) {}
     }
   }
 
@@ -274,13 +286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setState(() => _sponsors = list);
                           await _persistSponsors(list);
                         },
-                        onCallInitiated: (contact) async {
-                          final uri = Uri(scheme: 'tel', path: contact.phone);
-                          // ignore: deprecated_member_use_from_same_package
-                          await SosNotificationService.startPersistentSos();
-                          // Dial via service path
-                          await launchDial(contact.phone);
-                        },
+                        onCallInitiated: (contact) => _dial(contact.phone),
                       ),
                       const SizedBox(height: 24),
                       _buildSectionTitle('Device hardening'),
@@ -388,16 +394,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
     );
-  }
-
-  Future<void> launchDial(String phone) async {
-    // Reuse service dial path via temporary start is unnecessary;
-    // open tel: directly
-    // Kept as local helper for sponsor manager callbacks
-    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-    await SosNotificationService.startPersistentSos();
-    // Direct launch
-    // ignore: use_build_context_synchronously
   }
 
   Widget _buildInfoCard() {
