@@ -4,13 +4,26 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'core/app_navigator.dart';
 import 'database/recovery_database.dart';
 import 'screens/splash_screen.dart';
+import 'services/sos_notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SosNotificationService.initialize();
+  await SosNotificationService.restoreIfEnabled();
+
   final database = RecoveryDatabase();
-  runApp(RecoveryCompanionApp(database: database));
+
+  runApp(
+    ProviderScope(
+      child: RecoveryCompanionApp(database: database),
+    ),
+  );
 }
 
 class RecoveryCompanionApp extends StatelessWidget {
@@ -24,6 +37,7 @@ class RecoveryCompanionApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Private Recovery Coach',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
