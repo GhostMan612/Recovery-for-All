@@ -3,14 +3,12 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/widgets/themed_background.dart
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 
-/// Full-bleed background with optional Ken Burns motion and readability scrim.
-///
-/// Uses existing asset [assets/images/screen_background.png].
-/// Honors [MediaQuery.disableAnimations] / reduce-motion.
 class ThemedBackground extends StatefulWidget {
   final Widget child;
   final String assetPath;
