@@ -5,13 +5,9 @@
 
 import 'package:flutter/material.dart';
 import '../database/recovery_database.dart';
+import '../services/sos_notification_service.dart';
 import 'chatbot_screen.dart';
-import 'journal_screen.dart';
-import 'meeting_map_screen.dart';
-import 'coping_tool_screen.dart';
-import 'gratitude_entry_screen.dart';
-import 'constellation_canvas.dart';
-import 'daily_reflection_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -25,6 +21,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   String _username = "GhostMan G";
   bool _isLoading = true;
+  Profile? _profile;
 
   @override
   void initState() {
@@ -37,11 +34,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (mounted) {
       setState(() {
+        _profile = profile;
         if (profile != null && profile.anonymousUsername != null) {
           _username = profile.anonymousUsername!;
         }
         _isLoading = false;
       });
+
+      // Start persistent SOS if we have any contact numbers
+      if (profile != null) {
+        final hasContacts = (profile.sponsorPhone?.isNotEmpty ?? false) ||
+            (profile.customHelpPhone?.isNotEmpty ?? false);
+        if (hasContacts) {
+          await SosNotificationService.startPersistentSos(
+            sponsorPhone: profile.sponsorPhone,
+            customHelpPhone: profile.customHelpPhone,
+          );
+        }
+      }
     }
   }
 
@@ -53,70 +63,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'title': 'Step Tracker', 'icon': Icons.check_circle_outline, 'color': const Color(0xFF8B5CF6)},
     {'title': 'Reflections', 'icon': Icons.wb_sunny_outlined, 'color': const Color(0xFFEAB308)},
   ];
-
-  void _handleToolTap(BuildContext context, int toolIndex) {
-    final toolNames = ['Private Journal', 'Meeting Finder', 'Urge Coping', 'Daily Gratitude', 'Step Tracker', 'Reflections'];
-    
-    switch (toolNames[toolIndex]) {
-      case 'Private Journal':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => JournalScreen(database: widget.database)),
-        );
-        break;
-      case 'Meeting Finder':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MeetingMapScreen(initialMeetings: const []),
-          ),
-        );
-        break;
-      case 'Urge Coping':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => CopingToolScreen(database: widget.database)),
-        );
-        break;
-      case 'Daily Gratitude':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => GratitudeEntryScreen(database: widget.database)),
-        );
-        break;
-      case 'Step Tracker':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => Scaffold(
-              backgroundColor: const Color(0xFF0F172A),
-              appBar: AppBar(
-                backgroundColor: const Color(0xFF1E293B),
-                elevation: 0,
-                title: const Text(
-                  'Step Tracker',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              body: const SafeArea(
-                child: RecoveryConstellationWidget(nodes: []),
-              ),
-            ),
-          ),
-        );
-        break;
-      case 'Reflections':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => DailyReflectionScreen(database: widget.database)),
-        );
-        break;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +84,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.settings_outlined, color: Color(0xFF38BDF8)),
+              tooltip: 'SOS & Support Settings',
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(database: widget.database),
+                  ),
+                );
+                // Reload in case numbers changed
+                _loadUserData();
+              },
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
             decoration: BoxDecoration(
               color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
@@ -154,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               },
             ),
-          )
+          ),
         ],
       ),
       body: SafeArea(
@@ -192,9 +159,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     )
                   ],
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Daily Intention',
                       style: TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 14),
@@ -226,7 +193,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 itemBuilder: (context, index) {
                   final tool = _dashboardTools[index];
                   return InkWell(
-                    onTap: () => _handleToolTap(context, index),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Opening ${tool['title']}...')),
+                      );
+                    },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       decoration: BoxDecoration(
@@ -270,9 +241,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
                   onPressed: () => Navigator.pop(context),
                 ),
+                TextButton(
+                  child: const Text('Settings', style: TextStyle(color: Color(0xFF38BDF8))),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SettingsScreen(database: widget.database),
+                      ),
+                    );
+                  },
+                ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    // Ensure notification is up; user can also tap 988 from shade
+                    await SosNotificationService.startPersistentSos(
+                      sponsorPhone: _profile?.sponsorPhone,
+                      customHelpPhone: _profile?.customHelpPhone,
+                    );
+                  },
                   child: const Text('Call 988', style: TextStyle(color: Colors.white)),
                 ),
               ],
