@@ -1,3 +1,5 @@
+import java.util.Properties
+
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
@@ -7,6 +9,11 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -33,10 +40,6 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        val localProperties = java.util.Properties().apply {
-            val f = rootProject.file("local.properties")
-            if (f.exists()) f.inputStream().use { load(it) }
-        }
         manifestPlaceholders["mapsApiKey"] =
             localProperties.getProperty("mapsApiKey") ?: ""
     }
