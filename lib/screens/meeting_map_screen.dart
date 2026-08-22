@@ -20,6 +20,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   final Completer<GoogleMapController> _mapController = Completer<GoogleMapController>();
   final Set<Marker> _markers = {};
   Position? _currentPosition;
+  RecoveryMeeting? _selectedMeeting;
   bool _isLoading = true;
   static const CameraPosition _defaultPosition = CameraPosition(
     target: LatLng(46.2276, -94.3411),
@@ -33,7 +34,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   Future<void> _initializeMapData() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        desiredAccuracy: LocationAccuracy.high,
       );
       _buildMarkers(widget.initialMeetings);
     } catch (e) {
@@ -58,7 +59,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             snippet: '${meeting.time} - ${meeting.address}',
           ),
           onTap: () {
-            // TODO: Handle meeting selection and show details
+            setState(() {
+              _selectedMeeting = meeting;
+            });
           },
         ),
       );

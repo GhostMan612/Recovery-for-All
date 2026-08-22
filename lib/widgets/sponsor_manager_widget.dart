@@ -172,7 +172,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedPathway,
+                      value: _selectedPathway,
                       dropdownColor: const Color(0xFF1E293B),
                       style: const TextStyle(color: Colors.white),
                       decoration: const InputDecoration(
@@ -357,7 +357,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: pathwayColor.withValues(alpha: 0.1),
+                                    color: pathwayColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(color: pathwayColor, width: 0.5),
                                   ),

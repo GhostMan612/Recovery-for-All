@@ -11,7 +11,8 @@ class RecoveryMeeting {
   final double latitude;
   final double longitude;
   final String type;
-  final String schedule;
+  final String time;
+  final String address;
 
   RecoveryMeeting({
     required this.id,
@@ -19,7 +20,8 @@ class RecoveryMeeting {
     required this.latitude,
     required this.longitude,
     required this.type,
-    required this.schedule,
+    required this.time,
+    required this.address,
   });
 }
 

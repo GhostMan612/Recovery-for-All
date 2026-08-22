@@ -4,207 +4,60 @@
 // ============================================================
 
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
+import '../database/recovery_database.dart';
 
-/// Path Companion (Recovery Pet) — local-first MVP.
-/// Thrives with care; never "dies". Low energy → resting.
-class RecoveryPetService {
-  static const String _keyPet = 'recovery_pet_v1';
-  static const String defaultName = 'Kin';
-
-  static const int sparksCheckIn = 5;
-  static const int sparksJournal = 10;
-  static const int sparksGround = 8;
-  static const int sparksWalk = 15;
-  static const int outfitUnlockCost = 40;
-
-  /// Ensure a pet exists (hatch on first launch / onboarding).
-  static Future<RecoveryPet> ensureHatched({String? name}) async {
-    final existing = await load();
-    if (existing != null) return existing;
-
-    final pet = RecoveryPet(
-      name: name?.trim().isNotEmpty == true ? name!.trim() : defaultName,
-      energy: 0.7,
-      bond: 0.2,
-      mood: PetMood.hopeful,
-      sparks: 10,
-      unlockedItems: ['starter_glow'],
-      equippedOutfit: 'starter_glow',
-      lastFedAt: DateTime.now().millisecondsSinceEpoch,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-    );
-    await save(pet);
-    return pet;
-  }
-
-  static Future<RecoveryPet?> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-    final raw = prefs.getString(_keyPet);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      return RecoveryPet.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static Future<void> save(RecoveryPet pet) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPet, jsonEncode(pet.toJson()));
-  }
-
-  /// Soft decay toward resting when idle (never zeroes bond/shame).
-  static RecoveryPet applyIdleDecay(RecoveryPet pet) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final hours = (now - pet.lastFedAt) / (1000 * 60 * 60);
-    if (hours < 18) return pet;
-
-    final steps = (hours / 24).floor().clamp(0, 7);
-    var energy = pet.energy;
-    for (var i = 0; i < steps; i++) {
-      energy = (energy - 0.08).clamp(0.15, 1.0);
-    }
-    return pet.copyWith(
-      energy: energy,
-      mood: energy < 0.35 ? PetMood.resting : pet.mood,
-    );
-  }
-
-  static Future<RecoveryPet> award({
-    required int sparks,
-    double energyDelta = 0.05,
-    double bondDelta = 0.02,
-    PetMood? mood,
-  }) async {
-    var pet = await ensureHatched();
-    pet = applyIdleDecay(pet);
-    pet = pet.copyWith(
-      sparks: pet.sparks + sparks,
-      energy: (pet.energy + energyDelta).clamp(0.15, 1.0),
-      bond: (pet.bond + bondDelta).clamp(0.0, 1.0),
-      mood: mood ?? PetMood.happy,
-      lastFedAt: DateTime.now().millisecondsSinceEpoch,
-    );
-    await save(pet);
-    return pet;
-  }
-
-  static Future<RecoveryPet> checkIn(PetMood mood) async {
-    return award(
-      sparks: sparksCheckIn,
-      energyDelta: 0.06,
-      bondDelta: 0.03,
-      mood: mood == PetMood.struggling ? PetMood.supportive : mood,
-    );
-  }
-
-  static Future<RecoveryPet> logWalk() async {
-    return award(
-      sparks: sparksWalk,
-      energyDelta: 0.1,
-      bondDelta: 0.02,
-      mood: PetMood.happy,
-    );
-  }
-
-  static Future<RecoveryPet> logJournal() async {
-    return award(
-      sparks: sparksJournal,
-      energyDelta: 0.07,
-      bondDelta: 0.03,
-      mood: PetMood.hopeful,
-    );
-  }
-
-  static Future<RecoveryPet> logGrounding() async {
-    return award(
-      sparks: sparksGround,
-      energyDelta: 0.08,
-      bondDelta: 0.02,
-      mood: PetMood.calm,
-    );
-  }
-
-  static Future<({RecoveryPet pet, bool unlocked})> tryUnlockOutfit(
-    String itemId,
-  ) async {
-    var pet = await ensureHatched();
-    if (pet.unlockedItems.contains(itemId)) {
-      return (pet: pet, unlocked: false);
-    }
-    if (pet.sparks < outfitUnlockCost) {
-      return (pet: pet, unlocked: false);
-    }
-    pet = pet.copyWith(
-      sparks: pet.sparks - outfitUnlockCost,
-      unlockedItems: [...pet.unlockedItems, itemId],
-      equippedOutfit: itemId,
-    );
-    await save(pet);
-    return (pet: pet, unlocked: true);
-  }
-}
-
-enum PetMood { hopeful, happy, calm, resting, supportive, struggling }
-
-extension PetMoodX on PetMood {
-  String get label {
-    switch (this) {
-      case PetMood.hopeful:
-        return 'Hopeful';
-      case PetMood.happy:
-        return 'Happy';
-      case PetMood.calm:
-        return 'Calm';
-      case PetMood.resting:
-        return 'Resting';
-      case PetMood.supportive:
-        return 'With you';
-      case PetMood.struggling:
-        return 'Soft';
-    }
-  }
+enum PetMoodX {
+  happy('Happy'),
+  neutral('Neutral'),
+  sad('Sad');
+  
+  final String label;
+  const PetMoodX(this.label);
 
   String get emoji {
     switch (this) {
-      case PetMood.hopeful:
-        return '✨';
-      case PetMood.happy:
-        return '🌟';
-      case PetMood.calm:
-        return '🌿';
-      case PetMood.resting:
-        return '😴';
-      case PetMood.supportive:
-        return '🤍';
-      case PetMood.struggling:
-        return '🤍';
+      case PetMoodX.happy:
+        return '😊';
+      case PetMoodX.neutral:
+        return '🙂';
+      case PetMoodX.sad:
+        return '🥺';
     }
   }
 
-  static PetMood fromName(String? name) {
-    return PetMood.values.firstWhere(
-      (m) => m.name == name,
-      orElse: () => PetMood.hopeful,
+  static PetMoodX fromName(String name) {
+    return PetMoodX.values.firstWhere(
+      (e) => e.name == name, 
+      orElse: () => PetMoodX.neutral
     );
   }
 }
 
+enum OutfitUnlockStatus {
+  notEnoughSparks,
+  bondTooLow,
+  seasonLocked,
+  unknownItem,
+  alreadyOwned,
+  available
+}
+
 class RecoveryPet {
+  final String id;
   final String name;
-  final double energy;
-  final double bond;
-  final PetMood mood;
+  final int energy;
+  final int bond;
+  final PetMoodX mood;
   final int sparks;
   final List<String> unlockedItems;
   final String equippedOutfit;
+  final Map<String, String> equippedSlots;
   final int lastFedAt;
   final int createdAt;
 
-  const RecoveryPet({
+  RecoveryPet({
+    required this.id,
     required this.name,
     required this.energy,
     required this.bond,
@@ -212,64 +65,239 @@ class RecoveryPet {
     required this.sparks,
     required this.unlockedItems,
     required this.equippedOutfit,
+    required this.equippedSlots,
     required this.lastFedAt,
     required this.createdAt,
   });
 
-  bool get isResting => energy < 0.35 || mood == PetMood.resting;
-
-  RecoveryPet copyWith({
-    String? name,
-    double? energy,
-    double? bond,
-    PetMood? mood,
-    int? sparks,
-    List<String>? unlockedItems,
-    String? equippedOutfit,
-    int? lastFedAt,
-    int? createdAt,
-  }) {
-    return RecoveryPet(
-      name: name ?? this.name,
-      energy: energy ?? this.energy,
-      bond: bond ?? this.bond,
-      mood: mood ?? this.mood,
-      sparks: sparks ?? this.sparks,
-      unlockedItems: unlockedItems ?? this.unlockedItems,
-      equippedOutfit: equippedOutfit ?? this.equippedOutfit,
-      lastFedAt: lastFedAt ?? this.lastFedAt,
-      createdAt: createdAt ?? this.createdAt,
-    );
+  String? slot(dynamic category) {
+    if (category == null) return null;
+    final catName = category.toString().split('.').last;
+    return equippedSlots[catName];
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'energy': energy,
-        'bond': bond,
-        'mood': mood.name,
-        'sparks': sparks,
-        'unlockedItems': unlockedItems,
-        'equippedOutfit': equippedOutfit,
-        'lastFedAt': lastFedAt,
-        'createdAt': createdAt,
-      };
+  /// Low energy means restful, never dead ("I'm here when you are").
+  bool get isResting => energy < 25;
+}
 
-  factory RecoveryPet.fromJson(Map<String, dynamic> json) {
-    return RecoveryPet(
-      name: json['name'] as String? ?? RecoveryPetService.defaultName,
-      energy: (json['energy'] as num?)?.toDouble() ?? 0.7,
-      bond: (json['bond'] as num?)?.toDouble() ?? 0.2,
-      mood: PetMoodX.fromName(json['mood'] as String?),
-      sparks: json['sparks'] as int? ?? 0,
-      unlockedItems: (json['unlockedItems'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          ['starter_glow'],
-      equippedOutfit: json['equippedOutfit'] as String? ?? 'starter_glow',
-      lastFedAt: json['lastFedAt'] as int? ??
-          DateTime.now().millisecondsSinceEpoch,
-      createdAt: json['createdAt'] as int? ??
-          DateTime.now().millisecondsSinceEpoch,
+class RecoveryPetService {
+  static const String _keyPet = 'recovery_pet_v1';
+  static const String _keyWalkDay = 'recovery_pet_walk_day_v1';
+  static const String defaultName = 'Kin';
+  static const String defaultPetId = 'active_pet';
+
+  static const int sparksCheckIn = 5;
+  static const int sparksJournal = 10;
+  static const int sparksGround = 8;
+  static const int sparksWalk = 15;
+  static const int outfitUnlockCost = 40;
+  static const int maxWalksPerDay = 2;
+
+  static RecoveryDatabase? _db;
+
+  static const Map<String, dynamic> starterPresets = {
+    'default': 'default',
+    'nature': 'nature',
+    'urban': 'urban'
+  };
+
+  static void bindDatabase(RecoveryDatabase database) {
+    _db = database;
+  }
+
+  static RecoveryDatabase? get database => _db;
+
+  static Future<RecoveryPet> ensureHatched({String? name}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(_keyPet);
+    
+    if (jsonStr != null) {
+      try {
+        final decoded = jsonDecode(jsonStr);
+        return RecoveryPet(
+          id: decoded['id'] ?? defaultPetId,
+          name: decoded['name'] ?? defaultName,
+          energy: decoded['energy'] ?? 100,
+          bond: decoded['bond'] ?? 0,
+          mood: PetMoodX.fromName(decoded['mood'] ?? 'neutral'),
+          sparks: decoded['sparks'] ?? 0,
+          unlockedItems: (decoded['unlockedItems'] as List?)?.map((e) => e.toString()).toList() ?? ['starter_glow'],
+          equippedOutfit: decoded['equippedOutfit'] ?? 'default',
+          equippedSlots: Map<String, String>.from(decoded['equippedSlots'] ?? {}),
+          lastFedAt: decoded['lastFedAt'] ?? DateTime.now().millisecondsSinceEpoch,
+          createdAt: decoded['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
+        );
+      } catch (_) {}
+    }
+    
+    final newPet = RecoveryPet(
+      id: defaultPetId,
+      name: name ?? defaultName,
+      energy: 100,
+      bond: 0,
+      mood: PetMoodX.neutral,
+      sparks: 0,
+      unlockedItems: ['starter_glow'],
+      equippedOutfit: 'default',
+      equippedSlots: {},
+      lastFedAt: DateTime.now().millisecondsSinceEpoch,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
     );
+    await _savePet(newPet, prefs);
+    return newPet;
+  }
+
+  static Future<RecoveryPet> applyStarterPreset(String presetId) async {
+    var pet = await ensureHatched();
+    final updated = RecoveryPet(
+      id: pet.id,
+      name: pet.name,
+      energy: pet.energy,
+      bond: pet.bond,
+      mood: pet.mood,
+      sparks: pet.sparks,
+      unlockedItems: pet.unlockedItems,
+      equippedOutfit: presetId,
+      equippedSlots: pet.equippedSlots,
+      lastFedAt: pet.lastFedAt,
+      createdAt: pet.createdAt,
+    );
+    await save(updated);
+    return updated;
+  }
+
+  static Future<void> save(RecoveryPet pet) async {
+    final prefs = await SharedPreferences.getInstance();
+    await _savePet(pet, prefs);
+  }
+
+  // ---- Reward hooks (pet checklist §3.1 / §8 integration map) ----
+
+  /// Daily mood check-in → Sparks + Mood update.
+  static Future<RecoveryPet> logCheckIn({PetMoodX mood = PetMoodX.happy}) {
+    return _applyReward(sparksDelta: sparksCheckIn, bondDelta: 1, mood: mood);
+  }
+
+  /// Journal entry save → Sparks + Energy.
+  static Future<RecoveryPet> logJournalEntry() {
+    return _applyReward(sparksDelta: sparksJournal, energyDelta: 5);
+  }
+
+  /// Grounding / breath complete → Sparks + Energy.
+  static Future<RecoveryPet> logGrounding() {
+    return _applyReward(sparksDelta: sparksGround, energyDelta: 6);
+  }
+
+  /// Manual "I took a walk" → Sparks + Energy + Bond (capped daily).
+  static Future<RecoveryPet> logWalk() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final dayKey = '${now.year}-${now.month}-${now.day}';
+    final stored = prefs.getString(_keyWalkDay);
+    final count = stored == null || !stored.startsWith(dayKey)
+        ? 0
+        : int.tryParse(stored.split(':').last) ?? 0;
+    if (count >= maxWalksPerDay) {
+      return ensureHatched();
+    }
+    await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
+    return _applyReward(sparksDelta: sparksWalk, energyDelta: 4, bondDelta: 1);
+  }
+
+  static Future<RecoveryPet> _applyReward({
+    int sparksDelta = 0,
+    int energyDelta = 0,
+    int bondDelta = 0,
+    PetMoodX? mood,
+  }) async {
+    final pet = await ensureHatched();
+    final updated = RecoveryPet(
+      id: pet.id,
+      name: pet.name,
+      energy: (pet.energy + energyDelta).clamp(0, 100),
+      bond: (pet.bond + bondDelta).clamp(0, 100),
+      mood: mood ?? pet.mood,
+      sparks: pet.sparks + sparksDelta,
+      unlockedItems: pet.unlockedItems,
+      equippedOutfit: pet.equippedOutfit,
+      equippedSlots: pet.equippedSlots,
+      lastFedAt: DateTime.now().millisecondsSinceEpoch,
+      createdAt: pet.createdAt,
+    );
+    await save(updated);
+    return updated;
+  }
+
+  static OutfitUnlockStatus unlockStatus(RecoveryPet pet, String itemId) {
+    if (pet.unlockedItems.contains(itemId)) {
+      return OutfitUnlockStatus.alreadyOwned;
+    }
+    return OutfitUnlockStatus.available;
+  }
+
+  static Future<RecoveryPet> equipCosmetic(String itemId) async {
+    final pet = await ensureHatched();
+    final updated = RecoveryPet(
+      id: pet.id,
+      name: pet.name,
+      energy: pet.energy,
+      bond: pet.bond,
+      mood: pet.mood,
+      sparks: pet.sparks,
+      unlockedItems: pet.unlockedItems,
+      equippedOutfit: pet.equippedOutfit,
+      equippedSlots: {...pet.equippedSlots, 'last_equipped': itemId},
+      lastFedAt: pet.lastFedAt,
+      createdAt: pet.createdAt,
+    );
+    await save(updated);
+    return updated;
+  }
+
+  static Future<({RecoveryPet pet, bool unlocked, OutfitUnlockStatus status})> tryUnlockCosmetic(String itemId) async {
+    final pet = await ensureHatched();
+    if (pet.unlockedItems.contains(itemId)) {
+      return (pet: pet, unlocked: false, status: OutfitUnlockStatus.alreadyOwned);
+    }
+    final updated = RecoveryPet(
+      id: pet.id,
+      name: pet.name,
+      energy: pet.energy,
+      bond: pet.bond,
+      mood: pet.mood,
+      sparks: pet.sparks,
+      unlockedItems: [...pet.unlockedItems, itemId],
+      equippedOutfit: pet.equippedOutfit,
+      equippedSlots: pet.equippedSlots,
+      lastFedAt: pet.lastFedAt,
+      createdAt: pet.createdAt,
+    );
+    await save(updated);
+    return (pet: updated, unlocked: true, status: OutfitUnlockStatus.available);
+  }
+
+  static List<String> subcategoriesOf(dynamic category) {
+    return [];
+  }
+
+  static List<dynamic> listByCategory(dynamic category) {
+    return [];
+  }
+
+  static Future<void> _savePet(RecoveryPet pet, SharedPreferences prefs) async {
+    final Map<String, dynamic> data = {
+      'id': pet.id,
+      'name': pet.name,
+      'energy': pet.energy,
+      'bond': pet.bond,
+      'mood': pet.mood.name,
+      'sparks': pet.sparks,
+      'unlockedItems': pet.unlockedItems,
+      'equippedOutfit': pet.equippedOutfit,
+      'equippedSlots': pet.equippedSlots,
+      'lastFedAt': pet.lastFedAt,
+      'createdAt': pet.createdAt,
+    };
+    await prefs.setString(_keyPet, jsonEncode(data));
   }
 }

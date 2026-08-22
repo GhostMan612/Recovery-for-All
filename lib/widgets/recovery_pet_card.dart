@@ -3,12 +3,14 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/widgets/recovery_pet_card.dart
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
+import 'avatar_visual_layer.dart';
 
-/// Compact dashboard card for the Path Companion.
 class RecoveryPetCard extends StatelessWidget {
   final RecoveryPet pet;
   final VoidCallback? onCheckIn;
@@ -50,7 +52,7 @@ class RecoveryPetCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _Avatar(mood: pet.mood, resting: pet.isResting),
+                  AvatarVisualLayer(pet: pet, size: 64, compact: true, showAura: true),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -67,7 +69,7 @@ class RecoveryPetCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           pet.isResting
-                              ? 'Resting · I’m here when you are'
+                              ? 'Resting · I am here when you are'
                               : '${pet.mood.emoji} ${pet.mood.label}',
                           style: const TextStyle(
                             color: AppColors.textMuted,
@@ -95,9 +97,9 @@ class RecoveryPetCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _StatBar(label: 'Energy', value: pet.energy, color: AppColors.success),
+              _StatBar(label: 'Energy', value: pet.energy / 100.0, color: AppColors.success),
               const SizedBox(height: 8),
-              _StatBar(label: 'Bond', value: pet.bond, color: AppColors.accent),
+              _StatBar(label: 'Bond', value: pet.bond / 100.0, color: AppColors.accent),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -106,22 +108,20 @@ class RecoveryPetCard extends StatelessWidget {
                       onPressed: onCheckIn,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.accent,
-                        side: const BorderSide(color: AppColors.border),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
                       ),
                       child: const Text('Check in'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: OutlinedButton(
+                    child: ElevatedButton(
                       onPressed: onWalk,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.success,
-                        side: const BorderSide(color: AppColors.border),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text('I walked'),
+                      child: const Text('Walk'),
                     ),
                   ),
                 ],
@@ -129,38 +129,6 @@ class RecoveryPetCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  final PetMood mood;
-  final bool resting;
-
-  const _Avatar({required this.mood, required this.resting});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            resting
-                ? AppColors.textDim
-                : AppColors.accent.withValues(alpha: 0.9),
-            AppColors.bgDeep,
-          ],
-        ),
-        border: Border.all(color: AppColors.border),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        resting ? '😴' : mood.emoji,
-        style: const TextStyle(fontSize: 26),
       ),
     );
   }
@@ -179,79 +147,30 @@ class _StatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 52,
-          child: Text(
-            label,
-            style: const TextStyle(color: AppColors.textDim, fontSize: 12),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: value.clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: AppColors.bgDeep,
-              color: color,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            Text(
+              '${(value * 100).round()}%',
+              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
             ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: value.clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: AppColors.border,
+            color: color,
           ),
         ),
       ],
     );
   }
-}
-
-/// Simple mood picker sheet for check-in → Sparks.
-Future<PetMood?> showPetCheckInSheet(BuildContext context) {
-  return showModalBottomSheet<PetMood>(
-    context: context,
-    backgroundColor: AppColors.bgCard,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) {
-      final options = [
-        PetMood.happy,
-        PetMood.hopeful,
-        PetMood.calm,
-        PetMood.struggling,
-      ];
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'How are you feeling?',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your companion grows with honesty — not perfection.',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            ...options.map(
-              (m) => ListTile(
-                leading: Text(m.emoji, style: const TextStyle(fontSize: 22)),
-                title: Text(
-                  m == PetMood.struggling ? 'Struggling' : m.label,
-                  style: const TextStyle(color: AppColors.textPrimary),
-                ),
-                onTap: () => Navigator.pop(context, m),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
 }
