@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/recovery_database.dart';
+import 'pet_cosmetic_catalog.dart';
 
 enum PetMoodX {
   happy('Happy'),
@@ -95,10 +96,10 @@ class RecoveryPetService {
 
   static RecoveryDatabase? _db;
 
-  static const Map<String, dynamic> starterPresets = {
-    'default': 'default',
-    'nature': 'nature',
-    'urban': 'urban'
+  static const Map<String, String> starterPresets = {
+    'pathwalker': 'pathwalker',
+    'tidekeeper': 'tidekeeper',
+    'embersmith': 'embersmith'
   };
 
   static void bindDatabase(RecoveryDatabase database) {
@@ -114,6 +115,17 @@ class RecoveryPetService {
     if (jsonStr != null) {
       try {
         final decoded = jsonDecode(jsonStr);
+        final unlocked = (decoded['unlockedItems'] as List?)
+                ?.map((e) => e.toString()).toList() ??
+            <String>['starter_glow'];
+        final slots = Map<String, String>.from(decoded['equippedSlots'] ?? {});
+        // Backfill free items + default slots for pets saved by older builds.
+        unlocked.addAll(
+          PetCosmeticCatalog.freeIds.where((id) => !unlocked.contains(id)),
+        );
+        PetCosmeticCatalog.defaultEquippedSlots.forEach((category, itemId) {
+          slots.putIfAbsent(category.name, () => itemId);
+        });
         return RecoveryPet(
           id: decoded['id'] ?? defaultPetId,
           name: decoded['name'] ?? defaultName,
@@ -121,9 +133,9 @@ class RecoveryPetService {
           bond: decoded['bond'] ?? 0,
           mood: PetMoodX.fromName(decoded['mood'] ?? 'neutral'),
           sparks: decoded['sparks'] ?? 0,
-          unlockedItems: (decoded['unlockedItems'] as List?)?.map((e) => e.toString()).toList() ?? ['starter_glow'],
+          unlockedItems: unlocked,
           equippedOutfit: decoded['equippedOutfit'] ?? 'default',
-          equippedSlots: Map<String, String>.from(decoded['equippedSlots'] ?? {}),
+          equippedSlots: slots,
           lastFedAt: decoded['lastFedAt'] ?? DateTime.now().millisecondsSinceEpoch,
           createdAt: decoded['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
         );
@@ -137,9 +149,10 @@ class RecoveryPetService {
       bond: 0,
       mood: PetMoodX.neutral,
       sparks: 0,
-      unlockedItems: ['starter_glow'],
+      unlockedItems: PetCosmeticCatalog.freeIds,
       equippedOutfit: 'default',
-      equippedSlots: {},
+      equippedSlots: PetCosmeticCatalog.defaultEquippedSlots
+          .map((category, itemId) => MapEntry(category.name, itemId)),
       lastFedAt: DateTime.now().millisecondsSinceEpoch,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
@@ -149,6 +162,13 @@ class RecoveryPetService {
 
   static Future<RecoveryPet> applyStarterPreset(String presetId) async {
     var pet = await ensureHatched();
+    final slots = Map<String, String>.from(pet.equippedSlots);
+    final presetSlots = PetCosmeticCatalog.starterPresets[presetId];
+    if (presetSlots != null) {
+      presetSlots.forEach((category, itemId) {
+        slots[category.name] = itemId;
+      });
+    }
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
@@ -158,7 +178,7 @@ class RecoveryPetService {
       sparks: pet.sparks,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: presetId,
-      equippedSlots: pet.equippedSlots,
+      equippedSlots: slots,
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
     );
@@ -232,11 +252,35 @@ class RecoveryPetService {
     if (pet.unlockedItems.contains(itemId)) {
       return OutfitUnlockStatus.alreadyOwned;
     }
+    final item = PetCosmeticCatalog.byId(itemId);
+    if (item == null) {
+      return OutfitUnlockStatus.unknownItem;
+    }
+    if (!item.isAvailableAt(DateTime.now())) {
+      return OutfitUnlockStatus.seasonLocked;
+    }
+    // Bond is stored 0..100; catalog gates are 0..1 fractions.
+    if (pet.bond / 100.0 < item.requiredBond) {
+      return OutfitUnlockStatus.bondTooLow;
+    }
+    if (!item.free && pet.sparks < item.cost) {
+      return OutfitUnlockStatus.notEnoughSparks;
+    }
     return OutfitUnlockStatus.available;
   }
 
+  static PetCosmetic? cosmeticById(String itemId) =>
+      PetCosmeticCatalog.byId(itemId);
+
   static Future<RecoveryPet> equipCosmetic(String itemId) async {
     final pet = await ensureHatched();
+    final item = PetCosmeticCatalog.byId(itemId);
+    final slots = Map<String, String>.from(pet.equippedSlots);
+    if (item != null) {
+      slots[item.category.name] = itemId;
+    } else {
+      slots['last_equipped'] = itemId;
+    }
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
@@ -246,7 +290,7 @@ class RecoveryPetService {
       sparks: pet.sparks,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: pet.equippedOutfit,
-      equippedSlots: {...pet.equippedSlots, 'last_equipped': itemId},
+      equippedSlots: slots,
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
     );
@@ -259,16 +303,21 @@ class RecoveryPetService {
     if (pet.unlockedItems.contains(itemId)) {
       return (pet: pet, unlocked: false, status: OutfitUnlockStatus.alreadyOwned);
     }
+    final status = unlockStatus(pet, itemId);
+    if (status != OutfitUnlockStatus.available) {
+      return (pet: pet, unlocked: false, status: status);
+    }
+    final item = PetCosmeticCatalog.byId(itemId)!;
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
       energy: pet.energy,
       bond: pet.bond,
       mood: pet.mood,
-      sparks: pet.sparks,
+      sparks: item.free ? pet.sparks : pet.sparks - item.cost,
       unlockedItems: [...pet.unlockedItems, itemId],
       equippedOutfit: pet.equippedOutfit,
-      equippedSlots: pet.equippedSlots,
+      equippedSlots: {...pet.equippedSlots, item.category.name: itemId},
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
     );
@@ -277,10 +326,16 @@ class RecoveryPetService {
   }
 
   static List<String> subcategoriesOf(dynamic category) {
+    if (category is CosmeticCategory) {
+      return PetCosmeticCatalog.subcategoriesOf(category);
+    }
     return [];
   }
 
-  static List<dynamic> listByCategory(dynamic category) {
+  static List<PetCosmetic> listByCategory(dynamic category) {
+    if (category is CosmeticCategory) {
+      return PetCosmeticCatalog.byCategory(category);
+    }
     return [];
   }
 
