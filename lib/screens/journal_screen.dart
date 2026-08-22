@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../database/recovery_database.dart';
+import '../services/recovery_pet_service.dart';
 
 class JournalScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -78,6 +79,7 @@ class _JournalScreenState extends State<JournalScreen> {
     );
 
     await widget.database.addJournalEntry(entry);
+    await RecoveryPetService.logJournalEntry();
     _contentController.clear();
     setState(() {
       _selectedMood = 3;
@@ -85,7 +87,10 @@ class _JournalScreenState extends State<JournalScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reflection securely encrypted and saved locally.')),
+        SnackBar(
+          content: Text(
+              'Reflection securely encrypted and saved · +${RecoveryPetService.sparksJournal} Sparks'),
+        ),
       );
     }
   }
