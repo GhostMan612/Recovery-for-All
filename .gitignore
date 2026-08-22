@@ -5,50 +5,55 @@
 *.swp
 .DS_Store
 .atom/
-.build/
 .buildlog/
 .history
 .svn/
-.swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IntelliJ / Android Studio related
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code related
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
-/coverage/
 
-# Android/generated local files
-android/caches/
-android/.gradle/
-android/local.properties
-android/**/build/
+# Android/Gradle local state
+**/android/**/gradle-wrapper.jar
+**/android/.gradle/
+**/android/caches/
+**/android/daemon/
+**/android/kotlin-profile/
+**/android/local.properties
+**/android/native/
+**/android/wrapper/
+**/android/**/GeneratedPluginRegistrant.java
 
-# IDE and local metadata
-.metadata/
+# Windows/Linux/macOS generated plugin registrants
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugins.cmake
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugins.cmake
+macos/Flutter/GeneratedPluginRegistrant.swift
 
-# Symbolication related
+# Symbolication & obfuscation related
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Archived upstream copy (do not analyze/build from this)
+Recovery-for-All-main/
+
+# Exceptions — keep tracked generated Drift schema
+!lib/database/recovery_database.g.dart
