@@ -87,6 +87,39 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sponsorPhoneMeta = const VerificationMeta(
+    'sponsorPhone',
+  );
+  @override
+  late final GeneratedColumn<String> sponsorPhone = GeneratedColumn<String>(
+    'sponsor_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _customHelpPhoneMeta = const VerificationMeta(
+    'customHelpPhone',
+  );
+  @override
+  late final GeneratedColumn<String> customHelpPhone = GeneratedColumn<String>(
+    'custom_help_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _personalityJsonMeta = const VerificationMeta(
+    'personalityJson',
+  );
+  @override
+  late final GeneratedColumn<String> personalityJson = GeneratedColumn<String>(
+    'personality_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -96,6 +129,9 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     selectedGoals,
     activePaths,
     selectedValues,
+    sponsorPhone,
+    customHelpPhone,
+    personalityJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -171,6 +207,33 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         ),
       );
     }
+    if (data.containsKey('sponsor_phone')) {
+      context.handle(
+        _sponsorPhoneMeta,
+        sponsorPhone.isAcceptableOrUnknown(
+          data['sponsor_phone']!,
+          _sponsorPhoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_help_phone')) {
+      context.handle(
+        _customHelpPhoneMeta,
+        customHelpPhone.isAcceptableOrUnknown(
+          data['custom_help_phone']!,
+          _customHelpPhoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('personality_json')) {
+      context.handle(
+        _personalityJsonMeta,
+        personalityJson.isAcceptableOrUnknown(
+          data['personality_json']!,
+          _personalityJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -208,6 +271,18 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         DriftSqlType.string,
         data['${effectivePrefix}selected_values'],
       ),
+      sponsorPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sponsor_phone'],
+      ),
+      customHelpPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_help_phone'],
+      ),
+      personalityJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}personality_json'],
+      ),
     );
   }
 
@@ -225,6 +300,9 @@ class Profile extends DataClass implements Insertable<Profile> {
   final String selectedGoals;
   final String activePaths;
   final String? selectedValues;
+  final String? sponsorPhone;
+  final String? customHelpPhone;
+  final String? personalityJson;
   const Profile({
     required this.id,
     this.anonymousUsername,
@@ -233,6 +311,9 @@ class Profile extends DataClass implements Insertable<Profile> {
     required this.selectedGoals,
     required this.activePaths,
     this.selectedValues,
+    this.sponsorPhone,
+    this.customHelpPhone,
+    this.personalityJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -247,6 +328,15 @@ class Profile extends DataClass implements Insertable<Profile> {
     map['active_paths'] = Variable<String>(activePaths);
     if (!nullToAbsent || selectedValues != null) {
       map['selected_values'] = Variable<String>(selectedValues);
+    }
+    if (!nullToAbsent || sponsorPhone != null) {
+      map['sponsor_phone'] = Variable<String>(sponsorPhone);
+    }
+    if (!nullToAbsent || customHelpPhone != null) {
+      map['custom_help_phone'] = Variable<String>(customHelpPhone);
+    }
+    if (!nullToAbsent || personalityJson != null) {
+      map['personality_json'] = Variable<String>(personalityJson);
     }
     return map;
   }
@@ -264,6 +354,15 @@ class Profile extends DataClass implements Insertable<Profile> {
       selectedValues: selectedValues == null && nullToAbsent
           ? const Value.absent()
           : Value(selectedValues),
+      sponsorPhone: sponsorPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sponsorPhone),
+      customHelpPhone: customHelpPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customHelpPhone),
+      personalityJson: personalityJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalityJson),
     );
   }
 
@@ -284,6 +383,9 @@ class Profile extends DataClass implements Insertable<Profile> {
       selectedGoals: serializer.fromJson<String>(json['selectedGoals']),
       activePaths: serializer.fromJson<String>(json['activePaths']),
       selectedValues: serializer.fromJson<String?>(json['selectedValues']),
+      sponsorPhone: serializer.fromJson<String?>(json['sponsorPhone']),
+      customHelpPhone: serializer.fromJson<String?>(json['customHelpPhone']),
+      personalityJson: serializer.fromJson<String?>(json['personalityJson']),
     );
   }
   @override
@@ -297,6 +399,9 @@ class Profile extends DataClass implements Insertable<Profile> {
       'selectedGoals': serializer.toJson<String>(selectedGoals),
       'activePaths': serializer.toJson<String>(activePaths),
       'selectedValues': serializer.toJson<String?>(selectedValues),
+      'sponsorPhone': serializer.toJson<String?>(sponsorPhone),
+      'customHelpPhone': serializer.toJson<String?>(customHelpPhone),
+      'personalityJson': serializer.toJson<String?>(personalityJson),
     };
   }
 
@@ -308,6 +413,9 @@ class Profile extends DataClass implements Insertable<Profile> {
     String? selectedGoals,
     String? activePaths,
     Value<String?> selectedValues = const Value.absent(),
+    Value<String?> sponsorPhone = const Value.absent(),
+    Value<String?> customHelpPhone = const Value.absent(),
+    Value<String?> personalityJson = const Value.absent(),
   }) => Profile(
     id: id ?? this.id,
     anonymousUsername: anonymousUsername.present
@@ -320,6 +428,13 @@ class Profile extends DataClass implements Insertable<Profile> {
     selectedValues: selectedValues.present
         ? selectedValues.value
         : this.selectedValues,
+    sponsorPhone: sponsorPhone.present ? sponsorPhone.value : this.sponsorPhone,
+    customHelpPhone: customHelpPhone.present
+        ? customHelpPhone.value
+        : this.customHelpPhone,
+    personalityJson: personalityJson.present
+        ? personalityJson.value
+        : this.personalityJson,
   );
   Profile copyWithCompanion(ProfilesCompanion data) {
     return Profile(
@@ -340,6 +455,15 @@ class Profile extends DataClass implements Insertable<Profile> {
       selectedValues: data.selectedValues.present
           ? data.selectedValues.value
           : this.selectedValues,
+      sponsorPhone: data.sponsorPhone.present
+          ? data.sponsorPhone.value
+          : this.sponsorPhone,
+      customHelpPhone: data.customHelpPhone.present
+          ? data.customHelpPhone.value
+          : this.customHelpPhone,
+      personalityJson: data.personalityJson.present
+          ? data.personalityJson.value
+          : this.personalityJson,
     );
   }
 
@@ -352,7 +476,10 @@ class Profile extends DataClass implements Insertable<Profile> {
           ..write('biometricLockEnabled: $biometricLockEnabled, ')
           ..write('selectedGoals: $selectedGoals, ')
           ..write('activePaths: $activePaths, ')
-          ..write('selectedValues: $selectedValues')
+          ..write('selectedValues: $selectedValues, ')
+          ..write('sponsorPhone: $sponsorPhone, ')
+          ..write('customHelpPhone: $customHelpPhone, ')
+          ..write('personalityJson: $personalityJson')
           ..write(')'))
         .toString();
   }
@@ -366,6 +493,9 @@ class Profile extends DataClass implements Insertable<Profile> {
     selectedGoals,
     activePaths,
     selectedValues,
+    sponsorPhone,
+    customHelpPhone,
+    personalityJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -377,7 +507,10 @@ class Profile extends DataClass implements Insertable<Profile> {
           other.biometricLockEnabled == this.biometricLockEnabled &&
           other.selectedGoals == this.selectedGoals &&
           other.activePaths == this.activePaths &&
-          other.selectedValues == this.selectedValues);
+          other.selectedValues == this.selectedValues &&
+          other.sponsorPhone == this.sponsorPhone &&
+          other.customHelpPhone == this.customHelpPhone &&
+          other.personalityJson == this.personalityJson);
 }
 
 class ProfilesCompanion extends UpdateCompanion<Profile> {
@@ -388,6 +521,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   final Value<String> selectedGoals;
   final Value<String> activePaths;
   final Value<String?> selectedValues;
+  final Value<String?> sponsorPhone;
+  final Value<String?> customHelpPhone;
+  final Value<String?> personalityJson;
   final Value<int> rowid;
   const ProfilesCompanion({
     this.id = const Value.absent(),
@@ -397,6 +533,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.selectedGoals = const Value.absent(),
     this.activePaths = const Value.absent(),
     this.selectedValues = const Value.absent(),
+    this.sponsorPhone = const Value.absent(),
+    this.customHelpPhone = const Value.absent(),
+    this.personalityJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProfilesCompanion.insert({
@@ -407,6 +546,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     required String selectedGoals,
     required String activePaths,
     this.selectedValues = const Value.absent(),
+    this.sponsorPhone = const Value.absent(),
+    this.customHelpPhone = const Value.absent(),
+    this.personalityJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -420,6 +562,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Expression<String>? selectedGoals,
     Expression<String>? activePaths,
     Expression<String>? selectedValues,
+    Expression<String>? sponsorPhone,
+    Expression<String>? customHelpPhone,
+    Expression<String>? personalityJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -431,6 +576,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       if (selectedGoals != null) 'selected_goals': selectedGoals,
       if (activePaths != null) 'active_paths': activePaths,
       if (selectedValues != null) 'selected_values': selectedValues,
+      if (sponsorPhone != null) 'sponsor_phone': sponsorPhone,
+      if (customHelpPhone != null) 'custom_help_phone': customHelpPhone,
+      if (personalityJson != null) 'personality_json': personalityJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -443,6 +591,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Value<String>? selectedGoals,
     Value<String>? activePaths,
     Value<String?>? selectedValues,
+    Value<String?>? sponsorPhone,
+    Value<String?>? customHelpPhone,
+    Value<String?>? personalityJson,
     Value<int>? rowid,
   }) {
     return ProfilesCompanion(
@@ -453,6 +604,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       selectedGoals: selectedGoals ?? this.selectedGoals,
       activePaths: activePaths ?? this.activePaths,
       selectedValues: selectedValues ?? this.selectedValues,
+      sponsorPhone: sponsorPhone ?? this.sponsorPhone,
+      customHelpPhone: customHelpPhone ?? this.customHelpPhone,
+      personalityJson: personalityJson ?? this.personalityJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -483,6 +637,15 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     if (selectedValues.present) {
       map['selected_values'] = Variable<String>(selectedValues.value);
     }
+    if (sponsorPhone.present) {
+      map['sponsor_phone'] = Variable<String>(sponsorPhone.value);
+    }
+    if (customHelpPhone.present) {
+      map['custom_help_phone'] = Variable<String>(customHelpPhone.value);
+    }
+    if (personalityJson.present) {
+      map['personality_json'] = Variable<String>(personalityJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -499,6 +662,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
           ..write('selectedGoals: $selectedGoals, ')
           ..write('activePaths: $activePaths, ')
           ..write('selectedValues: $selectedValues, ')
+          ..write('sponsorPhone: $sponsorPhone, ')
+          ..write('customHelpPhone: $customHelpPhone, ')
+          ..write('personalityJson: $personalityJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2498,6 +2664,1065 @@ class WellnessCheckInsCompanion extends UpdateCompanion<WellnessCheckIn> {
   }
 }
 
+class $RecoveryPetsTable extends RecoveryPets
+    with TableInfo<$RecoveryPetsTable, RecoveryPetRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecoveryPetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _speciesOrStyleMeta = const VerificationMeta(
+    'speciesOrStyle',
+  );
+  @override
+  late final GeneratedColumn<String> speciesOrStyle = GeneratedColumn<String>(
+    'species_or_style',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('kin'),
+  );
+  static const VerificationMeta _energyMeta = const VerificationMeta('energy');
+  @override
+  late final GeneratedColumn<double> energy = GeneratedColumn<double>(
+    'energy',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.7),
+  );
+  static const VerificationMeta _bondMeta = const VerificationMeta('bond');
+  @override
+  late final GeneratedColumn<double> bond = GeneratedColumn<double>(
+    'bond',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.2),
+  );
+  static const VerificationMeta _moodMeta = const VerificationMeta('mood');
+  @override
+  late final GeneratedColumn<String> mood = GeneratedColumn<String>(
+    'mood',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('hopeful'),
+  );
+  static const VerificationMeta _sparksMeta = const VerificationMeta('sparks');
+  @override
+  late final GeneratedColumn<int> sparks = GeneratedColumn<int>(
+    'sparks',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(10),
+  );
+  static const VerificationMeta _unlockedItemsMeta = const VerificationMeta(
+    'unlockedItems',
+  );
+  @override
+  late final GeneratedColumn<String> unlockedItems = GeneratedColumn<String>(
+    'unlocked_items',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('["starter_glow"]'),
+  );
+  static const VerificationMeta _equippedOutfitMeta = const VerificationMeta(
+    'equippedOutfit',
+  );
+  @override
+  late final GeneratedColumn<String> equippedOutfit = GeneratedColumn<String>(
+    'equipped_outfit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('starter_glow'),
+  );
+  static const VerificationMeta _lastFedAtMeta = const VerificationMeta(
+    'lastFedAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastFedAt = GeneratedColumn<int>(
+    'last_fed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    speciesOrStyle,
+    energy,
+    bond,
+    mood,
+    sparks,
+    unlockedItems,
+    equippedOutfit,
+    lastFedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recovery_pets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecoveryPetRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('species_or_style')) {
+      context.handle(
+        _speciesOrStyleMeta,
+        speciesOrStyle.isAcceptableOrUnknown(
+          data['species_or_style']!,
+          _speciesOrStyleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('energy')) {
+      context.handle(
+        _energyMeta,
+        energy.isAcceptableOrUnknown(data['energy']!, _energyMeta),
+      );
+    }
+    if (data.containsKey('bond')) {
+      context.handle(
+        _bondMeta,
+        bond.isAcceptableOrUnknown(data['bond']!, _bondMeta),
+      );
+    }
+    if (data.containsKey('mood')) {
+      context.handle(
+        _moodMeta,
+        mood.isAcceptableOrUnknown(data['mood']!, _moodMeta),
+      );
+    }
+    if (data.containsKey('sparks')) {
+      context.handle(
+        _sparksMeta,
+        sparks.isAcceptableOrUnknown(data['sparks']!, _sparksMeta),
+      );
+    }
+    if (data.containsKey('unlocked_items')) {
+      context.handle(
+        _unlockedItemsMeta,
+        unlockedItems.isAcceptableOrUnknown(
+          data['unlocked_items']!,
+          _unlockedItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('equipped_outfit')) {
+      context.handle(
+        _equippedOutfitMeta,
+        equippedOutfit.isAcceptableOrUnknown(
+          data['equipped_outfit']!,
+          _equippedOutfitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_fed_at')) {
+      context.handle(
+        _lastFedAtMeta,
+        lastFedAt.isAcceptableOrUnknown(data['last_fed_at']!, _lastFedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_lastFedAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecoveryPetRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecoveryPetRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      speciesOrStyle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}species_or_style'],
+      )!,
+      energy: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}energy'],
+      )!,
+      bond: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bond'],
+      )!,
+      mood: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mood'],
+      )!,
+      sparks: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sparks'],
+      )!,
+      unlockedItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unlocked_items'],
+      )!,
+      equippedOutfit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}equipped_outfit'],
+      )!,
+      lastFedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_fed_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RecoveryPetsTable createAlias(String alias) {
+    return $RecoveryPetsTable(attachedDatabase, alias);
+  }
+}
+
+class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
+  final String id;
+  final String name;
+  final String speciesOrStyle;
+  final double energy;
+  final double bond;
+  final String mood;
+  final int sparks;
+  final String unlockedItems;
+  final String equippedOutfit;
+  final int lastFedAt;
+  final int createdAt;
+  const RecoveryPetRow({
+    required this.id,
+    required this.name,
+    required this.speciesOrStyle,
+    required this.energy,
+    required this.bond,
+    required this.mood,
+    required this.sparks,
+    required this.unlockedItems,
+    required this.equippedOutfit,
+    required this.lastFedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['species_or_style'] = Variable<String>(speciesOrStyle);
+    map['energy'] = Variable<double>(energy);
+    map['bond'] = Variable<double>(bond);
+    map['mood'] = Variable<String>(mood);
+    map['sparks'] = Variable<int>(sparks);
+    map['unlocked_items'] = Variable<String>(unlockedItems);
+    map['equipped_outfit'] = Variable<String>(equippedOutfit);
+    map['last_fed_at'] = Variable<int>(lastFedAt);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  RecoveryPetsCompanion toCompanion(bool nullToAbsent) {
+    return RecoveryPetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      speciesOrStyle: Value(speciesOrStyle),
+      energy: Value(energy),
+      bond: Value(bond),
+      mood: Value(mood),
+      sparks: Value(sparks),
+      unlockedItems: Value(unlockedItems),
+      equippedOutfit: Value(equippedOutfit),
+      lastFedAt: Value(lastFedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory RecoveryPetRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecoveryPetRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      speciesOrStyle: serializer.fromJson<String>(json['speciesOrStyle']),
+      energy: serializer.fromJson<double>(json['energy']),
+      bond: serializer.fromJson<double>(json['bond']),
+      mood: serializer.fromJson<String>(json['mood']),
+      sparks: serializer.fromJson<int>(json['sparks']),
+      unlockedItems: serializer.fromJson<String>(json['unlockedItems']),
+      equippedOutfit: serializer.fromJson<String>(json['equippedOutfit']),
+      lastFedAt: serializer.fromJson<int>(json['lastFedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'speciesOrStyle': serializer.toJson<String>(speciesOrStyle),
+      'energy': serializer.toJson<double>(energy),
+      'bond': serializer.toJson<double>(bond),
+      'mood': serializer.toJson<String>(mood),
+      'sparks': serializer.toJson<int>(sparks),
+      'unlockedItems': serializer.toJson<String>(unlockedItems),
+      'equippedOutfit': serializer.toJson<String>(equippedOutfit),
+      'lastFedAt': serializer.toJson<int>(lastFedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  RecoveryPetRow copyWith({
+    String? id,
+    String? name,
+    String? speciesOrStyle,
+    double? energy,
+    double? bond,
+    String? mood,
+    int? sparks,
+    String? unlockedItems,
+    String? equippedOutfit,
+    int? lastFedAt,
+    int? createdAt,
+  }) => RecoveryPetRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    speciesOrStyle: speciesOrStyle ?? this.speciesOrStyle,
+    energy: energy ?? this.energy,
+    bond: bond ?? this.bond,
+    mood: mood ?? this.mood,
+    sparks: sparks ?? this.sparks,
+    unlockedItems: unlockedItems ?? this.unlockedItems,
+    equippedOutfit: equippedOutfit ?? this.equippedOutfit,
+    lastFedAt: lastFedAt ?? this.lastFedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  RecoveryPetRow copyWithCompanion(RecoveryPetsCompanion data) {
+    return RecoveryPetRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      speciesOrStyle: data.speciesOrStyle.present
+          ? data.speciesOrStyle.value
+          : this.speciesOrStyle,
+      energy: data.energy.present ? data.energy.value : this.energy,
+      bond: data.bond.present ? data.bond.value : this.bond,
+      mood: data.mood.present ? data.mood.value : this.mood,
+      sparks: data.sparks.present ? data.sparks.value : this.sparks,
+      unlockedItems: data.unlockedItems.present
+          ? data.unlockedItems.value
+          : this.unlockedItems,
+      equippedOutfit: data.equippedOutfit.present
+          ? data.equippedOutfit.value
+          : this.equippedOutfit,
+      lastFedAt: data.lastFedAt.present ? data.lastFedAt.value : this.lastFedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecoveryPetRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('speciesOrStyle: $speciesOrStyle, ')
+          ..write('energy: $energy, ')
+          ..write('bond: $bond, ')
+          ..write('mood: $mood, ')
+          ..write('sparks: $sparks, ')
+          ..write('unlockedItems: $unlockedItems, ')
+          ..write('equippedOutfit: $equippedOutfit, ')
+          ..write('lastFedAt: $lastFedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    speciesOrStyle,
+    energy,
+    bond,
+    mood,
+    sparks,
+    unlockedItems,
+    equippedOutfit,
+    lastFedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecoveryPetRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.speciesOrStyle == this.speciesOrStyle &&
+          other.energy == this.energy &&
+          other.bond == this.bond &&
+          other.mood == this.mood &&
+          other.sparks == this.sparks &&
+          other.unlockedItems == this.unlockedItems &&
+          other.equippedOutfit == this.equippedOutfit &&
+          other.lastFedAt == this.lastFedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> speciesOrStyle;
+  final Value<double> energy;
+  final Value<double> bond;
+  final Value<String> mood;
+  final Value<int> sparks;
+  final Value<String> unlockedItems;
+  final Value<String> equippedOutfit;
+  final Value<int> lastFedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const RecoveryPetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.speciesOrStyle = const Value.absent(),
+    this.energy = const Value.absent(),
+    this.bond = const Value.absent(),
+    this.mood = const Value.absent(),
+    this.sparks = const Value.absent(),
+    this.unlockedItems = const Value.absent(),
+    this.equippedOutfit = const Value.absent(),
+    this.lastFedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecoveryPetsCompanion.insert({
+    required String id,
+    required String name,
+    this.speciesOrStyle = const Value.absent(),
+    this.energy = const Value.absent(),
+    this.bond = const Value.absent(),
+    this.mood = const Value.absent(),
+    this.sparks = const Value.absent(),
+    this.unlockedItems = const Value.absent(),
+    this.equippedOutfit = const Value.absent(),
+    required int lastFedAt,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       lastFedAt = Value(lastFedAt),
+       createdAt = Value(createdAt);
+  static Insertable<RecoveryPetRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? speciesOrStyle,
+    Expression<double>? energy,
+    Expression<double>? bond,
+    Expression<String>? mood,
+    Expression<int>? sparks,
+    Expression<String>? unlockedItems,
+    Expression<String>? equippedOutfit,
+    Expression<int>? lastFedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (speciesOrStyle != null) 'species_or_style': speciesOrStyle,
+      if (energy != null) 'energy': energy,
+      if (bond != null) 'bond': bond,
+      if (mood != null) 'mood': mood,
+      if (sparks != null) 'sparks': sparks,
+      if (unlockedItems != null) 'unlocked_items': unlockedItems,
+      if (equippedOutfit != null) 'equipped_outfit': equippedOutfit,
+      if (lastFedAt != null) 'last_fed_at': lastFedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecoveryPetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? speciesOrStyle,
+    Value<double>? energy,
+    Value<double>? bond,
+    Value<String>? mood,
+    Value<int>? sparks,
+    Value<String>? unlockedItems,
+    Value<String>? equippedOutfit,
+    Value<int>? lastFedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return RecoveryPetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      speciesOrStyle: speciesOrStyle ?? this.speciesOrStyle,
+      energy: energy ?? this.energy,
+      bond: bond ?? this.bond,
+      mood: mood ?? this.mood,
+      sparks: sparks ?? this.sparks,
+      unlockedItems: unlockedItems ?? this.unlockedItems,
+      equippedOutfit: equippedOutfit ?? this.equippedOutfit,
+      lastFedAt: lastFedAt ?? this.lastFedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (speciesOrStyle.present) {
+      map['species_or_style'] = Variable<String>(speciesOrStyle.value);
+    }
+    if (energy.present) {
+      map['energy'] = Variable<double>(energy.value);
+    }
+    if (bond.present) {
+      map['bond'] = Variable<double>(bond.value);
+    }
+    if (mood.present) {
+      map['mood'] = Variable<String>(mood.value);
+    }
+    if (sparks.present) {
+      map['sparks'] = Variable<int>(sparks.value);
+    }
+    if (unlockedItems.present) {
+      map['unlocked_items'] = Variable<String>(unlockedItems.value);
+    }
+    if (equippedOutfit.present) {
+      map['equipped_outfit'] = Variable<String>(equippedOutfit.value);
+    }
+    if (lastFedAt.present) {
+      map['last_fed_at'] = Variable<int>(lastFedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecoveryPetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('speciesOrStyle: $speciesOrStyle, ')
+          ..write('energy: $energy, ')
+          ..write('bond: $bond, ')
+          ..write('mood: $mood, ')
+          ..write('sparks: $sparks, ')
+          ..write('unlockedItems: $unlockedItems, ')
+          ..write('equippedOutfit: $equippedOutfit, ')
+          ..write('lastFedAt: $lastFedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PetEventsTable extends PetEvents
+    with TableInfo<$PetEventsTable, PetEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PetEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _petIdMeta = const VerificationMeta('petId');
+  @override
+  late final GeneratedColumn<String> petId = GeneratedColumn<String>(
+    'pet_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventTypeMeta = const VerificationMeta(
+    'eventType',
+  );
+  @override
+  late final GeneratedColumn<String> eventType = GeneratedColumn<String>(
+    'event_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sparksDeltaMeta = const VerificationMeta(
+    'sparksDelta',
+  );
+  @override
+  late final GeneratedColumn<int> sparksDelta = GeneratedColumn<int>(
+    'sparks_delta',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<int> timestamp = GeneratedColumn<int>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _metaJsonMeta = const VerificationMeta(
+    'metaJson',
+  );
+  @override
+  late final GeneratedColumn<String> metaJson = GeneratedColumn<String>(
+    'meta_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    petId,
+    eventType,
+    sparksDelta,
+    timestamp,
+    metaJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pet_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PetEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('pet_id')) {
+      context.handle(
+        _petIdMeta,
+        petId.isAcceptableOrUnknown(data['pet_id']!, _petIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_petIdMeta);
+    }
+    if (data.containsKey('event_type')) {
+      context.handle(
+        _eventTypeMeta,
+        eventType.isAcceptableOrUnknown(data['event_type']!, _eventTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventTypeMeta);
+    }
+    if (data.containsKey('sparks_delta')) {
+      context.handle(
+        _sparksDeltaMeta,
+        sparksDelta.isAcceptableOrUnknown(
+          data['sparks_delta']!,
+          _sparksDeltaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('meta_json')) {
+      context.handle(
+        _metaJsonMeta,
+        metaJson.isAcceptableOrUnknown(data['meta_json']!, _metaJsonMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PetEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PetEventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      petId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pet_id'],
+      )!,
+      eventType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_type'],
+      )!,
+      sparksDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sparks_delta'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      metaJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meta_json'],
+      ),
+    );
+  }
+
+  @override
+  $PetEventsTable createAlias(String alias) {
+    return $PetEventsTable(attachedDatabase, alias);
+  }
+}
+
+class PetEventRow extends DataClass implements Insertable<PetEventRow> {
+  final String id;
+  final String petId;
+  final String eventType;
+  final int sparksDelta;
+  final int timestamp;
+  final String? metaJson;
+  const PetEventRow({
+    required this.id,
+    required this.petId,
+    required this.eventType,
+    required this.sparksDelta,
+    required this.timestamp,
+    this.metaJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['pet_id'] = Variable<String>(petId);
+    map['event_type'] = Variable<String>(eventType);
+    map['sparks_delta'] = Variable<int>(sparksDelta);
+    map['timestamp'] = Variable<int>(timestamp);
+    if (!nullToAbsent || metaJson != null) {
+      map['meta_json'] = Variable<String>(metaJson);
+    }
+    return map;
+  }
+
+  PetEventsCompanion toCompanion(bool nullToAbsent) {
+    return PetEventsCompanion(
+      id: Value(id),
+      petId: Value(petId),
+      eventType: Value(eventType),
+      sparksDelta: Value(sparksDelta),
+      timestamp: Value(timestamp),
+      metaJson: metaJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metaJson),
+    );
+  }
+
+  factory PetEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PetEventRow(
+      id: serializer.fromJson<String>(json['id']),
+      petId: serializer.fromJson<String>(json['petId']),
+      eventType: serializer.fromJson<String>(json['eventType']),
+      sparksDelta: serializer.fromJson<int>(json['sparksDelta']),
+      timestamp: serializer.fromJson<int>(json['timestamp']),
+      metaJson: serializer.fromJson<String?>(json['metaJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'petId': serializer.toJson<String>(petId),
+      'eventType': serializer.toJson<String>(eventType),
+      'sparksDelta': serializer.toJson<int>(sparksDelta),
+      'timestamp': serializer.toJson<int>(timestamp),
+      'metaJson': serializer.toJson<String?>(metaJson),
+    };
+  }
+
+  PetEventRow copyWith({
+    String? id,
+    String? petId,
+    String? eventType,
+    int? sparksDelta,
+    int? timestamp,
+    Value<String?> metaJson = const Value.absent(),
+  }) => PetEventRow(
+    id: id ?? this.id,
+    petId: petId ?? this.petId,
+    eventType: eventType ?? this.eventType,
+    sparksDelta: sparksDelta ?? this.sparksDelta,
+    timestamp: timestamp ?? this.timestamp,
+    metaJson: metaJson.present ? metaJson.value : this.metaJson,
+  );
+  PetEventRow copyWithCompanion(PetEventsCompanion data) {
+    return PetEventRow(
+      id: data.id.present ? data.id.value : this.id,
+      petId: data.petId.present ? data.petId.value : this.petId,
+      eventType: data.eventType.present ? data.eventType.value : this.eventType,
+      sparksDelta: data.sparksDelta.present
+          ? data.sparksDelta.value
+          : this.sparksDelta,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      metaJson: data.metaJson.present ? data.metaJson.value : this.metaJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PetEventRow(')
+          ..write('id: $id, ')
+          ..write('petId: $petId, ')
+          ..write('eventType: $eventType, ')
+          ..write('sparksDelta: $sparksDelta, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('metaJson: $metaJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, petId, eventType, sparksDelta, timestamp, metaJson);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PetEventRow &&
+          other.id == this.id &&
+          other.petId == this.petId &&
+          other.eventType == this.eventType &&
+          other.sparksDelta == this.sparksDelta &&
+          other.timestamp == this.timestamp &&
+          other.metaJson == this.metaJson);
+}
+
+class PetEventsCompanion extends UpdateCompanion<PetEventRow> {
+  final Value<String> id;
+  final Value<String> petId;
+  final Value<String> eventType;
+  final Value<int> sparksDelta;
+  final Value<int> timestamp;
+  final Value<String?> metaJson;
+  final Value<int> rowid;
+  const PetEventsCompanion({
+    this.id = const Value.absent(),
+    this.petId = const Value.absent(),
+    this.eventType = const Value.absent(),
+    this.sparksDelta = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.metaJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PetEventsCompanion.insert({
+    required String id,
+    required String petId,
+    required String eventType,
+    this.sparksDelta = const Value.absent(),
+    required int timestamp,
+    this.metaJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       petId = Value(petId),
+       eventType = Value(eventType),
+       timestamp = Value(timestamp);
+  static Insertable<PetEventRow> custom({
+    Expression<String>? id,
+    Expression<String>? petId,
+    Expression<String>? eventType,
+    Expression<int>? sparksDelta,
+    Expression<int>? timestamp,
+    Expression<String>? metaJson,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (petId != null) 'pet_id': petId,
+      if (eventType != null) 'event_type': eventType,
+      if (sparksDelta != null) 'sparks_delta': sparksDelta,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (metaJson != null) 'meta_json': metaJson,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PetEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? petId,
+    Value<String>? eventType,
+    Value<int>? sparksDelta,
+    Value<int>? timestamp,
+    Value<String?>? metaJson,
+    Value<int>? rowid,
+  }) {
+    return PetEventsCompanion(
+      id: id ?? this.id,
+      petId: petId ?? this.petId,
+      eventType: eventType ?? this.eventType,
+      sparksDelta: sparksDelta ?? this.sparksDelta,
+      timestamp: timestamp ?? this.timestamp,
+      metaJson: metaJson ?? this.metaJson,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (petId.present) {
+      map['pet_id'] = Variable<String>(petId.value);
+    }
+    if (eventType.present) {
+      map['event_type'] = Variable<String>(eventType.value);
+    }
+    if (sparksDelta.present) {
+      map['sparks_delta'] = Variable<int>(sparksDelta.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<int>(timestamp.value);
+    }
+    if (metaJson.present) {
+      map['meta_json'] = Variable<String>(metaJson.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PetEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('petId: $petId, ')
+          ..write('eventType: $eventType, ')
+          ..write('sparksDelta: $sparksDelta, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('metaJson: $metaJson, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -2510,6 +3735,8 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
   late final $WellnessCheckInsTable wellnessCheckIns = $WellnessCheckInsTable(
     this,
   );
+  late final $RecoveryPetsTable recoveryPets = $RecoveryPetsTable(this);
+  late final $PetEventsTable petEvents = $PetEventsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2521,6 +3748,8 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     constellationPoints,
     weeklyGoals,
     wellnessCheckIns,
+    recoveryPets,
+    petEvents,
   ];
 }
 
@@ -2533,6 +3762,9 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       required String selectedGoals,
       required String activePaths,
       Value<String?> selectedValues,
+      Value<String?> sponsorPhone,
+      Value<String?> customHelpPhone,
+      Value<String?> personalityJson,
       Value<int> rowid,
     });
 typedef $$ProfilesTableUpdateCompanionBuilder =
@@ -2544,6 +3776,9 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<String> selectedGoals,
       Value<String> activePaths,
       Value<String?> selectedValues,
+      Value<String?> sponsorPhone,
+      Value<String?> customHelpPhone,
+      Value<String?> personalityJson,
       Value<int> rowid,
     });
 
@@ -2588,6 +3823,21 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<String> get selectedValues => $composableBuilder(
     column: $table.selectedValues,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sponsorPhone => $composableBuilder(
+    column: $table.sponsorPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customHelpPhone => $composableBuilder(
+    column: $table.customHelpPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get personalityJson => $composableBuilder(
+    column: $table.personalityJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2635,6 +3885,21 @@ class $$ProfilesTableOrderingComposer
     column: $table.selectedValues,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sponsorPhone => $composableBuilder(
+    column: $table.sponsorPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customHelpPhone => $composableBuilder(
+    column: $table.customHelpPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get personalityJson => $composableBuilder(
+    column: $table.personalityJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProfilesTableAnnotationComposer
@@ -2674,6 +3939,21 @@ class $$ProfilesTableAnnotationComposer
 
   GeneratedColumn<String> get selectedValues => $composableBuilder(
     column: $table.selectedValues,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sponsorPhone => $composableBuilder(
+    column: $table.sponsorPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customHelpPhone => $composableBuilder(
+    column: $table.customHelpPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get personalityJson => $composableBuilder(
+    column: $table.personalityJson,
     builder: (column) => column,
   );
 }
@@ -2716,6 +3996,9 @@ class $$ProfilesTableTableManager
                 Value<String> selectedGoals = const Value.absent(),
                 Value<String> activePaths = const Value.absent(),
                 Value<String?> selectedValues = const Value.absent(),
+                Value<String?> sponsorPhone = const Value.absent(),
+                Value<String?> customHelpPhone = const Value.absent(),
+                Value<String?> personalityJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProfilesCompanion(
                 id: id,
@@ -2725,6 +4008,9 @@ class $$ProfilesTableTableManager
                 selectedGoals: selectedGoals,
                 activePaths: activePaths,
                 selectedValues: selectedValues,
+                sponsorPhone: sponsorPhone,
+                customHelpPhone: customHelpPhone,
+                personalityJson: personalityJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2736,6 +4022,9 @@ class $$ProfilesTableTableManager
                 required String selectedGoals,
                 required String activePaths,
                 Value<String?> selectedValues = const Value.absent(),
+                Value<String?> sponsorPhone = const Value.absent(),
+                Value<String?> customHelpPhone = const Value.absent(),
+                Value<String?> personalityJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 id: id,
@@ -2745,6 +4034,9 @@ class $$ProfilesTableTableManager
                 selectedGoals: selectedGoals,
                 activePaths: activePaths,
                 selectedValues: selectedValues,
+                sponsorPhone: sponsorPhone,
+                customHelpPhone: customHelpPhone,
+                personalityJson: personalityJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3873,6 +5165,553 @@ typedef $$WellnessCheckInsTableProcessedTableManager =
       WellnessCheckIn,
       PrefetchHooks Function()
     >;
+typedef $$RecoveryPetsTableCreateCompanionBuilder =
+    RecoveryPetsCompanion Function({
+      required String id,
+      required String name,
+      Value<String> speciesOrStyle,
+      Value<double> energy,
+      Value<double> bond,
+      Value<String> mood,
+      Value<int> sparks,
+      Value<String> unlockedItems,
+      Value<String> equippedOutfit,
+      required int lastFedAt,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$RecoveryPetsTableUpdateCompanionBuilder =
+    RecoveryPetsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> speciesOrStyle,
+      Value<double> energy,
+      Value<double> bond,
+      Value<String> mood,
+      Value<int> sparks,
+      Value<String> unlockedItems,
+      Value<String> equippedOutfit,
+      Value<int> lastFedAt,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$RecoveryPetsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryPetsTable> {
+  $$RecoveryPetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get speciesOrStyle => $composableBuilder(
+    column: $table.speciesOrStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get energy => $composableBuilder(
+    column: $table.energy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bond => $composableBuilder(
+    column: $table.bond,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mood => $composableBuilder(
+    column: $table.mood,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sparks => $composableBuilder(
+    column: $table.sparks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unlockedItems => $composableBuilder(
+    column: $table.unlockedItems,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get equippedOutfit => $composableBuilder(
+    column: $table.equippedOutfit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastFedAt => $composableBuilder(
+    column: $table.lastFedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecoveryPetsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryPetsTable> {
+  $$RecoveryPetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get speciesOrStyle => $composableBuilder(
+    column: $table.speciesOrStyle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get energy => $composableBuilder(
+    column: $table.energy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bond => $composableBuilder(
+    column: $table.bond,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mood => $composableBuilder(
+    column: $table.mood,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sparks => $composableBuilder(
+    column: $table.sparks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unlockedItems => $composableBuilder(
+    column: $table.unlockedItems,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get equippedOutfit => $composableBuilder(
+    column: $table.equippedOutfit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastFedAt => $composableBuilder(
+    column: $table.lastFedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecoveryPetsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryPetsTable> {
+  $$RecoveryPetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get speciesOrStyle => $composableBuilder(
+    column: $table.speciesOrStyle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get energy =>
+      $composableBuilder(column: $table.energy, builder: (column) => column);
+
+  GeneratedColumn<double> get bond =>
+      $composableBuilder(column: $table.bond, builder: (column) => column);
+
+  GeneratedColumn<String> get mood =>
+      $composableBuilder(column: $table.mood, builder: (column) => column);
+
+  GeneratedColumn<int> get sparks =>
+      $composableBuilder(column: $table.sparks, builder: (column) => column);
+
+  GeneratedColumn<String> get unlockedItems => $composableBuilder(
+    column: $table.unlockedItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get equippedOutfit => $composableBuilder(
+    column: $table.equippedOutfit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastFedAt =>
+      $composableBuilder(column: $table.lastFedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$RecoveryPetsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $RecoveryPetsTable,
+          RecoveryPetRow,
+          $$RecoveryPetsTableFilterComposer,
+          $$RecoveryPetsTableOrderingComposer,
+          $$RecoveryPetsTableAnnotationComposer,
+          $$RecoveryPetsTableCreateCompanionBuilder,
+          $$RecoveryPetsTableUpdateCompanionBuilder,
+          (
+            RecoveryPetRow,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $RecoveryPetsTable,
+              RecoveryPetRow
+            >,
+          ),
+          RecoveryPetRow,
+          PrefetchHooks Function()
+        > {
+  $$RecoveryPetsTableTableManager(
+    _$RecoveryDatabase db,
+    $RecoveryPetsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecoveryPetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecoveryPetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecoveryPetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> speciesOrStyle = const Value.absent(),
+                Value<double> energy = const Value.absent(),
+                Value<double> bond = const Value.absent(),
+                Value<String> mood = const Value.absent(),
+                Value<int> sparks = const Value.absent(),
+                Value<String> unlockedItems = const Value.absent(),
+                Value<String> equippedOutfit = const Value.absent(),
+                Value<int> lastFedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecoveryPetsCompanion(
+                id: id,
+                name: name,
+                speciesOrStyle: speciesOrStyle,
+                energy: energy,
+                bond: bond,
+                mood: mood,
+                sparks: sparks,
+                unlockedItems: unlockedItems,
+                equippedOutfit: equippedOutfit,
+                lastFedAt: lastFedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String> speciesOrStyle = const Value.absent(),
+                Value<double> energy = const Value.absent(),
+                Value<double> bond = const Value.absent(),
+                Value<String> mood = const Value.absent(),
+                Value<int> sparks = const Value.absent(),
+                Value<String> unlockedItems = const Value.absent(),
+                Value<String> equippedOutfit = const Value.absent(),
+                required int lastFedAt,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RecoveryPetsCompanion.insert(
+                id: id,
+                name: name,
+                speciesOrStyle: speciesOrStyle,
+                energy: energy,
+                bond: bond,
+                mood: mood,
+                sparks: sparks,
+                unlockedItems: unlockedItems,
+                equippedOutfit: equippedOutfit,
+                lastFedAt: lastFedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecoveryPetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $RecoveryPetsTable,
+      RecoveryPetRow,
+      $$RecoveryPetsTableFilterComposer,
+      $$RecoveryPetsTableOrderingComposer,
+      $$RecoveryPetsTableAnnotationComposer,
+      $$RecoveryPetsTableCreateCompanionBuilder,
+      $$RecoveryPetsTableUpdateCompanionBuilder,
+      (
+        RecoveryPetRow,
+        BaseReferences<_$RecoveryDatabase, $RecoveryPetsTable, RecoveryPetRow>,
+      ),
+      RecoveryPetRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PetEventsTableCreateCompanionBuilder =
+    PetEventsCompanion Function({
+      required String id,
+      required String petId,
+      required String eventType,
+      Value<int> sparksDelta,
+      required int timestamp,
+      Value<String?> metaJson,
+      Value<int> rowid,
+    });
+typedef $$PetEventsTableUpdateCompanionBuilder =
+    PetEventsCompanion Function({
+      Value<String> id,
+      Value<String> petId,
+      Value<String> eventType,
+      Value<int> sparksDelta,
+      Value<int> timestamp,
+      Value<String?> metaJson,
+      Value<int> rowid,
+    });
+
+class $$PetEventsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $PetEventsTable> {
+  $$PetEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get petId => $composableBuilder(
+    column: $table.petId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sparksDelta => $composableBuilder(
+    column: $table.sparksDelta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metaJson => $composableBuilder(
+    column: $table.metaJson,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PetEventsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $PetEventsTable> {
+  $$PetEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get petId => $composableBuilder(
+    column: $table.petId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sparksDelta => $composableBuilder(
+    column: $table.sparksDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metaJson => $composableBuilder(
+    column: $table.metaJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PetEventsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $PetEventsTable> {
+  $$PetEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get petId =>
+      $composableBuilder(column: $table.petId, builder: (column) => column);
+
+  GeneratedColumn<String> get eventType =>
+      $composableBuilder(column: $table.eventType, builder: (column) => column);
+
+  GeneratedColumn<int> get sparksDelta => $composableBuilder(
+    column: $table.sparksDelta,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<String> get metaJson =>
+      $composableBuilder(column: $table.metaJson, builder: (column) => column);
+}
+
+class $$PetEventsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $PetEventsTable,
+          PetEventRow,
+          $$PetEventsTableFilterComposer,
+          $$PetEventsTableOrderingComposer,
+          $$PetEventsTableAnnotationComposer,
+          $$PetEventsTableCreateCompanionBuilder,
+          $$PetEventsTableUpdateCompanionBuilder,
+          (
+            PetEventRow,
+            BaseReferences<_$RecoveryDatabase, $PetEventsTable, PetEventRow>,
+          ),
+          PetEventRow,
+          PrefetchHooks Function()
+        > {
+  $$PetEventsTableTableManager(_$RecoveryDatabase db, $PetEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PetEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PetEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PetEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> petId = const Value.absent(),
+                Value<String> eventType = const Value.absent(),
+                Value<int> sparksDelta = const Value.absent(),
+                Value<int> timestamp = const Value.absent(),
+                Value<String?> metaJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PetEventsCompanion(
+                id: id,
+                petId: petId,
+                eventType: eventType,
+                sparksDelta: sparksDelta,
+                timestamp: timestamp,
+                metaJson: metaJson,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String petId,
+                required String eventType,
+                Value<int> sparksDelta = const Value.absent(),
+                required int timestamp,
+                Value<String?> metaJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PetEventsCompanion.insert(
+                id: id,
+                petId: petId,
+                eventType: eventType,
+                sparksDelta: sparksDelta,
+                timestamp: timestamp,
+                metaJson: metaJson,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PetEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $PetEventsTable,
+      PetEventRow,
+      $$PetEventsTableFilterComposer,
+      $$PetEventsTableOrderingComposer,
+      $$PetEventsTableAnnotationComposer,
+      $$PetEventsTableCreateCompanionBuilder,
+      $$PetEventsTableUpdateCompanionBuilder,
+      (
+        PetEventRow,
+        BaseReferences<_$RecoveryDatabase, $PetEventsTable, PetEventRow>,
+      ),
+      PetEventRow,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -3889,4 +5728,8 @@ class $RecoveryDatabaseManager {
       $$WeeklyGoalsTableTableManager(_db, _db.weeklyGoals);
   $$WellnessCheckInsTableTableManager get wellnessCheckIns =>
       $$WellnessCheckInsTableTableManager(_db, _db.wellnessCheckIns);
+  $$RecoveryPetsTableTableManager get recoveryPets =>
+      $$RecoveryPetsTableTableManager(_db, _db.recoveryPets);
+  $$PetEventsTableTableManager get petEvents =>
+      $$PetEventsTableTableManager(_db, _db.petEvents);
 }

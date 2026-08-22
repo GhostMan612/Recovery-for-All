@@ -4,10 +4,13 @@
 // ============================================================
 
 import 'dart:io';
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 part 'recovery_database.g.dart';
 
@@ -20,10 +23,9 @@ class Profiles extends Table {
   TextColumn get selectedGoals => text()();
   TextColumn get activePaths => text()();
   TextColumn get selectedValues => text().nullable()();
-
-  // SOS contact numbers
   TextColumn get sponsorPhone => text().nullable()();
   TextColumn get customHelpPhone => text().nullable()();
+  TextColumn get personalityJson => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -92,74 +94,208 @@ class WellnessCheckIns extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Profiles, Counters, JournalEntries, ConstellationPoints, WeeklyGoals, WellnessCheckIns])
-class RecoveryDatabase extends _$RecoveryDatabase {
-  RecoveryDatabase() : super(_openConnection());
+@DataClassName('RecoveryPetRow')
+class RecoveryPets extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get speciesOrStyle => text().withDefault(const Constant('kin'))();
+  RealColumn get energy => real().withDefault(const Constant(0.7))();
+  RealColumn get bond => real().withDefault(const Constant(0.2))();
+  TextColumn get mood => text().withDefault(const Constant('hopeful'))();
+  IntColumn get sparks => integer().withDefault(const Constant(10))();
+  TextColumn get unlockedItems => text().withDefault(const Constant('["starter_glow"]'))();
+  TextColumn get equippedOutfit => text().withDefault(const Constant('starter_glow'))();
+  IntColumn get lastFedAt => integer()();
+  IntColumn get createdAt => integer()();
 
   @override
-  int get schemaVersion => 4;
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('PetEventRow')
+class PetEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get petId => text()();
+  TextColumn get eventType => text()();
+  IntColumn get sparksDelta => integer().withDefault(const Constant(0))();
+  IntColumn get timestamp => integer()();
+  TextColumn get metaJson => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [
+  Profiles,
+  Counters,
+  JournalEntries,
+  ConstellationPoints,
+  WeeklyGoals,
+  WellnessCheckIns,
+  RecoveryPets,
+  PetEvents,
+])
+class RecoveryDatabase extends _$RecoveryDatabase {
+  RecoveryDatabase() : super(_openEncryptedConnection());
+
+  RecoveryDatabase.forTesting(QueryExecutor e) : super(e);
+
+  @override
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
+        onCreate: (Migrator m) async {
           await m.createAll();
         },
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await m.addColumn(profiles, profiles.selectedValues);
-            await m.createTable(weeklyGoals);
-          }
-          if (from < 3) {
-            await m.createTable(wellnessCheckIns);
-          }
-          if (from < 4) {
-            await m.addColumn(profiles, profiles.sponsorPhone);
-            await m.addColumn(profiles, profiles.customHelpPhone);
-          }
+        onUpgrade: (Migrator m, int from, int to) async {
+          await customStatement('PRAGMA foreign_keys = OFF');
+          await transaction(() async {
+            if (from < 2) {
+              await m.addColumn(profiles, profiles.selectedValues);
+              await m.createTable(weeklyGoals);
+            }
+            if (from < 3) {
+              await m.createTable(wellnessCheckIns);
+            }
+            if (from < 4) {
+              await m.addColumn(profiles, profiles.sponsorPhone);
+              await m.addColumn(profiles, profiles.customHelpPhone);
+            }
+            if (from < 5) {
+              await m.createTable(recoveryPets);
+              await m.createTable(petEvents);
+            }
+            if (from < 6) {
+              await m.addColumn(profiles, profiles.personalityJson);
+            }
+          });
+          await customStatement('PRAGMA foreign_keys = ON');
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
 
-  Future<int> saveProfile(Profile profile) => into(profiles).insertOnConflictUpdate(profile);
-  Future<Profile?> getProfile(String id) => (select(profiles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+  Future<int> saveProfile(Profile profile) =>
+      into(profiles).insertOnConflictUpdate(profile);
+
+  Future<Profile?> getProfile(String id) =>
+      (select(profiles)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 
   Stream<List<Counter>> watchAllCounters() => select(counters).watch();
-  Future<int> addCounter(Counter counter) => into(counters).insertOnConflictUpdate(counter);
-  Future<void> updateCounterAnniversary(String id, DateTime newDateTime) {
-    return (update(counters)..where((tbl) => tbl.id.equals(id)))
-        .write(CountersCompanion(startDateTime: Value(newDateTime.millisecondsSinceEpoch)));
-  }
-  Future<int> deleteCounter(String id) => (delete(counters)..where((tbl) => tbl.id.equals(id))).go();
 
-  Future<int> addJournalEntry(JournalEntry entry) => into(journalEntries).insert(entry);
+  Future<int> addCounter(Counter counter) =>
+      into(counters).insertOnConflictUpdate(counter);
+
+  Future<void> updateCounterAnniversary(String id, DateTime newDateTime) {
+    return (update(counters)..where((tbl) => tbl.id.equals(id))).write(
+      CountersCompanion(
+        startDateTime: Value(newDateTime.millisecondsSinceEpoch),
+      ),
+    );
+  }
+
+  Future<int> deleteCounter(String id) =>
+      (delete(counters)..where((tbl) => tbl.id.equals(id))).go();
+
+  Future<int> addJournalEntry(JournalEntry entry) =>
+      into(journalEntries).insert(entry);
+
   Stream<List<JournalEntry>> watchRecentJournals() {
     return (select(journalEntries)
-          ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.timestamp,
+                  mode: OrderingMode.desc,
+                )
+          ]))
         .watch();
   }
 
-  Future<int> addConstellationPoint(ConstellationPoint point) => into(constellationPoints).insert(point);
-  Future<List<ConstellationPoint>> getConstellationPoints() => select(constellationPoints).get();
-  Stream<List<ConstellationPoint>> watchConstellationPoints() => select(constellationPoints).watch();
+  Future<int> addConstellationPoint(ConstellationPoint point) =>
+      into(constellationPoints).insert(point);
 
-  Future<int> addWeeklyGoal(WeeklyGoal goal) => into(weeklyGoals).insertOnConflictUpdate(goal);
+  Future<List<ConstellationPoint>> getConstellationPoints() =>
+      select(constellationPoints).get();
+
+  Stream<List<ConstellationPoint>> watchConstellationPoints() =>
+      select(constellationPoints).watch();
+
+  Future<int> addWeeklyGoal(WeeklyGoal goal) =>
+      into(weeklyGoals).insertOnConflictUpdate(goal);
+
   Stream<List<WeeklyGoal>> watchAllWeeklyGoals() => select(weeklyGoals).watch();
 
-  Future<int> addWellnessCheckIn(WellnessCheckIn checkIn) => into(wellnessCheckIns).insertOnConflictUpdate(checkIn);
+  Future<int> addWellnessCheckIn(WellnessCheckIn checkIn) =>
+      into(wellnessCheckIns).insertOnConflictUpdate(checkIn);
+
   Future<List<WellnessCheckIn>> getCheckInsForRange(int startMs, int endMs) {
     return (select(wellnessCheckIns)
           ..where((tbl) => tbl.timestamp.isBetweenValues(startMs, endMs))
-          ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.timestamp,
+                  mode: OrderingMode.desc,
+                )
+          ]))
         .get();
+  }
+
+  Future<RecoveryPetRow?> getPet(String id) =>
+      (select(recoveryPets)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<int> upsertPet(RecoveryPetRow pet) =>
+      into(recoveryPets).insertOnConflictUpdate(pet);
+
+  Stream<RecoveryPetRow?> watchPet(String id) {
+    return (select(recoveryPets)..where((t) => t.id.equals(id)))
+        .watch()
+        .map((rows) => rows.isEmpty ? null : rows.first);
+  }
+
+  Future<int> addPetEvent(PetEventRow event) => into(petEvents).insert(event);
+
+  Stream<List<PetEventRow>> watchPetEvents(String petId) {
+    return (select(petEvents)
+          ..where((t) => t.petId.equals(petId))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.timestamp,
+                  mode: OrderingMode.desc,
+                )
+          ]))
+        .watch();
   }
 }
 
-LazyDatabase _openConnection() {
+const _kDbKeyStorageKey = 'recovery_db_sqlcipher_key_v1';
+
+String _generateKeyHex() {
+  final rnd = Random.secure();
+  final bytes = List<int>.generate(32, (_) => rnd.nextInt(256));
+  return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+}
+
+LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
+    const storage = FlutterSecureStorage();
+    var key = await storage.read(key: _kDbKeyStorageKey);
+    if (key == null || key.isEmpty) {
+      key = _generateKeyHex();
+      await storage.write(key: _kDbKeyStorageKey, value: key);
+    }
+
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
-    return NativeDatabase(file);
+
+    return NativeDatabase(
+      file,
+      setup: (rawDb) {
+        rawDb.execute("PRAGMA key = \"x'$key'\"");
+        rawDb.execute('PRAGMA cipher_page_size = 4096');
+        rawDb.execute('PRAGMA kdf_iter = 256000');
+      },
+    );
   });
 }
