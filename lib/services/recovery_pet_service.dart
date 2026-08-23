@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
@@ -19,11 +19,11 @@ enum PetMoodX {
   String get emoji {
     switch (this) {
       case PetMoodX.happy:
-        return 'ðŸ˜Š';
+        return '😊';
       case PetMoodX.neutral:
-        return 'ðŸ™‚';
+        return '🙂';
       case PetMoodX.sad:
-        return 'ðŸ¥º';
+        return '🥺';
     }
   }
 
@@ -118,7 +118,7 @@ class PetSpeciesCatalog {
       id: emberKitId,
       label: 'Ember Kit',
       tagline: 'A warm little flame that never burns out.',
-      emoji: 'ðŸ¦Š',
+      emoji: '🦊',
       bodyItemId: 'body_ember',
       defaultAuraId: 'aura_warm',
       unlockSparks: 0,
@@ -128,7 +128,7 @@ class PetSpeciesCatalog {
       id: 'tide_kin',
       label: 'Tide Kin',
       tagline: 'Soft as the shore, steady as the moon.',
-      emoji: 'ðŸ¦¦',
+      emoji: '🦦',
       bodyItemId: 'body_tide',
       defaultAuraId: 'aura_calm_blue',
       unlockSparks: 40,
@@ -138,7 +138,7 @@ class PetSpeciesCatalog {
       id: 'moss_sprite',
       label: 'Moss Sprite',
       tagline: 'Grows a little every single day.',
-      emoji: 'ðŸ¿ï¸',
+      emoji: '🐿️',
       bodyItemId: 'body_moss',
       defaultAuraId: 'aura_forest',
       unlockSparks: 55,
@@ -148,7 +148,7 @@ class PetSpeciesCatalog {
       id: 'star_whelp',
       label: 'Star Whelp',
       tagline: 'Carries its own night sky.',
-      emoji: 'ðŸº',
+      emoji: '🐺',
       bodyItemId: 'body_starlit',
       defaultAuraId: 'aura_starfield',
       unlockSparks: 90,
@@ -158,7 +158,7 @@ class PetSpeciesCatalog {
       id: 'sovereign_linx',
       label: 'Sovereign Lynx',
       tagline: 'Quiet dignity earned over miles.',
-      emoji: 'ðŸˆâ€â¬›',
+      emoji: '🐈‍⬛',
       bodyItemId: 'body_sovereign',
       defaultAuraId: 'aura_sovereign',
       unlockSparks: 150,
