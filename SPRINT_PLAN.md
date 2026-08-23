@@ -28,10 +28,12 @@
 | 4.1 Sobriety counters | ✅ Done (`SobrietyCounterScreen`, live tick, compassionate reset) |
 | 4.2 Recovery chips | ✅ Done (7 milestone chips per counter) |
 | 4.3 Wellness wheel | ✅ Done (`WellnessCheckInScreen`, 6 dimensions + history) |
-| 4.7 Daily motivation feed | ❌ Open |
+| 4.7 Daily motivation feed | ✅ Done (`DailyMotivationScreen`, 30 reflections + favorites) |
 | 4.8 Constellation tracker | ✅ Done (`ConstellationScreen` over DB points) |
 | 4.9 Weekly goals | ✅ Done (`WeeklyGoalsScreen`) |
 | Dresser economy | ✅ Catalog grid, sparks/bond/season gates, preset slots aligned |
+| Full companion screen | ✅ Done (`PetHomeScreen`: stats, outfits, care log via `pet_events`) |
+| Release polish | ✅ Launcher icons, key.properties signing, a11y tooltips; analyze clean |
 
 ---
 
