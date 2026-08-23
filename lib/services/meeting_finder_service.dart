@@ -22,6 +22,10 @@ class RecoveryMeeting {
   final String time;
   final String address;
 
+  /// Fellowship family — drives path-tailored filtering:
+  /// 'AA' | 'NA' | 'Dharma' | 'Wellbriety' | 'SMART' | 'Other'
+  final String fellowship;
+
   RecoveryMeeting({
     required this.id,
     required this.name,
@@ -30,6 +34,7 @@ class RecoveryMeeting {
     required this.type,
     required this.time,
     required this.address,
+    this.fellowship = 'Other',
   });
 
   bool get hasLocation => latitude != 0 || longitude != 0;
@@ -42,6 +47,7 @@ class RecoveryMeeting {
         'type': type,
         'time': time,
         'address': address,
+        'fellowship': fellowship,
       };
 
   factory RecoveryMeeting.fromJson(Map<String, dynamic> j) => RecoveryMeeting(
@@ -52,6 +58,7 @@ class RecoveryMeeting {
         type: j['type'] as String? ?? '',
         time: j['time'] as String? ?? '',
         address: j['address'] as String? ?? '',
+        fellowship: j['fellowship'] as String? ?? 'Other',
       );
 }
 
@@ -120,6 +127,7 @@ class MeetingFinderService {
     double lng, {
     double radiusKm = 50,
     int maxOnline = 30,
+    Set<String>? fellowships,
   }) async {
     var meetings = await _cachedMeetings();
 
@@ -160,7 +168,24 @@ class MeetingFinderService {
     }
     // Curated Minnesota pathway meetings (Dharma/Wellbriety etc.) always
     // ride along — they're the reason this app exists in this state.
-    return [...inRadius, ...MinnesotaPathwayMeetings.all, ...online];
+    final result = [...inRadius, ...MinnesotaPathwayMeetings.all, ...online];
+
+    // Path-tailoring: when the user's chosen pathways map to fellowships,
+    // keep only those — unless that would empty the circle entirely.
+    if (fellowships != null && fellowships.isNotEmpty) {
+      final tailored =
+          result.where((m) => fellowships.contains(m.fellowship)).toList();
+      if (tailored.isNotEmpty) return tailored;
+    }
+    return result;
+  }
+
+  /// Fellowship inferred from the source URL (feeds are single-fellowship).
+  static String fellowshipForSource(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('aaminnesota') || lower.contains('aa-')) return 'AA';
+    if (lower.contains('na') || lower.contains('bmlt')) return 'NA';
+    return 'Other';
   }
 
   /// Downloads every enabled source and rebuilds the local cache.
@@ -178,7 +203,8 @@ class MeetingFinderService {
         if (response.statusCode != 200) continue;
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is! List) continue;
-        for (final m in parseTsmlFeed(decoded)) {
+        for (final m in parseTsmlFeed(decoded,
+            fellowship: fellowshipForSource(url))) {
           all[m.id] = m;
         }
       } catch (_) {
@@ -239,7 +265,10 @@ class MeetingFinderService {
     return Uri.parse(sourceUrl);
   }
 
-  List<RecoveryMeeting> parseTsmlFeed(List<dynamic> items) {
+  List<RecoveryMeeting> parseTsmlFeed(
+    List<dynamic> items, {
+    String fellowship = 'Other',
+  }) {
     final out = <RecoveryMeeting>[];
     for (final raw in items) {
       if (raw is! Map<String, dynamic>) continue;
@@ -315,6 +344,7 @@ class MeetingFinderService {
         type: type,
         time: time,
         address: address,
+        fellowship: fellowship,
       ));
     }
     return out;

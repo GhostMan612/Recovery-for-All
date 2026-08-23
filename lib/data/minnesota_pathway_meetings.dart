@@ -67,6 +67,7 @@ class MinnesotaPathwayMeetings {
       type: online ? 'Recovery Dharma · Online' : 'Recovery Dharma · Open',
       time: time,
       address: address,
+      fellowship: 'Dharma',
     );
   }
 

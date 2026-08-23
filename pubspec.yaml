@@ -48,7 +48,12 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/app_icon.png"
+  image_path: "assets/images/app_icon_circle.png"
+  # Adaptive icons (Android 8+): the circle art rides the FULL-BLEED
+  # background layer, so it fills the launcher mask edge-to-edge instead of
+  # showing as a square inside a circle.
+  adaptive_icon_background: "assets/images/app_icon_circle.png"
+  adaptive_icon_foreground: "assets/images/app_icon_circle.png"
 
 flutter:
   uses-material-design: true

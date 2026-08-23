@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
@@ -14,11 +15,13 @@ import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/sos_notification_service.dart';
+import '../widgets/themed_background.dart';
 import 'avatar_dresser_screen.dart';
 import 'chatbot_screen.dart';
 import 'community_resources_screen.dart';
 import 'community_feed_screen.dart';
 import 'constellation_screen.dart';
+import 'constellation_canvas_3d.dart';
 import 'coping_tool_screen.dart';
 import 'daily_reflection_screen.dart';
 import 'gratitude_entry_screen.dart';
@@ -58,7 +61,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<String> _paths = [];
   List<String> _tools = [];
 
+  // Constellation crown — the user's path, visible on open.
+  List<ConstellationNode3D>? _skyNodes;
+  String? _skyName;
+
   final MeetingFinderService _meetingFinder = MeetingFinderService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadSky();
+  }
+
+  Future<void> _loadSky() async {
+    try {
+      final points = await widget.database.getConstellationPoints();
+      final sorted = [...points]
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _skyName = prefs.getString('constellation_sky_name_v1');
+        _skyNodes = sorted
+            .map((p) => ConstellationNode3D(
+                  id: p.id,
+                  title: p.title,
+                  category: p.category,
+                  timestamp: DateTime.fromMillisecondsSinceEpoch(p.timestamp),
+                  x: (p.positionX - 0.5) * 0.8,
+                  y: (p.positionY - 0.5) * 0.6,
+                  z: ((p.title.hashCode % 100) / 100 - 0.5) * 0.2,
+                ))
+            .toList();
+      });
+    } catch (_) {
+      // The crown is decorative; never block the dashboard for it.
+    }
+  }
+
+  /// Pathway → fellowship families for meeting tailoring.
+  Set<String>? _allowedFellowships() {
+    final set = <String>{};
+    if (_paths.contains('12-Step (AA/NA)')) set.addAll({'AA', 'NA'});
+    if (_paths.contains('Recovery Dharma')) set.add('Dharma');
+    if (_paths.contains('Wellbriety')) set.add('Wellbriety');
+    return set.isEmpty ? null : set;
+  }
 
   /// Real device location when permitted; neutral fallback otherwise.
   Future<(double, double)> _resolveLocation() async {
@@ -79,12 +128,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       return _defaultCenter;
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
   }
 
   Future<void> _loadUserData() async {
@@ -228,6 +271,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onChanged: (updated) {
             setState(() => _pet = updated);
           },
+        ),
+      ),
+    );
+  }
+
+  /// The constellation as a compact, tappable crown above the toolbox.
+  Widget _buildSkyCrown() {
+    final nodes = _skyNodes;
+    return GestureDetector(
+      onTap: () {
+        _push(ConstellationScreen(database: widget.database));
+        _loadSky();
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 150,
+          color: const Color(0xFF0B1120),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (nodes != null && nodes.isNotEmpty)
+                RecoveryConstellation3DWidget(nodes: nodes.take(24).toList())
+              else
+                ThemedBackground(
+                  enableKenBurns: false,
+                  scrimOpacity: 0.55,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.auto_awesome,
+                            size: 30, color: AppColors.accent),
+                        SizedBox(height: 8),
+                        Text('Plant your first star — name your sky',
+                            style: TextStyle(
+                                color: AppColors.textMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 12,
+                bottom: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _skyName ?? 'Your Constellation',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (nodes != null && nodes.isNotEmpty)
+                      Text('${nodes.length} stars',
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Positioned(
+                right: 10,
+                top: 8,
+                child: Icon(Icons.expand_outlined,
+                    size: 18, color: Colors.white24),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -395,7 +508,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _openMeetings() async {
     final (lat, lng) = await _resolveLocation();
-    final meetings = await _meetingFinder.findNearbyMeetings(lat, lng);
+    var meetings = await _meetingFinder.findNearbyMeetings(lat, lng,
+        fellowships: _allowedFellowships());
+    if (meetings.isEmpty) {
+      meetings = await _meetingFinder.findNearbyMeetings(lat, lng);
+    }
     if (!mounted) return;
     _push(MeetingMapScreen(initialMeetings: meetings, database: widget.database));
   }
@@ -476,11 +593,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     final (lat, lng) = await _resolveLocation();
-                    final all = await _meetingFinder
-                        .findNearbyMeetings(lat, lng)
-                        .then((m) => m.take(3).toList());
+                    final fellowships = _allowedFellowships();
+                    var all = await _meetingFinder
+                        .findNearbyMeetings(lat, lng, fellowships: fellowships);
+                    if (all.isEmpty) {
+                      all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                    }
                     if (!mounted) return;
-                    _push(MeetingMapScreen(initialMeetings: all, database: widget.database));
+                    _push(MeetingMapScreen(
+                        initialMeetings: all.take(3).toList(),
+                        database: widget.database));
                   },
                 ),
                 _SosTile(
@@ -550,6 +672,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Constellation crown — the path, visible on open.
+              _buildSkyCrown(),
+              const SizedBox(height: 16),
               if (_paths.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
