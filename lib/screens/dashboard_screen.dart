@@ -25,6 +25,7 @@ import 'gratitude_entry_screen.dart';
 import 'grounding_screen.dart';
 import 'journal_screen.dart';
 import 'meeting_map_screen.dart';
+import 'native_resources_screen.dart';
 import 'pet_home_screen.dart';
 import 'settings_screen.dart';
 import 'sober_housing_locator.dart';
@@ -325,6 +326,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'White Bison gatherings',
         icon: Icons.circle_outlined,
         onTap: () => _push(const WellbrietyCirclesScreen()),
+      ));
+      cards.add(_ToolCard(
+        label: 'Native Resources',
+        subtitle: 'MN culturally specific care',
+        icon: Icons.spa_outlined,
+        onTap: () => _push(const NativeResourcesScreen()),
       ));
     }
 

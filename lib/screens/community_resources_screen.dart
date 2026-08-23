@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
+import 'native_resources_screen.dart';
 
 class _ResourceLink {
   final String title;
@@ -52,6 +53,12 @@ class CommunityResourcesScreen extends StatelessWidget {
       'Every RCO across the state, listed by region',
       'https://www.minnesotarecovery.org/rcos-in-minnesota/',
       icon: Icons.map_outlined,
+    ),
+    _ResourceLink(
+      'Recovery Dharma Minnesota',
+      'Buddhist-inspired sangha — meetings, events, retreats',
+      'https://recoverydharmamn.org/',
+      icon: Icons.self_improvement,
     ),
   ];
 
@@ -208,6 +215,12 @@ class CommunityResourcesScreen extends StatelessWidget {
     } catch (_) {}
   }
 
+  void _openNative(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const NativeResourcesScreen()),
+    );
+  }
+
   Widget _section(String header, List<_ResourceLink> links) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,6 +289,30 @@ class CommunityResourcesScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _section('Minnesota', _minnesota),
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(14),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                leading: const Icon(Icons.spa_outlined, color: AppColors.accent),
+                title: const Text('Native Recovery Centers (in-app)',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                    'Culturally specific programs across Minnesota',
+                    style:
+                        TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right,
+                    size: 18, color: Colors.white38),
+                onTap: () => _openNative(context),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           _section('Daily Practice & Online Rooms', _dailyPractice),
           const SizedBox(height: 12),

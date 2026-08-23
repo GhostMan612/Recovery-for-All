@@ -11,6 +11,8 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/minnesota_pathway_meetings.dart';
+
 class RecoveryMeeting {
   final String id;
   final String name;
@@ -117,7 +119,7 @@ class MeetingFinderService {
     double lat,
     double lng, {
     double radiusKm = 50,
-    int maxOnline = 25,
+    int maxOnline = 30,
   }) async {
     var meetings = await _cachedMeetings();
 
@@ -156,7 +158,9 @@ class MeetingFinderService {
       // Located-but-far meetings are dropped entirely: a Colorado user
       // should never scroll past a California church basement.
     }
-    return [...inRadius, ...online];
+    // Curated Minnesota pathway meetings (Dharma/Wellbriety etc.) always
+    // ride along — they're the reason this app exists in this state.
+    return [...inRadius, ...MinnesotaPathwayMeetings.all, ...online];
   }
 
   /// Downloads every enabled source and rebuilds the local cache.
