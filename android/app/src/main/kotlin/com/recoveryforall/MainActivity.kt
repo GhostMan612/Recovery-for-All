@@ -3,7 +3,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
-package com.recovery_for_all
+package com.recoveryforall
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

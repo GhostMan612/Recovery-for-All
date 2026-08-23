@@ -23,7 +23,7 @@ val localProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.recovery_for_all"
+    namespace = "com.recoveryforall"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -34,10 +34,9 @@ android {
     }
 
     defaultConfig {
-        // Matches the pre-registered Firebase app in project "recovery-for-all"
-        // (android/app/google-services.json). Namespace and applicationId are
-        // unified on com.recovery_for_all.
-        applicationId = "com.recovery_for_all"
+        // Matches the Firebase app registration (com.recoveryforall —
+        // Android package segments cannot contain underscores).
+        applicationId = "com.recoveryforall"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
