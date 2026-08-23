@@ -32,6 +32,8 @@ dependencies:
   flutter_riverpod: ^2.4.9
   local_auth: ^2.2.0
   timezone: ^0.9.4
+  firebase_core: ^3.6.0
+  cloud_firestore: ^5.4.4
 
 dev_dependencies:
   flutter_test:

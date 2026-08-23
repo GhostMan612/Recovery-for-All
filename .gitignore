@@ -57,6 +57,9 @@ app.*.map.json
 *.pyc
 __pycache__/
 
+# Firebase per-project config (drop in your own; never share publicly)
+android/app/google-services.json
+
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
 

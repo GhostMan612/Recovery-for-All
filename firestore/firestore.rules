@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Recovery Circle — community_feeds security rules
+//
+// Privacy posture (pet-store-rules.md §4):
+//   * Alias-only: rules REJECT any document containing identity-shaped
+//     fields (uid, email, location, coordinates, device, ip...).
+//   * No sober-time numbers: fields like days/sobriety/counters rejected.
+//   * Anyone may read visible posts; writes are create-only with strict
+//     validation; edits/deletes happen only through moderation tooling
+//     (future) or by leaving posts alone.
+//
+// Deploy: firebase deploy --only firestore:rules  (or paste in console)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function validKind() {
+      return request.resource.data.kind in ['story', 'chip', 'shape'];
+    }
+    function validStatus() {
+      return request.resource.data.status == 'visible';
+    }
+    function validBody() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 480;
+    }
+    function validAlias() {
+      return request.resource.data.authorAlias is string
+        && request.resource.data.authorAlias.size() > 0
+        && request.resource.data.authorAlias.size() <= 24;
+    }
+    function validCounts() {
+      return request.resource.data.strengthCount == 0
+        && request.resource.data.proudCount == 0
+        && request.resource.data.respectCount == 0;
+    }
+    function noIdentityFields() {
+      return !request.resource.data.keys().hasAny([
+        'uid', 'userId', 'email', 'phone', 'location', 'city',
+        'coordinates', 'latitude', 'longitude', 'device', 'ip',
+        'daysSober', 'sobrietyDays', 'counter', 'startDate',
+      ]);
+    }
+
+    match /community_feeds/{postId} {
+      // Visible posts are readable by any signed-in-or-anonymous client.
+      allow get, list: if resource == null || resource.data.status == 'visible';
+
+      // Create-only, strictly validated. No updates from clients:
+      // reaction counts are updated via a future Cloud Function once
+      // networked moderation ships.
+      allow create: if request.request.method == 'create'
+        && validKind()
+        && validStatus()
+        && validBody()
+        && validAlias()
+        && validCounts()
+        && noIdentityFields()
+        && request.resource.data.keys().hasOnly([
+             'authorAlias', 'kind', 'body', 'shapeJson', 'needsSupport',
+             'status', 'strengthCount', 'proudCount', 'respectCount',
+             'createdAt',
+           ]);
+
+      allow update, delete: if false;
+    }
+  }
+}

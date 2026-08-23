@@ -322,7 +322,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               ),
               Expanded(
                 child: StreamBuilder<List<FeedPost>>(
-                  stream: widget.database.watchVisibleFeed(),
+                  stream: _feed.watchMergedFeed(),
                   builder: (context, snapshot) {
                     final posts = snapshot.data ?? const <FeedPost>[];
                     if (posts.isEmpty) {

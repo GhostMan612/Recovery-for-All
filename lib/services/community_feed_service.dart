@@ -14,9 +14,15 @@
 //   C5 keyword flags route posts to a moderation queue; moderator mode is
 //      an explicit local opt-in
 //
-// Transport-agnostic: backed by local Drift today so the whole pipeline is
-// real and testable; swapping in Firestore later only replaces this class.
+// Transport: backed by local Drift always. When Firebase is configured
+// (google-services.json present + initializeApp succeeded), the circle also
+// mirrors to Firestore `community_feeds` so shapes travel between devices.
+// Reactions/flags/moderation stay local until networked moderation exists
+// (rules doc §4 C5).
 
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,6 +38,11 @@ enum FeedComposeResult {
 class CommunityFeedService {
   static const String _keyModerator = 'feed_moderator_v1';
   static const int maxPostLength = 480;
+
+  static const String remoteCollection = 'community_feeds';
+
+  /// Set once in main() after a successful Firebase.initializeApp().
+  static bool remoteReady = false;
 
   /// Softer than crisis: relapse language still belongs in the circle,
   /// it just always travels with visible support (rule C4).
@@ -52,6 +63,124 @@ class CommunityFeedService {
   final RecoveryDatabase database;
 
   CommunityFeedService(this.database);
+
+  // ---- remote mirror (Firestore, optional) ----
+
+  /// Local + remote merged, deduped by id (local rows win), newest first.
+  Stream<List<FeedPost>> watchMergedFeed() {
+    final local = database.watchVisibleFeed();
+    if (!remoteReady) return local;
+
+    final remote = FirebaseFirestore.instance
+        .collection(remoteCollection)
+        .where('status', isEqualTo: 'visible')
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((snap) {
+      return snap.docs.map((doc) {
+        final data = doc.data();
+        try {
+          return FeedPost(
+            id: doc.id,
+            authorAlias: (data['authorAlias'] ?? 'Anonymous') as String,
+            kind: (data['kind'] ?? 'story') as String,
+            body: (data['body'] ?? '') as String,
+            shapeJson: data['shapeJson'] as String?,
+            needsSupport: (data['needsSupport'] ?? false) as bool,
+            status: 'visible',
+            flagCount: 0,
+            strengthCount: (data['strengthCount'] ?? 0) as int,
+            proudCount: (data['proudCount'] ?? 0) as int,
+            respectCount: (data['respectCount'] ?? 0) as int,
+            createdAt: (data['createdAt'] ?? 0) as int,
+            isMine: false,
+          );
+        } catch (_) {
+          // Malformed remote docs are skipped entirely.
+          return null;
+        }
+      }).whereType<FeedPost>().toList();
+    });
+
+    List<FeedPost> latestLocal = const <FeedPost>[];
+    List<FeedPost> latestRemote = const <FeedPost>[];
+    bool hasRemote = false;
+
+    List<FeedPost> merged() {
+      final byId = <String, FeedPost>{};
+      for (final p in latestRemote) {
+        byId[p.id] = p;
+      }
+      for (final p in latestLocal) {
+        byId[p.id] = p; // local wins on id collisions
+      }
+      return byId.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+
+    late StreamController<List<FeedPost>> controller;
+    late StreamSubscription<List<FeedPost>> localSub;
+    late StreamSubscription<List<FeedPost>> remoteSub;
+
+    controller = StreamController<List<FeedPost>>(
+      onListen: () {
+        localSub = local.listen(
+          (list) {
+            latestLocal = list;
+            controller.add(hasRemote ? merged() : list);
+          },
+          onError: (Object _) => controller.add(latestLocal),
+        );
+        remoteSub = remote.listen(
+          (list) {
+            latestRemote = list;
+            hasRemote = true;
+            controller.add(merged());
+          },
+          // Cloud unreachable → fall back to the local circle silently.
+          onError: (Object _) => controller.add(latestLocal),
+          cancelOnError: true,
+        );
+      },
+      onPause: () {
+        localSub.pause();
+        remoteSub.pause();
+      },
+      onResume: () {
+        localSub.resume();
+        remoteSub.resume();
+      },
+      onCancel: () async {
+        await localSub.cancel();
+        await remoteSub.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  Future<void> _mirrorToRemote(FeedPost post) async {
+    if (!remoteReady) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection(remoteCollection)
+          .doc(post.id)
+          .set({
+        'authorAlias': post.authorAlias,
+        'kind': post.kind,
+        'body': post.body,
+        'shapeJson': post.shapeJson,
+        'needsSupport': post.needsSupport,
+        'status': post.status,
+        'strengthCount': post.strengthCount,
+        'proudCount': post.proudCount,
+        'respectCount': post.respectCount,
+        'createdAt': post.createdAt,
+      });
+    } catch (_) {
+      // Offline-first promise: the local circle works regardless of cloud.
+    }
+  }
 
   // ---- moderator mode (C5, explicit local opt-in) ----
 
@@ -89,7 +218,7 @@ class CommunityFeedService {
     final needsSupport =
         _supportWords.any((w) => lower.contains(w));
 
-    await database.addFeedPost(FeedPost(
+    final post = FeedPost(
       id: 'feed_${DateTime.now().millisecondsSinceEpoch}_${text.hashCode & 0xFFFF}',
       authorAlias: _cleanAlias(authorAlias),
       kind: kind,
@@ -104,7 +233,9 @@ class CommunityFeedService {
       isMine: true,
       createdAt:
           (at ?? DateTime.now()).millisecondsSinceEpoch,
-    ));
+    );
+    await database.addFeedPost(post);
+    await _mirrorToRemote(post);
     return needsSupport
         ? FeedComposeResult.publishedWithSupport
         : FeedComposeResult.published;
