@@ -11,6 +11,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/open.dart';
+import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
 part 'recovery_database.g.dart';
 
@@ -407,6 +409,13 @@ String _generateKeyHex() {
 
 LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
+    // Route package:sqlite3 at the bundled SQLCipher build (the native-assets
+    // sqlite3mc experiment failed to ship libsqlite3.so on device).
+    if (Platform.isAndroid) {
+      await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
+      open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+    }
+
     const storage = FlutterSecureStorage();
     var key = await storage.read(key: _kDbKeyStorageKey);
     if (key == null || key.isEmpty) {
