@@ -52,6 +52,11 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 app.*.symbols
 app.*.map.json
 
+# Python ML tooling (trainer environments)
+.venv*/
+*.pyc
+__pycache__/
+
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
 

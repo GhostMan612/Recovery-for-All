@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../database/recovery_database.dart';
 import '../services/recovery_coach_service.dart';
+import '../services/coach_tflite_intent_service.dart';
 import '../services/ollama_service.dart';
 import '../services/safety_guardrail_service.dart';
 
@@ -63,7 +64,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
 
     try {
-      final CoachReply coachReply = await RecoveryCoachService.reply(text);
+      // Optional on-device model refines intents; keywords remain the floor.
+      // A confident "unknown" from the model also falls back to keywords.
+      final modelIntent = await CoachTfliteIntentService.classify(text);
+      final CoachReply coachReply =
+          (modelIntent == null || modelIntent == CoachIntent.unknown)
+              ? await RecoveryCoachService.reply(text)
+              : await RecoveryCoachService.replyFromIntent(modelIntent);
 
       if (coachReply.isCrisis) {
         setState(() {

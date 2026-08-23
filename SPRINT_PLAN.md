@@ -34,6 +34,8 @@
 | Dresser economy | ✅ Catalog grid, sparks/bond/season gates, preset slots aligned |
 | Full companion screen | ✅ Done (`PetHomeScreen`: stats, outfits, care log via `pet_events`) |
 | Release polish | ✅ Launcher icons, key.properties signing, a11y tooltips; analyze clean |
+| Coach TFLite intent model | ✅ Trained + shipped (14 KB INT8); wired into chatbot with keyword floor; release APK builds |
+| Release build | ✅ `flutter build apk --release` green (74.5 MB) |
 
 ---
 
