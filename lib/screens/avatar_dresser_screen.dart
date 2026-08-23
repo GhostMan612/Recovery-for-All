@@ -132,6 +132,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                 child: Row(
                   children: [
                     IconButton(
+                      tooltip: 'Close dresser',
                       icon: const Icon(Icons.close, color: Colors.white),
                       onPressed: () => Navigator.pop(context, _pet),
                     ),

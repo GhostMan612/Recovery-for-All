@@ -46,9 +46,23 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signs with a real keystore when android/key.properties exists
+            // (storeFile/storePassword/keyAlias/keyPassword); otherwise falls
+            // back to debug signing so `flutter run --release` still works.
+            val keystoreProperties = Properties().apply {
+                val f = rootProject.file("key.properties")
+                if (f.exists()) f.inputStream().use { load(it) }
+            }
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(keystoreProperties.getProperty("storeFile"))
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    keyAlias = keystoreProperties.getProperty("keyAlias")
+                    keyPassword = keystoreProperties.getProperty("keyPassword")
+                }
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }
