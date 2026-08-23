@@ -63,6 +63,29 @@ void main() {
     expect(m.time, contains('12:00 AM'));
   });
 
+  test('parses BMLT string coordinates ("lat,lng")', () {
+    final meetings = service.parseTsmlFeed([
+      {
+        'name': 'Experience, Strength, & Hope',
+        'slug': 'experience-strength-hope-1049',
+        'day': 0,
+        'time': '09:00',
+        'city': 'Saint Paul',
+        'state': 'MN',
+        'types': ['BT', 'C'],
+        'coordinates': '44.9330076,-93.1629063',
+      },
+    ]);
+
+    expect(meetings, hasLength(1));
+    final m = meetings.single;
+    expect(m.hasLocation, isTrue);
+    expect(m.latitude, closeTo(44.9330, 0.0001));
+    expect(m.longitude, closeTo(-93.1629, 0.0001));
+    expect(m.time, contains('Sun'));
+    expect(m.address, contains('Saint Paul'));
+  });
+
   test('sortByDistance puts located meetings first, nearest at top', () {
     final meetings = [
       RecoveryMeeting(

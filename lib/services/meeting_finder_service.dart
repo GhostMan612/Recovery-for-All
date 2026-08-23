@@ -73,7 +73,9 @@ class MeetingFinderService {
   static const List<String> defaultSources = [
     // Code for Recovery sample sheet feed (AA demo dataset).
     'https://sheets.code4recovery.org/storage/12Ga8uwMG4WJ8pZ_SEU7vNETp_aQZ-2yNVsYDFqIwHyE.json',
-    // BMLT aggregator — NA meetings worldwide (geo-filtered per request).
+    // NA Minnesota regional root server (geo-bounded per request).
+    'https://bmlt.naminnesota.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // BMLT aggregator — NA meetings worldwide (geo-bounded per request).
     'https://aggregator.bmltenabled.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
   ];
 
@@ -220,13 +222,18 @@ class MeetingFinderService {
       final name = (raw['name'] as String?)?.trim();
       if (name == null || name.isEmpty) continue;
 
-      // Coordinates: newer feeds nest them; others expose flat keys.
+      // Coordinates: newer feeds nest them; others use flat keys or a
+      // "lat,lng" string (BMLT tsml output).
       double? lat;
       double? lng;
       final coords = raw['coordinates'];
       if (coords is Map) {
         lat = _asDouble(coords['latitude']);
         lng = _asDouble(coords['longitude']);
+      } else if (coords is String && coords.contains(',')) {
+        final pair = coords.split(',');
+        lat = _asDouble(pair.first.trim());
+        lng = _asDouble(pair.length > 1 ? pair[1].trim() : null);
       }
       lat ??= _asDouble(raw['latitude']);
       lng ??= _asDouble(raw['longitude']);

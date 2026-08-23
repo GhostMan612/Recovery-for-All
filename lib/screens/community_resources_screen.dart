@@ -76,6 +76,132 @@ class CommunityResourcesScreen extends StatelessWidget {
     ),
   ];
 
+  static const List<_ResourceLink> _twelveStep = [
+    _ResourceLink(
+      'Alcoholics Anonymous — Find A.A.',
+      'Official aa.org meeting finder',
+      'https://www.aa.org/find-aa',
+      icon: Icons.local_bar_outlined,
+    ),
+    _ResourceLink(
+      'Online Intergroup of A.A. (OIAA)',
+      'AA meetings online, every hour of every day',
+      'https://aa-intergroup.org/',
+      icon: Icons.language,
+    ),
+    _ResourceLink(
+      'aahomegroup — 24/7 Live Zoom',
+      'The original around-the-clock AA Zoom room',
+      'https://aahomegroup.org/',
+      icon: Icons.home_outlined,
+    ),
+    _ResourceLink(
+      'Narcotics Anonymous — NA Works',
+      'Official NA meeting search',
+      'https://naworks.org/all_meetings/',
+      icon: Icons.group_work_outlined,
+    ),
+    _ResourceLink(
+      'Virtual NA Meetings',
+      'Global online and phone NA gatherings',
+      'https://virtual-na.org/',
+      icon: Icons.videocam_outlined,
+    ),
+    _ResourceLink(
+      'NA Minnesota Region',
+      'Regional meeting search for Minnesota',
+      'https://naminnesota.org/',
+      icon: Icons.map_outlined,
+    ),
+    _ResourceLink(
+      'Cocaine Anonymous',
+      'Official C.A. meeting search',
+      'https://ca.org/',
+      icon: Icons.search,
+    ),
+    _ResourceLink(
+      'Crystal Meth Anonymous Online',
+      'C.M.A. online meeting listings',
+      'https://online.crystalmeth.org/',
+      icon: Icons.search,
+    ),
+    _ResourceLink(
+      'Adult Children of Alcoholics (ACA)',
+      'Fellowship for dysfunctional-family origins',
+      'https://adultchildren.org/',
+      icon: Icons.family_restroom,
+    ),
+  ];
+
+  static const List<_ResourceLink> _secularMindfulness = [
+    _ResourceLink(
+      'SMART Recovery Meetings',
+      'CBT-based tools, in person and online',
+      'https://smartrecovery.org/meeting',
+      icon: Icons.psychology_outlined,
+    ),
+    _ResourceLink(
+      'Recovery Dharma Meetings',
+      'Buddhist-inspired mindfulness sanghas',
+      'https://recoverydharma.org/meetings/',
+      icon: Icons.self_improvement,
+    ),
+    _ResourceLink(
+      'Secular Organizations for Sobriety',
+      'S.O.S. secular meeting locator',
+      'https://www.sossobriety.org/',
+      icon: Icons.light_mode_outlined,
+    ),
+    _ResourceLink(
+      'Women for Sobriety',
+      'Program built by and for women',
+      'https://womenforsobriety.org/',
+      icon: Icons.favorite_outline,
+    ),
+    _ResourceLink(
+      'Celebrate Recovery',
+      'Christ-centered recovery groups',
+      'https://celebraterecovery.com/',
+      icon: Icons.church_outlined,
+    ),
+  ];
+
+  static const List<_ResourceLink> _familyFriends = [
+    _ResourceLink(
+      'Al-Anon Family Groups',
+      'Support for families affected by alcoholism',
+      'https://al-anon.org/',
+      icon: Icons.family_restroom,
+    ),
+    _ResourceLink(
+      'Alateen (Teens)',
+      'Meeting finder for teenagers',
+      'https://al-anon.org/newcomers/teen-corner-alateen/',
+      icon: Icons.emoji_people_outlined,
+    ),
+    _ResourceLink(
+      'Nar-Anon Find a Meeting',
+      'Support for families affected by addiction',
+      'https://www.nar-anon.org/find-a-meeting',
+      icon: Icons.diversity_1_outlined,
+    ),
+  ];
+
+  static const List<_ResourceLink> _treatmentLocators = [
+    _ResourceLink(
+      'FastTrackerMN',
+      'Real-time SUD bed & service availability, MN + Tribal nations',
+      'https://sud.fasttrackermn.org/search',
+      icon: Icons.bed_outlined,
+    ),
+    _ResourceLink(
+      'SAMHSA FindTreatment.gov',
+      'National licensed treatment locator',
+      'https://findtreatment.gov/',
+      icon: Icons.medical_services_outlined,
+    ),
+  ];
+
   Future<void> _open(String url) async {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -152,6 +278,14 @@ class CommunityResourcesScreen extends StatelessWidget {
           _section('Minnesota', _minnesota),
           const SizedBox(height: 12),
           _section('Daily Practice & Online Rooms', _dailyPractice),
+          const SizedBox(height: 12),
+          _section('Twelve-Step Fellowships', _twelveStep),
+          const SizedBox(height: 12),
+          _section('Secular, Mindfulness & Faith-Based', _secularMindfulness),
+          const SizedBox(height: 12),
+          _section('Family & Friends', _familyFriends),
+          const SizedBox(height: 12),
+          _section('Treatment & Beds', _treatmentLocators),
           const SizedBox(height: 24),
         ],
       ),
