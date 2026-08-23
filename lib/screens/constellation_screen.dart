@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/recovery_database.dart';
+import '../services/community_feed_service.dart';
 import '../services/recovery_pet_service.dart';
 import 'constellation_canvas_3d.dart';
 import '../core/theme/app_colors.dart';
@@ -123,6 +124,96 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     final nodes = _nodes;
     if (nodes == null || nodes.isEmpty) return;
 
+    final shape = _renderShapeGrid(nodes);
+    final spanDays = _spanNights(nodes);
+    final name = _skyName ?? 'My constellation';
+
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(shape,
+                    style: const TextStyle(
+                        fontSize: 11, height: 1.3, letterSpacing: 2)),
+              ),
+              const SizedBox(height: 6),
+              const Text('Shapes travel. Day counts stay private.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              const SizedBox(height: 12),
+              ListTile(
+                leading:
+                    const Icon(Icons.copy_all_outlined, color: AppColors.accent),
+                title: const Text('Copy shape',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                onTap: () => Navigator.pop(sheetContext, 'copy'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.forum_outlined,
+                    color: AppColors.accent),
+                title: const Text('Post to Recovery Circle',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                subtitle: const Text('Shape only — never your numbers',
+                    style:
+                        TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                onTap: () => Navigator.pop(sheetContext, 'post'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (choice == 'copy') {
+      await Clipboard.setData(ClipboardData(text: '''
+$name
+
+$shape
+
+${nodes.length} stars over $spanDays nights
+— Recovery Companion'''));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E293B),
+          content:
+              const Text('Star shape copied — your day counts stay private'),
+        ),
+      );
+    } else if (choice == 'post') {
+      final profile =
+          await widget.database.getProfile('active_user_profile');
+      await CommunityFeedService(widget.database).compose(
+        authorAlias: profile?.anonymousUsername ?? 'Anonymous',
+        body: '$name — ${nodes.length} stars over $spanDays nights',
+        kind: 'shape',
+        shapeJson: shape,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E293B),
+          content: const Text('Constellation shared with the circle.'),
+        ),
+      );
+    }
+  }
+
+  String _renderShapeGrid(List<ConstellationNode3D> nodes) {
     const cols = 9;
     const rows = 5;
     final grid = List.generate(rows, (_) => List.filled(cols, '·'));
@@ -132,32 +223,14 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
       final cy = (((n.y / 0.6) + 0.5).clamp(0.0, 0.999) * rows).floor();
       grid[cy][cx] = '✦';
     }
-
-    final spanDays =
-        ((nodes.last.timestamp.millisecondsSinceEpoch -
-                    nodes.first.timestamp.millisecondsSinceEpoch) /
-                86400000)
-            .floor();
-    final buffer = StringBuffer()
-      ..writeln(_skyName ?? 'My constellation')
-      ..writeln('')
-      ..writeln([
-        for (final row in grid) row.join(),
-      ].join('\n'))
-      ..writeln('')
-      ..writeln('${nodes.length} stars over $spanDays nights')
-      ..writeln('— Recovery Companion');
-
-    await Clipboard.setData(ClipboardData(text: buffer.toString()));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
-        content: const Text(
-            'Star shape copied — your day counts stay private'),
-      ),
-    );
+    return [for (final row in grid) row.join()].join('\n');
   }
+
+  int _spanNights(List<ConstellationNode3D> nodes) =>
+      ((nodes.last.timestamp.millisecondsSinceEpoch -
+              nodes.first.timestamp.millisecondsSinceEpoch) /
+          86400000)
+      .floor();
 
   @override
   Widget build(BuildContext context) {

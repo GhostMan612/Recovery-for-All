@@ -94,6 +94,39 @@ class WellnessCheckIns extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Community "Recovery Circle" feed (Volume III /community_feeds).
+/// Privacy posture: alias-only, no location fields, no sober-time numbers.
+@DataClassName('FeedPost')
+class FeedPosts extends Table {
+  TextColumn get id => text()();
+  TextColumn get authorAlias => text()();
+
+  /// story | chip | shape
+  TextColumn get kind => text()();
+  TextColumn get body => text().withLength(min: 1, max: 480)();
+
+  /// Optional constellation share payload (relative star positions).
+  TextColumn get shapeJson => text().nullable()();
+
+  /// true when relapse-language was detected — post publishes but renders a
+  /// persistent support-resources footer (rule C4).
+  BoolColumn get needsSupport => boolean().withDefault(const Constant(false))();
+
+  /// visible | pending | hidden
+  TextColumn get status => text().withDefault(const Constant('visible'))();
+  IntColumn get flagCount => integer().withDefault(const Constant(0))();
+
+  /// Masked support reaction counts (Volume III support_reactions).
+  IntColumn get strengthCount => integer().withDefault(const Constant(0))();
+  IntColumn get proudCount => integer().withDefault(const Constant(0))();
+  IntColumn get respectCount => integer().withDefault(const Constant(0))();
+  IntColumn get createdAt => integer()();
+  BoolColumn get isMine => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('RecoveryPetRow')
 class RecoveryPets extends Table {
   TextColumn get id => text()();
@@ -134,6 +167,7 @@ class PetEvents extends Table {
   WellnessCheckIns,
   RecoveryPets,
   PetEvents,
+  FeedPosts,
 ])
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
@@ -141,7 +175,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -168,6 +202,9 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             }
             if (from < 6) {
               await m.addColumn(profiles, profiles.personalityJson);
+            }
+            if (from < 7) {
+              await m.createTable(feedPosts);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -277,6 +314,75 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   }
 
   Future<int> addPetEvent(PetEventRow event) => into(petEvents).insert(event);
+
+  // ---- Recovery Circle feed ----
+
+  Future<int> addFeedPost(FeedPost post) => into(feedPosts).insert(post);
+
+  /// Rule C3: newest first. There is deliberately no sober-time field to
+  /// sort by — the feed cannot become a leaderboard.
+  Stream<List<FeedPost>> watchVisibleFeed() {
+    return (select(feedPosts)
+          ..where((t) => t.status.equals('visible'))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.desc,
+                )
+          ]))
+        .watch();
+  }
+
+  /// Rule C5: moderation queue = pending + community-flagged posts.
+  Stream<List<FeedPost>> watchModerationQueue() {
+    return (select(feedPosts)
+          ..where((t) =>
+              t.status.equals('pending') | t.flagCount.isBiggerThanValue(0))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.desc,
+                )
+          ]))
+        .watch();
+  }
+
+  Future<void> reactToPost(String postId,
+      {required String kind, int by = 1}) async {
+    final rows =
+        await (select(feedPosts)..where((tbl) => tbl.id.equals(postId))).get();
+    if (rows.isEmpty) return;
+    final post = rows.first;
+    final current = switch (kind) {
+      'strength' => post.strengthCount,
+      'proud' => post.proudCount,
+      _ => post.respectCount,
+    };
+    final next = (current + by).clamp(0, 1 << 30);
+    await (update(feedPosts)..where((tbl) => tbl.id.equals(postId))).write(
+      FeedPostsCompanion(
+        strengthCount: kind == 'strength' ? Value(next) : const Value.absent(),
+        proudCount: kind == 'proud' ? Value(next) : const Value.absent(),
+        respectCount: kind == 'respect' ? Value(next) : const Value.absent(),
+      ),
+    );
+  }
+
+  Future<int> flagPost(String id) {
+    return (update(feedPosts)..where((tbl) => tbl.id.equals(id)))
+        .write(const FeedPostsCompanion(
+      flagCount: Value(1),
+      status: Value('pending'),
+    ));
+  }
+
+  Future<int> setPostStatus(String id, String status) {
+    return (update(feedPosts)..where((tbl) => tbl.id.equals(id)))
+        .write(FeedPostsCompanion(status: Value(status)));
+  }
+
+  Future<int> deleteFeedPost(String id) =>
+      (delete(feedPosts)..where((tbl) => tbl.id.equals(id))).go();
 
   Stream<List<PetEventRow>> watchPetEvents(String petId) {
     return (select(petEvents)

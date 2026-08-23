@@ -3723,6 +3723,780 @@ class PetEventsCompanion extends UpdateCompanion<PetEventRow> {
   }
 }
 
+class $FeedPostsTable extends FeedPosts
+    with TableInfo<$FeedPostsTable, FeedPost> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedPostsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorAliasMeta = const VerificationMeta(
+    'authorAlias',
+  );
+  @override
+  late final GeneratedColumn<String> authorAlias = GeneratedColumn<String>(
+    'author_alias',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 480,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _shapeJsonMeta = const VerificationMeta(
+    'shapeJson',
+  );
+  @override
+  late final GeneratedColumn<String> shapeJson = GeneratedColumn<String>(
+    'shape_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _needsSupportMeta = const VerificationMeta(
+    'needsSupport',
+  );
+  @override
+  late final GeneratedColumn<bool> needsSupport = GeneratedColumn<bool>(
+    'needs_support',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("needs_support" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('visible'),
+  );
+  static const VerificationMeta _flagCountMeta = const VerificationMeta(
+    'flagCount',
+  );
+  @override
+  late final GeneratedColumn<int> flagCount = GeneratedColumn<int>(
+    'flag_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _strengthCountMeta = const VerificationMeta(
+    'strengthCount',
+  );
+  @override
+  late final GeneratedColumn<int> strengthCount = GeneratedColumn<int>(
+    'strength_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _proudCountMeta = const VerificationMeta(
+    'proudCount',
+  );
+  @override
+  late final GeneratedColumn<int> proudCount = GeneratedColumn<int>(
+    'proud_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _respectCountMeta = const VerificationMeta(
+    'respectCount',
+  );
+  @override
+  late final GeneratedColumn<int> respectCount = GeneratedColumn<int>(
+    'respect_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isMineMeta = const VerificationMeta('isMine');
+  @override
+  late final GeneratedColumn<bool> isMine = GeneratedColumn<bool>(
+    'is_mine',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_mine" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    authorAlias,
+    kind,
+    body,
+    shapeJson,
+    needsSupport,
+    status,
+    flagCount,
+    strengthCount,
+    proudCount,
+    respectCount,
+    createdAt,
+    isMine,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feed_posts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FeedPost> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('author_alias')) {
+      context.handle(
+        _authorAliasMeta,
+        authorAlias.isAcceptableOrUnknown(
+          data['author_alias']!,
+          _authorAliasMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorAliasMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('shape_json')) {
+      context.handle(
+        _shapeJsonMeta,
+        shapeJson.isAcceptableOrUnknown(data['shape_json']!, _shapeJsonMeta),
+      );
+    }
+    if (data.containsKey('needs_support')) {
+      context.handle(
+        _needsSupportMeta,
+        needsSupport.isAcceptableOrUnknown(
+          data['needs_support']!,
+          _needsSupportMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('flag_count')) {
+      context.handle(
+        _flagCountMeta,
+        flagCount.isAcceptableOrUnknown(data['flag_count']!, _flagCountMeta),
+      );
+    }
+    if (data.containsKey('strength_count')) {
+      context.handle(
+        _strengthCountMeta,
+        strengthCount.isAcceptableOrUnknown(
+          data['strength_count']!,
+          _strengthCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('proud_count')) {
+      context.handle(
+        _proudCountMeta,
+        proudCount.isAcceptableOrUnknown(data['proud_count']!, _proudCountMeta),
+      );
+    }
+    if (data.containsKey('respect_count')) {
+      context.handle(
+        _respectCountMeta,
+        respectCount.isAcceptableOrUnknown(
+          data['respect_count']!,
+          _respectCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_mine')) {
+      context.handle(
+        _isMineMeta,
+        isMine.isAcceptableOrUnknown(data['is_mine']!, _isMineMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedPost map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedPost(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      authorAlias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_alias'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      shapeJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shape_json'],
+      ),
+      needsSupport: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}needs_support'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      flagCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}flag_count'],
+      )!,
+      strengthCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}strength_count'],
+      )!,
+      proudCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}proud_count'],
+      )!,
+      respectCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}respect_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isMine: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_mine'],
+      )!,
+    );
+  }
+
+  @override
+  $FeedPostsTable createAlias(String alias) {
+    return $FeedPostsTable(attachedDatabase, alias);
+  }
+}
+
+class FeedPost extends DataClass implements Insertable<FeedPost> {
+  final String id;
+  final String authorAlias;
+
+  /// story | chip | shape
+  final String kind;
+  final String body;
+
+  /// Optional constellation share payload (relative star positions).
+  final String? shapeJson;
+
+  /// true when relapse-language was detected — post publishes but renders a
+  /// persistent support-resources footer (rule C4).
+  final bool needsSupport;
+
+  /// visible | pending | hidden
+  final String status;
+  final int flagCount;
+
+  /// Masked support reaction counts (Volume III support_reactions).
+  final int strengthCount;
+  final int proudCount;
+  final int respectCount;
+  final int createdAt;
+  final bool isMine;
+  const FeedPost({
+    required this.id,
+    required this.authorAlias,
+    required this.kind,
+    required this.body,
+    this.shapeJson,
+    required this.needsSupport,
+    required this.status,
+    required this.flagCount,
+    required this.strengthCount,
+    required this.proudCount,
+    required this.respectCount,
+    required this.createdAt,
+    required this.isMine,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['author_alias'] = Variable<String>(authorAlias);
+    map['kind'] = Variable<String>(kind);
+    map['body'] = Variable<String>(body);
+    if (!nullToAbsent || shapeJson != null) {
+      map['shape_json'] = Variable<String>(shapeJson);
+    }
+    map['needs_support'] = Variable<bool>(needsSupport);
+    map['status'] = Variable<String>(status);
+    map['flag_count'] = Variable<int>(flagCount);
+    map['strength_count'] = Variable<int>(strengthCount);
+    map['proud_count'] = Variable<int>(proudCount);
+    map['respect_count'] = Variable<int>(respectCount);
+    map['created_at'] = Variable<int>(createdAt);
+    map['is_mine'] = Variable<bool>(isMine);
+    return map;
+  }
+
+  FeedPostsCompanion toCompanion(bool nullToAbsent) {
+    return FeedPostsCompanion(
+      id: Value(id),
+      authorAlias: Value(authorAlias),
+      kind: Value(kind),
+      body: Value(body),
+      shapeJson: shapeJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shapeJson),
+      needsSupport: Value(needsSupport),
+      status: Value(status),
+      flagCount: Value(flagCount),
+      strengthCount: Value(strengthCount),
+      proudCount: Value(proudCount),
+      respectCount: Value(respectCount),
+      createdAt: Value(createdAt),
+      isMine: Value(isMine),
+    );
+  }
+
+  factory FeedPost.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedPost(
+      id: serializer.fromJson<String>(json['id']),
+      authorAlias: serializer.fromJson<String>(json['authorAlias']),
+      kind: serializer.fromJson<String>(json['kind']),
+      body: serializer.fromJson<String>(json['body']),
+      shapeJson: serializer.fromJson<String?>(json['shapeJson']),
+      needsSupport: serializer.fromJson<bool>(json['needsSupport']),
+      status: serializer.fromJson<String>(json['status']),
+      flagCount: serializer.fromJson<int>(json['flagCount']),
+      strengthCount: serializer.fromJson<int>(json['strengthCount']),
+      proudCount: serializer.fromJson<int>(json['proudCount']),
+      respectCount: serializer.fromJson<int>(json['respectCount']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      isMine: serializer.fromJson<bool>(json['isMine']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'authorAlias': serializer.toJson<String>(authorAlias),
+      'kind': serializer.toJson<String>(kind),
+      'body': serializer.toJson<String>(body),
+      'shapeJson': serializer.toJson<String?>(shapeJson),
+      'needsSupport': serializer.toJson<bool>(needsSupport),
+      'status': serializer.toJson<String>(status),
+      'flagCount': serializer.toJson<int>(flagCount),
+      'strengthCount': serializer.toJson<int>(strengthCount),
+      'proudCount': serializer.toJson<int>(proudCount),
+      'respectCount': serializer.toJson<int>(respectCount),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'isMine': serializer.toJson<bool>(isMine),
+    };
+  }
+
+  FeedPost copyWith({
+    String? id,
+    String? authorAlias,
+    String? kind,
+    String? body,
+    Value<String?> shapeJson = const Value.absent(),
+    bool? needsSupport,
+    String? status,
+    int? flagCount,
+    int? strengthCount,
+    int? proudCount,
+    int? respectCount,
+    int? createdAt,
+    bool? isMine,
+  }) => FeedPost(
+    id: id ?? this.id,
+    authorAlias: authorAlias ?? this.authorAlias,
+    kind: kind ?? this.kind,
+    body: body ?? this.body,
+    shapeJson: shapeJson.present ? shapeJson.value : this.shapeJson,
+    needsSupport: needsSupport ?? this.needsSupport,
+    status: status ?? this.status,
+    flagCount: flagCount ?? this.flagCount,
+    strengthCount: strengthCount ?? this.strengthCount,
+    proudCount: proudCount ?? this.proudCount,
+    respectCount: respectCount ?? this.respectCount,
+    createdAt: createdAt ?? this.createdAt,
+    isMine: isMine ?? this.isMine,
+  );
+  FeedPost copyWithCompanion(FeedPostsCompanion data) {
+    return FeedPost(
+      id: data.id.present ? data.id.value : this.id,
+      authorAlias: data.authorAlias.present
+          ? data.authorAlias.value
+          : this.authorAlias,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      body: data.body.present ? data.body.value : this.body,
+      shapeJson: data.shapeJson.present ? data.shapeJson.value : this.shapeJson,
+      needsSupport: data.needsSupport.present
+          ? data.needsSupport.value
+          : this.needsSupport,
+      status: data.status.present ? data.status.value : this.status,
+      flagCount: data.flagCount.present ? data.flagCount.value : this.flagCount,
+      strengthCount: data.strengthCount.present
+          ? data.strengthCount.value
+          : this.strengthCount,
+      proudCount: data.proudCount.present
+          ? data.proudCount.value
+          : this.proudCount,
+      respectCount: data.respectCount.present
+          ? data.respectCount.value
+          : this.respectCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isMine: data.isMine.present ? data.isMine.value : this.isMine,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedPost(')
+          ..write('id: $id, ')
+          ..write('authorAlias: $authorAlias, ')
+          ..write('kind: $kind, ')
+          ..write('body: $body, ')
+          ..write('shapeJson: $shapeJson, ')
+          ..write('needsSupport: $needsSupport, ')
+          ..write('status: $status, ')
+          ..write('flagCount: $flagCount, ')
+          ..write('strengthCount: $strengthCount, ')
+          ..write('proudCount: $proudCount, ')
+          ..write('respectCount: $respectCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isMine: $isMine')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    authorAlias,
+    kind,
+    body,
+    shapeJson,
+    needsSupport,
+    status,
+    flagCount,
+    strengthCount,
+    proudCount,
+    respectCount,
+    createdAt,
+    isMine,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedPost &&
+          other.id == this.id &&
+          other.authorAlias == this.authorAlias &&
+          other.kind == this.kind &&
+          other.body == this.body &&
+          other.shapeJson == this.shapeJson &&
+          other.needsSupport == this.needsSupport &&
+          other.status == this.status &&
+          other.flagCount == this.flagCount &&
+          other.strengthCount == this.strengthCount &&
+          other.proudCount == this.proudCount &&
+          other.respectCount == this.respectCount &&
+          other.createdAt == this.createdAt &&
+          other.isMine == this.isMine);
+}
+
+class FeedPostsCompanion extends UpdateCompanion<FeedPost> {
+  final Value<String> id;
+  final Value<String> authorAlias;
+  final Value<String> kind;
+  final Value<String> body;
+  final Value<String?> shapeJson;
+  final Value<bool> needsSupport;
+  final Value<String> status;
+  final Value<int> flagCount;
+  final Value<int> strengthCount;
+  final Value<int> proudCount;
+  final Value<int> respectCount;
+  final Value<int> createdAt;
+  final Value<bool> isMine;
+  final Value<int> rowid;
+  const FeedPostsCompanion({
+    this.id = const Value.absent(),
+    this.authorAlias = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.body = const Value.absent(),
+    this.shapeJson = const Value.absent(),
+    this.needsSupport = const Value.absent(),
+    this.status = const Value.absent(),
+    this.flagCount = const Value.absent(),
+    this.strengthCount = const Value.absent(),
+    this.proudCount = const Value.absent(),
+    this.respectCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isMine = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FeedPostsCompanion.insert({
+    required String id,
+    required String authorAlias,
+    required String kind,
+    required String body,
+    this.shapeJson = const Value.absent(),
+    this.needsSupport = const Value.absent(),
+    this.status = const Value.absent(),
+    this.flagCount = const Value.absent(),
+    this.strengthCount = const Value.absent(),
+    this.proudCount = const Value.absent(),
+    this.respectCount = const Value.absent(),
+    required int createdAt,
+    this.isMine = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       authorAlias = Value(authorAlias),
+       kind = Value(kind),
+       body = Value(body),
+       createdAt = Value(createdAt);
+  static Insertable<FeedPost> custom({
+    Expression<String>? id,
+    Expression<String>? authorAlias,
+    Expression<String>? kind,
+    Expression<String>? body,
+    Expression<String>? shapeJson,
+    Expression<bool>? needsSupport,
+    Expression<String>? status,
+    Expression<int>? flagCount,
+    Expression<int>? strengthCount,
+    Expression<int>? proudCount,
+    Expression<int>? respectCount,
+    Expression<int>? createdAt,
+    Expression<bool>? isMine,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (authorAlias != null) 'author_alias': authorAlias,
+      if (kind != null) 'kind': kind,
+      if (body != null) 'body': body,
+      if (shapeJson != null) 'shape_json': shapeJson,
+      if (needsSupport != null) 'needs_support': needsSupport,
+      if (status != null) 'status': status,
+      if (flagCount != null) 'flag_count': flagCount,
+      if (strengthCount != null) 'strength_count': strengthCount,
+      if (proudCount != null) 'proud_count': proudCount,
+      if (respectCount != null) 'respect_count': respectCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isMine != null) 'is_mine': isMine,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FeedPostsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? authorAlias,
+    Value<String>? kind,
+    Value<String>? body,
+    Value<String?>? shapeJson,
+    Value<bool>? needsSupport,
+    Value<String>? status,
+    Value<int>? flagCount,
+    Value<int>? strengthCount,
+    Value<int>? proudCount,
+    Value<int>? respectCount,
+    Value<int>? createdAt,
+    Value<bool>? isMine,
+    Value<int>? rowid,
+  }) {
+    return FeedPostsCompanion(
+      id: id ?? this.id,
+      authorAlias: authorAlias ?? this.authorAlias,
+      kind: kind ?? this.kind,
+      body: body ?? this.body,
+      shapeJson: shapeJson ?? this.shapeJson,
+      needsSupport: needsSupport ?? this.needsSupport,
+      status: status ?? this.status,
+      flagCount: flagCount ?? this.flagCount,
+      strengthCount: strengthCount ?? this.strengthCount,
+      proudCount: proudCount ?? this.proudCount,
+      respectCount: respectCount ?? this.respectCount,
+      createdAt: createdAt ?? this.createdAt,
+      isMine: isMine ?? this.isMine,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (authorAlias.present) {
+      map['author_alias'] = Variable<String>(authorAlias.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (shapeJson.present) {
+      map['shape_json'] = Variable<String>(shapeJson.value);
+    }
+    if (needsSupport.present) {
+      map['needs_support'] = Variable<bool>(needsSupport.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (flagCount.present) {
+      map['flag_count'] = Variable<int>(flagCount.value);
+    }
+    if (strengthCount.present) {
+      map['strength_count'] = Variable<int>(strengthCount.value);
+    }
+    if (proudCount.present) {
+      map['proud_count'] = Variable<int>(proudCount.value);
+    }
+    if (respectCount.present) {
+      map['respect_count'] = Variable<int>(respectCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (isMine.present) {
+      map['is_mine'] = Variable<bool>(isMine.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedPostsCompanion(')
+          ..write('id: $id, ')
+          ..write('authorAlias: $authorAlias, ')
+          ..write('kind: $kind, ')
+          ..write('body: $body, ')
+          ..write('shapeJson: $shapeJson, ')
+          ..write('needsSupport: $needsSupport, ')
+          ..write('status: $status, ')
+          ..write('flagCount: $flagCount, ')
+          ..write('strengthCount: $strengthCount, ')
+          ..write('proudCount: $proudCount, ')
+          ..write('respectCount: $respectCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isMine: $isMine, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -3737,6 +4511,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
   );
   late final $RecoveryPetsTable recoveryPets = $RecoveryPetsTable(this);
   late final $PetEventsTable petEvents = $PetEventsTable(this);
+  late final $FeedPostsTable feedPosts = $FeedPostsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3750,6 +4525,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     wellnessCheckIns,
     recoveryPets,
     petEvents,
+    feedPosts,
   ];
 }
 
@@ -5712,6 +6488,365 @@ typedef $$PetEventsTableProcessedTableManager =
       PetEventRow,
       PrefetchHooks Function()
     >;
+typedef $$FeedPostsTableCreateCompanionBuilder =
+    FeedPostsCompanion Function({
+      required String id,
+      required String authorAlias,
+      required String kind,
+      required String body,
+      Value<String?> shapeJson,
+      Value<bool> needsSupport,
+      Value<String> status,
+      Value<int> flagCount,
+      Value<int> strengthCount,
+      Value<int> proudCount,
+      Value<int> respectCount,
+      required int createdAt,
+      Value<bool> isMine,
+      Value<int> rowid,
+    });
+typedef $$FeedPostsTableUpdateCompanionBuilder =
+    FeedPostsCompanion Function({
+      Value<String> id,
+      Value<String> authorAlias,
+      Value<String> kind,
+      Value<String> body,
+      Value<String?> shapeJson,
+      Value<bool> needsSupport,
+      Value<String> status,
+      Value<int> flagCount,
+      Value<int> strengthCount,
+      Value<int> proudCount,
+      Value<int> respectCount,
+      Value<int> createdAt,
+      Value<bool> isMine,
+      Value<int> rowid,
+    });
+
+class $$FeedPostsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $FeedPostsTable> {
+  $$FeedPostsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorAlias => $composableBuilder(
+    column: $table.authorAlias,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shapeJson => $composableBuilder(
+    column: $table.shapeJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get needsSupport => $composableBuilder(
+    column: $table.needsSupport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get flagCount => $composableBuilder(
+    column: $table.flagCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get strengthCount => $composableBuilder(
+    column: $table.strengthCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get proudCount => $composableBuilder(
+    column: $table.proudCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get respectCount => $composableBuilder(
+    column: $table.respectCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FeedPostsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $FeedPostsTable> {
+  $$FeedPostsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorAlias => $composableBuilder(
+    column: $table.authorAlias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get shapeJson => $composableBuilder(
+    column: $table.shapeJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get needsSupport => $composableBuilder(
+    column: $table.needsSupport,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get flagCount => $composableBuilder(
+    column: $table.flagCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get strengthCount => $composableBuilder(
+    column: $table.strengthCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get proudCount => $composableBuilder(
+    column: $table.proudCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get respectCount => $composableBuilder(
+    column: $table.respectCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FeedPostsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $FeedPostsTable> {
+  $$FeedPostsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get authorAlias => $composableBuilder(
+    column: $table.authorAlias,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get shapeJson =>
+      $composableBuilder(column: $table.shapeJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get needsSupport => $composableBuilder(
+    column: $table.needsSupport,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get flagCount =>
+      $composableBuilder(column: $table.flagCount, builder: (column) => column);
+
+  GeneratedColumn<int> get strengthCount => $composableBuilder(
+    column: $table.strengthCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get proudCount => $composableBuilder(
+    column: $table.proudCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get respectCount => $composableBuilder(
+    column: $table.respectCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMine =>
+      $composableBuilder(column: $table.isMine, builder: (column) => column);
+}
+
+class $$FeedPostsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $FeedPostsTable,
+          FeedPost,
+          $$FeedPostsTableFilterComposer,
+          $$FeedPostsTableOrderingComposer,
+          $$FeedPostsTableAnnotationComposer,
+          $$FeedPostsTableCreateCompanionBuilder,
+          $$FeedPostsTableUpdateCompanionBuilder,
+          (
+            FeedPost,
+            BaseReferences<_$RecoveryDatabase, $FeedPostsTable, FeedPost>,
+          ),
+          FeedPost,
+          PrefetchHooks Function()
+        > {
+  $$FeedPostsTableTableManager(_$RecoveryDatabase db, $FeedPostsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedPostsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedPostsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedPostsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> authorAlias = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String?> shapeJson = const Value.absent(),
+                Value<bool> needsSupport = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> flagCount = const Value.absent(),
+                Value<int> strengthCount = const Value.absent(),
+                Value<int> proudCount = const Value.absent(),
+                Value<int> respectCount = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<bool> isMine = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FeedPostsCompanion(
+                id: id,
+                authorAlias: authorAlias,
+                kind: kind,
+                body: body,
+                shapeJson: shapeJson,
+                needsSupport: needsSupport,
+                status: status,
+                flagCount: flagCount,
+                strengthCount: strengthCount,
+                proudCount: proudCount,
+                respectCount: respectCount,
+                createdAt: createdAt,
+                isMine: isMine,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String authorAlias,
+                required String kind,
+                required String body,
+                Value<String?> shapeJson = const Value.absent(),
+                Value<bool> needsSupport = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> flagCount = const Value.absent(),
+                Value<int> strengthCount = const Value.absent(),
+                Value<int> proudCount = const Value.absent(),
+                Value<int> respectCount = const Value.absent(),
+                required int createdAt,
+                Value<bool> isMine = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FeedPostsCompanion.insert(
+                id: id,
+                authorAlias: authorAlias,
+                kind: kind,
+                body: body,
+                shapeJson: shapeJson,
+                needsSupport: needsSupport,
+                status: status,
+                flagCount: flagCount,
+                strengthCount: strengthCount,
+                proudCount: proudCount,
+                respectCount: respectCount,
+                createdAt: createdAt,
+                isMine: isMine,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FeedPostsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $FeedPostsTable,
+      FeedPost,
+      $$FeedPostsTableFilterComposer,
+      $$FeedPostsTableOrderingComposer,
+      $$FeedPostsTableAnnotationComposer,
+      $$FeedPostsTableCreateCompanionBuilder,
+      $$FeedPostsTableUpdateCompanionBuilder,
+      (FeedPost, BaseReferences<_$RecoveryDatabase, $FeedPostsTable, FeedPost>),
+      FeedPost,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -5732,4 +6867,6 @@ class $RecoveryDatabaseManager {
       $$RecoveryPetsTableTableManager(_db, _db.recoveryPets);
   $$PetEventsTableTableManager get petEvents =>
       $$PetEventsTableTableManager(_db, _db.petEvents);
+  $$FeedPostsTableTableManager get feedPosts =>
+      $$FeedPostsTableTableManager(_db, _db.feedPosts);
 }

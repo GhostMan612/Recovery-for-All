@@ -16,6 +16,7 @@ import '../services/sos_notification_service.dart';
 import 'avatar_dresser_screen.dart';
 import 'chatbot_screen.dart';
 import 'community_resources_screen.dart';
+import 'community_feed_screen.dart';
 import 'constellation_screen.dart';
 import 'coping_tool_screen.dart';
 import 'daily_reflection_screen.dart';
@@ -331,6 +332,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'RCOs, meditations, online rooms',
       icon: Icons.volunteer_activism,
       onTap: () => _push(const CommunityResourcesScreen()),
+    ));
+    cards.add(_ToolCard(
+      label: 'Recovery Circle',
+      subtitle: 'Share shapes, not numbers',
+      icon: Icons.forum_outlined,
+      onTap: () => _push(CommunityFeedScreen(database: widget.database)),
     ));
     cards.add(_ToolCard(
       label: 'Recovery Coach',

@@ -9,6 +9,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
+import '../services/community_feed_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/sos_notification_service.dart';
 
@@ -31,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<String> _meetingSources = [];
   bool _refreshingMeetings = false;
   String? _lastMeetingRefresh;
+  bool _isModerator = false;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
@@ -51,9 +53,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadProfile() async {
     await widget.database.getProfile('active_user_profile');
+    final moderator = await CommunityFeedService.isModerator();
     if (mounted) {
       setState(() {
         _isLoading = false;
+        _isModerator = moderator;
       });
     }
   }
@@ -249,6 +253,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.settings, color: Color(0xFF38BDF8)),
                 onTap: () async {
                   await AppSettings.openAppSettings();
+                },
+              ),
+              const SizedBox(height: 24),
+              SwitchListTile(
+                title: const Text('Community moderator mode',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Review flagged circle posts before they return to the feed',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                value: _isModerator,
+                activeThumbColor: const Color(0xFF38BDF8),
+                onChanged: (value) async {
+                  await CommunityFeedService.setModerator(value);
+                  setState(() => _isModerator = value);
                 },
               ),
               const SizedBox(height: 24),
