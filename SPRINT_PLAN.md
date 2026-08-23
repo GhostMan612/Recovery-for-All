@@ -21,10 +21,17 @@
 | 3.2 Journal wiring (+Sparks reward) | ✅ Done |
 | 3.3 Meeting Finder | ✅ Done (synthetic offline directory, list fallback + map toggle) |
 | 3.4 Urge coping card | ✅ Wired to existing `GroundingScreen` |
-| 3.5 Gratitude wiring | ✅ Done |
-| 3.6 Steps viewer | ❌ Deferred (screen not yet built) |
+| 3.5 Gratitude wiring | ✅ Done (+Sparks reward) |
+| 3.6 Steps viewer | ✅ Done (`StepsViewerScreen`, completion marks local) |
 | 3.7 Reflections wiring | ✅ Done |
-| 4.x Core features | ◐ Partial — sobriety counters, wellness wheel, weekly goals screens still open |
+| 3.8 Verify dashboard phase | ✅ Done |
+| 4.1 Sobriety counters | ✅ Done (`SobrietyCounterScreen`, live tick, compassionate reset) |
+| 4.2 Recovery chips | ✅ Done (7 milestone chips per counter) |
+| 4.3 Wellness wheel | ✅ Done (`WellnessCheckInScreen`, 6 dimensions + history) |
+| 4.7 Daily motivation feed | ❌ Open |
+| 4.8 Constellation tracker | ✅ Done (`ConstellationScreen` over DB points) |
+| 4.9 Weekly goals | ✅ Done (`WeeklyGoalsScreen`) |
+| Dresser economy | ✅ Catalog grid, sparks/bond/season gates, preset slots aligned |
 
 ---
 

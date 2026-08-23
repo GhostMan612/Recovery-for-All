@@ -5,6 +5,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/recovery_pet_service.dart';
 
 /// Full-screen 60-second box-breathing / grounding exercise.
 /// Designed for crisis: large targets, minimal text, no guilt.
@@ -43,6 +44,7 @@ class _GroundingScreenState extends State<GroundingScreen>
       if (_remaining <= 1) {
         t.cancel();
         if (mounted) setState(() => _remaining = 0);
+        RecoveryPetService.logGrounding();
         return;
       }
       if (mounted) setState(() => _remaining--);
