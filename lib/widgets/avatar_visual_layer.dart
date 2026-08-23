@@ -39,6 +39,14 @@ class AvatarVisualLayer extends StatefulWidget {
     'aura_ember': 'assets/lottie/aura_ember.json',
   };
 
+  /// PetMoodX name / resting -> mood-face underlay loop.
+  static const Map<String, String> _moodLottie = {
+    'happy': 'assets/lottie/mood_happy.json',
+    'neutral': 'assets/lottie/mood_calm.json',
+    'sad': 'assets/lottie/mood_sad.json',
+    '@resting': 'assets/lottie/mood_resting.json',
+  };
+
   static final Map<String, LottieComposition?> _compositionCache = {};
 
   static Future<LottieComposition?> _compositionFor(String asset) async {
@@ -138,36 +146,62 @@ class AvatarVisualLayer extends StatefulWidget {
 
 class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
   LottieComposition? _auraComposition;
+  LottieComposition? _moodComposition;
+  String _resolvedMoodKey = '';
 
   String get _equippedAuraId =>
       widget.pet.slot(CosmeticCategory.aura) ?? '';
+
+  /// Resting overrides mood for the face underlay (sleepy drift).
+  String get _moodKey => widget.pet.isResting
+      ? '@resting'
+      : switch (widget.pet.mood) {
+          PetMoodX.happy => 'happy',
+          PetMoodX.sad => 'sad',
+          PetMoodX.neutral => 'neutral',
+        };
 
   @override
   void didUpdateWidget(covariant AvatarVisualLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pet.slot(CosmeticCategory.aura) != _equippedAuraId ||
-        oldWidget.showAura != widget.showAura) {
-      _resolveAura();
+        oldWidget.showAura != widget.showAura ||
+        oldWidget.pet.isResting != widget.pet.isResting ||
+        oldWidget.pet.mood != widget.pet.mood) {
+      _resolveAnimations();
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _resolveAura();
+    _resolveAnimations();
   }
 
-  Future<void> _resolveAura() async {
-    LottieComposition? composition;
-    if (widget.showAura && !_reducedMotion) {
-      final asset = AvatarVisualLayer._auraLottie[_equippedAuraId];
-      if (asset != null) {
-        composition = await AvatarVisualLayer._compositionFor(asset);
+  Future<void> _resolveAnimations() async {
+    LottieComposition? aura;
+    LottieComposition? mood;
+
+    if (!_reducedMotion) {
+      final auraAsset =
+          widget.showAura ? AvatarVisualLayer._auraLottie[_equippedAuraId] : null;
+      // Concurrency guard (checklist §12.3): compact surfaces render at most
+      // one loop — the aura wins, mood stays emoji-static there.
+      final moodAsset = widget.compact
+          ? null
+          : AvatarVisualLayer._moodLottie[_moodKey];
+      if (auraAsset != null) {
+        aura = await AvatarVisualLayer._compositionFor(auraAsset);
+      }
+      if (moodAsset != null) {
+        mood = await AvatarVisualLayer._compositionFor(moodAsset);
       }
     }
     if (!mounted) return;
     setState(() {
-      _auraComposition = composition;
+      _auraComposition = aura;
+      _moodComposition = mood;
+      _resolvedMoodKey = _moodKey;
     });
   }
 
@@ -197,6 +231,13 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
     final lottieAura = _auraComposition;
     final showLottieAura =
         widget.showAura && lottieAura != null && !_reducedMotion;
+    // Mood underlay only when it matches the CURRENT state (a resolve may
+    // have raced a mood change) and the surface is large enough.
+    final moodKey = _moodKey;
+    final showMoodLottie = !_reducedMotion &&
+        !widget.compact &&
+        _resolvedMoodKey == moodKey &&
+        _moodComposition != null;
 
     return SizedBox(
       width: size,
@@ -217,6 +258,20 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
                     AvatarVisualLayer.displayEmoji(_equippedAuraId),
                     style: TextStyle(fontSize: size * 0.85),
                   ),
+          if (showMoodLottie)
+            Positioned(
+              top: size * 0.16,
+              child: Opacity(
+                opacity: 0.9,
+                child: Lottie(
+                  composition: _moodComposition!,
+                  width: size * 0.5,
+                  height: size * 0.5,
+                  repeat: true,
+                  animate: true,
+                ),
+              ),
+            ),
           Text(species.emoji, style: TextStyle(fontSize: core)),
           Positioned(
             right: size * 0.04,

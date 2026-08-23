@@ -17,6 +17,11 @@ void main() {
     'assets/lottie/aura_calm_blue.json',
     'assets/lottie/aura_starfield.json',
     'assets/lottie/aura_ember.json',
+    // Mood-face underlays (PetMoodX + resting)
+    'assets/lottie/mood_happy.json',
+    'assets/lottie/mood_calm.json',
+    'assets/lottie/mood_sad.json',
+    'assets/lottie/mood_resting.json',
   ];
 
   for (final path in assets) {
