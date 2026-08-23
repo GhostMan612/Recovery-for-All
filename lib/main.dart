@@ -24,17 +24,21 @@ void main() async {
 
   // 0. Firebase (Recovery Circle cloud sync) — activates only when
   // android/app/google-services.json exists; local-only otherwise.
+  // Timeout-guarded: a hung platform channel must never stall app boot.
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp().timeout(const Duration(seconds: 8));
     CommunityFeedService.remoteReady = true;
-  } catch (_) {
+    debugPrint('[boot] firebase: ready (cloud circle enabled)');
+  } catch (e) {
     CommunityFeedService.remoteReady = false;
+    debugPrint('[boot] firebase: local-only mode ($e)');
   }
 
   // 1. Initialize the modern notification bridge
   await SosNotificationService.initialize();
   await GentleReminderService.initialize();
   unawaited(GentleReminderService.rescheduleIfEnabled());
+  debugPrint('[boot] notifications: ready');
   
   // 2. Safely retrieve user preferences and restore SOS state if active
   final sosSettings = await SosNotificationService.getStoredSettings();

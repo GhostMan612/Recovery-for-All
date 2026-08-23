@@ -25,6 +25,10 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   bool _locked = false;
 
+  /// Boot diagnostics: any startup failure surfaces HERE instead of
+  /// hanging on splash forever. Paste this string back when reporting.
+  String? _bootError;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +40,8 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
     _controller.forward();
 
+    // Fire-and-forget is safe now: _routeToNextScreen catches everything
+    // internally and reports through _bootError.
     _routeToNextScreen();
   }
 
@@ -50,52 +56,67 @@ class _SplashScreenState extends State<SplashScreen>
         setState(() => _locked = false);
         _routeToNextScreen();
       }
-    } catch (_) {
+    } catch (e) {
       // Device without enrolled biometrics cannot have the flag set, but if
       // it somehow is — allow PIN-less entry rather than a permanent lockout.
+      debugPrint('[splash] biometric unavailable: $e');
       if (mounted) {
-        setState(() => _locked = false);
+        setState(() {
+          _locked = false;
+          _bootError = null;
+        });
         _routeToNextScreen();
       }
     }
   }
 
   Future<void> _routeToNextScreen() async {
-    await Future.delayed(const Duration(seconds: 3));
+    try {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
 
-    if (!mounted) return;
+      final profile = await widget.database
+          .getProfile('active_user_profile')
+          .timeout(const Duration(seconds: 8));
+      if (!mounted) return;
 
-    final profile = await widget.database.getProfile('active_user_profile');
+      // Privacy gate: biometric lock applies before anything else loads.
+      if (profile?.biometricLockEnabled ?? false) {
+        setState(() => _locked = true);
+        unawaited(_tryUnlock());
+        return;
+      }
 
-    if (!mounted) return;
-
-    // Privacy gate: biometric lock applies before anything else loads.
-    if (profile?.biometricLockEnabled ?? false) {
-      setState(() => _locked = true);
-      unawaited(_tryUnlock());
-      return;
-    }
-
-    if (profile == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OnboardingScreen(
-            database: widget.database,
-            onOnboardingComplete: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => DashboardScreen(database: widget.database)),
-              );
-            },
+      if (profile == null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OnboardingScreen(
+              database: widget.database,
+              onOnboardingComplete: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          DashboardScreen(database: widget.database)),
+                );
+              },
+            ),
           ),
-        ),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => DashboardScreen(database: widget.database)),
-      );
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => DashboardScreen(database: widget.database)),
+        );
+      }
+    } catch (e, stack) {
+      debugPrint('[splash] BOOT FAILURE: $e\n$stack');
+      if (mounted) {
+        setState(() => _bootError =
+            'Startup stalled at: ${e.runtimeType}\n$e');
+      }
     }
   }
 
@@ -183,6 +204,26 @@ class _SplashScreenState extends State<SplashScreen>
                   fontStyle: FontStyle.italic,
                 ),
               ),
+              if (_bootError != null) ...[
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7F1D1D),
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: const Color(0xFFF87171), width: 1),
+                    ),
+                    child: SelectableText(
+                      '$_bootError',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

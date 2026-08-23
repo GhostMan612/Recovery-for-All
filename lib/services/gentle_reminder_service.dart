@@ -12,6 +12,7 @@
 // Timezone note: Minnesota-first product → fixed America/Chicago local time,
 // which keeps DST-correct daily recurrence without a device-zone plugin.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -134,9 +135,14 @@ class GentleReminderService {
   }
 
   /// Re-arms after reboot/app update — call from main().
+  /// Never throws: reminder failures must not disturb app boot.
   static Future<void> rescheduleIfEnabled() async {
-    if (await getEnabled()) {
-      await setSchedule(enabled: true);
+    try {
+      if (await getEnabled()) {
+        await setSchedule(enabled: true);
+      }
+    } catch (e) {
+      debugPrint('[boot] gentle reminder reschedule skipped: $e');
     }
   }
 
