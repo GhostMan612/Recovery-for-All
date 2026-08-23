@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/sos_notification_service.dart';
@@ -334,6 +335,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => launchUrl(
+                  Uri.parse('https://github.com/code4recovery/spec'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.menu_book_outlined,
+                          size: 16, color: Color(0xFF64748B)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Feed format spec (Code for Recovery) — works with AA intergroups and BMLT',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ),
+                      Icon(Icons.open_in_new, size: 14, color: Color(0xFF64748B)),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

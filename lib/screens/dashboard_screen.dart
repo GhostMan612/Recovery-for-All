@@ -15,6 +15,7 @@ import '../services/recovery_pet_service.dart';
 import '../services/sos_notification_service.dart';
 import 'avatar_dresser_screen.dart';
 import 'chatbot_screen.dart';
+import 'community_resources_screen.dart';
 import 'constellation_screen.dart';
 import 'coping_tool_screen.dart';
 import 'daily_reflection_screen.dart';
@@ -27,6 +28,7 @@ import 'settings_screen.dart';
 import 'sobriety_counter_screen.dart';
 import 'steps_viewer_screen.dart';
 import 'daily_motivation_screen.dart';
+import 'wellbriety_circles_screen.dart';
 import 'weekly_goals_screen.dart';
 import 'wellness_check_in_screen.dart';
 import '../widgets/recovery_pet_card.dart';
@@ -279,6 +281,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ));
     }
 
+    // Culturally specific pathway content, shown when selected onboarding.
+    if (_paths.contains('Wellbriety')) {
+      cards.add(_ToolCard(
+        label: 'Wellbriety Circles',
+        subtitle: 'White Bison gatherings',
+        icon: Icons.circle_outlined,
+        onTap: () => _push(const WellbrietyCirclesScreen()),
+      ));
+    }
+
     cards.add(_ToolCard(
       label: 'Wellness Check-In',
       subtitle: 'Six-dimension wheel',
@@ -308,6 +320,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'Stats, outfits, care log',
       icon: Icons.pets_outlined,
       onTap: () => _push(PetHomeScreen(database: widget.database)),
+    ));
+    cards.add(_ToolCard(
+      label: 'Community Support',
+      subtitle: 'RCOs, meditations, online rooms',
+      icon: Icons.volunteer_activism,
+      onTap: () => _push(const CommunityResourcesScreen()),
     ));
     cards.add(_ToolCard(
       label: 'Recovery Coach',
