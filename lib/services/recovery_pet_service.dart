@@ -196,22 +196,22 @@ class RecoveryPetService {
 
   /// Daily mood check-in → Sparks + Mood update.
   static Future<RecoveryPet> logCheckIn({PetMoodX mood = PetMoodX.happy}) {
-    return _applyReward(sparksDelta: sparksCheckIn, bondDelta: 1, mood: mood);
+    return _applyReward(type: 'check_in', sparksDelta: sparksCheckIn, bondDelta: 1, mood: mood);
   }
 
   /// Journal entry save → Sparks + Energy.
   static Future<RecoveryPet> logJournalEntry() {
-    return _applyReward(sparksDelta: sparksJournal, energyDelta: 5);
+    return _applyReward(type: 'journal', sparksDelta: sparksJournal, energyDelta: 5);
   }
 
   /// Gratitude entry → Sparks.
   static Future<RecoveryPet> logGratitude() {
-    return _applyReward(sparksDelta: sparksGratitude, energyDelta: 3, mood: PetMoodX.happy);
+    return _applyReward(type: 'gratitude', sparksDelta: sparksGratitude, energyDelta: 3, mood: PetMoodX.happy);
   }
 
   /// Grounding / breath complete → Sparks + Energy.
   static Future<RecoveryPet> logGrounding() {
-    return _applyReward(sparksDelta: sparksGround, energyDelta: 6);
+    return _applyReward(type: 'grounding', sparksDelta: sparksGround, energyDelta: 6);
   }
 
   /// Manual "I took a walk" → Sparks + Energy + Bond (capped daily).
@@ -227,10 +227,11 @@ class RecoveryPetService {
       return ensureHatched();
     }
     await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
-    return _applyReward(sparksDelta: sparksWalk, energyDelta: 4, bondDelta: 1);
+    return _applyReward(type: 'walk', sparksDelta: sparksWalk, energyDelta: 4, bondDelta: 1);
   }
 
   static Future<RecoveryPet> _applyReward({
+    String type = 'reward',
     int sparksDelta = 0,
     int energyDelta = 0,
     int bondDelta = 0,
@@ -251,7 +252,25 @@ class RecoveryPetService {
       createdAt: pet.createdAt,
     );
     await save(updated);
+    await _recordEvent(type, sparksDelta);
     return updated;
+  }
+
+  /// Best-effort audit trail in Drift; rewards never depend on it.
+  static Future<void> _recordEvent(String eventType, int sparksDelta) async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      await db.addPetEvent(
+        PetEventRow(
+          id: 'pet_event_${DateTime.now().millisecondsSinceEpoch}_${(sparksDelta * 31 + eventType.length) % 9973}',
+          petId: defaultPetId,
+          eventType: eventType,
+          sparksDelta: sparksDelta,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    } catch (_) {}
   }
 
   static OutfitUnlockStatus unlockStatus(RecoveryPet pet, String itemId) {

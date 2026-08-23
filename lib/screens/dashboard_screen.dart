@@ -22,9 +22,11 @@ import 'gratitude_entry_screen.dart';
 import 'grounding_screen.dart';
 import 'journal_screen.dart';
 import 'meeting_map_screen.dart';
+import 'pet_home_screen.dart';
 import 'settings_screen.dart';
 import 'sobriety_counter_screen.dart';
 import 'steps_viewer_screen.dart';
+import 'daily_motivation_screen.dart';
 import 'weekly_goals_screen.dart';
 import 'wellness_check_in_screen.dart';
 import '../widgets/recovery_pet_card.dart';
@@ -294,6 +296,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'A reader, any path',
       icon: Icons.menu_book_outlined,
       onTap: () => _push(const StepsViewerScreen()),
+    ));
+    cards.add(_ToolCard(
+      label: 'Daily Motivation',
+      subtitle: 'One reflection at a time',
+      icon: Icons.wb_twilight_outlined,
+      onTap: () => _push(const DailyMotivationScreen()),
+    ));
+    cards.add(_ToolCard(
+      label: 'Companion Home',
+      subtitle: 'Stats, outfits, care log',
+      icon: Icons.pets_outlined,
+      onTap: () => _push(PetHomeScreen(database: widget.database)),
     ));
     cards.add(_ToolCard(
       label: 'Recovery Coach',
