@@ -11,6 +11,7 @@ import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart';
 import '../widgets/avatar_visual_layer.dart';
+import 'avatar_dresser_screen.dart';
 import '../services/pet_cosmetic_catalog.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -49,15 +50,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _selectedPreset;
   RecoveryPet? _draftPet;
 
-  // Blueprint Data Pools
+  // Blueprint Data Pools — inclusive by design: users pick what fits and
+  // the app tailors the dashboard around those choices, nothing more.
   final List<String> _goalsPool = [
-    'Alcohol', 'Opioids', 'Nicotine', 'Cannabis', 'Stimulants',
-    'Prescription Meds', 'Vaporizers', 'Gambling', 'Gaming', 'Self-Harm'
+    // Substances
+    'Alcohol', 'Opioids', 'Nicotine / Vaping', 'Cannabis', 'Stimulants',
+    'Prescription Meds',
+    // Behaviors
+    'Gambling', 'Gaming', 'Social Media', 'Shopping / Spending',
+    'Food / Binge Eating', 'Pornography', 'Sex / Love Addiction',
+    'Workaholism',
+    // Underlying & emotional
+    'Self-Harm', 'Trauma (PTSD)', 'Grief & Loss', 'Anxiety', 'Depression',
+    'Anger / Rage', 'Codependency', 'People-Pleasing', 'Perfectionism',
+    'Loneliness / Isolation',
   ];
 
+  /// 25 core values — Schwartz foundations + recovery-relevant additions.
+  /// Users pick up to 10.
   final List<String> _coreValuesPool = const [
+    // Schwartz foundations
     'Self-Direction', 'Benevolence', 'Universalism', 'Security', 'Tradition',
     'Conformity', 'Hedonism', 'Achievement', 'Power', 'Stimulation',
+    // Recovery additions
+    'Honesty', 'Humility', 'Courage', 'Connection', 'Discipline',
+    'Compassion', 'Gratitude', 'Creativity', 'Wisdom', 'Service to Others',
+    'Integrity', 'Balance & Harmony', 'Growth', 'Freedom', 'Family',
   ];
 
   final Map<String, String> _pathwaysPool = {
@@ -66,8 +84,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Recovery Dharma': 'Buddhist-inspired mindfulness and meditation.',
     'Wellbriety': 'Indigenous cultural teachings and Medicine Wheel.',
     'Secular/Agnostic': 'Science-based, non-spiritual approaches.',
-    'Clinical/Therapy': 'Professional psychological support and CBT.'
+    'Therapy & CBT': 'Professional support, cognitive skills, coping tools.',
+    'Celebrate Recovery (Christian)': 'Christ-centered recovery groups.',
   };
+
+  /// Pathway → toolbox suggestions (pre-checked; user can untoggle).
+  static const Map<String, List<String>> _pathToolSuggestions = {
+    '12-Step (AA/NA)': ['Daily Reflections'],
+    'SMART Recovery': ['Cost-Benefit Analysis'],
+    'Recovery Dharma': ['Meditation Timer'],
+    'Wellbriety': ['Medicine Wheel'],
+    'Secular/Agnostic': [],
+    'Therapy & CBT': ['Wellness Check-In'],
+    'Celebrate Recovery (Christian)': ['Daily Reflections'],
+  };
+
+  Set<String> get _suggestedTools => _selectedPaths
+      .expand((p) => _pathToolSuggestions[p] ?? const <String>[])
+      .toSet();
+
+  /// Suggestions explicitly turned off — respected until pathways change.
+  final Set<String> _dismissedSuggestions = {};
 
   final Map<String, String> _toolsPool = {
     'Urge Surfing Timer': 'Visual tool to ride out cravings.',
@@ -76,6 +113,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Medicine Wheel': 'Track balance across 4 quadrants.',
     'Meeting Finder': 'Locate local and virtual rooms.',
     'Encrypted Journal': 'Private space for deep reflection.',
+    'Meditation Timer': 'Grounded breathing sessions.',
+    'Wellness Check-In': 'Six-dimension balance check.',
   };
 
   @override
@@ -429,32 +468,57 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text('Toggle the specific tools you want readily available on your home screen.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
           const SizedBox(height: 24),
           Expanded(
-            child: ListView.separated(
-              physics: const BouncingScrollPhysics(),
-              itemCount: _toolsPool.keys.length,
-              separatorBuilder: (_, _) => const Divider(color: Color(0xFF334155)),
-              itemBuilder: (context, index) {
-                final tool = _toolsPool.keys.elementAt(index);
-                final desc = _toolsPool[tool]!;
-                final isSelected = _selectedTools.contains(tool);
-                return SwitchListTile(
-                  title: Text(tool, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text(desc, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                  value: isSelected,
-                  activeThumbColor: const Color(0xFF38BDF8),
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (bool value) {
-                    setState(() {
-                      if (value) {
-                        _selectedTools.add(tool);
-                      } else {
-                        _selectedTools.remove(tool);
-                      }
-                    });
-                  },
-                );
-              },
-            ),
+            child: Builder(builder: (context) {
+              // Tailored toolbox: base pool + pathway-driven suggestions.
+              final suggested = _suggestedTools;
+              final pool = <String>{
+                ..._toolsPool.keys,
+                ...suggested,
+              }.toList();
+              return ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                itemCount: pool.length,
+                separatorBuilder: (_, _) =>
+                    const Divider(color: Color(0xFF334155)),
+                itemBuilder: (context, index) {
+                  final tool = pool[index];
+                  final desc = _toolsPool[tool] ??
+                      'Suggested for your chosen pathways.';
+                  final isSelected = _selectedTools.contains(tool) ||
+                      (suggested.contains(tool) &&
+                          !_dismissedSuggestions.contains(tool));
+                  return SwitchListTile(
+                    title: Text(tool,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                      suggested.contains(tool)
+                          ? '$desc · suggested by your pathways'
+                          : desc,
+                      style: const TextStyle(
+                          color: Color(0xFF94A3B8), fontSize: 12),
+                    ),
+                    value: isSelected,
+                    activeThumbColor: const Color(0xFF38BDF8),
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      setState(() {
+                        if (value) {
+                          _selectedTools.add(tool);
+                          _dismissedSuggestions.remove(tool);
+                        } else {
+                          _selectedTools.remove(tool);
+                          if (suggested.contains(tool)) {
+                            _dismissedSuggestions.add(tool);
+                          }
+                        }
+                      });
+                    },
+                  );
+                },
+              );
+            }),
           ),
         ],
       ),
@@ -472,12 +536,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text('What Guides You?', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Text(
-            'Choose 3 to 5 core values. These shape how your coach speaks and what your path celebrates.',
+            'Choose 3 to 10 core values. These shape how your coach speaks and what your path celebrates.',
             style: TextStyle(color: Colors.grey[500], fontSize: 16),
           ),
           const SizedBox(height: 16),
           Text(
-            '${_selectedCoreValues.length} of 5 selected · minimum 3',
+            '${_selectedCoreValues.length} of 10 selected · minimum 3',
             style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
           ),
           const SizedBox(height: 24),
@@ -495,7 +559,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onSelected: (selected) {
                       setState(() {
                         if (selected) {
-                          if (_selectedCoreValues.length >= 5) return;
+                          if (_selectedCoreValues.length >= 10) return;
                           _selectedCoreValues.add(value);
                         } else {
                           _selectedCoreValues.remove(value);
@@ -637,6 +701,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildStep6Avatar() {
     final presets = RecoveryPetService.starterPresets.keys.toList();
+
+    Future<void> openDresser() async {
+      if (_draftPet == null) return;
+      final updated = await Navigator.push<RecoveryPet>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AvatarDresserScreen(
+            initialPet: _draftPet!,
+            onboardingMode: true,
+            onChanged: (pet) {},
+          ),
+        ),
+      );
+      if (updated != null && mounted) {
+        setState(() {
+          _draftPet = updated;
+          _selectedPreset = null; // custom look supersedes the preset
+        });
+      }
+    }
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -652,7 +736,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Center(child: AvatarVisualLayer(pet: _draftPet!, size: 140))
           else
             const Center(child: SizedBox(height: 140, child: Icon(Icons.auto_awesome, size: 64, color: Color(0xFF334155)))),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          if (_draftPet != null)
+            Center(
+              child: TextButton.icon(
+                onPressed: openDresser,
+                icon: const Icon(Icons.checkroom_outlined,
+                    size: 18, color: Color(0xFF38BDF8)),
+                label: const Text('Fine-tune every detail',
+                    style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13)),
+              ),
+            ),
+          const SizedBox(height: 12),
           Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),

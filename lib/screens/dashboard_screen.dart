@@ -245,11 +245,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         case 'Daily Reflections':
           return DailyReflectionScreen(database: widget.database);
         case 'Urge Surfing Timer':
+        case 'Meditation Timer':
           return const GroundingScreen();
         case 'Cost-Benefit Analysis':
           return CopingToolScreen(database: widget.database);
         case 'Medicine Wheel':
           return ConstellationScreen(database: widget.database);
+        case 'Wellness Check-In':
+          return WellnessCheckInScreen(database: widget.database);
         default:
           return JournalScreen(database: widget.database);
       }
@@ -263,12 +266,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return Icons.menu_book_outlined;
         case 'Urge Surfing Timer':
           return Icons.self_improvement;
+        case 'Meditation Timer':
+          return Icons.timer_outlined;
         case 'Cost-Benefit Analysis':
           return Icons.balance;
         case 'Meeting Finder':
           return Icons.map_outlined;
         case 'Medicine Wheel':
           return Icons.auto_awesome_outlined;
+        case 'Wellness Check-In':
+          return Icons.donut_large_outlined;
         default:
           return Icons.handyman_outlined;
       }
