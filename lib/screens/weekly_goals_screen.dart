@@ -157,7 +157,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: goals.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final goal = goals[index];
               final progress =

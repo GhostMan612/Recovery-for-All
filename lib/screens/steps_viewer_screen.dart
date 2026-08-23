@@ -84,7 +84,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _steps.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final step = _steps[index];
           final done = _completed.contains(step.number);

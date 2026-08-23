@@ -3,10 +3,15 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/screens/chatbot_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../database/recovery_database.dart';
+import '../services/recovery_coach_service.dart';
 import '../services/ollama_service.dart';
 import '../services/safety_guardrail_service.dart';
-import '../database/recovery_database.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -24,6 +29,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
+  bool _preferDeepChat = false;
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
@@ -36,12 +48,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
 
     final SafetyAssessment assessment = SafetyGuardrailService.assessInput(text);
-
     if (assessment.isCrisisTriggered) {
-      setState(() {
-        _isLoading = false;
-      });
-
+      setState(() => _isLoading = false);
       final entry = JournalEntry(
         id: UniqueKey().toString(),
         timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -50,30 +58,53 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         isSyncedToCloud: false,
       );
       await widget.database.addJournalEntry(entry);
-
-      if (mounted) {
-        _showSOSBottomSheet(context);
-      }
+      if (mounted) _showSOSBottomSheet(context);
       return;
     }
 
     try {
-      final String chatPrompt = """
+      final CoachReply coachReply = await RecoveryCoachService.reply(text);
+
+      if (coachReply.isCrisis) {
+        setState(() {
+          _messages.add({
+            'sender': 'bot',
+            'text': coachReply.message,
+            'action': coachReply.action,
+            'actionLabel': coachReply.actionLabel,
+          });
+          _isLoading = false;
+        });
+        if (mounted) _showSOSBottomSheet(context);
+        return;
+      }
+
+      String botText = coachReply.message;
+
+      if (_preferDeepChat) {
+        try {
+          final ollama = OllamaService(
+            baseUrl: 'http://192.168.4.144:8000',
+            modelName: 'qwen2.5',
+          );
+          final chatPrompt = '''
 REALITY FILTER: ON
 You are a non-sycophantic recovery companion chatbot.
 Adhere strictly to evidence-based modalities like Motivational Interviewing (MI), CBT, and Wellbriety.
 Do not provide medical diagnoses or flatter the user. Challenge unhelpful assumptions.
 Factual truth always takes precedence over user agreement.
+Scripted intent hint: ${coachReply.intent.name}
 Respond directly and concisely:
 $text
-""";
-
-      final ollama = OllamaService(
-        baseUrl: 'http://192.168.4.144:8000',
-        modelName: 'qwen2.5',
-      );
-
-      final botResponse = await ollama.generateResponse(chatPrompt);
+''';
+          final deep = await ollama.generateResponse(chatPrompt);
+          if (deep.trim().isNotEmpty) {
+            botText = deep.trim();
+          }
+        } catch (_) {
+          // keep scripted reply
+        }
+      }
 
       final journal = JournalEntry(
         id: UniqueKey().toString(),
@@ -85,17 +116,58 @@ $text
       await widget.database.addJournalEntry(journal);
 
       setState(() {
-        _messages.add({'sender': 'bot', 'text': botResponse});
+        _messages.add({
+          'sender': 'bot',
+          'text': botText,
+          'action': coachReply.action,
+          'actionLabel': coachReply.actionLabel,
+        });
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _messages.add({
           'sender': 'bot',
-          'text': 'Network Error: Cannot reach local AI. Details: $e'
+          'text': 'Coach unavailable. Try again or use SOS if you need help now.',
         });
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _runAction(CoachActionType action) async {
+    await RecoveryCoachService.runAction(action);
+    if (!mounted) return;
+    switch (action) {
+      case CoachActionType.openSos:
+        _showSOSBottomSheet(context);
+        break;
+      case CoachActionType.openDresser:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Open the companion card on Home to use the dresser.')),
+        );
+        break;
+      case CoachActionType.openSettings:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Open Settings to manage SOS contacts and 988.')),
+        );
+        break;
+      case CoachActionType.logGrounding:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Grounding logged for your companion.')),
+        );
+        break;
+      case CoachActionType.suggestCheckIn:
+      case CoachActionType.suggestWalk:
+      case CoachActionType.none:
+        break;
+    }
+  }
+
+  Future<void> _launch988() async {
+    final uri = Uri.parse('tel:988');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
     }
   }
 
@@ -126,13 +198,13 @@ $text
               ),
               const SizedBox(height: 12),
               const Text(
-                'You are never alone on this path. Our private local AI has detected that you may be going through an intense struggle. We have paused automated chat to make sure you have direct, secure connection to professional care.',
+                'You are never alone on this path. Automated chat is paused so you can reach professional care.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: _launch988,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDC2626),
                   foregroundColor: Colors.white,
@@ -144,7 +216,7 @@ $text
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () => Navigator.of(context).maybePop(),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF38BDF8),
                   side: const BorderSide(color: Color(0xFF38BDF8)),
@@ -152,7 +224,7 @@ $text
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.people_outline),
-                label: const Text('Contact Support Sponsor'),
+                label: const Text('Close — use SOS contacts in Settings'),
               ),
             ],
           ),
@@ -161,22 +233,59 @@ $text
     );
   }
 
+  void _insertQuickPrompt(String prompt) {
+    _messageController.text = prompt;
+    _messageController.selection = TextSelection.fromPosition(
+      TextPosition(offset: prompt.length),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final prompts = RecoveryCoachService.quickPrompts();
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         title: const Text('Recovery Companion'),
+        actions: [
+          IconButton(
+            tooltip: _preferDeepChat ? 'Deep chat on (local Ollama)' : 'Scripted coach only',
+            onPressed: () {
+              setState(() => _preferDeepChat = !_preferDeepChat);
+            },
+            icon: Icon(
+              _preferDeepChat ? Icons.psychology : Icons.chat_bubble_outline,
+              color: _preferDeepChat ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              itemCount: prompts.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                return ActionChip(
+                  label: Text(prompts[i], style: const TextStyle(fontSize: 12)),
+                  backgroundColor: const Color(0xFF1E293B),
+                  labelStyle: const TextStyle(color: Color(0xFFE2E8F0)),
+                  onPressed: () => _insertQuickPrompt(prompts[i]),
+                );
+              },
+            ),
+          ),
           Expanded(
             child: _messages.isEmpty
                 ? const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        'Ask for support, reflection, or a next step.',
+                        'Offline coach ready. Ask about your companion, urges, SOS, or check-in.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
                       ),
@@ -188,6 +297,8 @@ $text
                     itemBuilder: (context, index) {
                       final message = _messages[index];
                       final isUser = message['sender'] == 'user';
+                      final action = message['action'] as CoachActionType?;
+                      final actionLabel = message['actionLabel'] as String?;
 
                       return Align(
                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -195,17 +306,39 @@ $text
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            maxWidth: MediaQuery.of(context).size.width * 0.78,
                           ),
                           decoration: BoxDecoration(
                             color: isUser ? const Color(0xFF38BDF8) : const Color(0xFF1E293B),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(
-                            message['text'] as String,
-                            style: TextStyle(
-                              color: isUser ? Colors.white : const Color(0xFFE2E8F0),
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message['text'] as String,
+                                style: TextStyle(
+                                  color: isUser ? Colors.white : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              if (!isUser &&
+                                  action != null &&
+                                  action != CoachActionType.none &&
+                                  actionLabel != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF38BDF8),
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(0, 32),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () => _runAction(action),
+                                    child: Text(actionLabel),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       );
@@ -226,6 +359,7 @@ $text
                     child: TextField(
                       controller: _messageController,
                       style: const TextStyle(color: Colors.white),
+                      onSubmitted: (_) => _isLoading ? null : _sendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: const TextStyle(color: Color(0xFF94A3B8)),

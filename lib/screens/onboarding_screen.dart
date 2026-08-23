@@ -365,7 +365,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: _pathwaysPool.keys.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final path = _pathwaysPool.keys.elementAt(index);
                 final desc = _pathwaysPool[path]!;
@@ -432,7 +432,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: _toolsPool.keys.length,
-              separatorBuilder: (_, __) => const Divider(color: Color(0xFF334155)),
+              separatorBuilder: (_, _) => const Divider(color: Color(0xFF334155)),
               itemBuilder: (context, index) {
                 final tool = _toolsPool.keys.elementAt(index);
                 final desc = _toolsPool[tool]!;
@@ -441,7 +441,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   title: Text(tool, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   subtitle: Text(desc, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
                   value: isSelected,
-                  activeColor: const Color(0xFF38BDF8),
+                  activeThumbColor: const Color(0xFF38BDF8),
                   contentPadding: EdgeInsets.zero,
                   onChanged: (bool value) {
                     setState(() {
@@ -657,7 +657,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: presets.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final id = presets[index];
                 final emoji = PetCosmeticCatalog.presetEmojis[id] ?? '✨';

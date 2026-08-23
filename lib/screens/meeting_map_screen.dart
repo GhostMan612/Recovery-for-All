@@ -171,6 +171,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
           : _showMapView
               ? GoogleMap(
+                  style: _darkMapStyle,
                   initialCameraPosition: _currentPosition != null
                       ? CameraPosition(
                           target: LatLng(_currentPosition!.latitude,
@@ -182,7 +183,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
                   onMapCreated: (GoogleMapController controller) {
-                    controller.setMapStyle(_darkMapStyle);
                     if (!_mapController.isCompleted) {
                       _mapController.complete(controller);
                     }
@@ -191,7 +191,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: widget.initialMeetings.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final meeting = widget.initialMeetings[index];
                     return Material(

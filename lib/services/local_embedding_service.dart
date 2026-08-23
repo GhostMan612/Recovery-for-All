@@ -107,6 +107,7 @@ DenseVector _generateEmbeddingInIsolate(String text) {
   // 1. Text Tokenization:
   // Convert text characters to token IDs matching the model's vocabulary (e.g., WordPiece).
   // In production, this invokes native Rust/C++ tokenizers compiled inside the app.
+  // Keep the pass exercised until the native tokenizer is wired in.
   _tokenizeTextMock(text);
 
   // 2. Mock Model Inference & Matrix Math:

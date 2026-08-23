@@ -138,7 +138,7 @@ class PetEvents extends Table {
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
 
-  RecoveryDatabase.forTesting(QueryExecutor e) : super(e);
+  RecoveryDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => 6;
