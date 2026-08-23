@@ -70,9 +70,10 @@ class MeetingFinderService {
   static const Duration cacheTtl = Duration(hours: 24);
 
   /// Verified live feeds speaking the Meeting Guide spec.
+  /// Minnesota-first: real MN AA + NA directories; national coverage after.
   static const List<String> defaultSources = [
-    // Code for Recovery sample sheet feed (AA demo dataset).
-    'https://sheets.code4recovery.org/storage/12Ga8uwMG4WJ8pZ_SEU7vNETp_aQZ-2yNVsYDFqIwHyE.json',
+    // aaMinnesota — statewide AA intergroup data (1,900+ geocoded meetings).
+    'https://aaminnesota.org/wp-content/tsml-cache-def4723d05.json',
     // NA Minnesota regional root server (geo-bounded per request).
     'https://bmlt.naminnesota.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
     // BMLT aggregator — NA meetings worldwide (geo-bounded per request).

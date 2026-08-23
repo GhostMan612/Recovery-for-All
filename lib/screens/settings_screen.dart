@@ -175,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ).timeout(const Duration(seconds: 8));
       return (pos.latitude, pos.longitude);
     } catch (_) {
-      return (39.7392, -104.9903); // neutral fallback center
+      return (44.9778, -93.2650); // Minnesota-first fallback (Twin Cities)
     }
   }
 

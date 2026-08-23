@@ -46,7 +46,9 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  static const _defaultCenter = (39.7392, -104.9903); // neutral fallback center
+  // Minnesota-first: when location permission is denied, the meeting finder
+  // still reflects the state this app is built for (Twin Cities metro).
+  static const _defaultCenter = (44.9778, -93.2650);
 
   String _username = 'Friend';
   bool _isLoading = true;
