@@ -34,7 +34,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.recovery_companion"
+        // Matches the pre-registered Firebase app in project "recovery-for-all"
+        // (android/app/google-services.json). Namespace stays com.recovery_companion.
+        applicationId = "com.recovery_for_all"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
