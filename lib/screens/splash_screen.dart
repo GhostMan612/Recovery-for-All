@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:local_auth/local_auth.dart';
 import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
@@ -20,10 +21,12 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   bool _locked = false;
+  late AnimationController _zoomController;
+  late Animation<double> _zoomAnimation;
 
   /// Boot diagnostics: any startup failure surfaces HERE instead of
   /// hanging on splash forever. Paste this string back when reporting.
@@ -39,6 +42,15 @@ class _SplashScreenState extends State<SplashScreen>
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
     _controller.forward();
+
+    _zoomController = AnimationController(
+      duration: const Duration(seconds: 7),
+      vsync: this,
+    );
+    _zoomAnimation = Tween<double>(begin: 1.0, end: 1.14).animate(
+      CurvedAnimation(parent: _zoomController, curve: Curves.easeInOut),
+    );
+    _zoomController.repeat(reverse: true);
 
     // Fire-and-forget is safe now: _routeToNextScreen catches everything
     // internally and reports through _bootError.
@@ -122,6 +134,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _zoomController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -176,13 +189,31 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image.asset(
-                  'assets/images/splash_bg.jpg',
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.cover,
+              AnimatedBuilder(
+                animation: _zoomAnimation,
+                builder: (context, child) => Transform.scale(
+                  scale: _zoomAnimation.value,
+                  child: child,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          'assets/images/splash_bg.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                        // Living sky: stars drift and twinkle over the art.
+                        const CustomPaint(
+                          painter: _SplashStarField(),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -230,4 +261,28 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
+}
+/// Twinkling, slowly drifting stars over the splash art — deterministic
+/// layout (seeded), animated from the existing zoom controller's clock.
+class _SplashStarField extends CustomPainter {
+  const _SplashStarField();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final rnd = math.Random(7);
+    final paint = Paint();
+    for (var i = 0; i < 42; i++) {
+      final x = rnd.nextDouble() * size.width;
+      final baseY = rnd.nextDouble() * size.height;
+      final y = (baseY - (t * 6 % size.height) + size.height) % size.height;
+      final phase = (t * (0.6 + rnd.nextDouble()) + i) % (2 * math.pi);
+      final alpha = 0.25 + 0.65 * (0.5 + 0.5 * math.sin(phase));
+      paint.color = Colors.white.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), 1.0 + rnd.nextDouble() * 1.4, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashStarField oldDelegate) => true;
 }

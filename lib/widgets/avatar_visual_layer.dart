@@ -16,7 +16,11 @@ import 'package:lottie/lottie.dart';
 
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
+import 'avatar_painter.dart';
 
+/// Companion rendering: Lottie aura + Lottie mood underlay + a fully
+/// PAINTED vector creature (AvatarPainter). Zero emoji in the composite —
+/// emoji survive only in the dresser grid as item thumbnails.
 class AvatarVisualLayer extends StatefulWidget {
   final RecoveryPet pet;
   final double size;
@@ -180,22 +184,6 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
   Widget build(BuildContext context) {
     final pet = widget.pet;
     final size = widget.size;
-    final face = AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.face));
-    final hair = AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.hair));
-    final top = AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.top));
-    final head = AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.headwear));
-    final jewelry =
-        AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.jewelry));
-    final shoes = AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.shoes));
-    final acc =
-        AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.accessory));
-    final bodyItem =
-        AvatarVisualLayer.displayEmoji(pet.slot(CosmeticCategory.body));
-
-    // Species creature is the base; body-form emoji stays as a small badge so
-    // the chosen style still reads at a glance.
-    final species = PetSpeciesCatalog.byId(pet.speciesId);
-    final core = size * (widget.compact ? 0.55 : 0.7);
 
     final lottieAura = _auraComposition;
     final showLottieAura =
@@ -223,9 +211,11 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
                     repeat: true,
                     animate: true,
                   )
-                : Text(
-                    AvatarVisualLayer.displayEmoji(_equippedAuraId),
-                    style: TextStyle(fontSize: size * 0.85),
+                : CustomPaint(
+                    size: Size.square(size * 0.98),
+                    painter: _SimpleGlowPainter(
+                      color: AvatarPainter.auraColorFor(_equippedAuraId),
+                    ),
                   ),
           if (showMoodLottie)
             Positioned(
@@ -241,46 +231,39 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
                 ),
               ),
             ),
-          Text(species.emoji, style: TextStyle(fontSize: core)),
-          Positioned(
-            right: size * 0.04,
-            bottom: size * 0.30,
-            child: Text(bodyItem,
-                style: TextStyle(fontSize: size * 0.14, shadows: [
-                  Shadow(
-                      blurRadius: 6,
-                      color: Colors.black.withValues(alpha: 0.35)),
-                ])),
-          ),
-          Positioned(
-            top: size * 0.12,
-            child: Text(hair, style: TextStyle(fontSize: size * 0.22)),
-          ),
-          Positioned(
-            top: size * 0.08,
-            child: Text(head, style: TextStyle(fontSize: size * 0.18)),
-          ),
-          Text(face, style: TextStyle(fontSize: size * 0.28)),
-          Positioned(
-            bottom: size * 0.28,
-            child: Text(top, style: TextStyle(fontSize: size * 0.26)),
-          ),
-          Positioned(
-            bottom: size * 0.12,
-            child: Text(shoes, style: TextStyle(fontSize: size * 0.16)),
-          ),
-          Positioned(
-            right: size * 0.08,
-            top: size * 0.38,
-            child: Text(jewelry, style: TextStyle(fontSize: size * 0.14)),
-          ),
-          Positioned(
-            left: size * 0.06,
-            bottom: size * 0.22,
-            child: Text(acc, style: TextStyle(fontSize: size * 0.16)),
+          // The painted creature — every equipped slot rendered as vector art.
+          CustomPaint(
+            size: Size.square(size),
+            painter: AvatarPainter(pet),
           ),
         ],
       ),
     );
   }
+}
+
+/// Static radial glow used when a Lottie aura isn't available.
+class _SimpleGlowPainter extends CustomPainter {
+  final Color color;
+  _SimpleGlowPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (color == const Color(0x00000000)) return;
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      size.shortestSide * 0.46,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            color.withValues(alpha: 0.32),
+            color.withValues(alpha: 0.0),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SimpleGlowPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
