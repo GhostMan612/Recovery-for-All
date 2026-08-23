@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../database/recovery_database.dart';
+import '../services/recovery_pet_service.dart';
 
 class GratitudeEntryScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -27,11 +28,11 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
   bool _isSaving = false;
 
   final List<Map<String, dynamic>> _moods = const [
-    {'rating': 1, 'emoji': '😞', 'label': 'Struggling'},
+    {'rating': 1, 'emoji': '🥺', 'label': 'Struggling'},
     {'rating': 2, 'emoji': '😐', 'label': 'Okay'},
     {'rating': 3, 'emoji': '🙂', 'label': 'Good'},
-    {'rating': 4, 'emoji': '😀', 'label': 'Great'},
-    {'rating': 5, 'emoji': '✨', 'label': 'Serene'},
+    {'rating': 4, 'emoji': '😊', 'label': 'Great'},
+    {'rating': 5, 'emoji': '😌', 'label': 'Serene'},
   ];
 
   @override
@@ -75,8 +76,16 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
       );
 
       await widget.database.addJournalEntry(entry);
+      await RecoveryPetService.logGratitude();
 
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Gratitude saved · +${RecoveryPetService.sparksGratitude} Sparks'),
+            backgroundColor: const Color(0xFF1E293B),
+          ),
+        );
         Navigator.of(context).pop();
       }
     } catch (e) {

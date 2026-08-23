@@ -227,6 +227,28 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   Stream<List<WeeklyGoal>> watchAllWeeklyGoals() => select(weeklyGoals).watch();
 
+  Future<int> incrementWeeklyGoal(String id, {int by = 1}) async {
+    final rows =
+        await (select(weeklyGoals)..where((tbl) => tbl.id.equals(id))).get();
+    if (rows.isEmpty) return 0;
+    final goal = rows.first;
+    final newCount = goal.currentCount + by;
+    return (update(weeklyGoals)..where((tbl) => tbl.id.equals(id))).write(
+      WeeklyGoalsCompanion(
+        currentCount: Value(newCount),
+        isCompleted: Value(newCount >= goal.targetCount),
+      ),
+    );
+  }
+
+  Future<int> resetAllWeeklyGoals() =>
+      (update(weeklyGoals)).write(
+        WeeklyGoalsCompanion(currentCount: const Value(0), isCompleted: const Value(false)),
+      );
+
+  Future<int> deleteWeeklyGoal(String id) =>
+      (delete(weeklyGoals)..where((tbl) => tbl.id.equals(id))).go();
+
   Future<int> addWellnessCheckIn(WellnessCheckIn checkIn) =>
       into(wellnessCheckIns).insertOnConflictUpdate(checkIn);
 

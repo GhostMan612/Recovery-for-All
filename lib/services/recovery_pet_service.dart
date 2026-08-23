@@ -91,6 +91,7 @@ class RecoveryPetService {
   static const int sparksJournal = 10;
   static const int sparksGround = 8;
   static const int sparksWalk = 15;
+  static const int sparksGratitude = 5;
   static const int outfitUnlockCost = 40;
   static const int maxWalksPerDay = 2;
 
@@ -201,6 +202,11 @@ class RecoveryPetService {
   /// Journal entry save → Sparks + Energy.
   static Future<RecoveryPet> logJournalEntry() {
     return _applyReward(sparksDelta: sparksJournal, energyDelta: 5);
+  }
+
+  /// Gratitude entry → Sparks.
+  static Future<RecoveryPet> logGratitude() {
+    return _applyReward(sparksDelta: sparksGratitude, energyDelta: 3, mood: PetMoodX.happy);
   }
 
   /// Grounding / breath complete → Sparks + Energy.

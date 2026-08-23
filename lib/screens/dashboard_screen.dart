@@ -23,6 +23,10 @@ import 'grounding_screen.dart';
 import 'journal_screen.dart';
 import 'meeting_map_screen.dart';
 import 'settings_screen.dart';
+import 'sobriety_counter_screen.dart';
+import 'steps_viewer_screen.dart';
+import 'weekly_goals_screen.dart';
+import 'wellness_check_in_screen.dart';
 import '../widgets/recovery_pet_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -236,7 +240,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final cards = <_ToolCard>[];
 
-    // Universal tools (blueprint §2.3): Journal, Gratitude, Meeting Finder, SOS.
+    // Universal tools (blueprint §2.3): Journal, Gratitude, Counters,
+    // Meeting Finder, SOS.
     cards.add(_ToolCard(
       label: 'Private Journal',
       subtitle: 'PIN-protected reflections',
@@ -248,6 +253,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'Three good things',
       icon: Icons.volunteer_activism_outlined,
       onTap: () => _push(GratitudeEntryScreen(database: widget.database)),
+    ));
+    cards.add(_ToolCard(
+      label: 'Counters',
+      subtitle: 'Your Day One clock',
+      icon: Icons.timelapse,
+      onTap: () => _push(SobrietyCounterScreen(database: widget.database)),
     ));
     cards.add(_ToolCard(
       label: 'Meeting Finder',
@@ -266,6 +277,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ));
     }
 
+    cards.add(_ToolCard(
+      label: 'Wellness Check-In',
+      subtitle: 'Six-dimension wheel',
+      icon: Icons.donut_large_outlined,
+      onTap: () => _push(WellnessCheckInScreen(database: widget.database)),
+    ));
+    cards.add(_ToolCard(
+      label: 'Weekly Goals',
+      subtitle: 'Small promises kept',
+      icon: Icons.flag_outlined,
+      onTap: () => _push(WeeklyGoalsScreen(database: widget.database)),
+    ));
+    cards.add(_ToolCard(
+      label: 'The Twelve Steps',
+      subtitle: 'A reader, any path',
+      icon: Icons.menu_book_outlined,
+      onTap: () => _push(const StepsViewerScreen()),
+    ));
     cards.add(_ToolCard(
       label: 'Recovery Coach',
       subtitle: 'Offline guidance, always here',
