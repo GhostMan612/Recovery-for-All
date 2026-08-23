@@ -45,6 +45,24 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     if (mounted) setState(() => _pet = pet);
   }
 
+  Future<void> _adoptSpecies(PetSpecies species) async {
+    final before = _pet?.sparks ?? 0;
+    final updated = await RecoveryPetService.adoptSpecies(species.id);
+    if (!mounted) return;
+    setState(() => _pet = updated);
+    final spent = before - updated.sparks;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(
+          spent > 0
+              ? 'Welcome, ${updated.name} the ${species.label} · −$spent Sparks'
+              : 'Welcome, ${updated.name} the ${species.label}',
+        ),
+      ),
+    );
+  }
+
   void _openDresser() async {
     final pet = _pet;
     if (pet == null) return;
@@ -164,6 +182,93 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                     icon: const Icon(Icons.checkroom_outlined),
                     label: const Text('Open Dresser',
                         style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Species',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Adopting a new style keeps every stat, spark, and memory.',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 128,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: PetSpeciesCatalog.all.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final species = PetSpeciesCatalog.all[index];
+                      final active = pet.speciesId == species.id;
+                      final status =
+                          RecoveryPetService.speciesStatus(pet, species.id);
+                      final affordable = status == OutfitUnlockStatus.available;
+                      return InkWell(
+                        onTap:
+                            active || status == OutfitUnlockStatus.bondTooLow ||
+                                    status == OutfitUnlockStatus.notEnoughSparks
+                                ? null
+                                : () => _adoptSpecies(species),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          width: 132,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgCard,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: active ? AppColors.accent : AppColors.border,
+                              width: active ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(species.emoji,
+                                  style: const TextStyle(fontSize: 30)),
+                              const SizedBox(height: 6),
+                              Text(species.label,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                active
+                                    ? 'Active'
+                                    : status ==
+                                            OutfitUnlockStatus.alreadyOwned
+                                        ? 'Adopt · free'
+                                        : status == OutfitUnlockStatus.available
+                                            ? 'Adopt · ${species.unlockSparks}✦'
+                                            : status == OutfitUnlockStatus.bondTooLow
+                                                ? 'Bond ${species.unlockBond * 100 ~/ 1}%'
+                                                : '${species.unlockSparks}✦ needed',
+                                style: TextStyle(
+                                  color: active
+                                      ? AppColors.accent
+                                      : affordable
+                                          ? AppColors.success
+                                          : AppColors.textDim,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),

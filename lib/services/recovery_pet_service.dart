@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
@@ -19,11 +19,11 @@ enum PetMoodX {
   String get emoji {
     switch (this) {
       case PetMoodX.happy:
-        return '😊';
+        return 'ðŸ˜Š';
       case PetMoodX.neutral:
-        return '🙂';
+        return 'ðŸ™‚';
       case PetMoodX.sad:
-        return '🥺';
+        return 'ðŸ¥º';
     }
   }
 
@@ -54,6 +54,7 @@ class RecoveryPet {
   final List<String> unlockedItems;
   final String equippedOutfit;
   final Map<String, String> equippedSlots;
+  final String speciesId;
   final int lastFedAt;
   final int createdAt;
 
@@ -67,6 +68,7 @@ class RecoveryPet {
     required this.unlockedItems,
     required this.equippedOutfit,
     required this.equippedSlots,
+    this.speciesId = PetSpeciesCatalog.emberKitId,
     required this.lastFedAt,
     required this.createdAt,
   });
@@ -79,6 +81,93 @@ class RecoveryPet {
 
   /// Low energy means restful, never dead ("I'm here when you are").
   bool get isResting => energy < 25;
+}
+
+/// Adoptable companion styles ("single companion vs unlockable species"
+/// checklist decision: multi-species, cosmetic-gated like everything else).
+class PetSpecies {
+  final String id;
+  final String label;
+  final String tagline;
+  final String emoji;
+
+  /// Catalog body form applied when this species is adopted.
+  final String bodyItemId;
+
+  /// Aura equipped alongside the body form.
+  final String defaultAuraId;
+  final int unlockSparks;
+  final double unlockBond; // 0..1 fraction
+
+  const PetSpecies({
+    required this.id,
+    required this.label,
+    required this.tagline,
+    required this.emoji,
+    required this.bodyItemId,
+    required this.defaultAuraId,
+    required this.unlockSparks,
+    required this.unlockBond,
+  });
+}
+
+class PetSpeciesCatalog {
+  static const String emberKitId = 'ember_kit';
+  static const List<PetSpecies> all = [
+    PetSpecies(
+      id: emberKitId,
+      label: 'Ember Kit',
+      tagline: 'A warm little flame that never burns out.',
+      emoji: 'ðŸ¦Š',
+      bodyItemId: 'body_ember',
+      defaultAuraId: 'aura_warm',
+      unlockSparks: 0,
+      unlockBond: 0,
+    ),
+    PetSpecies(
+      id: 'tide_kin',
+      label: 'Tide Kin',
+      tagline: 'Soft as the shore, steady as the moon.',
+      emoji: 'ðŸ¦¦',
+      bodyItemId: 'body_tide',
+      defaultAuraId: 'aura_calm_blue',
+      unlockSparks: 40,
+      unlockBond: 0.15,
+    ),
+    PetSpecies(
+      id: 'moss_sprite',
+      label: 'Moss Sprite',
+      tagline: 'Grows a little every single day.',
+      emoji: 'ðŸ¿ï¸',
+      bodyItemId: 'body_moss',
+      defaultAuraId: 'aura_forest',
+      unlockSparks: 55,
+      unlockBond: 0.25,
+    ),
+    PetSpecies(
+      id: 'star_whelp',
+      label: 'Star Whelp',
+      tagline: 'Carries its own night sky.',
+      emoji: 'ðŸº',
+      bodyItemId: 'body_starlit',
+      defaultAuraId: 'aura_starfield',
+      unlockSparks: 90,
+      unlockBond: 0.45,
+    ),
+    PetSpecies(
+      id: 'sovereign_linx',
+      label: 'Sovereign Lynx',
+      tagline: 'Quiet dignity earned over miles.',
+      emoji: 'ðŸˆâ€â¬›',
+      bodyItemId: 'body_sovereign',
+      defaultAuraId: 'aura_sovereign',
+      unlockSparks: 150,
+      unlockBond: 0.65,
+    ),
+  ];
+
+  static PetSpecies byId(String id) =>
+      all.firstWhere((s) => s.id == id, orElse: () => all.first);
 }
 
 class RecoveryPetService {
@@ -137,6 +226,9 @@ class RecoveryPetService {
           unlockedItems: unlocked,
           equippedOutfit: decoded['equippedOutfit'] ?? 'default',
           equippedSlots: slots,
+          speciesId: decoded['speciesId'] is String
+              ? decoded['speciesId'] as String
+              : PetSpeciesCatalog.emberKitId,
           lastFedAt: decoded['lastFedAt'] ?? DateTime.now().millisecondsSinceEpoch,
           createdAt: decoded['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
         );
@@ -179,6 +271,7 @@ class RecoveryPetService {
       sparks: pet.sparks,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: presetId,
+      speciesId: pet.speciesId,
       equippedSlots: slots,
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
@@ -192,29 +285,29 @@ class RecoveryPetService {
     await _savePet(pet, prefs);
   }
 
-  // ---- Reward hooks (pet checklist §3.1 / §8 integration map) ----
+  // ---- Reward hooks (pet checklist Â§3.1 / Â§8 integration map) ----
 
-  /// Daily mood check-in → Sparks + Mood update.
+  /// Daily mood check-in â†’ Sparks + Mood update.
   static Future<RecoveryPet> logCheckIn({PetMoodX mood = PetMoodX.happy}) {
     return _applyReward(type: 'check_in', sparksDelta: sparksCheckIn, bondDelta: 1, mood: mood);
   }
 
-  /// Journal entry save → Sparks + Energy.
+  /// Journal entry save â†’ Sparks + Energy.
   static Future<RecoveryPet> logJournalEntry() {
     return _applyReward(type: 'journal', sparksDelta: sparksJournal, energyDelta: 5);
   }
 
-  /// Gratitude entry → Sparks.
+  /// Gratitude entry â†’ Sparks.
   static Future<RecoveryPet> logGratitude() {
     return _applyReward(type: 'gratitude', sparksDelta: sparksGratitude, energyDelta: 3, mood: PetMoodX.happy);
   }
 
-  /// Grounding / breath complete → Sparks + Energy.
+  /// Grounding / breath complete â†’ Sparks + Energy.
   static Future<RecoveryPet> logGrounding() {
     return _applyReward(type: 'grounding', sparksDelta: sparksGround, energyDelta: 6);
   }
 
-  /// Manual "I took a walk" → Sparks + Energy + Bond (capped daily).
+  /// Manual "I took a walk" â†’ Sparks + Energy + Bond (capped daily).
   static Future<RecoveryPet> logWalk() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -247,6 +340,7 @@ class RecoveryPetService {
       sparks: pet.sparks + sparksDelta,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: pet.equippedOutfit,
+      speciesId: pet.speciesId,
       equippedSlots: pet.equippedSlots,
       lastFedAt: DateTime.now().millisecondsSinceEpoch,
       createdAt: pet.createdAt,
@@ -315,6 +409,7 @@ class RecoveryPetService {
       sparks: pet.sparks,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: pet.equippedOutfit,
+      speciesId: pet.speciesId,
       equippedSlots: slots,
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
@@ -342,6 +437,7 @@ class RecoveryPetService {
       sparks: item.free ? pet.sparks : pet.sparks - item.cost,
       unlockedItems: [...pet.unlockedItems, itemId],
       equippedOutfit: pet.equippedOutfit,
+      speciesId: pet.speciesId,
       equippedSlots: {...pet.equippedSlots, item.category.name: itemId},
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
@@ -364,6 +460,58 @@ class RecoveryPetService {
     return [];
   }
 
+  // ---- Species (adoptable companion styles) ----
+
+  /// Already adopted → alreadyOwned; otherwise gates on sparks + bond.
+  static OutfitUnlockStatus speciesStatus(RecoveryPet pet, String speciesId) {
+    if (pet.speciesId == speciesId) return OutfitUnlockStatus.alreadyOwned;
+    final species = PetSpeciesCatalog.all
+        .where((s) => s.id == speciesId)
+        .firstOrNull;
+    if (species == null) return OutfitUnlockStatus.unknownItem;
+    if (pet.bond / 100.0 < species.unlockBond) {
+      return OutfitUnlockStatus.bondTooLow;
+    }
+    if (pet.sparks < species.unlockSparks) {
+      return OutfitUnlockStatus.notEnoughSparks;
+    }
+    return OutfitUnlockStatus.available;
+  }
+
+  /// Adopts a species: spends Sparks (if any), applies the body form and its
+  /// signature aura. Adoption is a change of style, never a reset of progress.
+  static Future<RecoveryPet> adoptSpecies(String speciesId) async {
+    final pet = await ensureHatched();
+    final status = speciesStatus(pet, speciesId);
+    if (status != OutfitUnlockStatus.available &&
+        status != OutfitUnlockStatus.alreadyOwned) {
+      return pet;
+    }
+    final species = PetSpeciesCatalog.byId(speciesId);
+    final cost = pet.speciesId == speciesId ? 0 : species.unlockSparks;
+    final updated = RecoveryPet(
+      id: pet.id,
+      name: pet.name,
+      energy: pet.energy,
+      bond: pet.bond,
+      mood: pet.mood,
+      sparks: pet.sparks - cost,
+      unlockedItems: pet.unlockedItems,
+      equippedOutfit: pet.equippedOutfit,
+      equippedSlots: {
+        ...pet.equippedSlots,
+        CosmeticCategory.body.name: species.bodyItemId,
+        CosmeticCategory.aura.name: species.defaultAuraId,
+      },
+      speciesId: species.id,
+      lastFedAt: DateTime.now().millisecondsSinceEpoch,
+      createdAt: pet.createdAt,
+    );
+    await save(updated);
+    await _recordEvent('species_${species.id}', 0);
+    return updated;
+  }
+
   static Future<void> _savePet(RecoveryPet pet, SharedPreferences prefs) async {
     final Map<String, dynamic> data = {
       'id': pet.id,
@@ -375,6 +523,7 @@ class RecoveryPetService {
       'unlockedItems': pet.unlockedItems,
       'equippedOutfit': pet.equippedOutfit,
       'equippedSlots': pet.equippedSlots,
+      'speciesId': pet.speciesId,
       'lastFedAt': pet.lastFedAt,
       'createdAt': pet.createdAt,
     };
