@@ -30,6 +30,8 @@ dependencies:
   url_launcher: ^6.3.0
   app_settings: ^5.1.1
   flutter_riverpod: ^2.4.9
+  local_auth: ^2.2.0
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

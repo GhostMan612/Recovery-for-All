@@ -26,6 +26,7 @@ import 'journal_screen.dart';
 import 'meeting_map_screen.dart';
 import 'pet_home_screen.dart';
 import 'settings_screen.dart';
+import 'sober_housing_locator.dart';
 import 'sobriety_counter_screen.dart';
 import 'steps_viewer_screen.dart';
 import 'daily_motivation_screen.dart';
@@ -275,6 +276,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'Rooms near and virtual',
       icon: Icons.map_outlined,
       onTap: _openMeetings,
+    ));
+    cards.add(_ToolCard(
+      label: 'Sober Housing',
+      subtitle: 'Structured homes directory',
+      icon: Icons.home_work_outlined,
+      onTap: () => _push(const SoberHousingLocatorScreen()),
     ));
 
     for (final tool in _tools) {

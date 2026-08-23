@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
+import '../services/gentle_reminder_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/sos_notification_service.dart';
 
@@ -33,6 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _refreshingMeetings = false;
   String? _lastMeetingRefresh;
   bool _isModerator = false;
+  bool _reminderEnabled = false;
+  int _reminderMinutes = 8 * 60;
+  bool _biometricEnabled = false;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
@@ -52,13 +57,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadProfile() async {
-    await widget.database.getProfile('active_user_profile');
+    final profile = await widget.database.getProfile('active_user_profile');
     final moderator = await CommunityFeedService.isModerator();
+    final reminderEnabled = await GentleReminderService.getEnabled();
+    final reminderMinutes = await GentleReminderService.getMinutesOfDay();
     if (mounted) {
       setState(() {
         _isLoading = false;
         _isModerator = moderator;
+        _reminderEnabled = reminderEnabled;
+        _reminderMinutes = reminderMinutes;
+        _biometricEnabled = profile?.biometricLockEnabled ?? false;
       });
+    }
+  }
+
+  Future<void> _toggleReminder(bool value) async {
+    final granted =
+        await GentleReminderService.setSchedule(
+      enabled: value,
+      minutesOfDay: _reminderMinutes,
+    );
+    if (!mounted) return;
+    setState(() => _reminderEnabled = granted ? value : false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(granted
+            ? (value
+                ? 'Daily invitation set for ${GentleReminderService.formatMinutes(_reminderMinutes)}'
+                : 'Reminder turned off')
+            : 'Notification permission was denied'),
+      ),
+    );
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminderMinutes ~/ 60, minute: _reminderMinutes % 60),
+    );
+    if (picked == null) return;
+    final minutes = picked.hour * 60 + picked.minute;
+    setState(() => _reminderMinutes = minutes);
+    if (_reminderEnabled) {
+      await GentleReminderService.setSchedule(enabled: true, minutesOfDay: minutes);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text('Invitation set for ${GentleReminderService.formatMinutes(minutes)}'),
+      ),
+    );
+  }
+
+  Future<void> _toggleBiometric(bool want) async {
+    if (!want) {
+      final profile = await widget.database.getProfile('active_user_profile');
+      if (profile != null) {
+        await widget.database.saveProfile(
+          profile.copyWith(biometricLockEnabled: false),
+        );
+      }
+      if (!mounted) return;
+      setState(() => _biometricEnabled = false);
+      return;
+    }
+
+    // Confirm the device can actually do it before saving the flag.
+    try {
+      final auth = LocalAuthentication();
+      final ok = await auth.authenticate(
+        localizedReason: 'Confirm to enable biometric unlock',
+        options: const AuthenticationOptions(biometricOnly: true),
+      );
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not confirmed — lock stays off')),
+        );
+        return;
+      }
+      final profile = await widget.database.getProfile('active_user_profile');
+      if (profile != null) {
+        await widget.database.saveProfile(
+          profile.copyWith(biometricLockEnabled: true),
+        );
+      }
+      if (!mounted) return;
+      setState(() => _biometricEnabled = true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('No biometrics enrolled on this device')),
+      );
     }
   }
 
@@ -268,6 +362,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await CommunityFeedService.setModerator(value);
                   setState(() => _isModerator = value);
                 },
+              ),
+              const SizedBox(height: 24),
+              const Text('Gentle Reminder', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text(
+                'One invitational nudge a day. No streaks, no guilt — '
+                'just an open door at a time you choose.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+              ),
+              SwitchListTile(
+                title: const Text('Daily invitation',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: Text(GentleReminderService.formatMinutes(_reminderMinutes),
+                    style: const TextStyle(color: Color(0xFF94A3B8))),
+                value: _reminderEnabled,
+                activeThumbColor: const Color(0xFF38BDF8),
+                onChanged: _toggleReminder,
+              ),
+              ListTile(
+                enabled: _reminderEnabled,
+                leading:
+                    const Icon(Icons.schedule, color: Color(0xFF38BDF8)),
+                title: const Text('Invitation time',
+                    style: TextStyle(color: Colors.white)),
+                trailing: Text(
+                  GentleReminderService.formatMinutes(_reminderMinutes),
+                  style: const TextStyle(color: Color(0xFF94A3B8)),
+                ),
+                onTap: _reminderEnabled ? _pickReminderTime : null,
+              ),
+              const SizedBox(height: 24),
+              SwitchListTile(
+                title: const Text('Biometric app lock',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Require fingerprint/face when opening the app',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                value: _biometricEnabled,
+                activeThumbColor: const Color(0xFF38BDF8),
+                onChanged: _toggleBiometric,
               ),
               const SizedBox(height: 24),
               const Text('SOS Contacts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

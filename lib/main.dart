@@ -5,21 +5,39 @@
 
 // lib/main.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_navigator.dart';
 import 'database/recovery_database.dart';
 import 'screens/splash_screen.dart';
+import 'services/gentle_reminder_service.dart';
 import 'services/sos_notification_service.dart';
+import 'services/recovery_pet_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 1. Initialize the modern notification bridge
   await SosNotificationService.initialize();
-  await SosNotificationService.restoreIfEnabled();
+  await GentleReminderService.initialize();
+  unawaited(GentleReminderService.rescheduleIfEnabled());
+  
+  // 2. Safely retrieve user preferences and restore SOS state if active
+  final sosSettings = await SosNotificationService.getStoredSettings();
+  if (sosSettings.enabled) {
+    await SosNotificationService.startPersistentSos(
+      sponsorPhone: sosSettings.sponsor,
+      customHelpPhone: sosSettings.custom,
+      safetyPlan: sosSettings.safetyPlan,
+    );
+  }
 
+  // 3. Mount the local-first database
   final database = RecoveryDatabase();
+  RecoveryPetService.bindDatabase(database);
 
   runApp(
     ProviderScope(
