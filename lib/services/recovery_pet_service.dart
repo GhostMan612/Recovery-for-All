@@ -173,6 +173,7 @@ class PetSpeciesCatalog {
 class RecoveryPetService {
   static const String _keyPet = 'recovery_pet_v1';
   static const String _keyWalkDay = 'recovery_pet_walk_day_v1';
+  static const String _keyEarnDay = 'recovery_pet_earn_day_v1';
   static const String defaultName = 'Kin';
   static const String defaultPetId = 'active_pet';
 
@@ -181,8 +182,14 @@ class RecoveryPetService {
   static const int sparksGround = 8;
   static const int sparksWalk = 15;
   static const int sparksGratitude = 5;
+  static const int sparksMeeting = 8;
   static const int outfitUnlockCost = 40;
   static const int maxWalksPerDay = 2;
+
+  /// Soft ceiling on earned Sparks per calendar day across ALL actions.
+  /// Store-rule #1: the economy cannot be gamed, and nobody should feel
+  /// they must grind to keep their companion well. Milestones/seeds exempt.
+  static const int dailyEarnCap = 60;
 
   static RecoveryDatabase? _db;
 
@@ -302,16 +309,34 @@ class RecoveryPetService {
     return _applyReward(type: 'gratitude', sparksDelta: sparksGratitude, energyDelta: 3, mood: PetMoodX.happy);
   }
 
-  /// Grounding / breath complete â†’ Sparks + Energy.
+  /// Grounding / breath complete → Sparks + Energy.
   static Future<RecoveryPet> logGrounding() {
     return _applyReward(type: 'grounding', sparksDelta: sparksGround, energyDelta: 6);
   }
 
-  /// Manual "I took a walk" â†’ Sparks + Energy + Bond (capped daily).
+  /// Honest meeting attendance (paired with a reflection) → Sparks + Bond.
+  static Future<RecoveryPet> logMeeting() {
+    return _applyReward(type: 'meeting', sparksDelta: sparksMeeting, bondDelta: 2);
+  }
+
+  /// Sparks earned so far today across all actions (cap accounting).
+  static Future<int> earnedToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_keyEarnDay);
+    final dayKey = _todayKey();
+    if (stored == null || !stored.startsWith(dayKey)) return 0;
+    return int.tryParse(stored.split(':').last) ?? 0;
+  }
+
+  static String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month}-${now.day}';
+  }
+
+  /// Manual "I took a walk" → Sparks + Energy + Bond (capped daily).
   static Future<RecoveryPet> logWalk() async {
     final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now();
-    final dayKey = '${now.year}-${now.month}-${now.day}';
+    final dayKey = _todayKey();
     final stored = prefs.getString(_keyWalkDay);
     final count = stored == null || !stored.startsWith(dayKey)
         ? 0
@@ -331,13 +356,32 @@ class RecoveryPetService {
     PetMoodX? mood,
   }) async {
     final pet = await ensureHatched();
+
+    // Store-rule #1: global soft daily cap. Actions still count toward the
+    // audit trail and energy/bond — only extra Sparks taper off.
+    var grantedSparks = sparksDelta;
+    if (grantedSparks > 0) {
+      final earned = await earnedToday();
+      if (earned >= dailyEarnCap) {
+        grantedSparks = 0;
+      } else {
+        grantedSparks =
+            grantedSparks.clamp(0, dailyEarnCap - earned);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _keyEarnDay,
+        '${_todayKey()}:${earned + sparksDelta}',
+      );
+    }
+
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
       energy: (pet.energy + energyDelta).clamp(0, 100),
       bond: (pet.bond + bondDelta).clamp(0, 100),
       mood: mood ?? pet.mood,
-      sparks: pet.sparks + sparksDelta,
+      sparks: pet.sparks + grantedSparks,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: pet.equippedOutfit,
       speciesId: pet.speciesId,
@@ -346,7 +390,7 @@ class RecoveryPetService {
       createdAt: pet.createdAt,
     );
     await save(updated);
-    await _recordEvent(type, sparksDelta);
+    await _recordEvent(type, grantedSparks);
     return updated;
   }
 

@@ -75,14 +75,18 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
         isSyncedToCloud: false,
       );
 
+      final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
       await widget.database.addJournalEntry(entry);
       await RecoveryPetService.logGratitude();
+      final sparksDelta =
+          (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Gratitude saved · +${RecoveryPetService.sparksGratitude} Sparks'),
+            content: Text(sparksDelta > 0
+                ? 'Gratitude saved · +$sparksDelta Sparks'
+                : 'Gratitude saved'),
             backgroundColor: const Color(0xFF1E293B),
           ),
         );

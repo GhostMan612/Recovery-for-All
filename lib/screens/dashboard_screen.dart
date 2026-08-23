@@ -148,8 +148,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'Struggling' => PetMoodX.sad,
       _ => PetMoodX.neutral,
     };
+    final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
     await RecoveryPetService.logCheckIn(mood: mood);
     await _refreshPet();
+    final sparksDelta =
+        (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -157,7 +160,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         content: Text(
           moodLabel == 'Struggling'
               ? 'Thank you for telling us. Your companion is resting beside you.'
-              : 'Checked in · +${RecoveryPetService.sparksCheckIn} Sparks',
+              : sparksDelta > 0
+                  ? 'Checked in · +$sparksDelta Sparks'
+                  : 'Checked in',
         ),
         backgroundColor: const Color(0xFF1E293B),
       ),
@@ -340,7 +345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final meetings =
         await _meetingFinder.findNearbyMeetings(_defaultCenter.$1, _defaultCenter.$2);
     if (!mounted) return;
-    _push(MeetingMapScreen(initialMeetings: meetings));
+    _push(MeetingMapScreen(initialMeetings: meetings, database: widget.database));
   }
 
   void _push(Widget screen) {
@@ -422,7 +427,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         .findNearbyMeetings(_defaultCenter.$1, _defaultCenter.$2)
                         .then((m) => m.take(3).toList());
                     if (!mounted) return;
-                    _push(MeetingMapScreen(initialMeetings: all));
+                    _push(MeetingMapScreen(initialMeetings: all, database: widget.database));
                   },
                 ),
                 _SosTile(

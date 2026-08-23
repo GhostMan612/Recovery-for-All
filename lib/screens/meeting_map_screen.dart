@@ -8,16 +8,20 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
+import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
+import '../services/recovery_pet_service.dart';
 
 /// Meeting finder with an offline-first list view plus an optional map view
 /// (the map requires a Google Maps API key; the list never does).
 class MeetingMapScreen extends StatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
+  final RecoveryDatabase? database;
 
   const MeetingMapScreen({
     super.key,
     required this.initialMeetings,
+    this.database,
   });
 
   @override
@@ -84,7 +88,109 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     } catch (_) {}
   }
 
+  /// Honest attendance: one reflection question, then Sparks. No reflex
+  /// check-boxes — the reflection is the point, the reward is the side effect.
+  Future<void> _logAttended(RecoveryMeeting meeting) async {
+    final controller = TextEditingController();
+    final reflection = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('You attended "${meeting.name}"',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(
+              'One question before it counts — what did you take away '
+              'from the room today? (A sentence is plenty.)',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 13,
+                  height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'It helped when…',
+                hintStyle: const TextStyle(color: Color(0xFF475569)),
+                filled: true,
+                fillColor: AppColors.bgCard,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.accent),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () =>
+                    Navigator.pop(sheetContext, controller.text.trim()),
+                child: const Text('Save Reflection',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (reflection == null) return;
+    final db = widget.database;
+    if (db != null) {
+      await db.addJournalEntry(JournalEntry(
+        id: 'meeting_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        moodRating: 4,
+        contentEncrypted:
+            '[Meeting] ${meeting.name}: ${reflection.isEmpty ? '(attended, no notes)' : reflection}',
+        isSyncedToCloud: false,
+      ));
+    }
+    final before = (await RecoveryPetService.ensureHatched()).sparks;
+    await RecoveryPetService.logMeeting();
+    final delta =
+        (await RecoveryPetService.ensureHatched()).sparks - before;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(delta > 0
+            ? 'Reflection saved · +$delta Sparks'
+            : 'Reflection saved · daily Sparks cap reached, and that is fine'),
+      ),
+    );
+  }
+
   void _showMeetingDetails(RecoveryMeeting meeting) {
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -110,6 +216,23 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               Text(meeting.address,
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
               const SizedBox(height: 16),
+              if (widget.database != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.how_to_reg_outlined),
+                    label: const Text('I attended — reflect'),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      _logAttended(meeting);
+                    },
+                  ),
+                ),
+              const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

@@ -27,6 +27,15 @@ class RecoveryPetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Nap-and-welcome tone: absence is never punished, return is celebrated.
+    final hoursAway =
+        (DateTime.now().millisecondsSinceEpoch - pet.lastFedAt) / 3600000.0;
+    final statusLine = pet.isResting
+        ? (hoursAway >= 30
+            ? 'Napping · glad you are back ✨'
+            : 'Resting · I am here when you are')
+        : '${pet.mood.emoji} ${pet.mood.label}';
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -68,9 +77,7 @@ class RecoveryPetCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          pet.isResting
-                              ? 'Resting · I am here when you are'
-                              : '${pet.mood.emoji} ${pet.mood.label}',
+                          statusLine,
                           style: const TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 13,

@@ -78,8 +78,11 @@ class _JournalScreenState extends State<JournalScreen> {
       isSyncedToCloud: false,
     );
 
+    final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
     await widget.database.addJournalEntry(entry);
     await RecoveryPetService.logJournalEntry();
+    final sparksDelta =
+        (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
     _contentController.clear();
     setState(() {
       _selectedMood = 3;
@@ -88,8 +91,9 @@ class _JournalScreenState extends State<JournalScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Reflection securely encrypted and saved · +${RecoveryPetService.sparksJournal} Sparks'),
+          content: Text(sparksDelta > 0
+              ? 'Reflection securely encrypted and saved · +$sparksDelta Sparks'
+              : 'Reflection securely encrypted and saved'),
         ),
       );
     }
