@@ -108,10 +108,16 @@ class MeetingFinderService {
     return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
-  /// Meetings sorted by distance to (lat, lng). Online / ungeocoded meetings
-  /// are kept and listed after the located ones. Falls back to the built-in
+  /// Meetings near (lat, lng): located meetings are filtered to [radiusKm],
+  /// nearest first. Online / ungeocoded meetings (joinable from anywhere)
+  /// follow, capped so the list stays human. Falls back to the built-in
   /// sample directory when nothing is cached and the network fails.
-  Future<List<RecoveryMeeting>> findNearbyMeetings(double lat, double lng) async {
+  Future<List<RecoveryMeeting>> findNearbyMeetings(
+    double lat,
+    double lng, {
+    double radiusKm = 50,
+    int maxOnline = 25,
+  }) async {
     var meetings = await _cachedMeetings();
 
     if (meetings.isEmpty) {
@@ -136,7 +142,20 @@ class MeetingFinderService {
     if (meetings.isEmpty) {
       return sampleDirectory(lat, lng);
     }
-    return sortByDistance(meetings, lat, lng);
+
+    final sorted = sortByDistance(meetings, lat, lng);
+    final inRadius = <RecoveryMeeting>[];
+    final online = <RecoveryMeeting>[];
+    for (final m in sorted) {
+      if (!m.hasLocation) {
+        if (online.length < maxOnline) online.add(m);
+      } else if (distanceKm(lat, lng, m.latitude, m.longitude) <= radiusKm) {
+        inRadius.add(m);
+      }
+      // Located-but-far meetings are dropped entirely: a Colorado user
+      // should never scroll past a California church basement.
+    }
+    return [...inRadius, ...online];
   }
 
   /// Downloads every enabled source and rebuilds the local cache.

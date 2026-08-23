@@ -6,6 +6,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
@@ -55,6 +56,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<String> _tools = [];
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
+
+  /// Real device location when permitted; neutral fallback otherwise.
+  Future<(double, double)> _resolveLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return _defaultCenter;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(const Duration(seconds: 8));
+      return (pos.latitude, pos.longitude);
+    } catch (_) {
+      return _defaultCenter;
+    }
+  }
 
   @override
   void initState() {
@@ -356,8 +378,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _openMeetings() async {
-    final meetings =
-        await _meetingFinder.findNearbyMeetings(_defaultCenter.$1, _defaultCenter.$2);
+    final (lat, lng) = await _resolveLocation();
+    final meetings = await _meetingFinder.findNearbyMeetings(lat, lng);
     if (!mounted) return;
     _push(MeetingMapScreen(initialMeetings: meetings, database: widget.database));
   }
@@ -437,8 +459,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   subtitle: 'Three rooms close to you right now',
                   onTap: () async {
                     Navigator.pop(sheetContext);
+                    final (lat, lng) = await _resolveLocation();
                     final all = await _meetingFinder
-                        .findNearbyMeetings(_defaultCenter.$1, _defaultCenter.$2)
+                        .findNearbyMeetings(lat, lng)
                         .then((m) => m.take(3).toList());
                     if (!mounted) return;
                     _push(MeetingMapScreen(initialMeetings: all, database: widget.database));
