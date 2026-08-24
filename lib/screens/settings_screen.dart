@@ -146,7 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final auth = LocalAuthentication();
       final ok = await auth.authenticate(
         localizedReason: 'Confirm to enable biometric unlock',
-        options: const AuthenticationOptions(biometricOnly: true),
+        biometricOnly: true,
       );
       if (!ok) {
         if (!mounted) return;

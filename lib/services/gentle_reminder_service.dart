@@ -59,7 +59,8 @@ class GentleReminderService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
     await _plugin.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      settings: const InitializationSettings(
+          android: androidSettings, iOS: iosSettings),
     );
   }
 
@@ -86,7 +87,7 @@ class GentleReminderService {
       await prefs.setInt(_keyMinutes, minutes);
     }
 
-    await _plugin.cancel(_notificationId);
+    await _plugin.cancel(id: _notificationId);
     if (!enabled) return true;
 
     // Android 13+ runtime permission.
@@ -120,16 +121,14 @@ class GentleReminderService {
     final details = NotificationDetails(android: androidDetails);
 
     await _plugin.zonedSchedule(
-      _notificationId,
-      // scheduled.weekday is 1..7; copy list has exactly 7 entries.
-      _titles[scheduled.weekday - 1],
-      _body,
-      scheduled,
-      details,
+      id: _notificationId,
+      title: _titles[scheduled.weekday - 1],
+      body: _body,
+      scheduledDate: scheduled,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: 'gentle_reminder',
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
     return true;
   }

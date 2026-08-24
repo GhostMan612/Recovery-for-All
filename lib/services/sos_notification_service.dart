@@ -21,7 +21,7 @@ class SosNotificationService {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
-    await _notificationsPlugin.initialize(initSettings);
+    await _notificationsPlugin.initialize(settings: initSettings);
   }
 
   static Future<({String? custom, bool enabled, bool lockScreenPublic, String safetyPlan, String? sponsor})> getStoredSettings() async {
@@ -53,10 +53,10 @@ class SosNotificationService {
     const details = NotificationDetails(android: androidDetails);
     
     await _notificationsPlugin.show(
-      988001,
-      'SOS Recovery Lifeline',
-      'Tap for immediate support options.',
-      details,
+      id: 988001,
+      title: 'SOS Recovery Lifeline',
+      body: 'Tap for immediate support options.',
+      notificationDetails: details,
     );
   }
 

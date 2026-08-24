@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
       final auth = LocalAuthentication();
       final ok = await auth.authenticate(
         localizedReason: 'Unlock your recovery companion',
-        options: const AuthenticationOptions(biometricOnly: true),
+        biometricOnly: true,
       );
       if (ok && mounted) {
         setState(() => _locked = false);
