@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
+import '../services/map_tile_cache.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/recovery_pet_service.dart';
 
@@ -54,6 +55,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   String _layer = 'dark';
 
   String? _weatherChip; // "72°F ⛅"
+  bool _downloading = false;
 
   static const _maxRadiusMi = 50.0;
   static const _miToKm = 1.60934;
@@ -448,6 +450,95 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     );
   }
 
+
+  // ------------------------------------------------------------------
+  // P3 — offline pack (TilePack port)
+  // ------------------------------------------------------------------
+
+  Future<void> _startPrefetch() async {
+    if (_downloading) return;
+    final me = _me;
+    final (lat, lng) = me ?? _mapCenterTuple2();
+    setState(() => _downloading = true);
+    var cancelled = false;
+    var total = 0;
+    var done = 0;
+
+    final dialog = showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text('Downloading offline pack',
+              style: TextStyle(color: Colors.white, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Securing map tiles for ${_radiusMi.round()} mi around you '
+                '(zooms 11–15) so the finder works with zero signal.',
+                style: const TextStyle(
+                    color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: total == 0 ? null : done / total,
+                backgroundColor: const Color(0xFF334155),
+                color: const Color(0xFF38BDF8),
+              ),
+              const SizedBox(height: 8),
+              Text('$done / $total tiles',
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8), fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                cancelled = true;
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel',
+                  style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final secured = await TilePrefetch.prefetchPack(
+      layer: _layer,
+      lat: lat,
+      lng: lng,
+      radiusKm: _radiusMi * 1.60934,
+      zooms: const [11, 12, 13, 14, 15],
+      onProgress: (d, t) {
+        done = d;
+        total = t;
+      },
+      isCancelled: () => cancelled || !mounted,
+    );
+
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    setState(() => _downloading = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(
+            cancelled ? 'Pack paused · $secured tiles secured' : 'Pack complete · $secured tiles offline'),
+      ),
+    );
+    // Silence unused warning for the dialog handle.
+    dialog;
+  }
+
+  (double, double) _mapCenterTuple2() {
+    final c = _mapCenter;
+    return (c.latitude, c.longitude);
+  }
+
   // ------------------------------------------------------------------
   // Filter / layers sheet
   // ------------------------------------------------------------------
@@ -674,38 +765,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     return markers;
   }
 
-  TileLayer get _tileLayer {
-    switch (_layer) {
-      case 'light':
-        return TileLayer(
-          urlTemplate:
-              'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
-          userAgentPackageName: 'com.recoveryforall',
-        );
-      case 'sat':
-        // Esri World Imagery (keyless) — brightened via color filter.
-        return TileLayer(
-          urlTemplate:
-              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          userAgentPackageName: 'com.recoveryforall',
-        );
-      case 'topo':
-        return TileLayer(
-          urlTemplate:
-              'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-          subdomains: const ['a', 'b', 'c'],
-          userAgentPackageName: 'com.recoveryforall',
-        );
-      default:
-        return TileLayer(
-          urlTemplate:
-              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
-          userAgentPackageName: 'com.recoveryforall',
-        );
-    }
-  }
+  TileLayer get _tileLayer =>
+      TileLayer(tileProvider: CachedTileProvider(layer: _layer));
 
   @override
   Widget build(BuildContext context) {
@@ -815,6 +876,14 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 icon: Icons.layers_outlined,
                 tooltip: 'Layers & filters',
                 onTap: _openFilters,
+              ),
+              const SizedBox(height: 8),
+              _MapButton(
+                icon: _downloading
+                    ? Icons.downloading
+                    : Icons.download_outlined,
+                tooltip: 'Offline pack (this area)',
+                onTap: _downloading ? () {} : () => _startPrefetch(),
               ),
             ],
           ),
