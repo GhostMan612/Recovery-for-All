@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/sponsor_link_service.dart';
 
 /// The Twelve Steps — reader, guided worksheets, literature links, and
 /// sponsor sign-off tracking. Completion feeds pet Sparks and adds a star
@@ -83,6 +84,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
   Set<int> _completed = {};
   Map<String, List<String>> _worksheets = {};
   Set<int> _signoffs = {};
+  Map<int, String> _bundles = {};
 
   @override
   void initState() {
@@ -95,6 +97,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     final raw = prefs.getString(_prefsKey);
     final wsRaw = prefs.getString(_worksheetKey);
     final soRaw = prefs.getString(_signoffKey);
+    final bundleRaw = prefs.getString('step_bundles_v1');
     if (!mounted) return;
     setState(() {
       _completed = raw == null
@@ -107,6 +110,11 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       _signoffs = soRaw == null
           ? <int>{}
           : (jsonDecode(soRaw) as List).map((e) => e as int).toSet();
+      if (bundleRaw != null) {
+        final decoded = jsonDecode(bundleRaw) as Map<String, dynamic>;
+        _bundles = decoded
+            .map((k, v) => MapEntry(int.parse(k), v as String));
+      }
     });
   }
 
@@ -168,50 +176,129 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     }
   }
 
-  Future<void> _requestSignOff(int number) async {
+  Future<String> _bundleFor(int number) async {
     final step = _steps.firstWhere((s) => s.number == number);
     final answers = await _worksheetFor(number);
-    final buffer = StringBuffer()
+    return jsonEncode({
+      'v': 1,
+      'step': number,
+      'title': step.title,
+      'text': step.text,
+      'answers': answers,
+      'ts': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  Future<void> _copyForSponsor(int number) async {
+    final bundle = await _bundleFor(number);
+    _bundles[number] = bundle;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('step_bundles_v1',
+        jsonEncode(_bundles.map((k, v) => MapEntry(k.toString(), v))));
+    final step = _steps.firstWhere((s) => s.number == number);
+    final readable = StringBuffer()
+      ..writeln('RC-BUNDLE')
       ..writeln('Step $number — ${step.title}')
       ..writeln(step.text)
       ..writeln('');
+    final answers = await _worksheetFor(number);
     for (var i = 0; i < step.worksheetPrompts.length; i++) {
-      buffer.writeln(step.worksheetPrompts[i]);
-      buffer.writeln(answers.length > i && answers[i].isNotEmpty
-          ? answers[i]
-          : '(discussed in person)');
-      buffer.writeln('');
+      readable.writeln(step.worksheetPrompts[i]);
+      readable.writeln(answers.length > i && answers[i].isNotEmpty ? answers[i] : '(in bundle)');
+      readable.writeln('');
     }
-    buffer.writeln('— shared from Recovery Companion for sponsor sign-off');
-    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    readable.writeln(payloadMarker(bundle));
+    readable.writeln('RC-END');
+    await Clipboard.setData(ClipboardData(text: readable.toString()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: Color(0xFF1E293B),
         content: Text(
-            'Step work copied — paste it to your sponsor. Mark confirmed after they respond.'),
+            'Bundle copied — send it to your sponsor. Redeem their signed code here after.'),
       ),
     );
   }
 
-  Future<void> _toggleSignOff(int number) async {
-    setState(() {
-      if (!_signoffs.add(number)) _signoffs.remove(number);
-    });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_signoffKey, jsonEncode(_signoffs.toList()));
-    if (_signoffs.contains(number)) {
-      await RecoveryPetService.logSignOff(number);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
-            content: Text(
-                'Step $number signed off · +${RecoveryPetService.sparksSignOff} Sparks · Bond +5'),
+  static String payloadMarker(String bundle) =>
+      '[RC-PAYLOAD]$bundle[/RC-PAYLOAD]';
+
+  Future<void> _redeemSignOff(int number) async {
+    final controller = TextEditingController();
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Redeem sign-off', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+                'Paste the RC-SIGNOFF code your sponsor sent back.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
-        );
-      }
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Verify', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (raw == null || raw.isEmpty) return;
+    final start = raw.indexOf('RC-SIGNOFF');
+    final end = raw.indexOf('RC-END');
+    final codeBlock = (start >= 0 && end > start)
+        ? raw.substring(start + 10, end).trim()
+        : raw.trim();
+    final confirmation = SignedConfirmation.tryDecode(codeBlock);
+    final bundle = _bundles[number];
+    if (confirmation == null || bundle == null ||
+        confirmation.stepNumber != number) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('That code did not match this step\'s bundle.')),
+      );
+      return;
     }
+    final ok = await SponsorLinkService.verifyConfirmation(confirmation, bundle);
+    if (!ok) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Signature check failed — ask your sponsor to re-sign.')),
+      );
+      return;
+    }
+    await SponsorLinkService.recordSignOff(
+      stepNumber: number,
+      contentHashB64: confirmation.contentHashB64,
+      signatureB64: confirmation.signatureB64,
+    );
+    setState(() => _signoffs.add(number));
+    await RecoveryPetService.logSignOff(number);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(
+            'Step $number sponsor-verified · +${RecoveryPetService.sparksSignOff} Sparks · Bond +5'),
+      ),
+    );
   }
 
   @override
@@ -348,10 +435,10 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                             ),
                             Expanded(
                               child: TextButton.icon(
-                                onPressed: () => _requestSignOff(step.number),
+                                onPressed: () => _copyForSponsor(step.number),
                                 icon: const Icon(Icons.copy_all_outlined,
                                     size: 16, color: AppColors.textMuted),
-                                label: const Text('Copy for sponsor',
+                                label: const Text('Copy bundle',
                                     style: TextStyle(
                                         color: AppColors.textMuted, fontSize: 12)),
                               ),
@@ -363,18 +450,16 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                           child: Padding(
                             padding: const EdgeInsets.only(right: 12, bottom: 10),
                             child: TextButton.icon(
-                              onPressed: () => _toggleSignOff(step.number),
+                              onPressed: () => _redeemSignOff(step.number),
                               icon: Icon(
-                                signed
-                                    ? Icons.verified
-                                    : Icons.verified_outlined,
+                                signed ? Icons.verified : Icons.verified_outlined,
                                 size: 18,
                                 color: signed ? AppColors.success : AppColors.textMuted,
                               ),
                               label: Text(
                                   signed
-                                      ? 'Sponsor confirmed'
-                                      : 'Sponsor confirmed?',
+                                      ? 'Sponsor verified'
+                                      : 'Redeem sign-off',
                                   style: TextStyle(
                                       color: signed
                                           ? AppColors.success

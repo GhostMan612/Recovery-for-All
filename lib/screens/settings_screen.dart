@@ -14,7 +14,9 @@ import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
 import '../services/gentle_reminder_service.dart';
 import '../services/meeting_finder_service.dart';
+import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
+import 'sponsor_mode_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -41,6 +43,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
+  final TextEditingController _sponsorAliasController = TextEditingController();
+  final TextEditingController _sponsorCodeController = TextEditingController();
+  SponsorIdentity? _registeredSponsor;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
@@ -56,6 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _sponsorController.dispose();
     _customHelpController.dispose();
     _safetyPlanController.dispose();
+    _sponsorAliasController.dispose();
+    _sponsorCodeController.dispose();
     super.dispose();
   }
 
@@ -77,6 +84,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _hapticsEnabled = haptics;
       });
     }
+    final sponsor = await SponsorLinkService.registeredSponsor();
+    if (mounted) setState(() => _registeredSponsor = sponsor);
   }
 
   Future<void> _toggleReminder(bool value) async {
@@ -161,6 +170,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text('No biometrics enrolled on this device')),
       );
     }
+  }
+
+  Future<void> _linkSponsor() async {
+    final identity = await SponsorLinkService.registerSponsor(
+      _sponsorAliasController.text,
+      _sponsorCodeController.text,
+    );
+    if (!mounted) return;
+    if (identity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Invalid pairing code — check with your sponsor.')),
+      );
+      return;
+    }
+    setState(() => _registeredSponsor = identity);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text('Linked to ${identity.alias} — sign-offs are now verifiable.'),
+      ),
+    );
   }
 
   Future<void> _loadMeetingSources() async {
@@ -410,6 +441,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 activeThumbColor: const Color(0xFF38BDF8),
                 onChanged: _toggleBiometric,
               ),
+              const SizedBox(height: 24),
+              const Text('My Sponsor', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              if (_registeredSponsor != null) ...[
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.verified_outlined,
+                      color: Color(0xFF34D399)),
+                  title: Text(_registeredSponsor!.alias,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  subtitle: Text('Pairing ${_registeredSponsor!.pairingCode}',
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF38BDF8),
+                          side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                        ),
+                        icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+                        label: const Text('Sponsor Mode'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const SponsorModeScreen()),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFF87171),
+                          side: BorderSide(color: const Color(0xFFF87171).withValues(alpha: 0.4)),
+                        ),
+                        icon: const Icon(Icons.link_off, size: 18),
+                        label: const Text('Unlink'),
+                        onPressed: () async {
+                          await SponsorLinkService.unregisterSponsor();
+                          if (!mounted) return;
+                          setState(() => _registeredSponsor = null);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                const Text(
+                  'Enter the pairing code from your sponsor\'s app '
+                  '(Sponsor Mode). Enables verified 12-step sign-offs.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _sponsorAliasController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _fieldDecoration(label: 'Sponsor alias', hint: 'e.g. Mike D.'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _sponsorCodeController,
+                  textCapitalization: TextCapitalization.characters,
+                  style: const TextStyle(color: Colors.white, letterSpacing: 1.5),
+                  decoration: _fieldDecoration(label: 'Pairing code', hint: 'ABCD12EF-QX'),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF38BDF8),
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.link, size: 18),
+                        label: const Text('Link sponsor'),
+                        onPressed: _linkSponsor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF34D399),
+                          side: BorderSide(color: const Color(0xFF34D399).withValues(alpha: 0.5)),
+                        ),
+                        icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+                        label: const Text('I am a sponsor'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const SponsorModeScreen()),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 24),
               const Text('Feedback', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               SwitchListTile(
