@@ -28,6 +28,9 @@ enum CoachActionType {
   suggestCheckIn,
   suggestWalk,
   logGrounding,
+  openSteps,
+  openWorksheets,
+  openMeetings,
 }
 
 class CoachReply {
@@ -158,6 +161,85 @@ class RecoveryCoachService {
     return best;
   }
 
+  /// R8 — skills layer: richer guided replies for deeper topics, matched
+  /// by keywords BEFORE the generic intent classifier. The TFLite model
+  /// keeps its 10-label contract; skills are keyword-driven by design.
+  static const List<({List<String> keys, CoachReply reply})> _skills = [
+    (
+      keys: ['fourth step', 'step work', 'stepwork', 'inventory', 'making amends', 'fifth step', 'step 4', 'step 5'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Step work is the deep water — and you do not swim it alone. '
+            'Start with one column at a time, write rough, and share it '
+            'with your sponsor before you polish it. The worksheets in the '
+            'Twelve Steps reader will hold your answers on this device.',
+        action: CoachActionType.openSteps,
+        actionLabel: 'Open the Twelve Steps',
+      ),
+    ),
+    (
+      keys: ['talk to my sponsor', 'sponsor conversation', 'tell my sponsor', 'ask my sponsor'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Keep it simple and honest: what happened, what you did, and '
+            'one question you have. Sponsors respect directness more than '
+            'perfect wording. When they confirm your step, redeem their '
+            'sign-off code right in the reader.',
+        action: CoachActionType.openSteps,
+        actionLabel: 'Open sign-offs',
+      ),
+    ),
+    (
+      keys: ['first meeting', 'what happens at a meeting', 'meeting etiquette', 'new to meetings', 'never been to a meeting'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Meetings are simpler than they look: sit anywhere, say your '
+            'first name only if you want, and "pass" is a complete '
+            'sentence. Nobody will call on you as a newcomer unless your '
+            'hand is up. Listen for the similarities, not the differences.',
+        action: CoachActionType.openMeetings,
+        actionLabel: 'Find a meeting',
+      ),
+    ),
+    (
+      keys: ['got my chip', 'my anniversary', 'celebrate', 'medallion', 'birthday tonight'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'That is real progress and it deserves to be marked. Tell your '
+            'home group — they will want to celebrate with you. And your '
+            'companion agrees.',
+        action: CoachActionType.none,
+      ),
+    ),
+    (
+      keys: ['using dream', 'dream about using', 'drinking dream', 'relapse dream'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Using dreams are common in recovery — they are your mind '
+            'processing, not a prophecy or a failure. Waking up sober is '
+            'the win. Note it in your journal if it shook you.',
+        action: CoachActionType.none,
+      ),
+    ),
+  ];
+
+  /// Returns the matching skill reply, or null.
+  static CoachReply? matchSkill(String raw) {
+    final text = raw.trim().toLowerCase();
+    if (text.isEmpty) return null;
+    for (final skill in _skills) {
+      for (final key in skill.keys) {
+        if (text.contains(key)) return skill.reply;
+      }
+    }
+    return null;
+  }
+
   static Future<CoachReply> reply(String userMessage) async {
     final intent = classify(userMessage);
     return replyFromIntent(intent);
@@ -266,6 +348,9 @@ class RecoveryCoachService {
         await RecoveryPetService.logGrounding();
         break;
       case CoachActionType.suggestWalk:
+      case CoachActionType.openSteps:
+      case CoachActionType.openWorksheets:
+      case CoachActionType.openMeetings:
       case CoachActionType.suggestCheckIn:
       case CoachActionType.openSos:
       case CoachActionType.openDresser:

@@ -7,6 +7,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'meeting_map_screen.dart';
+import 'steps_viewer_screen.dart';
+import 'worksheets_screen.dart';
 
 import '../database/recovery_database.dart';
 import '../services/recovery_coach_service.dart';
@@ -64,12 +67,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
 
     try {
-      // Optional on-device model refines intents; keywords remain the floor.
-      // A confident "unknown" from the model also falls back to keywords.
+      // Optional on-device model refines intents; skills + keywords remain
+      // the floor. A confident "unknown" also falls back to keywords.
       final modelIntent = await CoachTfliteIntentService.classify(text);
       final CoachReply coachReply =
           (modelIntent == null || modelIntent == CoachIntent.unknown)
-              ? await RecoveryCoachService.reply(text)
+              ? (RecoveryCoachService.matchSkill(text) ??
+                  await RecoveryCoachService.reply(text))
               : await RecoveryCoachService.replyFromIntent(modelIntent);
 
       if (coachReply.isCrisis) {
@@ -157,6 +161,34 @@ $text
       case CoachActionType.openSettings:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Open Settings to manage SOS contacts and 988.')),
+        );
+        break;
+      case CoachActionType.openSteps:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                StepsViewerScreen(database: widget.database),
+          ),
+        );
+        break;
+      case CoachActionType.openWorksheets:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const WorksheetsScreen(),
+          ),
+        );
+        break;
+      case CoachActionType.openMeetings:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MeetingMapScreen(
+              initialMeetings: const [],
+              database: widget.database,
+            ),
+          ),
         );
         break;
       case CoachActionType.logGrounding:

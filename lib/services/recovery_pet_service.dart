@@ -353,6 +353,12 @@ class RecoveryPetService {
         type: 'worksheet_step$stepNumber', sparksDelta: sparksWorksheet, energyDelta: 4);
   }
 
+  /// Tool worksheet (R2 registry) completed → Sparks + Energy.
+  static Future<RecoveryPet> logToolWorksheet(String toolId) {
+    return _applyReward(
+        type: 'worksheet_$toolId', sparksDelta: sparksWorksheet, energyDelta: 4);
+  }
+
   /// Sponsor confirmed a step → big Sparks + big Bond (safety is care).
   static Future<RecoveryPet> logSignOff(int stepNumber) {
     return _applyReward(
