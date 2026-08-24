@@ -243,7 +243,7 @@ class MeetingFinderService {
 
     if (meetings.isEmpty) {
       try {
-        meetings = await refresh(lat: lat, lng: lng);
+        meetings = await refresh(lat: lat, lng: lng, fellowships: fellowships);
       } catch (_) {
         meetings = const <RecoveryMeeting>[];
       }
@@ -254,7 +254,7 @@ class MeetingFinderService {
         // Refresh opportunistically for next time; never block the UI.
         () async {
           try {
-            await refresh(lat: lat, lng: lng);
+            await refresh(lat: lat, lng: lng, fellowships: fellowships);
           } catch (_) {}
         }();
       }
@@ -303,8 +303,17 @@ class MeetingFinderService {
   }
 
   /// Downloads every enabled source and rebuilds the local cache.
-  Future<List<RecoveryMeeting>> refresh({double? lat, double? lng}) async {
-    final sources = await getSources();
+  Future<List<RecoveryMeeting>> refresh(
+      {double? lat, double? lng, Set<String>? fellowships}) async {
+    var sources = await getSources();
+    // Tailored downloads: skip directories whose fellowship is not in the
+    // user's chosen pathways — never download data they won't see.
+    if (fellowships != null && fellowships.isNotEmpty) {
+      final filtered = sources
+          .where((url) => fellowships.contains(fellowshipForSource(url)))
+          .toList();
+      if (filtered.isNotEmpty) sources = filtered;
+    }
     final all = <String, RecoveryMeeting>{};
 
     for (final url in sources) {

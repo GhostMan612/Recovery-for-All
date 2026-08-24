@@ -183,13 +183,29 @@ class RecoveryPetService {
   static const int sparksWalk = 15;
   static const int sparksGratitude = 5;
   static const int sparksMeeting = 8;
+  static const int sparksWellness = 6;
+  static const int sparksGoalComplete = 15;
+  static const int sparksWorksheet = 15;
+  static const int sparksSignOff = 40;
+  static const int sparksStar = 20;
   static const int outfitUnlockCost = 40;
   static const int maxWalksPerDay = 2;
 
   /// Soft ceiling on earned Sparks per calendar day across ALL actions.
   /// Store-rule #1: the economy cannot be gamed, and nobody should feel
   /// they must grind to keep their companion well. Milestones/seeds exempt.
-  static const int dailyEarnCap = 60;
+  static const int dailyEarnCap = 100;
+
+  /// Counter milestone chip rewards by label tier.
+  static const Map<String, int> milestoneRewards = {
+    '24 Hours': 25,
+    '30 Days': 40,
+    '60 Days': 55,
+    '90 Days': 70,
+    '6 Months': 85,
+    '1 Year': 100,
+    '2 Years': 150,
+  };
 
   static RecoveryDatabase? _db;
 
@@ -317,6 +333,42 @@ class RecoveryPetService {
   /// Honest meeting attendance (paired with a reflection) → Sparks + Bond.
   static Future<RecoveryPet> logMeeting() {
     return _applyReward(type: 'meeting', sparksDelta: sparksMeeting, bondDelta: 2);
+  }
+
+  /// Wellness wheel check-in → Sparks + Energy.
+  static Future<RecoveryPet> logWellness() {
+    return _applyReward(type: 'wellness', sparksDelta: sparksWellness, energyDelta: 4);
+  }
+
+  /// Weekly goal fully completed → bigger Sparks + Bond.
+  static Future<RecoveryPet> logGoalComplete() {
+    return _applyReward(
+        type: 'goal_complete', sparksDelta: sparksGoalComplete, bondDelta: 3);
+  }
+
+  /// 12-step worksheet completed → Sparks + Energy.
+  static Future<RecoveryPet> logWorksheet(int stepNumber) {
+    return _applyReward(
+        type: 'worksheet_step$stepNumber', sparksDelta: sparksWorksheet, energyDelta: 4);
+  }
+
+  /// Sponsor confirmed a step → big Sparks + big Bond (safety is care).
+  static Future<RecoveryPet> logSignOff(int stepNumber) {
+    return _applyReward(
+        type: 'signoff_step$stepNumber', sparksDelta: sparksSignOff, bondDelta: 5);
+  }
+
+  /// Constellation star added (manual or milestone) → Sparks.
+  static Future<RecoveryPet> logStar(String title) {
+    return _applyReward(type: 'star', sparksDelta: sparksStar, mood: PetMoodX.happy);
+  }
+
+  /// Counter milestone chip earned → tiered Sparks (cap-exempt by design:
+  /// milestones bypass the daily cap — they're the whole point).
+  static Future<RecoveryPet> logMilestone(String chipLabel) {
+    final reward = milestoneRewards[chipLabel] ?? 25;
+    return _applyReward(
+        type: 'milestone_$chipLabel', sparksDelta: reward, bondDelta: 5);
   }
 
   /// Sparks earned so far today across all actions (cap accounting).

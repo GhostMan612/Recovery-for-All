@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
+import '../services/recovery_pet_service.dart';
 
 /// Simple weekly goals tracker: add goals with a target count, check off
 /// completions, start a fresh week when ready. Data lives locally forever.
@@ -220,8 +221,26 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                               color: goal.isCompleted
                                   ? AppColors.success
                                   : AppColors.accent),
-                          onPressed: () =>
-                              widget.database.incrementWeeklyGoal(goal.id),
+                          onPressed: () async {
+                            final wasComplete = goal.isCompleted;
+                            await widget.database
+                                .incrementWeeklyGoal(goal.id);
+                            final refreshed = (await widget.database
+                                    .watchAllWeeklyGoals()
+                                    .first)
+                                .firstWhere((g) => g.id == goal.id);
+                            if (!wasComplete && refreshed.isCompleted) {
+                              await RecoveryPetService.logGoalComplete();
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFF1E293B),
+                                  content: Text(
+                                      '"${goal.title}" complete · +${RecoveryPetService.sparksGoalComplete} Sparks'),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     ),

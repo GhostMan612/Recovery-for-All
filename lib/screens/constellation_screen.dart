@@ -3,6 +3,8 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,8 +73,103 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     }
   }
 
-  Future<void> _renameSky() async {
-    final controller = TextEditingController(text: _skyName);
+  /// Manual star: the user names their own milestone and picks its category.
+  Future<void> _addManualStar() async {
+    final titleController = TextEditingController();
+    var category = 'milestone';
+    const categories = [
+      'milestone', 'step_work', 'community', 'service', 'mindfulness', 'spiritual',
+    ];
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title:
+              const Text('Add a star', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                autofocus: true,
+                maxLength: 40,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. 90 meetings, Made amends, Sponsored someone',
+                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final cat in categories)
+                    ChoiceChip(
+                      label: Text(cat,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: category == cat
+                                  ? Colors.white
+                                  : AppColors.textMuted)),
+                      selected: category == cat,
+                      selectedColor: AppColors.accent,
+                      backgroundColor: AppColors.bgCard,
+                      onSelected: (_) => setDialog(() => category = cat),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+            ElevatedButton(
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              onPressed: () =>
+                  Navigator.pop(dialogContext, titleController.text.trim().isNotEmpty),
+              child:
+                  const Text('Add', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+
+    final title = titleController.text.trim();
+    final hash = title.hashCode;
+    final angle = (hash % 628) / 100.0;
+    final radius = 0.18 + ((hash.abs() % 20) / 100.0);
+    await widget.database.addConstellationPoint(
+      ConstellationPoint(
+        id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        category: category,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        positionX: 0.5 + radius * math.cos(angle),
+        positionY: 0.5 + radius * math.sin(angle),
+      ),
+    );
+    await RecoveryPetService.logStar(title);
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E293B),
+          content: Text(
+              '"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _renameSky() async {    final controller = TextEditingController(text: _skyName);
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -265,6 +362,14 @@ ${nodes.length} stars over $spanDays nights
             onPressed: (nodes == null || nodes.isEmpty) ? null : _shareShape,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add_star',
+        backgroundColor: AppColors.accent,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label:
+            const Text('Add Star', style: TextStyle(color: Colors.white)),
+        onPressed: _addManualStar,
       ),
       body: nodes == null
           ? const Center(

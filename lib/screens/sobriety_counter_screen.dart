@@ -4,6 +4,8 @@
 // ============================================================
 
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/recovery_pet_service.dart';
 
 import 'package:flutter/material.dart';
 
@@ -43,6 +45,10 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final snapshot = await widget.database.watchAllCounters().first;
+      await _awardNewMilestones(snapshot);
+    });
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -66,31 +72,61 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
 
   Future<void> _addCounter() async {
     final controller = TextEditingController();
+    DateTime chosenDate = DateTime.now();
     final label = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('New Counter', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'e.g. Alcohol, Nicotine, Gaming',
-            hintStyle: TextStyle(color: Color(0xFF64748B)),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) => AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text('New Counter', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Alcohol, Nicotine, Gaming',
+                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_outlined,
+                    color: Color(0xFF38BDF8), size: 20),
+                title: const Text('Started on',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+                trailing: Text(
+                  '${chosenDate.month}/${chosenDate.day}/${chosenDate.year}',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: dialogContext,
+                    initialDate: chosenDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) setDialog(() => chosenDate = picked);
+                },
+              ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+              child: const Text('Start', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Start', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
     if (label == null || label.isEmpty) return;
@@ -98,10 +134,39 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
       Counter(
         id: 'counter_${DateTime.now().millisecondsSinceEpoch}',
         label: label,
-        startDateTime: DateTime.now().millisecondsSinceEpoch,
+        startDateTime: chosenDate.millisecondsSinceEpoch,
         isActive: true,
       ),
     );
+  }
+
+  /// Awards Sparks for milestone chips crossed since last check.
+  /// Runs on open — slow crossings get caught the next time the user opens.
+  Future<void> _awardNewMilestones(List<Counter> counters) async {
+    for (final counter in counters) {
+      if (!counter.isActive) continue;
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'counter_chips_${counter.id}';
+      final awarded = (prefs.getStringList(key) ?? <String>[]).toSet();
+      final start = DateTime.fromMillisecondsSinceEpoch(counter.startDateTime);
+      final elapsed = DateTime.now().difference(start);
+      for (final chip in _chips) {
+        if (elapsed >= chip.at && !awarded.contains(chip.label)) {
+          awarded.add(chip.label);
+          await prefs.setStringList(key, awarded.toList());
+          await RecoveryPetService.logMilestone(chip.label);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: const Color(0xFF1E293B),
+                content: Text(
+                    '${counter.label}: ${chip.label} chip earned — companion celebrates!'),
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   Future<void> _resetCounter(Counter counter) async {

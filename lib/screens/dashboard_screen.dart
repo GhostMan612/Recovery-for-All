@@ -471,7 +471,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       label: 'The Twelve Steps',
       subtitle: 'A reader, any path',
       icon: Icons.menu_book_outlined,
-      onTap: () => _push(const StepsViewerScreen()),
+      onTap: () => _push(StepsViewerScreen(database: widget.database)),
     ));
     cards.add(_ToolCard(
       label: 'Daily Motivation',
