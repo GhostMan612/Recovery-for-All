@@ -177,8 +177,10 @@ class CommunityFeedService {
         'respectCount': post.respectCount,
         'createdAt': post.createdAt,
       });
-    } catch (_) {
+      debugPrint('[circle] mirrored to Firestore: ${post.id}');
+    } catch (e) {
       // Offline-first promise: the local circle works regardless of cloud.
+      debugPrint('[circle] mirror FAILED (post stays local): $e');
     }
   }
 
