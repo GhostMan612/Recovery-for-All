@@ -90,12 +90,23 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         }
         return const (44.9778, -93.2650);
       }
+
+      // Fast path: last-known position (instant if GPS was used recently).
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null &&
+          DateTime.now().millisecondsSinceEpoch - last.timestamp.millisecondsSinceEpoch <
+              5 * 60 * 1000) {
+        return (last.latitude, last.longitude);
+      }
+
+      // Cold GPS fix — generous timeout for first lock.
       final pos = await Geolocator.getCurrentPosition(
         locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
-      ).timeout(const Duration(seconds: 8));
+            const LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(const Duration(seconds: 20));
       return (pos.latitude, pos.longitude);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[finder] location resolve failed: $e');
       return const (44.9778, -93.2650);
     }
   }
@@ -553,7 +564,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheet) => SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
