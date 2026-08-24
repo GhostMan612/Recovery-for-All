@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart' as ll;
@@ -80,6 +81,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   String? _weatherChip;
   String _locationDebug = '';
   bool _downloading = false;
+  List<Marker> _cachedMarkers = [];
+  List<Marker> _userMarkers = [];
+  List<Marker> _meetingMarkers = [];
 
   static const double _maxRadiusMi = 50.0;
   static const double _miToKm = 1.60934;
@@ -155,6 +159,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       _loadError = 'Could not load directory — cached/sample data shown.';
     }
     if (mounted) setState(() => _isLoading = false);
+    _rebuildMarkers();
     if (_showMapView) _loadWeather();
   }
 
@@ -728,11 +733,15 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   // Markers
   // ------------------------------------------------------------------
 
-  List<Marker> _buildMarkers() {
+  void _rebuildMarkers() {
+    _cachedMarkers.clear();
+    _userMarkers.clear();
+    _meetingMarkers.clear();
     final markers = <Marker>[];
     final me = _me;
     if (me != null) {
       markers.add(Marker(
+        key: const ValueKey('user_pin'),
         point: ll.LatLng(me.$1, me.$2),
         width: 24,
         height: 24,
@@ -765,11 +774,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               border: Border.all(
                   color: live ? Colors.white : Colors.white70,
                   width: live ? 2.2 : 1.4),
-              boxShadow: [
-                BoxShadow(
-                    color: color.withValues(alpha: 0.55),
-                    blurRadius: live ? 10 : 5),
-              ],
             ),
             child: Icon(
                 m.type.contains('Online') ? Icons.videocam : Icons.groups_2,
@@ -779,7 +783,14 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         ),
       ));
     }
-    return markers;
+    _cachedMarkers = markers;
+    // Split into user pin + meeting pins for cluster layer.
+    _userMarkers = markers
+        .where((m) => m.key == const ValueKey('user_pin'))
+        .toList();
+    _meetingMarkers = markers
+        .where((m) => m.key != const ValueKey('user_pin'))
+        .toList();
   }
 
   // ------------------------------------------------------------------
@@ -842,7 +853,34 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         : layer.subdomains,
                     userAgentPackageName: 'com.recoveryforall',
                   ),
-              MarkerLayer(markers: _buildMarkers()),
+              MarkerLayer(
+                markers: _userMarkers,
+              ),
+              MarkerClusterLayerWidget(
+                options: MarkerClusterLayerOptions(
+                  maxClusterRadius: 45,
+                  size: const Size(40, 40),
+                  maxZoom: 15,
+                  markers: _meetingMarkers,
+                  builder: (context, clusterMarkers) => Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accent,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Center(
+                      child: Text('${clusterMarkers.length}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
+                    ),
+                  ),
+                  onClusterTap: (cluster) => _mapController.move(
+                      cluster.bounds.center,
+                      _mapController.camera.zoom + 2),
+                ),
+              ),
               const RichAttributionWidget(
                 attributions: [
                   TextSourceAttribution('© OpenStreetMap contributors'),
