@@ -51,8 +51,7 @@ service cloud.firestore {
       // Create-only, strictly validated. No updates from clients:
       // reaction counts are updated via a future Cloud Function once
       // networked moderation ships.
-      allow create: if request.request.method == 'create'
-        && validKind()
+      allow create: if validKind()
         && validStatus()
         && validBody()
         && validAlias()
