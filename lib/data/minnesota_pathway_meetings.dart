@@ -56,8 +56,26 @@ class MinnesotaPathwayMeetings {
         'Yoga Sanctuary, 100 W 46th St, Minneapolis, MN 55419'),
   ];
 
+  static const _dayNames = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
+  };
+
   static RecoveryMeeting _rd(String name, String time, String address) {
     final online = address.startsWith('Online');
+    // time format: "Mon · 7:00 PM" (or "Daily · …" variants stay undated)
+    final parts = time.split('·');
+    final day = _dayNames[parts.first.trim()];
+    final clock = parts.length > 1 ? parts[1].trim() : '';
+    final clockMatch = RegExp(r'(\d{1,2}):(\d{2})\s*(AM|PM)').firstMatch(clock);
+    int? minutes;
+    if (clockMatch != null) {
+      var h = int.parse(clockMatch.group(1)!);
+      final m = int.parse(clockMatch.group(2)!);
+      final pm = clockMatch.group(3) == 'PM';
+      if (pm && h != 12) h += 12;
+      if (!pm && h == 12) h = 0;
+      minutes = h * 60 + m;
+    }
     return RecoveryMeeting(
       id: 'mn_rd_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').hashCode.abs()}'
           '_${time.replaceAll(RegExp(r'[^a-z0-9]'), '').toLowerCase()}',
@@ -68,6 +86,8 @@ class MinnesotaPathwayMeetings {
       time: time,
       address: address,
       fellowship: 'Dharma',
+      day: day,
+      minutes: minutes,
     );
   }
 

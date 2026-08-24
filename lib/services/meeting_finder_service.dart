@@ -26,6 +26,11 @@ class RecoveryMeeting {
   /// 'AA' | 'NA' | 'Dharma' | 'Wellbriety' | 'SMART' | 'Other'
   final String fellowship;
 
+  /// Structured schedule (0 = Sunday … 6 = Saturday, minutes past midnight).
+  /// Null = undated (shown at the tail, never filtered out entirely).
+  final int? day;
+  final int? minutes;
+
   RecoveryMeeting({
     required this.id,
     required this.name,
@@ -35,9 +40,13 @@ class RecoveryMeeting {
     required this.time,
     required this.address,
     this.fellowship = 'Other',
+    this.day,
+    this.minutes,
   });
 
   bool get hasLocation => latitude != 0 || longitude != 0;
+
+  bool get isDated => day != null && minutes != null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -48,6 +57,8 @@ class RecoveryMeeting {
         'time': time,
         'address': address,
         'fellowship': fellowship,
+        'day': day,
+        'minutes': minutes,
       };
 
   factory RecoveryMeeting.fromJson(Map<String, dynamic> j) => RecoveryMeeting(
@@ -59,6 +70,21 @@ class RecoveryMeeting {
         time: j['time'] as String? ?? '',
         address: j['address'] as String? ?? '',
         fellowship: j['fellowship'] as String? ?? 'Other',
+        day: j['day'] as int?,
+        minutes: j['minutes'] as int?,
+      );
+
+  RecoveryMeeting withSchedule(int? day, int? minutes) => RecoveryMeeting(
+        id: id,
+        name: name,
+        latitude: latitude,
+        longitude: longitude,
+        type: type,
+        time: time,
+        address: address,
+        fellowship: fellowship,
+        day: day ?? this.day,
+        minutes: minutes ?? this.minutes,
       );
 }
 
@@ -122,6 +148,89 @@ class MeetingFinderService {
   /// nearest first. Online / ungeocoded meetings (joinable from anywhere)
   /// follow, capped so the list stays human. Falls back to the built-in
   /// sample directory when nothing is cached and the network fails.
+  // ---- schedule engine: "current or upcoming" only ----
+
+  static const Duration inProgressWindow = Duration(hours: 2);
+  static const Duration upcomingWindow = Duration(days: 7);
+
+  /// Next occurrence of a weekly meeting after [now], or null if undated.
+  static DateTime? nextOccurrence(RecoveryMeeting m, DateTime now) {
+    if (!m.isDated) return null;
+    // DateTime.weekday: Mon=1..Sun=7 → convert to 0=Sun..6=Sat.
+    final todayDow = now.weekday % 7;
+    var daysAhead = (m.day! - todayDow) % 7;
+    if (daysAhead < 0) daysAhead += 7;
+    var occ = DateTime(now.year, now.month, now.day)
+        .add(Duration(days: daysAhead, minutes: m.minutes!));
+    if (occ.isBefore(now)) occ = occ.add(const Duration(days: 7));
+    return occ;
+  }
+
+  /// True when the meeting started within [inProgressWindow] and is live.
+  static bool isInProgress(RecoveryMeeting m, DateTime now) {
+    final next = nextOccurrence(m, now);
+    if (next == null) return false;
+    final prev = next.subtract(const Duration(days: 7));
+    return now.isAfter(prev) && now.difference(prev) <= inProgressWindow;
+  }
+
+  /// Friendly label: "Now", "Today · 6:30 PM", "Tomorrow · 9:00 AM",
+  /// "Sat · 11:00 AM".
+  static String upcomingLabel(RecoveryMeeting m, DateTime now) {
+    final next = nextOccurrence(m, now);
+    if (next == null) return m.time;
+    if (isInProgress(m, now)) {
+      final hhmm =
+          '${m.minutes! ~/ 60}:${(m.minutes! % 60).toString().padLeft(2, '0')}';
+      return 'Now · started ${_formatTime(hhmm)}';
+    }
+    final daysAhead = next.difference(DateTime(now.year, now.month, now.day)).inDays;
+    const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    final clock = _formatTime(
+        '${m.minutes! ~/ 60}:${(m.minutes! % 60).toString().padLeft(2, '0')}');
+    if (next.day == now.day) {
+      return 'Today · $clock';
+    }
+    if (daysAhead == 1) {
+      return 'Tomorrow · $clock';
+    }
+    return '${names[m.day!]} · $clock';
+  }
+
+  /// Keeps live + upcoming meetings (within [upcomingWindow]), sorted by
+  /// next occurrence; undated entries ride at the tail (capped).
+  static List<RecoveryMeeting> filterUpcoming(
+    List<RecoveryMeeting> meetings,
+    DateTime now, {
+    int maxUndated = 10,
+  }) {
+    final dated = <RecoveryMeeting, DateTime>{};
+    final undated = <RecoveryMeeting>[];
+    for (final m in meetings) {
+      final occ = nextOccurrence(m, now);
+      if (occ == null) {
+        undated.add(m);
+        continue;
+      }
+      final prev = occ.subtract(const Duration(days: 7));
+      final live = now.isAfter(prev) && now.difference(prev) <= inProgressWindow;
+      final upcoming = occ.isBefore(now.add(upcomingWindow));
+      if (live || upcoming) dated[m] = occ;
+    }
+    final datedSorted = dated.entries.toList()
+      ..sort((a, b) {
+        // Live meetings first, then soonest.
+        final aLive = isInProgress(a.key, now) ? 0 : 1;
+        final bLive = isInProgress(b.key, now) ? 0 : 1;
+        if (aLive != bLive) return aLive - bLive;
+        return a.value.compareTo(b.value);
+      });
+    return [
+      ...datedSorted.map((e) => e.key),
+      ...undated.take(maxUndated),
+    ];
+  }
+
   Future<List<RecoveryMeeting>> findNearbyMeetings(
     double lat,
     double lng, {
@@ -172,12 +281,16 @@ class MeetingFinderService {
 
     // Path-tailoring: when the user's chosen pathways map to fellowships,
     // keep only those — unless that would empty the circle entirely.
-    if (fellowships != null && fellowships.isNotEmpty) {
+    var tailoring = fellowships != null && fellowships.isNotEmpty;
+    if (tailoring) {
       final tailored =
           result.where((m) => fellowships.contains(m.fellowship)).toList();
-      if (tailored.isNotEmpty) return tailored;
+      if (tailored.isNotEmpty) {
+        return filterUpcoming(tailored, DateTime.now());
+      }
+      tailoring = false;
     }
-    return result;
+    return filterUpcoming(result, DateTime.now());
   }
 
   /// Fellowship inferred from the source URL (feeds are single-fellowship).
@@ -345,6 +458,8 @@ class MeetingFinderService {
         time: time,
         address: address,
         fellowship: fellowship,
+        day: dayIndex,
+        minutes: _parseMinutes(raw['time'] as String?),
       ));
     }
     return out;
@@ -376,6 +491,15 @@ class MeetingFinderService {
     final suffix = h >= 12 ? 'PM' : 'AM';
     final h12 = h % 12 == 0 ? 12 : h % 12;
     return '$h12:${m.toString().padLeft(2, '0')} $suffix';
+  }
+
+  static int? _parseMinutes(String? hhmm) {
+    if (hhmm == null) return null;
+    final parts = hhmm.split(':');
+    final h = int.tryParse(parts[0]);
+    final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    if (h == null || h > 23) return null;
+    return h * 60 + m;
   }
 
   // ------------------------------------------------------------------

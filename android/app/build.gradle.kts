@@ -17,10 +17,6 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val localProperties = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
 
 android {
     namespace = "com.recoveryforall"
@@ -48,8 +44,6 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        manifestPlaceholders["mapsApiKey"] =
-            localProperties.getProperty("mapsApiKey") ?: ""
     }
 
     buildTypes {

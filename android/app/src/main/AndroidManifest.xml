@@ -1,15 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <application
-        android:label="Recovery Companion"
+        android:label="Recovery for All"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
-        <!-- Google Maps key for the Meeting Finder map.
-             Paste a key in local.properties as mapsApiKey=... or replace directly.
-             When empty, MeetingMapScreen falls back to a list view. -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${mapsApiKey}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

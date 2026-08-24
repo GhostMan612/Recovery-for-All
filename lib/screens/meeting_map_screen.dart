@@ -4,7 +4,8 @@
 // ============================================================
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
@@ -12,8 +13,9 @@ import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/recovery_pet_service.dart';
 
-/// Meeting finder with an offline-first list view plus an optional map view
-/// (the map requires a Google Maps API key; the list never does).
+/// Meeting finder — keyless OSM raster map (flutter_map, CARTO dark tiles)
+/// with custom live pins for meetings + the user's location, plus an
+/// offline-friendly list view. Time-aware: shows live + upcoming meetings.
 class MeetingMapScreen extends StatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
@@ -29,58 +31,49 @@ class MeetingMapScreen extends StatefulWidget {
 }
 
 class _MeetingMapScreenState extends State<MeetingMapScreen> {
-  final Completer<GoogleMapController> _mapController =
-      Completer<GoogleMapController>();
-  final Set<Marker> _markers = {};
   Position? _currentPosition;
   bool _isLoading = true;
   bool _showMapView = false;
-
-  static const CameraPosition _defaultPosition = CameraPosition(
-    target: LatLng(46.2276, -94.3411),
-    zoom: 7.0,
-  );
+  late List<RecoveryMeeting> _meetings;
 
   @override
   void initState() {
     super.initState();
-    _initializeMapData();
+    _meetings = widget.initialMeetings;
+    _initialize();
   }
 
-  Future<void> _initializeMapData() async {
+  Future<void> _initialize() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 8));
     } catch (_) {
-      // Location unavailable — fall back to the default camera position.
+      // Location unavailable — list still works; map centers on first pin.
     }
-    _buildMarkers(widget.initialMeetings);
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
-  void _buildMarkers(List<RecoveryMeeting> meetings) {
-    _markers.clear();
-    for (var meeting in meetings) {
-      _markers.add(
-        Marker(
-          markerId: MarkerId(meeting.id),
-          position: LatLng(meeting.latitude, meeting.longitude),
-          infoWindow: InfoWindow(
-            title: meeting.name,
-            snippet: '${meeting.time} - ${meeting.address}',
-          ),
-          onTap: () => _showMeetingDetails(meeting),
-        ),
-      );
+  ll.LatLng get _mapCenter {
+    if (_currentPosition != null) {
+      return ll.LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
     }
+    for (final m in _meetings) {
+      if (m.hasLocation) return ll.LatLng(m.latitude, m.longitude);
+    }
+    return const ll.LatLng(44.9778, -93.2650); // Twin Cities
   }
 
   Future<void> _openDirections(RecoveryMeeting meeting) async {
+    if (!meeting.hasLocation) {
+      final uri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+      return;
+    }
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
     try {
@@ -88,8 +81,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     } catch (_) {}
   }
 
-  /// Honest attendance: one reflection question, then Sparks. No reflex
-  /// check-boxes — the reflection is the point, the reward is the side effect.
   Future<void> _logAttended(RecoveryMeeting meeting) async {
     final controller = TextEditingController();
     final reflection = await showModalBottomSheet<String>(
@@ -119,8 +110,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             Text(
               'One question before it counts — what did you take away '
               'from the room today? (A sentence is plenty.)',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13,
-                  height: 1.4),
+              style: TextStyle(
+                  color: AppColors.textMuted, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -190,7 +181,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   }
 
   void _showMeetingDetails(RecoveryMeeting meeting) {
-
+    final now = DateTime.now();
+    final live = MeetingFinderService.isInProgress(meeting, now);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -210,13 +202,18 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text('${meeting.type} · ${meeting.time}',
-                  style: TextStyle(color: AppColors.accent, fontSize: 13)),
+              Text(
+                '${live ? 'LIVE NOW · ' : ''}${meeting.time}',
+                style: TextStyle(
+                    color: live ? AppColors.success : AppColors.accent,
+                    fontSize: 13,
+                    fontWeight: live ? FontWeight.bold : FontWeight.w500),
+              ),
               const SizedBox(height: 8),
               Text(meeting.address,
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
               const SizedBox(height: 16),
-              if (widget.database != null)
+              if (widget.database != null) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -232,7 +229,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                     },
                   ),
                 ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -255,25 +253,68 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     );
   }
 
-  String get _darkMapStyle => '''
-  [
-    {"elementType": "geometry", "stylers": [{"color": "#1e293b"}]},
-    {"elementType": "labels.text.fill", "stylers": [{"color": "#94a3b8"}]},
-    {"elementType": "labels.text.stroke", "stylers": [{"color": "#0f172a"}]},
-    {"featureType": "administrative", "elementType": "geometry.stroke",
-     "stylers": [{"color": "#334155"}]},
-    {"featureType": "administrative.land_parcel", "elementType": "labels.text.fill",
-     "stylers": [{"color": "#64748b"}]},
-    {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#1e293b"}]},
-    {"featureType": "road", "elementType": "geometry.stroke", "stylers": [{"color": "#334155"}]},
-    {"featureType": "road", "elementType": "labels.text.fill", "stylers": [{"color": "#94a3b8"}]},
-    {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#1e293b"}]},
-    {"featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{"color": "#334155"}]},
-    {"featureType": "water", "elementType": "geometry.fill", "stylers": [{"color": "#0f172a"}]}
-  ]''';
+  List<Marker> _buildMarkers() {
+    final markers = <Marker>[];
+    if (_currentPosition != null) {
+      markers.add(
+        Marker(
+          point: ll.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          width: 22,
+          height: 22,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accent.withValues(alpha: 0.35),
+              border: Border.all(color: AppColors.accent, width: 2),
+            ),
+            child: const Icon(Icons.person_pin_circle,
+                size: 14, color: Colors.white),
+          ),
+        ),
+      );
+    }
+    for (var i = 0; i < _meetings.length && i < 200; i++) {
+      final m = _meetings[i];
+      if (!m.hasLocation) continue;
+      final live = MeetingFinderService.isInProgress(m, DateTime.now());
+      markers.add(
+        Marker(
+          point: ll.LatLng(m.latitude, m.longitude),
+          width: 30,
+          height: 30,
+          child: GestureDetector(
+            onTap: () => _showMeetingDetails(m),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: live ? AppColors.success : AppColors.accent,
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: (live ? AppColors.success : AppColors.accent)
+                        .withValues(alpha: 0.5),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: Icon(
+                m.type.contains('Online')
+                    ? Icons.videocam
+                    : Icons.groups_2,
+                size: 15,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return markers;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -284,58 +325,75 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         actions: [
           IconButton(
             tooltip: _showMapView ? 'Show list' : 'Show map',
-            icon: Icon(_showMapView ? Icons.view_list_outlined : Icons.map_outlined,
+            icon: Icon(
+                _showMapView ? Icons.view_list_outlined : Icons.map_outlined,
                 color: Colors.white70),
             onPressed: () => setState(() => _showMapView = !_showMapView),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
           : _showMapView
-              ? GoogleMap(
-                  style: _darkMapStyle,
-                  initialCameraPosition: _currentPosition != null
-                      ? CameraPosition(
-                          target: LatLng(_currentPosition!.latitude,
-                              _currentPosition!.longitude),
-                          zoom: 12.0,
-                        )
-                      : _defaultPosition,
-                  markers: _markers,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  onMapCreated: (GoogleMapController controller) {
-                    if (!_mapController.isCompleted) {
-                      _mapController.complete(controller);
-                    }
-                  },
+              ? FlutterMap(
+                  options: MapOptions(
+                    initialCenter: _mapCenter,
+                    initialZoom: _currentPosition != null ? 12.0 : 8.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      userAgentPackageName: 'com.recoveryforall',
+                    ),
+                    MarkerLayer(markers: _buildMarkers()),
+                    const RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution('© OpenStreetMap contributors · © CARTO'),
+                      ],
+                    ),
+                  ],
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: widget.initialMeetings.length,
+                  itemCount: _meetings.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final meeting = widget.initialMeetings[index];
+                    final meeting = _meetings[index];
+                    final live = MeetingFinderService.isInProgress(meeting, now);
+                    final label =
+                        MeetingFinderService.upcomingLabel(meeting, now);
                     return Material(
                       color: AppColors.bgCard,
                       borderRadius: BorderRadius.circular(14),
                       child: ListTile(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
-                        leading:
-                            const Icon(Icons.groups_2, color: Color(0xFF38BDF8)),
+                        leading: Icon(
+                          live
+                              ? Icons.circle
+                              : meeting.type.contains('Online')
+                                  ? Icons.videocam_outlined
+                                  : Icons.groups_2,
+                          color: live ? AppColors.success : AppColors.accent,
+                          size: live ? 14 : 24,
+                        ),
                         title: Text(meeting.name,
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '${meeting.type}\n${meeting.time} · ${meeting.address}',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          '${live ? 'LIVE NOW' : label} · ${meeting.type}\n${meeting.address}',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 12,
+                              height: 1.35),
                         ),
                         isThreeLine: true,
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: Colors.white38),
                         onTap: () => _showMeetingDetails(meeting),
                       ),
                     );
