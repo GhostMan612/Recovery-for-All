@@ -54,7 +54,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   // Layers: dark | light | sat | topo
   String _layer = 'dark';
 
-  String? _weatherChip; // "72°F ⛅"
+  String? _weatherChip;
+  String _locationDebug = ''; // "72°F ⛅"
   bool _downloading = false;
 
   static const _maxRadiusMi = 50.0;
@@ -80,6 +81,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
+          setState(() => _locationDebug = 'Permission: $permission');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               backgroundColor: Color(0xFF1E293B),
@@ -96,6 +98,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       if (last != null &&
           DateTime.now().millisecondsSinceEpoch - last.timestamp.millisecondsSinceEpoch <
               5 * 60 * 1000) {
+        if (mounted) {
+          setState(() => _locationDebug =
+              'Last known: ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)}');
+        }
         return (last.latitude, last.longitude);
       }
 
@@ -104,9 +110,16 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 20));
+      if (mounted) {
+        setState(() => _locationDebug =
+            'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}');
+      }
       return (pos.latitude, pos.longitude);
     } catch (e) {
       debugPrint('[finder] location resolve failed: $e');
+      if (mounted) {
+        setState(() => _locationDebug = 'GPS FAILED: $e');
+      }
       return const (44.9778, -93.2650);
     }
   }
@@ -586,10 +599,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   divisions: 49,
                   activeColor: AppColors.accent,
                   label: '${_radiusMi.round()} mi',
-                  onChanged: (v) {
-                    setSheet(() => _radiusMi = v);
-                    setState(() => _radiusMi = v);
-                  },
+                  onChanged: (v) => setSheet(() => _radiusMi = v),
+                  onChangeEnd: (v) => setState(() => _radiusMi = v),
                 ),
                 const SizedBox(height: 8),
                 const Text('City / Area',
@@ -824,11 +835,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            tooltip: 'Filters & layers',
-            icon: const Icon(Icons.tune, color: AppColors.accent),
-            onPressed: _openFilters,
-          ),
-          IconButton(
             tooltip: _showMapView ? 'Show list' : 'Show map',
             icon: Icon(
                 _showMapView ? Icons.view_list_outlined : Icons.map_outlined,
@@ -894,6 +900,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             color: liveCount > 0 ? AppColors.success : null,
           ),
         ),
+        if (_locationDebug.isNotEmpty)
+          Positioned(
+            left: 12,
+            bottom: 12,
+            child: _MapChip(label: _locationDebug),
+          ),
         // Right control stack: compass / recenter / filters
         Positioned(
           right: 12,
@@ -911,12 +923,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 tooltip: 'Center on me',
                 onTap: _recenter,
               ),
-              const SizedBox(height: 8),
-              _MapButton(
-                icon: Icons.layers_outlined,
-                tooltip: 'Layers & filters',
-                onTap: _openFilters,
-              ),
+
               const SizedBox(height: 8),
               _MapButton(
                 icon: _downloading
@@ -959,14 +966,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openFilters,
-              icon: const Icon(Icons.tune, size: 18),
-              label: const Text('Open filters'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.accent,
-              ),
-            ),
+            Text('Tap the tune icon above to adjust filters',
+                style: TextStyle(color: AppColors.textDim, fontSize: 12)),
           ],
         ),
       );
@@ -982,15 +983,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                     '${visible.length} meetings · ${_radiusMi.round()} mi${_cityFilter != 'All' ? ' · $_cityFilter' : ''}',
               ),
               const Spacer(),
-              TextButton.icon(
-                onPressed: _openFilters,
-                icon: const Icon(Icons.tune, size: 16),
-                label: const Text('Filter'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-              ),
             ],
           ),
         ),

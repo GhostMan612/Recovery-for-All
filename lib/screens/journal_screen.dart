@@ -126,7 +126,7 @@ class _JournalScreenState extends State<JournalScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Enter your 6-digit PIN to access your private encrypted reflections.',
+                  'Enter your 6-digit PIN (default: 123456 — change in Settings)',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                 ),
