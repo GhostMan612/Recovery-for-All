@@ -835,6 +835,11 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'Filters & layers',
+            icon: const Icon(Icons.tune, color: AppColors.accent),
+            onPressed: _openFilters,
+          ),
+          IconButton(
             tooltip: _showMapView ? 'Show list' : 'Show map',
             icon: Icon(
                 _showMapView ? Icons.view_list_outlined : Icons.map_outlined,
