@@ -13,7 +13,6 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
-import '../services/map_tile_cache.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/recovery_pet_service.dart';
 
@@ -765,8 +764,37 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     return markers;
   }
 
-  TileLayer get _tileLayer =>
-      TileLayer(tileProvider: CachedTileProvider(layer: _layer));
+  TileLayer get _tileLayer {
+    switch (_layer) {
+      case 'light':
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      case 'sat':
+        return TileLayer(
+          urlTemplate:
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      case 'topo':
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      default:
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
