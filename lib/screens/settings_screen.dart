@@ -11,6 +11,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
+import '../services/feedback_service.dart';
 import '../services/gentle_reminder_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/sos_notification_service.dart';
@@ -38,6 +39,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _reminderEnabled = false;
   int _reminderMinutes = 8 * 60;
   bool _biometricEnabled = false;
+  bool _soundEnabled = true;
+  bool _hapticsEnabled = true;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
@@ -61,6 +64,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final moderator = await CommunityFeedService.isModerator();
     final reminderEnabled = await GentleReminderService.getEnabled();
     final reminderMinutes = await GentleReminderService.getMinutesOfDay();
+    final sound = await FeedbackService.soundEnabled();
+    final haptics = await FeedbackService.hapticsEnabled();
     if (mounted) {
       setState(() {
         _isLoading = false;
@@ -68,6 +73,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _reminderEnabled = reminderEnabled;
         _reminderMinutes = reminderMinutes;
         _biometricEnabled = profile?.biometricLockEnabled ?? false;
+        _soundEnabled = sound;
+        _hapticsEnabled = haptics;
       });
     }
   }
@@ -402,6 +409,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: _biometricEnabled,
                 activeThumbColor: const Color(0xFF38BDF8),
                 onChanged: _toggleBiometric,
+              ),
+              const SizedBox(height: 24),
+              const Text('Feedback', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              SwitchListTile(
+                title: const Text('Sound effects',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Reward chimes for Sparks, milestones, and stars',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                value: _soundEnabled,
+                activeThumbColor: const Color(0xFF38BDF8),
+                onChanged: (value) async {
+                  await FeedbackService.setSound(value);
+                  setState(() => _soundEnabled = value);
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Haptics',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Vibration feedback on rewards and key actions',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                value: _hapticsEnabled,
+                activeThumbColor: const Color(0xFF38BDF8),
+                onChanged: (value) async {
+                  await FeedbackService.setHaptics(value);
+                  setState(() => _hapticsEnabled = value);
+                  if (value) await FeedbackService.selection();
+                },
               ),
               const SizedBox(height: 24),
               const Text('SOS Contacts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

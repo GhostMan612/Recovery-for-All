@@ -5,6 +5,7 @@
 
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'feedback_service.dart';
 import '../database/recovery_database.dart';
 import 'pet_cosmetic_catalog.dart';
 
@@ -443,6 +444,15 @@ class RecoveryPetService {
     );
     await save(updated);
     await _recordEvent(type, grantedSparks);
+    if (type.startsWith('milestone_')) {
+      await FeedbackService.milestone();
+    } else if (type.startsWith('signoff_')) {
+      await FeedbackService.milestone();
+    } else if (type == 'star') {
+      await FeedbackService.star();
+    } else if (grantedSparks > 0) {
+      await FeedbackService.reward();
+    }
     return updated;
   }
 
