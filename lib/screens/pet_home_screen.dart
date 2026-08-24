@@ -11,6 +11,7 @@ import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
 import 'avatar_dresser_screen.dart';
+import 'pet_trials_screen.dart';
 
 /// Full companion view: stats, equipped cosmetics, and the care activity log.
 class PetHomeScreen extends StatefulWidget {
@@ -182,6 +183,26 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                     icon: const Icon(Icons.checkroom_outlined),
                     label: const Text('Open Dresser',
                         style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.bgCard,
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.4)),
+                    ),
+                    icon: const Icon(Icons.shield_outlined),
+                    label: const Text('Trials of the Path',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PetTrialsScreen()),
+                    ).then((_) => _load()),
                   ),
                 ),
                 const SizedBox(height: 20),
