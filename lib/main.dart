@@ -82,6 +82,14 @@ class RecoveryCompanionApp extends StatelessWidget {
           seedColor: const Color(0xFF38BDF8),
           brightness: Brightness.dark,
         ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xFF1E293B),
+          contentTextStyle: const TextStyle(
+              color: Colors.white, fontSize: 14, height: 1.4),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
       ),
       home: SplashScreen(database: database),
     );
