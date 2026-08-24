@@ -125,11 +125,13 @@ class Constellation3DPainter extends CustomPainter {
   final List<ConstellationNode3D> nodes;
   final double yaw;
   final double pitch;
+  final double zoom;
 
   Constellation3DPainter({
     required this.nodes,
     required this.yaw,
     required this.pitch,
+    this.zoom = 1.0,
   });
 
   @override
@@ -171,7 +173,7 @@ class Constellation3DPainter extends CustomPainter {
       double y3 = y1 * cosP - z2 * sinP;
       double z3 = y1 * sinP + z2 * cosP;
 
-      double scale = perspective / (perspective + z3 + 150.0);
+      double scale = (perspective / (perspective + z3 + 150.0)) * zoom;
       double px = cx + x2 * scale;
       double py = cy + y3 * scale;
 
@@ -199,8 +201,9 @@ class Constellation3DPainter extends CustomPainter {
       final zVal = depths[i];
       final double depthAlpha = ((150.0 - zVal) / 300.0).clamp(0.1, 1.0);
 
+      final catColor = _categoryColor(nodes[i].category);
       final starGlowPaint = Paint()
-        ..color = const Color(0xFF38BDF8).withValues(alpha: 0.4 * depthAlpha)
+        ..color = catColor.withValues(alpha: 0.4 * depthAlpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0)
         ..style = PaintingStyle.fill;
 
@@ -230,10 +233,22 @@ class Constellation3DPainter extends CustomPainter {
     }
   }
 
+  static Color _categoryColor(String category) {
+    switch (category) {
+      case 'step_work': return const Color(0xFF34D399);
+      case 'community': return const Color(0xFF38BDF8);
+      case 'service': return const Color(0xFFF97316);
+      case 'mindfulness': return const Color(0xFFA78BFA);
+      case 'spiritual': return const Color(0xFF34D399);
+      default: return const Color(0xFFFBBF24); // milestone = gold
+    }
+  }
+
   @override
   bool shouldRepaint(covariant Constellation3DPainter oldDelegate) {
     return oldDelegate.yaw != yaw ||
         oldDelegate.pitch != pitch ||
-        oldDelegate.nodes != nodes;
+        oldDelegate.nodes != nodes ||
+        oldDelegate.zoom != zoom;
   }
 }
