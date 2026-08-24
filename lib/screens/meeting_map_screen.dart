@@ -2,14 +2,16 @@
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
-import 'dart:async';
+
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart' as ll;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
@@ -17,9 +19,10 @@ import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
 import '../services/recovery_pet_service.dart';
 
-/// Meeting finder — standard map UI with SEPARATE layers, filters, compass,
-/// and location controls. Layers stack (multiple on at once, like Sovereign
-/// Mantle's LandSectorView). Filters are meeting-only (radius/city/time).
+/// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
+/// controls: layer switcher (dark/light/satellite/topo), radius slider,
+/// city filter, live/upcoming color tiers, compass + re-center, and a
+/// live weather chip (Open-Meteo, keyless).
 class MeetingMapScreen extends StatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
@@ -41,7 +44,6 @@ class _MapLayer {
   final String label;
   final String urlTemplate;
   final List<String> subdomains;
-  // overlays render on top of the base
   const _MapLayer(this.id, this.label, this.urlTemplate,
       {this.subdomains = const []});
 }
@@ -490,9 +492,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(
-                  'Toggle multiple layers — they stack on top of each other.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
+                    'Toggle multiple layers — they stack on top of each other.',
+                    style:
+                        TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
@@ -682,7 +684,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       ),
     );
 
-    // Use the first active layer for prefetch.
     final layerId = _activeLayers.first;
     final secured = await TilePrefetch.prefetchPack(
       layer: layerId,
@@ -834,7 +835,6 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               initialZoom: _me != null ? 12.0 : 9.0,
             ),
             children: [
-              // Stacked tile layers (Sovereign Mantle pattern: multiple on at once)
               for (final layer in _availableLayers)
                 if (_activeLayers.contains(layer.id))
                   TileLayer(
@@ -853,10 +853,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             ],
           ),
         ),
-        // Weather chip
         if (_weatherChip != null)
           Positioned(left: 12, top: 12, child: _MapChip(label: _weatherChip!)),
-        // Live count chip
         Positioned(
           left: 12,
           top: _weatherChip != null ? 52 : 12,
@@ -865,14 +863,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             color: liveCount > 0 ? AppColors.success : null,
           ),
         ),
-        // Location debug chip
         if (_locationDebug.isNotEmpty)
           Positioned(
             left: 12,
             bottom: 12,
             child: _MapChip(label: _locationDebug),
           ),
-        // Control stack (right side)
         Positioned(
           right: 12,
           top: 12,
