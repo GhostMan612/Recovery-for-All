@@ -226,6 +226,135 @@ class RecoveryCoachService {
         action: CoachActionType.none,
       ),
     ),
+    (
+      keys: ['panic attack', 'having a panic', 'cant breathe', "can't breathe", 'hyperventilating', 'racing heart'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Panic is your body sounding a false alarm — it will pass. '
+            'Try: name 5 things you see, 4 you can touch, 3 you hear, '
+            '2 you smell, 1 you taste. Then slow exhale for a count of 6. '
+            'You are safe right now.',
+        action: CoachActionType.logGrounding,
+        actionLabel: 'Log grounding',
+      ),
+    ),
+    (
+      keys: ['feeling lonely', 'so alone', 'isolated', 'no one understands', 'nobody cares', 'all alone'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Loneliness lies. It says nobody cares — but you opened this '
+            'app, which means part of you knows that is not true. Reach out '
+            'to one person: a meeting, your sponsor, or the Recovery Circle. '
+            'Connection is the antidote.',
+        action: CoachActionType.openMeetings,
+        actionLabel: 'Find a meeting',
+      ),
+    ),
+    (
+      keys: ['cant sleep', "can't sleep", 'insomnia', 'up all night', 'racing thoughts at night', 'tired of being tired'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Sleepless nights are rough in recovery — the mind runs. '
+            'Try: no screens 30 min before bed, write tomorrows worries '
+            'in your journal to park them, and slow breathing. If it '
+            'persists more than a week, mention it to a doctor.',
+        action: CoachActionType.suggestCheckIn,
+        actionLabel: 'Check in',
+      ),
+    ),
+    (
+      keys: ['they offered me a drink', 'offered me drugs', 'someone offered', 'peer pressure', 'pressuring me to', 'just try it'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'You do not owe anyone an explanation. "No thanks" is a '
+            'complete sentence. If they push, leave — your recovery is '
+            'worth more than their comfort. Play the tape forward: how '
+            'will you feel tomorrow?',
+        action: CoachActionType.none,
+      ),
+    ),
+    (
+      keys: ['so bored', 'bored out of my mind', 'nothing to do', 'empty inside', 'feeling empty', 'meaningless'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Boredom and emptiness are often the space where using used to '
+            'be. That space is real — and it is yours to fill. Try: a '
+            'walk (Sparks for you and your companion), a worksheet, or '
+            'one small thing you used to enjoy before addiction took it.',
+        action: CoachActionType.suggestWalk,
+        actionLabel: 'Log a walk',
+      ),
+    ),
+    (
+      keys: ['so angry', 'furious', 'rage', 'pissed off', 'want to punch', 'seething'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Anger is valid — it is what you do with it that matters. '
+            'Before you act: cold water on your face, 10 slow breaths, '
+            'or walk away. Write it in your journal first. React sober '
+            'and you will not regret it tomorrow.',
+        action: CoachActionType.logGrounding,
+        actionLabel: 'Log grounding',
+      ),
+    ),
+    (
+      keys: ['medicine wheel', 'wellbriety teaching', 'four directions', 'grandfather teachings', 'sacred hoop', 'red road'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'The Medicine Wheel teaches balance across all dimensions: '
+            'spiritual (East), emotional (South), physical (West), and '
+            'mental (North). Check your Wellness Wheel — which quadrant '
+            'needs attention today? Wellbriety Circles can help you walk '
+            'this path with others.',
+        action: CoachActionType.openDresser,
+        actionLabel: 'Open companion',
+      ),
+    ),
+    (
+      keys: ['cba', 'cost benefit', 'smart tool', 'abc tool', 'smart recovery worksheet', 'dispute'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'SMART Recovery uses evidence-based CBT tools. The Cost-Benefit '
+            'Analysis worksheet in your app walks you through it: short-term '
+            'benefits vs costs, long-term benefits vs costs. Write rough '
+            'and honest — nobody sees it but you.',
+        action: CoachActionType.openWorksheets,
+        actionLabel: 'Open worksheets',
+      ),
+    ),
+    (
+      keys: ['meditation practice', 'mindfulness meditation', 'sangha', 'dharma practice', 'buddhist recovery'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Recovery Dharma teaches that suffering comes from craving — '
+            'and that meditation is the path to freedom from it. Start '
+            'with 5 minutes: focus on your breath, notice when the mind '
+            'wanders, return. The Meditation Timer can hold the space.',
+        action: CoachActionType.suggestCheckIn,
+        actionLabel: 'Check in',
+      ),
+    ),
+    (
+      keys: ['grateful for', 'gratitude practice', 'counting blessings', 'thankful for'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Gratitude rewires the brain away from craving. One specific '
+            'thing is enough: a person, a moment, a quiet win. Write it '
+            'in your journal or gratitude entry — it feeds your companion '
+            'and your path.',
+        action: CoachActionType.none,
+      ),
+    ),
   ];
 
   /// Returns the matching skill reply, or null.
