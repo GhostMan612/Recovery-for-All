@@ -237,6 +237,7 @@ class MeetingFinderService {
     double radiusKm = 50,
     int maxOnline = 30,
     Set<String>? fellowships,
+    bool upcomingOnly = true,
   }) async {
     var meetings = await _cachedMeetings();
 
@@ -286,11 +287,11 @@ class MeetingFinderService {
       final tailored =
           result.where((m) => fellowships.contains(m.fellowship)).toList();
       if (tailored.isNotEmpty) {
-        return filterUpcoming(tailored, DateTime.now());
+        return upcomingOnly ? filterUpcoming(tailored, DateTime.now()) : tailored;
       }
       tailoring = false;
     }
-    return filterUpcoming(result, DateTime.now());
+    return upcomingOnly ? filterUpcoming(result, DateTime.now()) : result;
   }
 
   /// Fellowship inferred from the source URL (feeds are single-fellowship).

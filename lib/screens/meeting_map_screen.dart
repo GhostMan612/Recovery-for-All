@@ -3,19 +3,23 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/recovery_pet_service.dart';
 
-/// Meeting finder — keyless OSM raster map (flutter_map, CARTO dark tiles)
-/// with custom live pins for meetings + the user's location, plus an
-/// offline-friendly list view. Time-aware: shows live + upcoming meetings.
+/// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
+/// controls: layer switcher (dark/light/satellite/topo), radius slider,
+/// city filter, live/upcoming color tiers, compass + re-center, and a
+/// live weather chip (Open-Meteo, keyless).
 class MeetingMapScreen extends StatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
@@ -31,51 +35,241 @@ class MeetingMapScreen extends StatefulWidget {
 }
 
 class _MeetingMapScreenState extends State<MeetingMapScreen> {
+  final MapController _mapController = MapController();
+
   Position? _currentPosition;
   bool _isLoading = true;
   bool _showMapView = false;
-  late List<RecoveryMeeting> _meetings;
+
+  // Filter state
+  double _radiusMi = 25;
+  String _cityFilter = 'All';
+  bool _showAllTime = false;
+
+  // Base result from the service (radius = max slider, time per toggle).
+  List<RecoveryMeeting> _base = [];
+  String? _loadError;
+
+  // Layers: dark | light | sat | topo
+  String _layer = 'dark';
+
+  String? _weatherChip; // "72°F ⛅"
+
+  static const _maxRadiusMi = 50.0;
+  static const _miToKm = 1.60934;
 
   @override
   void initState() {
     super.initState();
-    _meetings = widget.initialMeetings;
     _initialize();
   }
 
   Future<void> _initialize() async {
+    final (lat, lng) = await _resolveLocation();
+    await _load(lat, lng);
+  }
+
+  Future<(double, double)> _resolveLocation() async {
     try {
-      _currentPosition = await Geolocator.getCurrentPosition(
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Color(0xFF1E293B),
+              content: Text(
+                  'Location off — centering on Twin Cities. Enable location for exact distance.'),
+            ),
+          );
+        }
+        return const (44.9778, -93.2650);
+      }
+      final pos = await Geolocator.getCurrentPosition(
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.high),
       ).timeout(const Duration(seconds: 8));
+      return (pos.latitude, pos.longitude);
     } catch (_) {
-      // Location unavailable — list still works; map centers on first pin.
+      return const (44.9778, -93.2650);
+    }
+  }
+
+  Future<void> _load(double lat, double lng) async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      _base = await _fetch(lat, lng);
+    } catch (e) {
+      _loadError = 'Could not load directory — cached/sample data shown.';
+      debugPrint('[finder] load failed: $e');
     }
     if (mounted) setState(() => _isLoading = false);
+    if (_showMapView) _loadWeather();
   }
 
-  ll.LatLng get _mapCenter {
-    if (_currentPosition != null) {
-      return ll.LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+  Future<List<RecoveryMeeting>> _fetch(double lat, double lng) async {
+    return widget.database != null
+        ? _finderFind(lat, lng)
+        : const [];
+  }
+
+  Future<List<RecoveryMeeting>> _finderFind(double lat, double lng) async {
+    // Always fetch the widest radius + current time-window; slider/city
+    // filtering happens locally so dragging the slider is instant.
+    final service = MeetingFinderService();
+    return service.findNearbyMeetings(
+      lat,
+      lng,
+      radiusKm: _maxRadiusMi * _miToKm,
+      upcomingOnly: !_showAllTime,
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Derived data
+  // ------------------------------------------------------------------
+
+  double _distanceMi(RecoveryMeeting m, (double, double) me) {
+    if (!m.hasLocation) return double.infinity;
+    final service = MeetingFinderService();
+    return service.distanceKm(me.$1, me.$2, m.latitude, m.longitude) /
+        _miToKm;
+  }
+
+  String? _cityOf(RecoveryMeeting m) {
+    // Addresses look like "Venue, 123 St, City, MN 55408" or "Online …".
+    if (m.address.startsWith('Online')) return 'Online';
+    final parts = m.address.split(',').map((e) => e.trim()).toList();
+    for (final part in parts) {
+      if (part.endsWith(', MN') || part == 'MN') {
+        final idx = parts.indexOf(part);
+        if (idx > 0) return parts[idx - 1];
+      }
     }
-    for (final m in _meetings) {
+    // Curated style: "Venue, City, ST zip"
+    final mn = parts.where((p) => p.contains('MN')).toList();
+    if (mn.isNotEmpty) {
+      final i = parts.indexOf(mn.first);
+      if (i > 0) return parts[i - 1];
+    }
+    return null;
+  }
+
+  List<String> get _cityOptions {
+    final counts = <String, int>{};
+    for (final m in _base) {
+      final city = _cityOf(m);
+      if (city != null && city.isNotEmpty) {
+        counts[city] = (counts[city] ?? 0) + 1;
+      }
+    }
+    final cities = counts.keys.toList()..sort();
+    return ['All', ...cities];
+  }
+
+  List<RecoveryMeeting> get _visible {
+    final me = _me;
+    return _base.where((m) {
+      final city = _cityOf(m) ?? 'Unknown';
+      if (_cityFilter != 'All' && city != _cityFilter) return false;
+      if (m.hasLocation && me != null) {
+        return _distanceMi(m, me) <= _radiusMi;
+      }
+      return true; // online / ungeocoded always shown in list
+    }).toList();
+  }
+
+  (double, double)? get _me => _currentPosition == null
+      ? null
+      : (_currentPosition!.latitude, _currentPosition!.longitude);
+
+  // ------------------------------------------------------------------
+  // Weather (Open-Meteo, keyless)
+  // ------------------------------------------------------------------
+
+  Future<void> _loadWeather() async {
+    try {
+      final me = _me;
+      final lat = me?.$1 ?? _mapCenter.latitude;
+      final lng = me?.$2 ?? _mapCenter.longitude;
+      final uri = Uri.parse(
+          'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lng&current=temperature_2m,weather_code&temperature_unit=fahrenheit');
+      final res = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final current = data['current'] as Map<String, dynamic>;
+      final temp = (current['temperature_2m'] as num).round();
+      final code = current['weather_code'] as int? ?? 0;
+      if (!mounted) return;
+      setState(() => _weatherChip = '${_weatherEmoji(code)} $temp°F');
+    } catch (_) {
+      // Weather is a garnish — never a blocker.
+    }
+  }
+
+  ll.LatLng get _mapCenter => _me != null
+      ? ll.LatLng(_me!.$1, _me!.$2)
+      : _firstPinOrTwinCities();
+
+  ll.LatLng _firstPinOrTwinCities() {
+    for (final m in _visible) {
       if (m.hasLocation) return ll.LatLng(m.latitude, m.longitude);
     }
-    return const ll.LatLng(44.9778, -93.2650); // Twin Cities
+    return const ll.LatLng(44.9778, -93.2650);
   }
 
-  Future<void> _openDirections(RecoveryMeeting meeting) async {
-    if (!meeting.hasLocation) {
-      final uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
-      try {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } catch (_) {}
-      return;
+  String _weatherEmoji(int code) {
+    if (code == 0) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code <= 48) return '🌫️';
+    if (code <= 67) return '🌧️';
+    if (code <= 77) return '❄️';
+    if (code <= 82) return '🌦️';
+    return '⛈️';
+  }
+
+  // ------------------------------------------------------------------
+  // Map helpers
+  // ------------------------------------------------------------------
+
+  void _recenter() {
+    final me = _me;
+    if (me != null) {
+      _mapController.move(ll.LatLng(me.$1, me.$2), 13);
+    } else {
+      _mapController.move(_firstPinOrTwinCities(), 11);
     }
-    final uri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
+  }
+
+  void _resetNorth() {
+    try {
+      _mapController.rotate(0);
+    } catch (_) {
+      // Rotation unsupported on this plugin path — no-op.
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Attendance + details (unchanged behavior)
+  // ------------------------------------------------------------------
+
+  Future<void> _openDirections(RecoveryMeeting meeting) async {
+    final Uri uri;
+    if (meeting.hasLocation) {
+      uri = Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
+    } else {
+      uri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
+    }
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {}
@@ -183,6 +377,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   void _showMeetingDetails(RecoveryMeeting meeting) {
     final now = DateTime.now();
     final live = MeetingFinderService.isInProgress(meeting, now);
+    final label = MeetingFinderService.upcomingLabel(meeting, now);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -203,7 +398,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(
-                '${live ? 'LIVE NOW · ' : ''}${meeting.time}',
+                '${live ? 'LIVE NOW · ' : ''}$label · ${meeting.type}',
                 style: TextStyle(
                     color: live ? AppColors.success : AppColors.accent,
                     fontSize: 13,
@@ -253,18 +448,184 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     );
   }
 
+  // ------------------------------------------------------------------
+  // Filter / layers sheet
+  // ------------------------------------------------------------------
+
+  void _openFilters() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Map & List Filters',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 14),
+                Text('Radius · ${_radiusMi.round()} mi',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+                Slider(
+                  value: _radiusMi,
+                  min: 1,
+                  max: _maxRadiusMi,
+                  divisions: 49,
+                  activeColor: AppColors.accent,
+                  label: '${_radiusMi.round()} mi',
+                  onChanged: (v) {
+                    setSheet(() => _radiusMi = v);
+                    setState(() => _radiusMi = v);
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text('City / Area',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final city in _cityOptions)
+                      ChoiceChip(
+                        label: Text(city,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: _cityFilter == city
+                                    ? Colors.white
+                                    : AppColors.textMuted)),
+                        selected: _cityFilter == city,
+                        selectedColor: AppColors.accent,
+                        backgroundColor: AppColors.bgCard,
+                        checkmarkColor: Colors.white,
+                        onSelected: (_) {
+                          setSheet(() => _cityFilter = city);
+                          setState(() => _cityFilter = city);
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Show every meeting (all week)',
+                      style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text(
+                      'Off = live now + next 7 days only',
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  value: _showAllTime,
+                  activeThumbColor: AppColors.accent,
+                  onChanged: (v) async {
+                    setSheet(() => _showAllTime = v);
+                    setState(() => _showAllTime = v);
+                    final (lat, lng) = await _resolveLocation();
+                    await _load(lat, lng);
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text('Base Layer',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _layerChip('dark', 'Dark', Icons.dark_mode_outlined, setSheet),
+                    _layerChip('light', 'Light', Icons.light_mode_outlined, setSheet),
+                    _layerChip('sat', 'Satellite', Icons.satellite_alt_outlined, setSheet),
+                    _layerChip('topo', 'Topo', Icons.terrain_outlined, setSheet),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _layerChip(String value, String label, IconData icon,
+      void Function(void Function()) setSheet) {
+    final selected = _layer == value;
+    return InkWell(
+      onTap: () {
+        setSheet(() => _layer = value);
+        setState(() => _layer = value);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.25)
+              : AppColors.bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 18, color: selected ? AppColors.accent : AppColors.textMuted),
+            const SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: selected ? Colors.white : AppColors.textMuted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Urgency color tiers
+  // ------------------------------------------------------------------
+
+  Color _pinColor(RecoveryMeeting m) {
+    final now = DateTime.now();
+    if (MeetingFinderService.isInProgress(m, now)) return AppColors.success;
+    if (m.type.contains('Online')) return const Color(0xFFA78BFA);
+    final next = MeetingFinderService.nextOccurrence(m, now);
+    if (next != null) {
+      final diff = next.difference(now);
+      if (diff.inHours < 24) return const Color(0xFFFBBF24); // today/tonight
+    }
+    return AppColors.accent; // this week
+  }
+
+  // ------------------------------------------------------------------
+  // Build
+  // ------------------------------------------------------------------
+
   List<Marker> _buildMarkers() {
     final markers = <Marker>[];
-    if (_currentPosition != null) {
+    final me = _me;
+    if (me != null) {
       markers.add(
         Marker(
-          point: ll.LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          width: 22,
-          height: 22,
+          point: ll.LatLng(me.$1, me.$2),
+          width: 24,
+          height: 24,
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.accent.withValues(alpha: 0.35),
+              color: AppColors.accent.withValues(alpha: 0.3),
               border: Border.all(color: AppColors.accent, width: 2),
             ),
             child: const Icon(Icons.person_pin_circle,
@@ -273,34 +634,35 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         ),
       );
     }
-    for (var i = 0; i < _meetings.length && i < 200; i++) {
-      final m = _meetings[i];
+    final now = DateTime.now();
+    for (final m in _visible) {
       if (!m.hasLocation) continue;
-      final live = MeetingFinderService.isInProgress(m, DateTime.now());
+      final color = _pinColor(m);
+      final live = MeetingFinderService.isInProgress(m, now);
       markers.add(
         Marker(
           point: ll.LatLng(m.latitude, m.longitude),
-          width: 30,
-          height: 30,
+          width: 32,
+          height: 32,
           child: GestureDetector(
             onTap: () => _showMeetingDetails(m),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: live ? AppColors.success : AppColors.accent,
-                border: Border.all(color: Colors.white, width: 1.5),
+                color: color,
+                border: Border.all(
+                  color: live ? Colors.white : Colors.white70,
+                  width: live ? 2.2 : 1.4,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: (live ? AppColors.success : AppColors.accent)
-                        .withValues(alpha: 0.5),
-                    blurRadius: 6,
+                    color: color.withValues(alpha: 0.55),
+                    blurRadius: live ? 10 : 5,
                   ),
                 ],
               ),
               child: Icon(
-                m.type.contains('Online')
-                    ? Icons.videocam
-                    : Icons.groups_2,
+                m.type.contains('Online') ? Icons.videocam : Icons.groups_2,
                 size: 15,
                 color: Colors.white,
               ),
@@ -312,9 +674,46 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     return markers;
   }
 
+  TileLayer get _tileLayer {
+    switch (_layer) {
+      case 'light':
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      case 'sat':
+        // Esri World Imagery (keyless) — brightened via color filter.
+        return TileLayer(
+          urlTemplate:
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      case 'topo':
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+      default:
+        return TileLayer(
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
+          userAgentPackageName: 'com.recoveryforall',
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final visible = _visible;
+    final liveCount =
+        visible.where((m) => MeetingFinderService.isInProgress(m, now)).length;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -324,11 +723,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'Filters & layers',
+            icon: const Icon(Icons.tune, color: AppColors.accent),
+            onPressed: _openFilters,
+          ),
+          IconButton(
             tooltip: _showMapView ? 'Show list' : 'Show map',
             icon: Icon(
                 _showMapView ? Icons.view_list_outlined : Icons.map_outlined,
                 color: Colors.white70),
-            onPressed: () => setState(() => _showMapView = !_showMapView),
+            onPressed: () {
+              setState(() => _showMapView = !_showMapView);
+              if (_showMapView) _loadWeather();
+            },
           ),
         ],
       ),
@@ -336,69 +743,263 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
           : _showMapView
-              ? FlutterMap(
-                  options: MapOptions(
-                    initialCenter: _mapCenter,
-                    initialZoom: _currentPosition != null ? 12.0 : 8.0,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      userAgentPackageName: 'com.recoveryforall',
-                    ),
-                    MarkerLayer(markers: _buildMarkers()),
-                    const RichAttributionWidget(
-                      attributions: [
-                        TextSourceAttribution('© OpenStreetMap contributors · © CARTO'),
-                      ],
-                    ),
-                  ],
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _meetings.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final meeting = _meetings[index];
-                    final live = MeetingFinderService.isInProgress(meeting, now);
-                    final label =
-                        MeetingFinderService.upcomingLabel(meeting, now);
-                    return Material(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(14),
-                      child: ListTile(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        leading: Icon(
-                          live
-                              ? Icons.circle
-                              : meeting.type.contains('Online')
-                                  ? Icons.videocam_outlined
-                                  : Icons.groups_2,
-                          color: live ? AppColors.success : AppColors.accent,
-                          size: live ? 14 : 24,
-                        ),
-                        title: Text(meeting.name,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          '${live ? 'LIVE NOW' : label} · ${meeting.type}\n${meeting.address}',
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 12,
-                              height: 1.35),
-                        ),
-                        isThreeLine: true,
-                        trailing: const Icon(Icons.chevron_right,
-                            color: Colors.white38),
-                        onTap: () => _showMeetingDetails(meeting),
-                      ),
-                    );
-                  },
+              ? _buildMap(liveCount, visible)
+              : _buildList(now, liveCount, visible),
+    );
+  }
+
+  Widget _buildMap(int liveCount, List<RecoveryMeeting> visible) {
+    Widget map = FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: _mapCenter,
+        initialZoom: _me != null ? 12.0 : 9.0,
+      ),
+      children: [
+        _tileLayer,
+        if (_layer == 'sat')
+          const ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              Color(0x33FFFFFF), // brighten satellite
+              BlendMode.srcOver,
+            ),
+            child: SizedBox.expand(),
+          ),
+        MarkerLayer(markers: _buildMarkers()),
+        const RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution('© OpenStreetMap contributors · © CARTO'),
+          ],
+        ),
+      ],
+    );
+
+    return Stack(
+      children: [
+        Positioned.fill(child: map),
+        // Weather chip
+        if (_weatherChip != null)
+          Positioned(
+            left: 12,
+            top: 12,
+            child: _MapChip(label: _weatherChip!),
+          ),
+        // Live count chip
+        Positioned(
+          left: 12,
+          top: _weatherChip != null ? 52 : 12,
+          child: _MapChip(
+            label: '$liveCount live · ${visible.length} shown',
+            color: liveCount > 0 ? AppColors.success : null,
+          ),
+        ),
+        // Right control stack: compass / recenter / filters
+        Positioned(
+          right: 12,
+          top: 12,
+          child: Column(
+            children: [
+              _MapButton(
+                icon: Icons.explore_outlined,
+                tooltip: 'Reset north',
+                onTap: _resetNorth,
+              ),
+              const SizedBox(height: 8),
+              _MapButton(
+                icon: Icons.my_location,
+                tooltip: 'Center on me',
+                onTap: _recenter,
+              ),
+              const SizedBox(height: 8),
+              _MapButton(
+                icon: Icons.layers_outlined,
+                tooltip: 'Layers & filters',
+                onTap: _openFilters,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildList(
+      DateTime now, int liveCount, List<RecoveryMeeting> visible) {
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(_loadError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted)),
+        ),
+      );
+    }
+    if (visible.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.event_busy, size: 48, color: AppColors.textDim),
+            const SizedBox(height: 14),
+            Text(
+              _showAllTime
+                  ? 'No meetings match these filters.'
+                  : 'No meetings in the next 7 days.\nOpen filters to show every meeting.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openFilters,
+              icon: const Icon(Icons.tune, size: 18),
+              label: const Text('Open filters'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.accent,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Row(
+            children: [
+              _MapChip(
+                label:
+                    '${visible.length} meetings · ${_radiusMi.round()} mi${_cityFilter != 'All' ? ' · $_cityFilter' : ''}',
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _openFilters,
+                icon: const Icon(Icons.tune, size: 16),
+                label: const Text('Filter'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: visible.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final meeting = visible[index];
+              final live =
+                  MeetingFinderService.isInProgress(meeting, now);
+              final label =
+                  MeetingFinderService.upcomingLabel(meeting, now);
+              final color = _pinColor(meeting);
+              return Material(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(14),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  leading: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        live
+                            ? Icons.circle
+                            : meeting.type.contains('Online')
+                                ? Icons.videocam_outlined
+                                : Icons.groups_2,
+                        color: color,
+                        size: live ? 14 : 24,
+                      ),
+                      if (live)
+                        const Text('LIVE',
+                            style: TextStyle(
+                                color: AppColors.success,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  title: Text(meeting.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    '$label · ${meeting.type}\n${meeting.address}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        height: 1.35),
+                  ),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white38),
+                  onTap: () => _showMeetingDetails(meeting),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MapChip extends StatelessWidget {
+  final String label;
+  final Color? color;
+  const _MapChip({required this.label, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color ?? AppColors.border),
+      ),
+      child: Text(label,
+          style: const TextStyle(color: Colors.white, fontSize: 11)),
+    );
+  }
+}
+
+class _MapButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _MapButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Tooltip(
+          message: tooltip,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, size: 20, color: AppColors.accent),
+          ),
+        ),
+      ),
     );
   }
 }
