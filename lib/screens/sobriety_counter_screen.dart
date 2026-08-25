@@ -40,6 +40,17 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
     _Chip('2 Years', Duration(days: 730)),
   ];
 
+  static const List<(int, String)> _healthMilestones = [
+    (1, 'Heart attack risk begins dropping'),
+    (3, 'Bronchial tubes relax, breathing easier'),
+    (7, 'Sleep improves, more energy'),
+    (14, 'Circulation improves, lung function up 30%'),
+    (30, 'Liver begins repairing, skin clearer'),
+    (90, 'Immune system strengthened, anxiety decreases'),
+    (180, 'Brain chemistry rebalancing'),
+    (365, 'Heart disease risk cut in half'),
+  ];
+
   Timer? _tick;
 
   @override
@@ -248,6 +259,40 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
               ],
+              const SizedBox(height: 14),
+              const Text('Your Body Is Healing',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              ..._healthMilestones.map((milestone) {
+                final reached = elapsed.inDays >= milestone.$1;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        reached ? Icons.check_circle : Icons.radio_button_off,
+                        size: 14,
+                        color: reached ? AppColors.success : AppColors.textDim,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${milestone.$1}d — ${milestone.$2}',
+                          style: TextStyle(
+                            color: reached
+                                ? AppColors.textPrimary
+                                : AppColors.textDim,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

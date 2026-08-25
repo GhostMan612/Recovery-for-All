@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
+import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/sos_notification_service.dart';
 import '../widgets/themed_background.dart';
@@ -60,6 +61,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   RecoveryPet? _pet;
   List<String> _paths = [];
   List<String> _tools = [];
+  bool _pledgedToday = false;
+  String _pledgeDate = '';
 
   // Constellation crown — the user's path, visible on open.
   List<ConstellationNode3D>? _skyNodes;
@@ -133,9 +136,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadUserData() async {
     final profile = await widget.database.getProfile('active_user_profile');
     final pet = await RecoveryPetService.ensureHatched();
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
 
     if (!mounted) return;
     setState(() {
+      _pledgedToday = prefs.getString('daily_pledge_date') == today;
+      _pledgeDate = today;
       _profile = profile;
       if (profile?.anonymousUsername?.isNotEmpty ?? false) {
         _username = profile!.anonymousUsername!;
@@ -342,6 +349,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Daily pledge
+  // ------------------------------------------------------------------
+
+  Future<void> _confirmPledge() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('daily_pledge_date', _pledgeDate);
+    setState(() => _pledgedToday = true);
+    await FeedbackService.selection();
+  }
+
+  Widget _buildPledgeCard() {
+    if (_pledgedToday) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_outline,
+                color: AppColors.success, size: 20),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text('Pledge confirmed. Today is yours.',
+                  style: TextStyle(color: Colors.white, fontSize: 13)),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wb_sunny_outlined,
+              color: AppColors.accent, size: 20),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Today I pledge to stay the course.',
+                style: TextStyle(color: Colors.white, fontSize: 13)),
+          ),
+          TextButton(
+            onPressed: _confirmPledge,
+            child: const Text('I pledge',
+                style: TextStyle(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
+          ),
+        ],
       ),
     );
   }
@@ -674,6 +743,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               // Constellation crown — the path, visible on open.
               _buildSkyCrown(),
+              const SizedBox(height: 12),
+              _buildPledgeCard(),
               const SizedBox(height: 16),
               if (_paths.isNotEmpty) ...[
                 Wrap(
