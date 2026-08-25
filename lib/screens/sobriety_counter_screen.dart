@@ -72,6 +72,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
 
   Future<void> _addCounter() async {
     final controller = TextEditingController();
+    final costController = TextEditingController();
     DateTime chosenDate = DateTime.now();
     final label = await showDialog<String>(
       context: context,
@@ -89,6 +90,18 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                 decoration: const InputDecoration(
                   hintText: 'e.g. Alcohol, Nicotine, Gaming',
                   hintStyle: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: costController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Avg daily cost (optional)',
+                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                  prefixText: r'$ ',
+                  prefixStyle: TextStyle(color: Color(0xFF64748B)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -130,12 +143,14 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
       ),
     );
     if (label == null || label.isEmpty) return;
+    final dailyCost = double.tryParse(costController.text) ?? 0.0;
     await widget.database.addCounter(
       Counter(
         id: 'counter_${DateTime.now().millisecondsSinceEpoch}',
         label: label,
         startDateTime: chosenDate.millisecondsSinceEpoch,
         isActive: true,
+        dailyCost: dailyCost,
       ),
     );
   }
@@ -200,6 +215,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
 
   void _showDetails(Counter counter) {
     final start = DateTime.fromMillisecondsSinceEpoch(counter.startDateTime);
+    final elapsed = DateTime.now().difference(start);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -223,6 +239,15 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
               Text('Now: ${_formatElapsed(start)}',
                   style: TextStyle(color: AppColors.accent, fontSize: 14)),
+              if (counter.dailyCost > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                    'Saved: \$${(elapsed.inDays * counter.dailyCost).toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        color: AppColors.success,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold)),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

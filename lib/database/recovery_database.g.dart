@@ -720,8 +720,26 @@ class $CountersTable extends Counters with TableInfo<$CountersTable, Counter> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _dailyCostMeta = const VerificationMeta(
+    'dailyCost',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, label, startDateTime, isActive];
+  late final GeneratedColumn<double> dailyCost = GeneratedColumn<double>(
+    'daily_cost',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    label,
+    startDateTime,
+    isActive,
+    dailyCost,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -764,6 +782,12 @@ class $CountersTable extends Counters with TableInfo<$CountersTable, Counter> {
         isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
       );
     }
+    if (data.containsKey('daily_cost')) {
+      context.handle(
+        _dailyCostMeta,
+        dailyCost.isAcceptableOrUnknown(data['daily_cost']!, _dailyCostMeta),
+      );
+    }
     return context;
   }
 
@@ -789,6 +813,10 @@ class $CountersTable extends Counters with TableInfo<$CountersTable, Counter> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      dailyCost: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}daily_cost'],
+      )!,
     );
   }
 
@@ -803,11 +831,13 @@ class Counter extends DataClass implements Insertable<Counter> {
   final String label;
   final int startDateTime;
   final bool isActive;
+  final double dailyCost;
   const Counter({
     required this.id,
     required this.label,
     required this.startDateTime,
     required this.isActive,
+    required this.dailyCost,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -816,6 +846,7 @@ class Counter extends DataClass implements Insertable<Counter> {
     map['label'] = Variable<String>(label);
     map['start_date_time'] = Variable<int>(startDateTime);
     map['is_active'] = Variable<bool>(isActive);
+    map['daily_cost'] = Variable<double>(dailyCost);
     return map;
   }
 
@@ -825,6 +856,7 @@ class Counter extends DataClass implements Insertable<Counter> {
       label: Value(label),
       startDateTime: Value(startDateTime),
       isActive: Value(isActive),
+      dailyCost: Value(dailyCost),
     );
   }
 
@@ -838,6 +870,7 @@ class Counter extends DataClass implements Insertable<Counter> {
       label: serializer.fromJson<String>(json['label']),
       startDateTime: serializer.fromJson<int>(json['startDateTime']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      dailyCost: serializer.fromJson<double>(json['dailyCost']),
     );
   }
   @override
@@ -848,6 +881,7 @@ class Counter extends DataClass implements Insertable<Counter> {
       'label': serializer.toJson<String>(label),
       'startDateTime': serializer.toJson<int>(startDateTime),
       'isActive': serializer.toJson<bool>(isActive),
+      'dailyCost': serializer.toJson<double>(dailyCost),
     };
   }
 
@@ -856,11 +890,13 @@ class Counter extends DataClass implements Insertable<Counter> {
     String? label,
     int? startDateTime,
     bool? isActive,
+    double? dailyCost,
   }) => Counter(
     id: id ?? this.id,
     label: label ?? this.label,
     startDateTime: startDateTime ?? this.startDateTime,
     isActive: isActive ?? this.isActive,
+    dailyCost: dailyCost ?? this.dailyCost,
   );
   Counter copyWithCompanion(CountersCompanion data) {
     return Counter(
@@ -870,6 +906,7 @@ class Counter extends DataClass implements Insertable<Counter> {
           ? data.startDateTime.value
           : this.startDateTime,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      dailyCost: data.dailyCost.present ? data.dailyCost.value : this.dailyCost,
     );
   }
 
@@ -879,13 +916,15 @@ class Counter extends DataClass implements Insertable<Counter> {
           ..write('id: $id, ')
           ..write('label: $label, ')
           ..write('startDateTime: $startDateTime, ')
-          ..write('isActive: $isActive')
+          ..write('isActive: $isActive, ')
+          ..write('dailyCost: $dailyCost')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, label, startDateTime, isActive);
+  int get hashCode =>
+      Object.hash(id, label, startDateTime, isActive, dailyCost);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -893,7 +932,8 @@ class Counter extends DataClass implements Insertable<Counter> {
           other.id == this.id &&
           other.label == this.label &&
           other.startDateTime == this.startDateTime &&
-          other.isActive == this.isActive);
+          other.isActive == this.isActive &&
+          other.dailyCost == this.dailyCost);
 }
 
 class CountersCompanion extends UpdateCompanion<Counter> {
@@ -901,12 +941,14 @@ class CountersCompanion extends UpdateCompanion<Counter> {
   final Value<String> label;
   final Value<int> startDateTime;
   final Value<bool> isActive;
+  final Value<double> dailyCost;
   final Value<int> rowid;
   const CountersCompanion({
     this.id = const Value.absent(),
     this.label = const Value.absent(),
     this.startDateTime = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.dailyCost = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CountersCompanion.insert({
@@ -914,6 +956,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
     required String label,
     required int startDateTime,
     this.isActive = const Value.absent(),
+    this.dailyCost = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        label = Value(label),
@@ -923,6 +966,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
     Expression<String>? label,
     Expression<int>? startDateTime,
     Expression<bool>? isActive,
+    Expression<double>? dailyCost,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -930,6 +974,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
       if (label != null) 'label': label,
       if (startDateTime != null) 'start_date_time': startDateTime,
       if (isActive != null) 'is_active': isActive,
+      if (dailyCost != null) 'daily_cost': dailyCost,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -939,6 +984,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
     Value<String>? label,
     Value<int>? startDateTime,
     Value<bool>? isActive,
+    Value<double>? dailyCost,
     Value<int>? rowid,
   }) {
     return CountersCompanion(
@@ -946,6 +992,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
       label: label ?? this.label,
       startDateTime: startDateTime ?? this.startDateTime,
       isActive: isActive ?? this.isActive,
+      dailyCost: dailyCost ?? this.dailyCost,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -965,6 +1012,9 @@ class CountersCompanion extends UpdateCompanion<Counter> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (dailyCost.present) {
+      map['daily_cost'] = Variable<double>(dailyCost.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -978,6 +1028,7 @@ class CountersCompanion extends UpdateCompanion<Counter> {
           ..write('label: $label, ')
           ..write('startDateTime: $startDateTime, ')
           ..write('isActive: $isActive, ')
+          ..write('dailyCost: $dailyCost, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4843,6 +4894,7 @@ typedef $$CountersTableCreateCompanionBuilder =
       required String label,
       required int startDateTime,
       Value<bool> isActive,
+      Value<double> dailyCost,
       Value<int> rowid,
     });
 typedef $$CountersTableUpdateCompanionBuilder =
@@ -4851,6 +4903,7 @@ typedef $$CountersTableUpdateCompanionBuilder =
       Value<String> label,
       Value<int> startDateTime,
       Value<bool> isActive,
+      Value<double> dailyCost,
       Value<int> rowid,
     });
 
@@ -4880,6 +4933,11 @@ class $$CountersTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get dailyCost => $composableBuilder(
+    column: $table.dailyCost,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4912,6 +4970,11 @@ class $$CountersTableOrderingComposer
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get dailyCost => $composableBuilder(
+    column: $table.dailyCost,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CountersTableAnnotationComposer
@@ -4936,6 +4999,9 @@ class $$CountersTableAnnotationComposer
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<double> get dailyCost =>
+      $composableBuilder(column: $table.dailyCost, builder: (column) => column);
 }
 
 class $$CountersTableTableManager
@@ -4973,12 +5039,14 @@ class $$CountersTableTableManager
                 Value<String> label = const Value.absent(),
                 Value<int> startDateTime = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<double> dailyCost = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CountersCompanion(
                 id: id,
                 label: label,
                 startDateTime: startDateTime,
                 isActive: isActive,
+                dailyCost: dailyCost,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4987,12 +5055,14 @@ class $$CountersTableTableManager
                 required String label,
                 required int startDateTime,
                 Value<bool> isActive = const Value.absent(),
+                Value<double> dailyCost = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CountersCompanion.insert(
                 id: id,
                 label: label,
                 startDateTime: startDateTime,
                 isActive: isActive,
+                dailyCost: dailyCost,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

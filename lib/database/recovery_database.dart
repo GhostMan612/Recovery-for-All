@@ -39,6 +39,7 @@ class Counters extends Table {
   TextColumn get label => text()();
   IntColumn get startDateTime => integer()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  RealColumn get dailyCost => real().withDefault(const Constant(0.0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -177,7 +178,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -207,6 +208,9 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             }
             if (from < 7) {
               await m.createTable(feedPosts);
+            }
+            if (from < 8) {
+              await m.addColumn(counters, counters.dailyCost);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
