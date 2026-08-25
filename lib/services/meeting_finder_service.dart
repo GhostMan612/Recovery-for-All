@@ -335,9 +335,8 @@ class MeetingFinderService {
           const Duration(seconds: 25),
         );
         if (response.statusCode != 200) continue;
-        final bodyBytes = utf8.decode(response.bodyBytes);
-        final decoded = await compute(_parseJsonList, bodyBytes);
-        if (decoded == null) continue;
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is! List) continue;
         for (final m in parseTsmlFeed(decoded,
             fellowship: fellowshipForSource(url))) {
           all[m.id] = m;
