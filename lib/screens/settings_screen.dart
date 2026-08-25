@@ -14,6 +14,7 @@ import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
 import '../services/gentle_reminder_service.dart';
 import '../services/meeting_finder_service.dart';
+import '../services/data_export_service.dart';
 import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
 import 'sponsor_mode_screen.dart';
@@ -571,6 +572,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => _hapticsEnabled = value);
                   if (value) await FeedbackService.selection();
                 },
+              ),
+              const SizedBox(height: 24),
+              const Text('Export Data', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text(
+                'Share your recovery data with a therapist, counselor, or healthcare provider.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF38BDF8),
+                        side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                      ),
+                      icon: const Icon(Icons.table_view, size: 18),
+                      label: const Text('Export CSV'),
+                      onPressed: () async {
+                        try {
+                          await DataExportService(widget.database).shareCsv();
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Export failed: $e')));
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF38BDF8),
+                        side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                      ),
+                      icon: const Icon(Icons.description_outlined, size: 18),
+                      label: const Text('Summary'),
+                      onPressed: () async {
+                        try {
+                          await DataExportService(widget.database).shareSummary();
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Export failed: $e')));
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               const Text('SOS Contacts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

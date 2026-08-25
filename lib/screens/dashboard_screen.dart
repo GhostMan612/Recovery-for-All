@@ -5,6 +5,7 @@
 
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,9 +13,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
+import '../services/community_feed_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
 import '../widgets/themed_background.dart';
 import 'avatar_dresser_screen.dart';
@@ -594,6 +597,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // SOS safety layer
   // ------------------------------------------------------------------
 
+  /// When SOS fires and a sponsor is linked, write a care alert to
+  /// Firestore so the sponsor's app can pick it up (v1: console-visible).
+  Future<void> _writeCareAlert() async {
+    final sponsor = await SponsorLinkService.registeredSponsor();
+    if (sponsor == null) return;
+    if (!CommunityFeedService.remoteReady) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('care_alerts')
+          .doc('alert_${DateTime.now().millisecondsSinceEpoch}')
+          .set({
+        'sponsorCode': sponsor.pairingCode,
+        'sponsorAlias': sponsor.alias,
+        'triggeredAt': DateTime.now().millisecondsSinceEpoch,
+        'type': 'sos_triggered',
+      });
+    } catch (_) {
+      // Care alerts are best-effort; SOS works regardless.
+    }
+  }
+
   Future<void> _callNumber(String number) async {
     final uri = Uri(scheme: 'tel', path: number);
     try {
@@ -803,7 +827,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showSosSheet,
+        onPressed: () {
+      _writeCareAlert();
+      _showSosSheet();
+    },
         backgroundColor: const Color(0xFFDC2626),
         icon: const Icon(Icons.sos, color: Colors.white),
         label: const Text(
