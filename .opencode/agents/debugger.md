@@ -27,4 +27,4 @@ Common gotchas in this repo:
 - SQLCipher requires sqlite3 ^2.9.4 + sqlcipher_flutter_libs 0.6.8 (pinned)
 - FLN 22 uses named params for initialize/show/zonedSchedule
 - flutter_map v8 uses named params for TileLayer
-- Drift schema v7 — never edit .g.dart by hand
+- Drift schema v8 — never edit .g.dart by hand
