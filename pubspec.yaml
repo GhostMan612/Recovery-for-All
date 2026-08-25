@@ -41,6 +41,7 @@ dependencies:
   cloud_firestore: ^6.8.0
   flutter_map_marker_cluster: ^8.2.2
   share_plus: ^13.3.0
+  device_info_plus: ^13.2.0
 
 dev_dependencies:
   flutter_test:

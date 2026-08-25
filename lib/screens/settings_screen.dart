@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
+import '../services/gguf_model_service.dart';
 import '../services/gentle_reminder_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/data_export_service.dart';
@@ -44,6 +45,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
+  bool _ggufSupported = false;
+  bool _ggufEnabled = false;
+  String? _ggufSelectedModel;
+  Set<String> _ggufDownloaded = {};
+  bool _ggufDownloading = false;
+  double _ggufProgress = 0;
   final TextEditingController _sponsorAliasController = TextEditingController();
   final TextEditingController _sponsorCodeController = TextEditingController();
   SponsorIdentity? _registeredSponsor;
@@ -87,6 +94,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     final sponsor = await SponsorLinkService.registeredSponsor();
     if (mounted) setState(() => _registeredSponsor = sponsor);
+    await _loadGgufState();
+  }
+
+  Future<void> _loadGgufState() async {
+    final service = GgufModelService();
+    await service.detectDeviceTier();
+    final supported = service.isSupported;
+    final enabled = await service.isEnabled();
+    final selected = await service.getSelectedModelId();
+    final downloaded = await service.getDownloadedModels();
+    if (!mounted) return;
+    setState(() {
+      _ggufSupported = supported;
+      _ggufEnabled = enabled && supported;
+      _ggufSelectedModel = selected;
+      _ggufDownloaded = downloaded;
+    });
+  }
+
+  Future<void> _toggleGguf(bool value) async {
+    final service = GgufModelService();
+    await service.setEnabled(value);
+    if (!mounted) return;
+    setState(() => _ggufEnabled = value);
+  }
+
+  Future<void> _downloadGgufModel(GgufModelInfo model) async {
+    final service = GgufModelService();
+    setState(() => _ggufDownloading = true);
+    final ok = await service.downloadModel(model, onProgress: (d, tot) {
+      if (mounted) setState(() => _ggufProgress = tot > 0 ? d / tot : 0);
+    });
+    if (!mounted) return;
+    setState(() => _ggufDownloading = false);
+    if (ok) {
+      await service.setSelectedModelId(model.id);
+      setState(() {
+        _ggufSelectedModel = model.id;
+        _ggufDownloaded.add(model.id);
+      });
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(ok
+              ? '${model.name} ready for offline use.'
+              : 'Download failed — try again later.')),
+    );
   }
 
   Future<void> _toggleReminder(bool value) async {
@@ -573,6 +628,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (value) await FeedbackService.selection();
                 },
               ),
+              const SizedBox(height: 24),
+              if (_ggufSupported) ...[
+                const Text('Deeper Chat (Optional)',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Download a small AI model for richer coach replies. '
+                  'Runs entirely on your device. Your scripted coach remains '
+                  'the default and safety features never change.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Enable deeper chat',
+                      style: TextStyle(color: Colors.white)),
+                  value: _ggufEnabled,
+                  activeThumbColor: const Color(0xFF38BDF8),
+                  onChanged: _toggleGguf,
+                ),
+                if (_ggufEnabled)
+                  for (final model in GgufModelService.catalog)
+                    if (model.minTier.index <= GgufModelService().deviceTier.index)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          _ggufDownloaded.contains(model.id)
+                              ? Icons.check_circle
+                              : Icons.download_outlined,
+                          color: _ggufDownloaded.contains(model.id)
+                              ? const Color(0xFF34D399)
+                              : const Color(0xFF38BDF8),
+                          size: 22,
+                        ),
+                        title: Text(model.name,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 14)),
+                        subtitle: Text(
+                            '${model.description}\n${model.fileSizeMb} · ${model.quantization}',
+                            style: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 11,
+                                height: 1.3)),
+                        trailing: _ggufDownloading && _ggufSelectedModel == model.id
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : _ggufDownloaded.contains(model.id)
+                                ? IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Color(0xFFEF4444), size: 20),
+                                    onPressed: () async {
+                                      await GgufModelService().deleteModel(model.id);
+                                      final downloaded =
+                                          await GgufModelService().getDownloadedModels();
+                                      if (!mounted) return;
+                                      setState(() => _ggufDownloaded = downloaded);
+                                    },
+                                  )
+                                : IconButton(
+                                    icon: const Icon(Icons.download,
+                                        color: Color(0xFF38BDF8), size: 20),
+                                    onPressed: () => _downloadGgufModel(model),
+                                  ),
+                        onTap: () {
+                          if (_ggufDownloaded.contains(model.id)) {
+                            GgufModelService().setSelectedModelId(model.id);
+                            setState(() => _ggufSelectedModel = model.id);
+                          }
+                        },
+                      ),
+                if (_ggufDownloading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: LinearProgressIndicator(
+                      value: _ggufProgress,
+                      backgroundColor: const Color(0xFF334155),
+                      color: const Color(0xFF38BDF8),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+              ],
               const SizedBox(height: 24),
               const Text('Export Data', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
