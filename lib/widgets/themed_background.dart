@@ -69,16 +69,22 @@ class _ThemedBackgroundState extends State<ThemedBackground>
     final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final animate = widget.enableKenBurns && !reduce && _controller != null;
 
-    Widget image = Image.asset(
-      widget.assetPath,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (_, __, ___) => Container(color: AppColors.bgDeep),
+    Widget background = Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.bgDeep,
+            const Color(0xFF1E293B),
+            const Color(0xFF0F172A),
+          ],
+        ),
+      ),
     );
 
     if (animate) {
-      image = AnimatedBuilder(
+      background = AnimatedBuilder(
         animation: _controller!,
         builder: (context, child) {
           final t = _controller!.value;
@@ -91,7 +97,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
             child: child,
           );
         },
-        child: image,
+        child: background,
       );
     }
 
@@ -100,7 +106,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
     return Stack(
       fit: StackFit.expand,
       children: [
-        image,
+        background,
         Container(color: AppColors.scrim(widget.scrimOpacity)),
         content,
       ],

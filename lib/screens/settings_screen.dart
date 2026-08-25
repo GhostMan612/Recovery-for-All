@@ -735,7 +735,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         try {
                           await DataExportService(widget.database).shareCsv();
                         } catch (e) {
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Export failed: $e')));
                         }
@@ -755,7 +755,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         try {
                           await DataExportService(widget.database).shareSummary();
                         } catch (e) {
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Export failed: $e')));
                         }
