@@ -12,6 +12,7 @@ import '../core/theme/app_colors.dart';
 import '../data/worksheets_registry.dart';
 import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
+import 'literature_library_screen.dart';
 
 /// R2 — guided worksheets for every tool. [id] == null renders the list;
 /// otherwise the worksheet editor for that entry.
@@ -96,6 +97,32 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
           'Saved on-device only.',
           style: TextStyle(color: AppColors.textMuted, fontSize: 13,
               height: 1.45),
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: AppColors.accent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          child: ListTile(
+            dense: true,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.menu_book_outlined,
+                color: AppColors.accent, size: 20),
+            title: const Text('Literature Library',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600)),
+            subtitle: const Text(
+                'Free recovery texts from official sources',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+            trailing: const Icon(Icons.chevron_right,
+                size: 16, color: Colors.white38),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const LiteratureLibraryScreen()),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         for (final entry in WorksheetsRegistry.all)
