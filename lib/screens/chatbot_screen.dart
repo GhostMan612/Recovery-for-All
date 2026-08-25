@@ -134,10 +134,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
       if (_preferDeepChat) {
         try {
-          final ollama = OllamaService(
-            baseUrl: 'http://192.168.4.144:8000',
-            modelName: 'qwen2.5',
-          );
+          final ollama = OllamaService();
           final chatPrompt = '''
 REALITY FILTER: ON
 You are a non-sycophantic recovery companion chatbot.

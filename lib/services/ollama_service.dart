@@ -7,12 +7,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OllamaService {
+  /// Standard local Ollama endpoint. Optional feature: unreachable
+  /// server simply falls back to the scripted coach downstream.
+  static const String defaultBaseUrl = 'http://127.0.0.1:11434';
+  static const String defaultModelName = 'qwen2.5';
+
   final String baseUrl;
   final String modelName;
 
   OllamaService({
-    this.baseUrl = 'http://192.168.4.144:8000',
-    this.modelName = 'qwen2.5',
+    this.baseUrl = defaultBaseUrl,
+    this.modelName = defaultModelName,
   });
 
   Future<String> generateResponse(String prompt, {Map<String, dynamic>? options}) async {

@@ -52,6 +52,7 @@ dev_dependencies:
   drift_dev: ^2.31.0
   flutter_launcher_icons: ^0.14.4
   path_provider_platform_interface: ^2.1.0
+  flutter_secure_storage_platform_interface: ^2.0.1
 
 flutter_launcher_icons:
   android: "launcher_icon"

@@ -1,0 +1,233 @@
+// ============================================================
+// As Above, So Below. As Within, So Without.
+// The Future Dictates the Past and the Past is Always Present.
+// ============================================================
+
+// Host tests for the Sparks economy laws (pet-store-rules.md):
+// daily cap tapering, walk sub-cap, milestone cap-exemption, and the
+// compassionate idle decay that makes Resting/Napping reachable.
+
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:recovery_companion/services/recovery_pet_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  group('decayedEnergy (pure math)', () {
+    final now = DateTime(2026, 8, 25, 12, 0);
+    int ms(DateTime d) => d.millisecondsSinceEpoch;
+
+    test('energy at or below the floor never decays further', () {
+      expect(
+        RecoveryPetService.decayedEnergy(
+            RecoveryPetService.restingFloor,
+            ms(now.subtract(const Duration(days: 30))),
+            now),
+        RecoveryPetService.restingFloor,
+      );
+    });
+
+    test('within the 48 h grace period nothing decays', () {
+      expect(
+        RecoveryPetService.decayedEnergy(
+            100, ms(now.subtract(const Duration(hours: 47))), now),
+        100,
+      );
+      expect(
+        RecoveryPetService.decayedEnergy(
+            100, ms(now.subtract(const Duration(hours: 48))), now),
+        100,
+      );
+    });
+
+    test('decay starts a full day after grace (4/day)', () {
+      // 72 h idle → 1 decay day.
+      expect(
+        RecoveryPetService.decayedEnergy(
+            100, ms(now.subtract(const Duration(hours: 72))), now),
+        96,
+      );
+      // 71 h → not yet a full post-grace day.
+      expect(
+        RecoveryPetService.decayedEnergy(
+            100, ms(now.subtract(const Duration(hours: 71))), now),
+        100,
+      );
+    });
+
+    test('long abandonment floors at rest — never zero, never death', () {
+      expect(
+        RecoveryPetService.decayedEnergy(
+            100, ms(now.subtract(const Duration(days: 30))), now),
+        RecoveryPetService.restingFloor,
+      );
+      expect(
+        RecoveryPetService.restingFloor,
+        lessThan(25),
+        reason: 'floor must sit inside the resting zone (< 25)',
+      );
+    });
+  });
+
+  group('ensureHatched idle decay', () {
+    Future<void> seedPet({
+      required int energy,
+      required DateTime lastFedAt,
+    }) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'recovery_pet_v1',
+        jsonEncode({
+          'id': 'active_pet',
+          'name': 'Kin',
+          'energy': energy,
+          'bond': 40,
+          'mood': 'neutral',
+          'sparks': 77,
+          'unlockedItems': ['starter_glow'],
+          'equippedSlots': <String, String>{},
+          'lastFedAt': lastFedAt.millisecondsSinceEpoch,
+          'createdAt': lastFedAt.millisecondsSinceEpoch,
+        }),
+      );
+    }
+
+    test('a week of quiet days winds the companion down', () async {
+      await seedPet(
+          energy: 60,
+          lastFedAt:
+              DateTime.now().subtract(const Duration(days: 7)));
+      final pet = await RecoveryPetService.ensureHatched();
+      // 7 days idle → 5 post-grace decay days → 60 − 20 = 40.
+      expect(pet.energy, 40);
+      expect(pet.isResting, isFalse);
+      expect(pet.bond, 40, reason: 'Bond never decays');
+      expect(pet.sparks, 77, reason: 'Sparks never decay');
+
+      // Decay persists so every surface agrees.
+      final prefs = await SharedPreferences.getInstance();
+      final stored =
+          jsonDecode(prefs.getString('recovery_pet_v1')!) as Map;
+      expect(stored['energy'], 40);
+    });
+
+    test('long absence reaches Resting — glad you are back', () async {
+      await seedPet(
+          energy: 40,
+          lastFedAt:
+              DateTime.now().subtract(const Duration(days: 12)));
+      final pet = await RecoveryPetService.ensureHatched();
+      // 12 days idle would be 40 − 40 → floored at 20 (resting zone).
+      expect(pet.energy, RecoveryPetService.restingFloor);
+      expect(pet.isResting, isTrue);
+      expect(pet.mood, PetMoodX.neutral,
+          reason: 'tone law: resting, never sad');
+    });
+
+    test('recent interaction leaves the pet untouched', () async {
+      await seedPet(
+          energy: 90,
+          lastFedAt:
+              DateTime.now().subtract(const Duration(hours: 10)));
+      final pet = await RecoveryPetService.ensureHatched();
+      expect(pet.energy, 90);
+    });
+  });
+
+  group('Sparks daily cap (store-rule #1)', () {
+    test('earning tapers at 100 across a day of care', () async {
+      final pet0 = await RecoveryPetService.ensureHatched();
+      expect(pet0.sparks, 0);
+
+      // Two walks pay in full (2 × 15).
+      await RecoveryPetService.logWalk();
+      await RecoveryPetService.logWalk();
+      var pet = await RecoveryPetService.ensureHatched();
+      expect(pet.sparks, 30);
+
+      // A third walk is walk-capped before economics even apply.
+      await RecoveryPetService.logWalk();
+      pet = await RecoveryPetService.ensureHatched();
+      expect(pet.sparks, 30);
+
+      // Groundings fill the remaining 70 of the global cap:
+      // 8×8=64, then the 9th partially grants the last 6.
+      for (var i = 0; i < 9; i++) {
+        await RecoveryPetService.logGrounding();
+      }
+      pet = await RecoveryPetService.ensureHatched();
+      expect(pet.sparks, 100);
+
+      // Further earning is tapered to zero…
+      await RecoveryPetService.logGrounding();
+      pet = await RecoveryPetService.ensureHatched();
+      expect(pet.sparks, 100);
+      // …while the audit ledger keeps counting honest effort.
+      expect(await RecoveryPetService.earnedToday(), 30 + 9 * 8 + 8);
+    });
+
+    test('partial grant right under the cap', () async {
+      final now = DateTime.now();
+      final dayKey =
+          '${now.year}-${now.month}-${now.day}';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'recovery_pet_earn_day_v1', '$dayKey:96');
+
+      final pet = await RecoveryPetService.logGrounding(); // asks 8
+      expect(pet.sparks, 4, reason: 'only 4 of the 100 remain today');
+    });
+
+    test('milestones are CAP-EXEMPT — a chip always pays in full',
+        () async {
+      // Exhaust the normal cap first.
+      for (var i = 0; i < 14; i++) {
+        await RecoveryPetService.logGrounding();
+      }
+      final capped = await RecoveryPetService.ensureHatched();
+      expect(capped.sparks, 100);
+      final ledgerAtCap = await RecoveryPetService.earnedToday();
+
+      final pet = await RecoveryPetService.logMilestone('1 Year');
+      expect(pet.sparks, 200,
+          reason:
+              'milestone bypasses the taper entirely (store-rules §1)');
+      expect(await RecoveryPetService.earnedToday(), ledgerAtCap,
+          reason: 'exempt rewards never consume the daily allowance');
+      expect(pet.bond, greaterThanOrEqualTo(5));
+    });
+  });
+
+  group('walk sub-cap accounting', () {
+    test('counter resets across days (keyed by date)', () async {
+      final now = DateTime.now();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('recovery_pet_walk_day_v1',
+          '${now.year}-${now.month}-${now.day}:2');
+
+      final before = await RecoveryPetService.ensureHatched();
+      final after = await RecoveryPetService.logWalk();
+      expect(after.sparks, before.sparks,
+          reason: 'third walk today earns nothing');
+    });
+
+    test("yesterday's walk count no longer binds", () async {
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('recovery_pet_walk_day_v1',
+          '${yesterday.year}-${yesterday.month}-${yesterday.day}:2');
+
+      final before = await RecoveryPetService.ensureHatched();
+      final after = await RecoveryPetService.logWalk();
+      expect(after.sparks, before.sparks + 15,
+          reason: 'new day, fresh walks');
+    });
+  });
+}

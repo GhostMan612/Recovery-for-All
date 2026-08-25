@@ -4,9 +4,10 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import '../database/recovery_database.dart';
+import '../services/journal_crypto_service.dart';
 import '../services/recovery_pet_service.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -21,54 +22,101 @@ class JournalScreen extends StatefulWidget {
   State<JournalScreen> createState() => _JournalScreenState();
 }
 
+enum _JournalGate { loading, setupPin, confirmPin, unlock, open }
+
+const int kPinDigits = JournalCryptoService.pinLength;
+
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _contentController = TextEditingController();
   int _selectedMood = 3; // Neutral default mood (3 = Okay)
-  bool _isLocked = true;
+  _JournalGate _gate = _JournalGate.loading;
   final TextEditingController _pinController = TextEditingController();
-  final String _savedPin = "123456"; // Default 6-digit PIN privacy wall
 
-  // A simple AES/Symmetric mock encryption block matching Local-First guidelines.
-  // In production, use standard packages like encrypt (AES-256-CBC).
-  String _encryptContent(String plaintext) {
-    final bytes = utf8.encode(plaintext);
-    final base64String = base64.encode(bytes);
-    return "ENC_$base64String";
+  /// Master key held only for this unlocked session.
+  Uint8List? _masterKey;
+  String _firstEntryPin = '';
+  bool _pinError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
   }
 
-  String _decryptContent(String ciphertext) {
-    if (!ciphertext.startsWith("ENC_")) return ciphertext;
-    try {
-      final base64String = ciphertext.replaceFirst("ENC_", "");
-      final bytes = base64.decode(base64String);
-      return utf8.decode(bytes);
-    } catch (e) {
-      return "[Decryption Error: Invalid Key or Corrupted Payload]";
-    }
+  Future<void> _bootstrap() async {
+    final hasPin = await JournalCryptoService.hasPin();
+    if (!mounted) return;
+    setState(() {
+      _gate = hasPin ? _JournalGate.unlock : _JournalGate.setupPin;
+    });
   }
 
-  void _verifyPin(String input) {
-    if (input == _savedPin) {
-      setState(() {
-        _isLocked = false;
-        _pinController.clear();
-      });
-    } else {
+  Future<void> _submitPin(String pin) async {
+    if (pin.length != JournalCryptoService.pinLength) {
+      setState(() => _pinError = true);
       _pinController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid Security PIN. Authorization denied.'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
-      );
+      return;
+    }
+    switch (_gate) {
+      case _JournalGate.setupPin:
+        setState(() {
+          _firstEntryPin = pin;
+          _gate = _JournalGate.confirmPin;
+          _pinError = false;
+          _pinController.clear();
+        });
+      case _JournalGate.confirmPin:
+        if (pin != _firstEntryPin) {
+          setState(() {
+            _firstEntryPin = '';
+            _gate = _JournalGate.setupPin;
+            _pinError = true;
+            _pinController.clear();
+          });
+          return;
+        }
+        await JournalCryptoService.setPin(pin);
+        await _openSession();
+      case _JournalGate.unlock:
+        final ok = await JournalCryptoService.verifyPin(pin);
+        if (!ok) {
+          setState(() {
+            _pinError = true;
+            _pinController.clear();
+          });
+          return;
+        }
+        await _openSession();
+      default:
+        break;
     }
   }
 
-  void _saveEntry() async {
-    final text = _contentController.text.trim();
-    if (text.isEmpty) return;
+  Future<void> _openSession() async {
+    final key = await JournalCryptoService.loadMasterKey();
+    if (!mounted) return;
+    setState(() {
+      _masterKey = key;
+      _gate = _JournalGate.open;
+      _pinError = false;
+      _pinController.clear();
+    });
+  }
 
-    final String encryptedReflection = _encryptContent(text);
+  void _relock() {
+    setState(() {
+      _masterKey = null; // Key leaves memory with the lock.
+      _gate = _JournalGate.unlock;
+      _contentController.clear();
+    });
+  }
+
+  Future<void> _saveEntry() async {
+    final text = _contentController.text.trim();
+    if (text.isEmpty || _masterKey == null) return;
+
+    final encryptedReflection =
+        await JournalCryptoService.encrypt(text, _masterKey!);
 
     final entry = JournalEntry(
       id: UniqueKey().toString(),
@@ -99,9 +147,46 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
+  Future<String> _decryptContent(String ciphertext) async {
+    final key = _masterKey;
+    if (key == null) {
+      return JournalCryptoService.decryptLegacy(ciphertext) ??
+          '[Locked — unlock the journal to read this entry]';
+    }
+    return await JournalCryptoService.decrypt(ciphertext, key) ??
+        '[Encrypted entry could not be opened with this key]';
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLocked) {
+    if (_gate != _JournalGate.open) {
+      final (title, hint, buttonLabel) = switch (_gate) {
+        _JournalGate.loading => (
+            'Journal Privacy Wall',
+            'Checking your vault…',
+            '…'
+          ),
+        _JournalGate.setupPin => (
+            'Choose Your Journal PIN',
+            'Pick a $kPinDigits-digit PIN to seal your sanctuary. '
+                'You will enter it each time you return.',
+            'Continue'
+          ),
+        _JournalGate.confirmPin => (
+            'Confirm Your PIN',
+            'Enter the same $kPinDigits digits once more.',
+            'Seal My Journal'
+          ),
+        _JournalGate.unlock => (
+            'Journal Privacy Wall',
+            _pinError
+                ? 'That PIN did not match. Try again.'
+                : 'Enter your $kPinDigits-digit PIN to open your sanctuary.',
+            'Unlock Journal'
+          ),
+        _JournalGate.open => ('', '', ''),
+      };
+
       return Scaffold(
         backgroundColor: const Color(0xFF0F172A),
         body: Center(
@@ -115,52 +200,81 @@ class _JournalScreenState extends State<JournalScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E293B),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(
+                        color: _pinError
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF334155)),
                   ),
-                  child: const Icon(Icons.lock_outline, color: Color(0xFF38BDF8), size: 48),
+                  child: Icon(
+                    _gate == _JournalGate.setupPin ||
+                            _gate == _JournalGate.confirmPin
+                        ? Icons.key
+                        : Icons.lock_outline,
+                    color: _pinError
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF38BDF8),
+                    size: 48,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Journal Privacy Wall',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                Text(
+                  title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Enter your 6-digit PIN (default: 123456 — change in Settings)',
+                Text(
+                  hint,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8), fontSize: 13),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    controller: _pinController,
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8),
-                    decoration: const InputDecoration(
-                      counterText: "",
-                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF38BDF8))),
+                if (_gate != _JournalGate.loading)
+                  SizedBox(
+                    width: 200,
+                    child: TextField(
+                      controller: _pinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: kPinDigits,
+                      autofocus: true,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          letterSpacing: 8),
+                      decoration: const InputDecoration(
+                        counterText: "",
+                        enabledBorder: UnderlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Color(0xFF334155))),
+                        focusedBorder: UnderlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Color(0xFF38BDF8))),
+                      ),
+                      onSubmitted: _submitPin,
                     ),
-                    onSubmitted: _verifyPin,
                   ),
-                ),
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => _verifyPin(_pinController.text),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
-                    foregroundColor: const Color(0xFF38BDF8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFF334155)),
+                if (_gate == _JournalGate.setupPin ||
+                    _gate == _JournalGate.confirmPin ||
+                    _gate == _JournalGate.unlock)
+                  ElevatedButton(
+                    onPressed: () => _submitPin(_pinController.text),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E293B),
+                      foregroundColor: const Color(0xFF38BDF8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side:
+                            const BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
+                    child: Text(buttonLabel),
                   ),
-                  child: const Text('Unlock Journal'),
-                ),
               ],
             ),
           ),
@@ -178,11 +292,7 @@ class _JournalScreenState extends State<JournalScreen> {
           IconButton(
             icon: const Icon(Icons.lock, color: Color(0xFFEF4444)),
             tooltip: 'Lock Journal',
-            onPressed: () {
-              setState(() {
-                _isLocked = true;
-              });
-            },
+            onPressed: _relock,
           ),
         ],
       ),
@@ -214,7 +324,6 @@ class _JournalScreenState extends State<JournalScreen> {
                     final entry = entries[index];
                     final date = DateTime.fromMillisecondsSinceEpoch(entry.timestamp);
                     final formattedDate = DateFormat('MMMM d, yyyy - h:mm a').format(date);
-                    final decryptedText = _decryptContent(entry.contentEncrypted);
 
                     return Card(
                       color: const Color(0xFF1E293B),
@@ -239,9 +348,9 @@ class _JournalScreenState extends State<JournalScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              decryptedText,
-                              style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                            _EntryText(
+                              future:
+                                  _decryptContent(entry.contentEncrypted),
                             ),
                           ],
                         ),
@@ -365,6 +474,38 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Decrypts lazily per card — AES-GCM auth happens off the build path.
+class _EntryText extends StatelessWidget {
+  final Future<String> future;
+
+  const _EntryText({required this.future});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Color(0xFF334155)),
+            ),
+          );
+        }
+        return Text(
+          snapshot.data ?? '[Encrypted entry could not be opened]',
+          style:
+              const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+        );
+      },
     );
   }
 }

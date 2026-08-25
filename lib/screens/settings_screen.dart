@@ -14,6 +14,7 @@ import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
 import '../services/gguf_model_service.dart';
 import '../services/gentle_reminder_service.dart';
+import '../services/journal_crypto_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/data_export_service.dart';
 import '../services/sponsor_link_service.dart';
@@ -226,6 +227,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text('No biometrics enrolled on this device')),
       );
     }
+  }
+
+  Future<void> _changeJournalPin() async {
+    final current = await _promptPinText('Enter your current journal PIN');
+    if (current == null || !mounted) return;
+    final ok = await JournalCryptoService.verifyPin(current);
+    if (!ok) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('That PIN did not match — nothing changed'),
+          backgroundColor: Color(0xFFEF4444)));
+      return;
+    }
+    if (!mounted) return;
+    final next =
+        await _promptPinText('Choose your new ${JournalCryptoService.pinLength}-digit PIN');
+    if (next == null || !mounted) return;
+    final confirm =
+        await _promptPinText('Confirm the new PIN');
+    if (confirm == null || !mounted) return;
+    if (confirm != next) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('The two new PINs did not match — nothing changed'),
+          backgroundColor: Color(0xFFEF4444)));
+      return;
+    }
+    try {
+      await JournalCryptoService.setPin(next);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Journal PIN updated')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('PIN must be exactly 6 digits'),
+          backgroundColor: Color(0xFFEF4444)));
+    }
+  }
+
+  Future<String?> _promptPinText(String title) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: Text(title,
+            style: const TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: JournalCryptoService.pinLength,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 20, letterSpacing: 8),
+          decoration: const InputDecoration(counterText: ''),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child:
+                const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Continue',
+                style: TextStyle(color: Color(0xFF38BDF8))),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _linkSponsor() async {
@@ -496,6 +570,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: _biometricEnabled,
                 activeThumbColor: const Color(0xFF38BDF8),
                 onChanged: _toggleBiometric,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.key, color: Color(0xFF38BDF8)),
+                title:
+                    const Text('Journal PIN',
+                        style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Change the privacy wall on your private journal',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                onTap: _changeJournalPin,
               ),
               const SizedBox(height: 24),
               const Text('My Sponsor', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

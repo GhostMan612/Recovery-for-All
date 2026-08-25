@@ -199,6 +199,30 @@ class RecoveryPetService {
   /// they must grind to keep their companion well. Milestones/seeds exempt.
   static const int dailyEarnCap = 100;
 
+  /// Compassionate idle decay (pet checklist §2): after [idleGracePeriod]
+  /// of quiet days the companion winds down toward rest at
+  /// [idleDecayPerDay] Energy per day, floored at [restingFloor] — it
+  /// rests, it never starves, and Bond never decays. Any care action
+  /// resets the clock (every reward stamps lastFedAt).
+  static const Duration idleGracePeriod = Duration(hours: 48);
+  static const int idleDecayPerDay = 4;
+
+  /// Floor inside the resting zone (< 25) — reachable, never crossed.
+  static const int restingFloor = 20;
+
+  /// Pure idle-decay math: energy [energy] last interacted at
+  /// [lastFedAtMs], evaluated at [now]. Unit-testable by design.
+  static int decayedEnergy(int energy, int lastFedAtMs, DateTime now) {
+    if (energy <= restingFloor) return energy;
+    final idleMs = now.millisecondsSinceEpoch - lastFedAtMs;
+    if (idleMs <= idleGracePeriod.inMilliseconds) return energy;
+    final idleDays =
+        (idleMs - idleGracePeriod.inMilliseconds) ~/
+            const Duration(hours: 24).inMilliseconds;
+    if (idleDays <= 0) return energy;
+    return max(energy - idleDays * idleDecayPerDay, restingFloor);
+  }
+
   /// Counter milestone chip rewards by label tier.
   static const Map<String, int> milestoneRewards = {
     '24 Hours': 25,
@@ -242,7 +266,7 @@ class RecoveryPetService {
         PetCosmeticCatalog.defaultEquippedSlots.forEach((category, itemId) {
           slots.putIfAbsent(category.name, () => itemId);
         });
-        return RecoveryPet(
+        var pet = RecoveryPet(
           id: decoded['id'] ?? defaultPetId,
           name: decoded['name'] ?? defaultName,
           energy: decoded['energy'] ?? 100,
@@ -258,6 +282,28 @@ class RecoveryPetService {
           lastFedAt: decoded['lastFedAt'] ?? DateTime.now().millisecondsSinceEpoch,
           createdAt: decoded['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
         );
+        // Lazy idle decay on load: quiet days wind the companion toward
+        // rest (never past the floor). Persist so all surfaces agree.
+        final rested = decayedEnergy(
+            pet.energy, pet.lastFedAt, DateTime.now());
+        if (rested != pet.energy) {
+          pet = RecoveryPet(
+            id: pet.id,
+            name: pet.name,
+            energy: rested,
+            bond: pet.bond,
+            mood: pet.mood,
+            sparks: pet.sparks,
+            unlockedItems: pet.unlockedItems,
+            equippedOutfit: pet.equippedOutfit,
+            equippedSlots: pet.equippedSlots,
+            speciesId: pet.speciesId,
+            lastFedAt: pet.lastFedAt,
+            createdAt: pet.createdAt,
+          );
+          await _savePet(pet, prefs);
+        }
+        return pet;
       } catch (_) {}
     }
     
@@ -431,8 +477,12 @@ class RecoveryPetService {
 
     // Store-rule #1: global soft daily cap. Actions still count toward the
     // audit trail and energy/bond — only extra Sparks taper off.
+    // Milestones are cap-EXEMPT (store-rules reward table + roadmap R6):
+    // a chip earned on a hard day always pays in full and never consumes
+    // the daily allowance.
     var grantedSparks = sparksDelta;
-    if (grantedSparks > 0) {
+    final capExempt = type.startsWith('milestone_');
+    if (grantedSparks > 0 && !capExempt) {
       final earned = await earnedToday();
       if (earned >= dailyEarnCap) {
         grantedSparks = 0;
