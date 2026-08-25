@@ -8,12 +8,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/sponsor_link_service.dart';
 import '../services/sponsor_link_service.dart';
 
 /// The Twelve Steps — reader, guided worksheets, literature links, and
@@ -85,6 +87,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
   Map<String, List<String>> _worksheets = {};
   Set<int> _signoffs = {};
   Map<int, String> _bundles = {};
+  final Map<int, String> _bundleDocIds = {};
 
   @override
   void initState() {
@@ -210,11 +213,31 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     readable.writeln(payloadMarker(bundle));
     readable.writeln('RC-END');
     await Clipboard.setData(ClipboardData(text: readable.toString()));
+
+    // Also share via Firestore if cloud is available (real-time transport)
+    final sponsor = await SponsorLinkService.registeredSponsor();
+    String? cloudMsg;
+    if (sponsor != null && Firebase.apps.isNotEmpty) {
+      final profile = await SharedPreferences.getInstance();
+      final alias = profile.getString('sponsee_alias') ?? 'Anonymous';
+      final docId = await SponsorLinkService.shareBundleViaCloud(
+        sponsorCode: sponsor.pairingCode,
+        sponseeAlias: alias,
+        step: number,
+        title: _steps.firstWhere((s) => s.number == number).title,
+        bundleJson: bundle,
+      );
+      if (docId != null) {
+        _bundleDocIds[number] = docId;
+        cloudMsg = 'Bundle sent to sponsor via cloud.';
+      }
+    }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: Color(0xFF1E293B),
-        content: Text(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text(cloudMsg ??
             'Bundle copied — send it to your sponsor. Redeem their signed code here after.'),
       ),
     );

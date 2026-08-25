@@ -5,6 +5,7 @@
 
 import 'dart:convert';
 
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -159,6 +160,28 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
     }
   }
 
+  Stream<List<Map<String, dynamic>>> _pendingBundles() {
+    final code = _identity?.pairingCode ?? '';
+    if (code.isEmpty) return const Stream.empty();
+    return SponsorLinkService.watchPendingBundles(code);
+  }
+
+  Future<void> _signBundle(String docId, String bundleJson) async {
+    if (bundleJson.isEmpty) return;
+    final ok = await SponsorLinkService.signBundleViaCloud(
+        bundleDocId: docId, bundleJson: bundleJson);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor:
+            ok ? AppColors.success : AppColors.danger,
+        content: Text(ok
+            ? 'Signed and sent back to sponsee.'
+            : 'Signing failed — try again.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final identity = _identity;
@@ -240,6 +263,64 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: _reviewBundle,
                   ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Pending Sign-Offs (Live)',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _pendingBundles(),
+                  builder: (context, snap) {
+                    final items = snap.data ?? [];
+                    if (items.isEmpty) {
+                      return const Text('No pending bundles.',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 12));
+                    }
+                    return Column(
+                      children: [
+                        for (final item in items)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgCard,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    '${item['sponseeAlias'] ?? 'Sponsee'} · Step ${item['step']}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.success,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Sign & Send',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                    onPressed: () => _signBundle(
+                                        item['id'] as String,
+                                        item['bundle'] as String? ?? ''),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 const Padding(

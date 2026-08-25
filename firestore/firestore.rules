@@ -65,5 +65,23 @@ service cloud.firestore {
 
       allow update, delete: if false;
     }
+
+    // Sponsor step-work bundles: alias-only, crypto-verified client-side.
+    // Create = sponsee shares. Update = sponsor signs. Read = both parties.
+    match /sponsor_bundles/{bundleId} {
+      allow create: if request.resource.data.keys().hasOnly([
+            'sponsorCode', 'sponseeAlias', 'step', 'title',
+            'bundle', 'status', 'confirmation', 'createdAt',
+          ])
+        && request.resource.data.sponsorCode is string
+        && request.resource.data.sponsorCode.size() >= 8
+        && request.resource.data.status == 'pending'
+        && request.resource.data.confirmation == null;
+      allow read: if true;
+      allow update: if resource.data.status == 'pending'
+        && request.resource.data.status == 'signed'
+        && request.resource.data.confirmation is string;
+      allow delete: if false;
+    }
   }
 }

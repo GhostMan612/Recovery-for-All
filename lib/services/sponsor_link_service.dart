@@ -24,6 +24,8 @@
 
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -256,6 +258,86 @@ class SponsorLinkService {
     } catch (_) {
       return 0;
     }
+  }
+
+  // ---- Firestore transport (v2, real-time) ----
+
+  /// Sponsee: shares a bundle via Firestore for the sponsor to sign.
+  /// Returns the Firestore document ID for listening.
+  static Future<String?> shareBundleViaCloud({
+    required String sponsorCode,
+    required String sponseeAlias,
+    required int step,
+    required String title,
+    required String bundleJson,
+  }) async {
+    if (Firebase.apps.isEmpty) return null;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('sponsor_bundles')
+          .add({
+        'sponsorCode': sponsorCode.trim().toUpperCase(),
+        'sponseeAlias': sponseeAlias,
+        'step': step,
+        'title': title,
+        'bundle': bundleJson,
+        'status': 'pending',
+        'confirmation': null,
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+      });
+      return doc.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sponsor: signs a pending bundle and writes the confirmation back.
+  static Future<bool> signBundleViaCloud({
+    required String bundleDocId,
+    required String bundleJson,
+  }) async {
+    if (Firebase.apps.isEmpty) return false;
+    try {
+      final confirmation = await signBundle(bundleJson);
+      await FirebaseFirestore.instance
+          .collection('sponsor_bundles')
+          .doc(bundleDocId)
+          .update({
+        'status': 'signed',
+        'confirmation': confirmation,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Sponsee: listens for a signed confirmation on a shared bundle.
+  static Stream<SignedConfirmation?> listenForConfirmation(String docId) {
+    return FirebaseFirestore.instance
+        .collection('sponsor_bundles')
+        .doc(docId)
+        .snapshots()
+        .map((doc) {
+      final data = doc.data();
+      if (data == null || data['status'] != 'signed') return null;
+      final conf = data['confirmation'] as String?;
+      if (conf == null) return null;
+      return SignedConfirmation.tryDecode(conf);
+    });
+  }
+
+  /// Sponsor: queries pending bundles matching their pairing code.
+  static Stream<List<Map<String, dynamic>>> watchPendingBundles(
+      String pairingCode) {
+    return FirebaseFirestore.instance
+        .collection('sponsor_bundles')
+        .where('sponsorCode', isEqualTo: pairingCode.trim().toUpperCase())
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {'id': d.id, ...d.data()})
+            .toList());
   }
 
   // ---- ledger ----
