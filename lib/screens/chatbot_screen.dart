@@ -14,6 +14,8 @@ import 'worksheets_screen.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_coach_service.dart';
 import '../services/coach_tflite_intent_service.dart';
+import '../services/gguf_inference_service.dart';
+import '../services/gguf_model_service.dart';
 import '../services/ollama_service.dart';
 import '../services/safety_guardrail_service.dart';
 
@@ -67,8 +69,46 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
 
     try {
-      // Optional on-device model refines intents; skills + keywords remain
-      // the floor. A confident "unknown" also falls back to keywords.
+      // Safety pipeline: guardrail → crisis → GGUF → TFLite → skills → keywords
+      // The GGUF model (if loaded) generates richer replies, but its output
+      // still passes through the safety filter. Scripted coach is the floor.
+
+      // 1. Try GGUF deeper chat (if model downloaded + enabled)
+      String? ggufResponse;
+      if (await GgufModelService().isEnabled()) {
+        final modelId = await GgufModelService().getSelectedModelId();
+        if (modelId != null) {
+          ggufResponse = await GgufInferenceService.generate(
+            'You are a supportive recovery companion. Be warm, direct, and '
+            'hopeful. Never diagnose or prescribe. If the user mentions '
+            'suicide or self-harm, tell them to call 988 immediately.\n\n'
+            'User: $text\nAssistant:',
+            maxTokens: 256,
+          );
+
+          // Safety check on model output
+          if (ggufResponse != null) {
+            final outputCheck =
+                SafetyGuardrailService.assessInput(ggufResponse);
+            if (outputCheck.isCrisisTriggered) {
+              ggufResponse = null; // Model generated something unsafe — discard
+            }
+          }
+        }
+      }
+
+      if (ggufResponse != null) {
+        setState(() {
+          _messages.add({
+            'sender': 'bot',
+            'text': ggufResponse!,
+          });
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 2. Fall back to TFLite intent + skills + scripted coach
       final modelIntent = await CoachTfliteIntentService.classify(text);
       final CoachReply coachReply =
           (modelIntent == null || modelIntent == CoachIntent.unknown)
