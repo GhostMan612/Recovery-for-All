@@ -10,7 +10,7 @@ void main() {
   final service = MeetingFinderService();
 
   test('parses Meeting Guide / TSML feed entries (AA sheet style)', () {
-    final meetings = service.parseTsmlFeed([
+    final meetings = MeetingFinderService.parseTsmlFeed([
       {
         'name': 'Sunday Serenity',
         'slug': 'sunday-serenity-14',
@@ -38,7 +38,7 @@ void main() {
   });
 
   test('parses BMLT aggregator TSML entries (online NA meeting)', () {
-    final meetings = service.parseTsmlFeed([
+    final meetings = MeetingFinderService.parseTsmlFeed([
       {
         'day': 0,
         'time': '00:00',
@@ -64,7 +64,7 @@ void main() {
   });
 
   test('parses BMLT string coordinates ("lat,lng")', () {
-    final meetings = service.parseTsmlFeed([
+    final meetings = MeetingFinderService.parseTsmlFeed([
       {
         'name': 'Experience, Strength, & Hope',
         'slug': 'experience-strength-hope-1049',

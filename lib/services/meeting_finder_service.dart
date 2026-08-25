@@ -8,21 +8,10 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show compute;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/minnesota_pathway_meetings.dart';
-
-/// Top-level function for compute() — parses JSON in a background isolate.
-List<dynamic>? _parseJsonList(String body) {
-  try {
-    final decoded = jsonDecode(body);
-    return decoded is List<dynamic> ? decoded : null;
-  } catch (_) {
-    return null;
-  }
-}
 
 class RecoveryMeeting {
   final String id;
