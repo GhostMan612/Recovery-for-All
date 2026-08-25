@@ -844,7 +844,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               initialZoom: _me != null ? 12.0 : 9.0,
             ),
             children: [
-              for (final layer in _availableLayers)
+              for (final (index, layer) in _availableLayers.indexed)
                 if (_activeLayers.contains(layer.id))
                   TileLayer(
                     urlTemplate: layer.urlTemplate,
@@ -852,6 +852,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         ? const ['a']
                         : layer.subdomains,
                     userAgentPackageName: 'com.recoveryforall',
+                    keepBuffer: index == 0 ? 2 : 1,
                   ),
               MarkerLayer(
                 markers: _userMarkers,

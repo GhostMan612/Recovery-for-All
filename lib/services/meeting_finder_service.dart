@@ -8,10 +8,21 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/minnesota_pathway_meetings.dart';
+
+/// Top-level function for compute() — parses JSON in a background isolate.
+List<dynamic>? _parseJsonList(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    return decoded is List<dynamic> ? decoded : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 class RecoveryMeeting {
   final String id;
@@ -324,8 +335,9 @@ class MeetingFinderService {
           const Duration(seconds: 25),
         );
         if (response.statusCode != 200) continue;
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is! List) continue;
+        final bodyBytes = utf8.decode(response.bodyBytes);
+        final decoded = await compute(_parseJsonList, bodyBytes);
+        if (decoded == null) continue;
         for (final m in parseTsmlFeed(decoded,
             fellowship: fellowshipForSource(url))) {
           all[m.id] = m;
@@ -388,7 +400,7 @@ class MeetingFinderService {
     return Uri.parse(sourceUrl);
   }
 
-  List<RecoveryMeeting> parseTsmlFeed(
+  static List<RecoveryMeeting> parseTsmlFeed(
     List<dynamic> items, {
     String fellowship = 'Other',
   }) {
