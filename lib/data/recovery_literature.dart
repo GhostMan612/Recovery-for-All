@@ -57,6 +57,12 @@ class RecoveryLiterature {
             'https://www.aa.org/the-twelve-steps'),
         LitLink('Daily Reflections', 'A day at a time',
             'https://www.aa.org/daily-reflections'),
+        LitLink('Living Sober', 'Practical booklet: staying away from the '
+            'first drink one day at a time',
+            'https://www.aa.org/living-sober'),
+        LitLink('AA Grapevine', 'The international journal of AA — member '
+            'stories, sponsorship, sober humor',
+            'https://www.aagrapevine.org/'),
       ],
     ),
     (
@@ -143,6 +149,42 @@ class RecoveryLiterature {
             'Official site — group locator plus a weekly online open-share '
             '(Wednesdays). Hurts, hang-ups, and habits of every kind.',
             'https://www.celebraterecovery.com/'),
+      ],
+    ),
+    (
+      // Universal: families and friends need their own recovery too.
+      LitCategory('Family & Friends', Icons.diversity_1_outlined),
+      [
+        LitLink('Al-Anon Free Downloads',
+            'Free pamphlets and magazines for families of alcoholics',
+            'https://al-anon.org/for-members/members-resources/literature/'
+            'downloadable-items/'),
+        LitLink('Alateen (Teen Corner)',
+            'Meetings and resources for teenagers',
+            'https://al-anon.org/newcomers/teen-corner-alateen/'),
+        LitLink('Nar-Anon Literature',
+            'Free PDFs for families affected by addiction',
+            'https://nar-anon.org/help-me-find-literature/'),
+      ],
+    ),
+    (
+      // Universal: crisis lines apply to every pathway, every person.
+      LitCategory('Crisis & Help Lines', Icons.emergency_outlined),
+      [
+        LitLink('988 Suicide & Crisis Lifeline',
+            'Call or text 988 — 24/7, free, confidential',
+            'https://988lifeline.org/'),
+        LitLink('Crisis Text Line', 'Text HOME to 741741 — 24/7 text support',
+            'https://www.crisistextline.org/'),
+        LitLink('SAMHSA National Helpline',
+            '1-800-662-HELP — treatment referral, 24/7, free',
+            'https://www.samhsa.gov/find-help/national-helpline'),
+        LitLink('Veterans Crisis Line',
+            'Dial 988 then press 1 — or text 838255',
+            'https://www.veteranscrisisline.net/'),
+        LitLink('The Trevor Project',
+            'Crisis support for LGBTQ+ young people — 24/7',
+            'https://www.thetrevorproject.org/'),
       ],
     ),
   ];

@@ -32,6 +32,9 @@ MANUAL_REVIEW = {
     # Cloudflare TLS-fingerprints non-browser clients; site verified alive
     # in a real browser 2026-08-25.
     "https://al-anon.org",
+    # MDH state site 404s non-browser UAs; page verified alive (full render
+    # in search index, updated 2026-06-11).
+    "https://www.health.mn.gov",
 }
 
 TIMEOUT = 15
