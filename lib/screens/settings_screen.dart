@@ -15,6 +15,7 @@ import '../services/feedback_service.dart';
 import '../services/gguf_model_service.dart';
 import '../services/gentle_reminder_service.dart';
 import '../services/journal_crypto_service.dart';
+import '../services/resource_link_health.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/data_export_service.dart';
 import '../services/sponsor_link_service.dart';
@@ -227,6 +228,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text('No biometrics enrolled on this device')),
       );
     }
+  }
+
+  Future<void> _verifyResourceLinks() async {
+    final urls = ResourceLinkHealth.allRegistryUrls();
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Checking ${urls.length} links…')));
+    final service = ResourceLinkHealth.instance;
+    final (checked, broken) = await service.verifyAll(urls, null);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(broken == 0
+            ? 'All $checked links are alive.'
+            : '$broken of $checked links look down — affected entries are '
+                'dimmed in the Library and Community screens (details '
+                'still readable).')));
   }
 
   Future<void> _changeJournalPin() async {
@@ -581,6 +598,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Change the privacy wall on your private journal',
                     style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
                 onTap: _changeJournalPin,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.fact_check_outlined,
+                    color: Color(0xFF38BDF8)),
+                title: const Text('Verify resource links now',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Check every literature & community link for link rot',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                onTap: _verifyResourceLinks,
               ),
               const SizedBox(height: 24),
               const Text('My Sponsor', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

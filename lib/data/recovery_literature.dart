@@ -37,6 +37,12 @@ class LitLink {
 class RecoveryLiterature {
   RecoveryLiterature._();
 
+  /// Every link URL — used by the runtime link-health service.
+  static List<String> get allUrls => [
+        for (final (_, links) in sections)
+          for (final l in links) l.url,
+      ];
+
   static const List<(LitCategory, List<LitLink>)> sections = [
     (
       LitCategory('Alcoholics Anonymous', Icons.local_bar_outlined,

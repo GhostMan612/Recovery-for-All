@@ -3,6 +3,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../data/recovery_literature.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/resource_link_health.dart';
 
 /// Free recovery literature, organized by pathway. Content lives in
 /// [RecoveryLiterature] (data registry). Pathway-tagged categories appear
@@ -30,6 +32,8 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
   bool _showAll = false;
   Set<String> _paths = {};
   bool _loaded = false;
+  final Map<String, LinkHealth> _health = {};
+  int? _lastVerifiedAt;
 
   @override
   void initState() {
@@ -55,6 +59,26 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
       _paths = paths;
       _loaded = true;
     });
+    // Silent staggered refresh of expired entries; never blocks reading.
+    final service = ResourceLinkHealth.instance;
+    unawaited(service
+        .ensureFresh(RecoveryLiterature.allUrls)
+        .then((_) => _refreshHealth()));
+  }
+
+  Future<void> _refreshHealth() async {
+    final service = ResourceLinkHealth.instance;
+    final health = <String, LinkHealth>{};
+    for (final (_, links) in RecoveryLiterature.sections) {
+      for (final link in links) {
+        health[link.url] = await service.statusFor(link.url);
+      }
+    }    if (!mounted) return;
+    setState(() => _health.addAll(health));
+    final newest = await service.lastVerifiedAt();
+    if (mounted && newest != _lastVerifiedAt) {
+      setState(() => _lastVerifiedAt = newest);
+    }
   }
 
   Future<void> _toggleShowAll(bool value) async {
@@ -75,6 +99,11 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (_) {}
+  }
+
+  String _formatDay(int ms) {
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.month}/${d.day}';
   }
 
   @override
@@ -116,30 +145,58 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                   ]),
                   const SizedBox(height: 10),
                   for (final link in links)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: Material(
-                        color: AppColors.bgCard,
-                        borderRadius: BorderRadius.circular(14),
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          title: Text(link.title,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600)),
-                          subtitle: Text(link.subtitle,
-                              style: TextStyle(
-                                  color: AppColors.textMuted, fontSize: 12)),
-                          trailing: const Icon(Icons.open_in_new,
-                              size: 18, color: Colors.white38),
-                          onTap: () => _open(link.url),
+                    Builder(builder: (context) {
+                      final dead = _health[link.url]?.ok == false;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Material(
+                          color: AppColors.bgCard,
+                          borderRadius: BorderRadius.circular(14),
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            title: Text(link.title,
+                                style: TextStyle(
+                                    color: dead
+                                        ? Colors.white38
+                                        : Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600)),
+                            subtitle: Text(link.subtitle,
+                                style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12)),
+                            trailing: dead
+                                ? const Icon(Icons.link_off,
+                                    size: 18, color: Colors.white24)
+                                : const Icon(Icons.open_in_new,
+                                    size: 18, color: Colors.white38),
+                            onTap: () {
+                              _open(link.url);
+                              if (dead) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'This site may be down right now '
+                                          '— the description above tells '
+                                          'you what to search for.')),
+                                );
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   const SizedBox(height: 14),
                 ],
+                if (_lastVerifiedAt != null)
+                  Center(
+                    child: Text(
+                      'Links verified ${_formatDay(_lastVerifiedAt!)}',
+                      style:
+                          const TextStyle(color: Colors.white24, fontSize: 11),
+                    ),
+                  ),
               ],
             ),
     );

@@ -35,6 +35,12 @@ class ResourceLink {
 class RecoveryResources {
   RecoveryResources._();
 
+  /// Every link URL — used by the runtime link-health service.
+  static List<String> get allUrls => [
+        for (final s in sections)
+          for (final l in s.links) l.url,
+      ];
+
   static const List<ResourceSection> sections = [
     ResourceSection('Minnesota First',
         icon: Icons.map_outlined,
