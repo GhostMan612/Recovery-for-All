@@ -13,7 +13,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum FeedbackSound { spark, milestone, star }
+enum FeedbackSound { spark, milestone, star, hit, shield, heal, defeat }
 
 enum FeedbackHaptic { light, medium, heavy, tick }
 
@@ -50,6 +50,10 @@ class FeedbackService {
         FeedbackSound.spark => 'sounds/spark.wav',
         FeedbackSound.milestone => 'sounds/milestone.wav',
         FeedbackSound.star => 'sounds/star.wav',
+        FeedbackSound.hit => 'sounds/hit.wav',
+        FeedbackSound.shield => 'sounds/shield.wav',
+        FeedbackSound.heal => 'sounds/heal.wav',
+        FeedbackSound.defeat => 'sounds/defeat.wav',
       };
       await _player.stop();
       await _player.play(AssetSource(file));
@@ -94,4 +98,24 @@ class FeedbackService {
 
   /// Subtle selection tick (haptics only, no sound).
   static Future<void> selection() => _haptic(FeedbackHaptic.tick);
+
+  static Future<void> battleHit() async {
+    await _haptic(FeedbackHaptic.medium);
+    await _play(FeedbackSound.hit);
+  }
+
+  static Future<void> battleShield() async {
+    await _haptic(FeedbackHaptic.light);
+    await _play(FeedbackSound.shield);
+  }
+
+  static Future<void> battleHeal() async {
+    await _haptic(FeedbackHaptic.light);
+    await _play(FeedbackSound.heal);
+  }
+
+  static Future<void> battleDefeat() async {
+    await _haptic(FeedbackHaptic.heavy);
+    await _play(FeedbackSound.defeat);
+  }
 }
