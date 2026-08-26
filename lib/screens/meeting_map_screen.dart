@@ -178,8 +178,22 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       }
       return (pos.latitude, pos.longitude);
     } catch (e) {
+      // Fresh fix failed (cold GPS, timeout, etc). A STALE fix still
+      // beats dropping the user in Minneapolis — cascade before giving up.
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) {
+          final ageMin =
+              DateTime.now().difference(last.timestamp).inMinutes;
+          if (mounted) {
+            setState(() => _locationDebug =
+                'Stale fix (${ageMin}m old): ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)} — tap for details');
+          }
+          return (last.latitude, last.longitude);
+        }
+      } catch (_) {}
       if (mounted) {
-        setState(() => _locationDebug = 'GPS FAILED: $e');
+        setState(() => _locationDebug = 'GPS FAILED: $e — tap for details');
       }
       return const (44.9778, -93.2650);
     }
@@ -984,7 +998,29 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           Positioned(
             left: 12,
             bottom: 12,
-            child: _MapChip(label: _locationDebug),
+            child: _MapChip(
+              label: _locationDebug,
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E293B),
+                  title: const Text('Location diagnostics',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  content: SingleChildScrollView(
+                    child: Text(_locationDebug,
+                        style: const TextStyle(
+                            color: Color(0xFF94A3B8), fontSize: 12)),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Close',
+                          style: TextStyle(color: Color(0xFF38BDF8))),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         Positioned(
           right: 12,
@@ -1138,19 +1174,30 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 class _MapChip extends StatelessWidget {
   final String label;
   final Color? color;
-  const _MapChip({required this.label, this.color});
+  final VoidCallback? onTap;
+  const _MapChip({required this.label, this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width - 120),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color ?? AppColors.border),
       ),
       child: Text(label,
+          maxLines: onTap != null ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 11)),
+    );
+    if (onTap == null) return chip;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: chip,
     );
   }
 }
