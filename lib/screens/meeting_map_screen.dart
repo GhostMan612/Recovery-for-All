@@ -54,6 +54,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   /// (Plain record — Position's many required fields aren't needed.)
   (double, double)? _currentPosition;
   bool _isLoading = true;
+  String _loadStage = 'Finding you…';
   bool _showMapView = false;
 
   // Filters
@@ -101,11 +102,24 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   // ------------------------------------------------------------------
 
   Future<void> _initialize() async {
+    // Staged loading: the screen must always *feel* alive — each stage
+    // shows for at least 400 ms so it never flashes by unreadably.
+    await _stage('Finding you…');
     final (lat, lng) = await _resolveLocation();
     // Store the fix so _me (user pin, distances, recenter) comes alive.
     _currentPosition = (lat, lng);
     if (mounted) setState(() {});
+    await _stage('Fetching meetings…');
     await _load(lat, lng);
+    await _stage('Rendering map');
+  }
+
+  /// Shows [label] as the load stage, holding it on screen >= 400 ms.
+  Future<void> _stage(String label) async {
+    final sw = Stopwatch()..start();
+    if (mounted) setState(() => _loadStage = label);
+    final floor = const Duration(milliseconds: 400) - sw.elapsed;
+    if (floor > Duration.zero) await Future<void>.delayed(floor);
   }
 
   Future<(double, double)> _resolveLocation({bool forceFresh = false}) async {
@@ -844,12 +858,58 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
-          : _showMapView
-              ? _buildMap(liveCount, visible)
+        body: _isLoading
+            ? _buildLoading()
+            : _showMapView
+                ? _buildMap(liveCount, visible)
               : _buildList(now, visible),
+    );
+  }
+
+  /// Staged loading view: stage label + thin progress bar + skeleton rows.
+  /// The point is *perceived* responsiveness — the user should never
+  /// wonder whether the tap registered.
+  Widget _buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.explore_outlined,
+              color: Color(0xFF38BDF8), size: 44),
+          const SizedBox(height: 16),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Text(
+              _loadStage,
+              key: ValueKey(_loadStage),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const SizedBox(
+            width: 220,
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              backgroundColor: Color(0xFF1E293B),
+              color: Color(0xFF38BDF8),
+            ),
+          ),
+          const SizedBox(height: 28),
+          for (var i = 0; i < 3; i++)
+            Opacity(
+              opacity: 0.55 - i * 0.15,
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                width: 260,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

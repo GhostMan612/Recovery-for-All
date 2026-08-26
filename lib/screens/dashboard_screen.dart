@@ -589,7 +589,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _push(MeetingMapScreen(initialMeetings: meetings, database: widget.database));
   }
 
+  /// Route push with tap acknowledgment + double-tap guard: a haptic tick
+  /// fires instantly (the tap *felt* heard), and repeat taps inside 600 ms
+  /// are swallowed so impatient taps never stack duplicate screens.
+  DateTime _lastPushAt = DateTime.fromMillisecondsSinceEpoch(0);
   void _push(Widget screen) {
+    final now = DateTime.now();
+    if (now.difference(_lastPushAt) < const Duration(milliseconds: 600)) {
+      return;
+    }
+    _lastPushAt = now;
+    FeedbackService.selection();
     Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
   }
 
