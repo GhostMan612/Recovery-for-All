@@ -46,7 +46,8 @@ for name in sorted(os.listdir(bp_dir)):
         TARGETS.append((f"blueprints/{name}", "markdown"))
 
 # Sprint plan + project notes.
-for rel, tag in [("SPRINT_PLAN.md", "markdown"), ("CLAUDE.md", "markdown")]:
+for rel, tag in [("SESSION_HANDOFF.md", "markdown"),
+                 ("SPRINT_PLAN.md", "markdown"), ("CLAUDE.md", "markdown")]:
     if os.path.exists(os.path.join(ROOT, rel)):
         TARGETS.append((rel, tag))
 
