@@ -109,5 +109,41 @@ class RecoveryLiterature {
             'https://www.minnesotarecovery.org/resources-search/'),
       ],
     ),
+    (
+      LitCategory('LifeRing — Secular', Icons.light_mode_outlined,
+          pathways: {'LifeRing (Secular)', 'Secular/Agnostic'}),
+      [
+        LitLink('If This Is Day One',
+            'LifeRing\'s welcoming start page for newcomers',
+            'https://lifering.org/lifering-recovery-menu/if-this-is-day-one/'),
+        LitLink('Online Meetings Calendar',
+            'Crosstalk-friendly video meetings every day — "How was your week?"',
+            'https://meetings.lifering.org/meetings/?scope=only'),
+        LitLink('Recovery Toolbox', 'Practical tools and strategies',
+            'https://lifering.org/recovery-toolbox/'),
+      ],
+    ),
+    (
+      LitCategory('Women for Sobriety', Icons.favorite_outline,
+          pathways: {'Women for Sobriety'}),
+      [
+        LitLink('The New Life Program — 13 Acceptance Statements',
+            'A new way of thinking built on self-worth and peer support',
+            'https://www.womenforsobriety.org/acceptance-statements'),
+        LitLink('Meetings Directory',
+            'Online and in-person daily meetings — incl. Twin Cities & St. Paul',
+            'https://meetings.womenforsobriety.org/meetings/'),
+      ],
+    ),
+    (
+      LitCategory('Celebrate Recovery', Icons.church_outlined,
+          pathways: {'Celebrate Recovery'}),
+      [
+        LitLink('Find a Group / Online Meeting',
+            'Official site — group locator plus a weekly online open-share '
+            '(Wednesdays). Hurts, hang-ups, and habits of every kind.',
+            'https://www.celebraterecovery.com/'),
+      ],
+    ),
   ];
 }

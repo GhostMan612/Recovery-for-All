@@ -344,6 +344,41 @@ class RecoveryCoachService {
       ),
     ),
     (
+      keys: ['lifering', 'life ring', 'secular recovery group', '3-s philosophy', 'how was your week meeting'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'LifeRing is secular recovery built on three S\'s: Sobriety, '
+            'Secularity, and Self-Direction. Meetings ask "How was your '
+            'week?" — crosstalk welcome, you craft your own recovery plan. '
+            'Their online calendar has meetings every day; the link lives '
+            'in your Literature Library.',
+      ),
+    ),
+    (
+      keys: ['women for sobriety', 'new life program', 'thirteen statements', 'wfs acceptance'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Women for Sobriety\'s New Life Program centers thirteen '
+            'acceptance statements — self-worth, emotional growth, and '
+            'reaching out to other women. Statement one says it all: "I '
+            'have a life-threatening problem that once had me." The '
+            'Literature Library links their site and conference calls.',
+      ),
+    ),
+    (
+      keys: ['celebrate recovery', 'eight principles', 'beatitudes recovery', 'cr step study'],
+      reply: CoachReply(
+        intent: CoachIntent.unknown,
+        message:
+            'Celebrate Recovery is a Christ-centered program for hurts, '
+            'habits, and hangups of every kind — eight principles from '
+            'the Beatitudes, with step studies in small groups. Their '
+            'group finder link is in Community Support under Faith-Based.',
+      ),
+    ),
+    (
       keys: ['grateful for', 'gratitude practice', 'counting blessings', 'thankful for'],
       reply: CoachReply(
         intent: CoachIntent.unknown,

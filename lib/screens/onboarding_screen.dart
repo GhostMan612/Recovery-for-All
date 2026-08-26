@@ -85,7 +85,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Wellbriety': 'Indigenous cultural teachings and Medicine Wheel.',
     'Secular/Agnostic': 'Science-based, non-spiritual approaches.',
     'Therapy & CBT': 'Professional support, cognitive skills, coping tools.',
-    'Celebrate Recovery (Christian)': 'Christ-centered recovery groups.',
+    'Celebrate Recovery':
+        'Christ-centered 12 steps and the 8 Principles from the Beatitudes.',
+    'LifeRing (Secular)':
+        'Sobriety, Secularity, Self-Direction. Crosstalk-friendly peer meetings — you design your own plan.',
+    'Women for Sobriety':
+        'The New Life Program: thirteen acceptance statements built for women in recovery.',
   };
 
   /// Pathway → toolbox suggestions (pre-checked; user can untoggle).
@@ -96,7 +101,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Wellbriety': ['Medicine Wheel'],
     'Secular/Agnostic': [],
     'Therapy & CBT': ['Wellness Check-In'],
-    'Celebrate Recovery (Christian)': ['Daily Reflections'],
+    'Celebrate Recovery': ['Daily Reflections'],
+    'LifeRing (Secular)': ['Urge Surfing Timer', 'Cost-Benefit Analysis'],
+    'Women for Sobriety': ['Daily Reflections', 'Wellness Check-In'],
   };
 
   Set<String> get _suggestedTools => _selectedPaths

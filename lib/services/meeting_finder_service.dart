@@ -298,6 +298,11 @@ class MeetingFinderService {
   static String fellowshipForSource(String url) {
     final lower = url.toLowerCase();
     if (lower.contains('aaminnesota') || lower.contains('aa-')) return 'AA';
+    if (lower.contains('lifering')) return 'LifeRing';
+    if (lower.contains('womenforsobriety') || lower.contains('wfs')) {
+      return 'WFS';
+    }
+    if (lower.contains('celebraterecovery')) return 'CR';
     if (lower.contains('na') || lower.contains('bmlt')) return 'NA';
     return 'Other';
   }
