@@ -521,7 +521,7 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
     with TickerProviderStateMixin {
   late AnimationController _twinkleController;
   late AnimationController _zoomController;
-  late Animation<double> _zoomAnimation;
+  double _pinchBaseZoom = 1.0;
 
   @override
   void initState() {
@@ -530,13 +530,14 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
-    _zoomController = AnimationController(
+    // Unbounded: the controller holds ZOOM itself (1–3), not 0–1 progress.
+    // A default AnimationController clamps to 0..1, which silently killed
+    // every slider/pinch attempt.
+    _zoomController = AnimationController.unbounded(
       vsync: this,
       duration: const Duration(milliseconds: 200),
       value: widget.zoom,
     );
-    _zoomAnimation = Tween<double>(begin: 1.0, end: 3.0)
-        .animate(CurvedAnimation(parent: _zoomController, curve: Curves.easeOut));
   }
 
   @override
@@ -549,6 +550,17 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onScaleStart: (_) {
+        _pinchBaseZoom = _zoomController.value;
+      },
+      onScaleUpdate: (details) {
+        // Two-finger pinch drives the zoom; single-finger drags report
+        // scale ≈ 1 and are therefore harmless here.
+        final next = (_pinchBaseZoom * details.scale).clamp(1.0, 3.0);
+        if ((next - _zoomController.value).abs() > 0.001) {
+          _zoomController.value = next;
+        }
+      },
       onTapUp: (details) {
         // Find the closest star to the tap point.
         final size = context.size;
@@ -579,9 +591,10 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
               ),
             ),
           ),
-          // Main constellation with zoom
+          // Main constellation with zoom (rebuilds on controller ticks —
+          // slider and pinch both write straight to the controller).
           AnimatedBuilder(
-            animation: _zoomAnimation,
+            animation: _zoomController,
             builder: (context, _) => CustomPaint(
               painter: Constellation3DPainter(
                 nodes: widget.nodes,

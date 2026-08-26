@@ -50,7 +50,9 @@ class _MapLayer {
 class _MeetingMapScreenState extends State<MeetingMapScreen> {
   final MapController _mapController = MapController();
 
-  Position? _currentPosition;
+  /// Resolved device position as (lat, lng); null until a fix lands.
+  /// (Plain record — Position's many required fields aren't needed.)
+  (double, double)? _currentPosition;
   bool _isLoading = true;
   bool _showMapView = false;
 
@@ -100,10 +102,13 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
   Future<void> _initialize() async {
     final (lat, lng) = await _resolveLocation();
+    // Store the fix so _me (user pin, distances, recenter) comes alive.
+    _currentPosition = (lat, lng);
+    if (mounted) setState(() {});
     await _load(lat, lng);
   }
 
-  Future<(double, double)> _resolveLocation() async {
+  Future<(double, double)> _resolveLocation({bool forceFresh = false}) async {
     try {
       // Location SERVICES off (GPS toggle) is not a permission problem —
       // surface it distinctly instead of a generic failure.
@@ -133,16 +138,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       }
 
       // Fast path: last-known position (instant if GPS was used recently).
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null &&
-          DateTime.now().millisecondsSinceEpoch -
-                  last.timestamp.millisecondsSinceEpoch <
-              5 * 60 * 1000) {
-        if (mounted) {
-          setState(() => _locationDebug =
-              'Last known: ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)}');
+      // Skipped on explicit recenter — the user asked for a FRESH fix.
+      if (!forceFresh) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null &&
+            DateTime.now().millisecondsSinceEpoch -
+                    last.timestamp.millisecondsSinceEpoch <
+                5 * 60 * 1000) {
+          if (mounted) {
+            setState(() => _locationDebug =
+                'Last known: ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)}');
+          }
+          return (last.latitude, last.longitude);
         }
-        return (last.latitude, last.longitude);
       }
 
       // Cold GPS fix — generous timeout for first lock.
@@ -191,9 +199,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   // Derived data
   // ------------------------------------------------------------------
 
-  (double, double)? get _me => _currentPosition == null
-      ? null
-      : (_currentPosition!.latitude, _currentPosition!.longitude);
+  (double, double)? get _me => _currentPosition;
 
   double _distanceMi(RecoveryMeeting m, (double, double) me) {
     if (!m.hasLocation) return double.infinity;
@@ -277,13 +283,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   // Map controls
   // ------------------------------------------------------------------
 
-  void _recenter() {
-    final me = _me;
-    if (me != null) {
-      _mapController.move(ll.LatLng(me.$1, me.$2), 13);
-    } else {
-      _mapController.move(_firstPinOrTwinCities(), 11);
-    }
+  Future<void> _recenter() async {
+    // Explicit recenter = fresh GPS fix, never the stale cache.
+    final (lat, lng) = await _resolveLocation(forceFresh: true);
+    setState(() => _currentPosition = (lat, lng));
+    _rebuildMarkers(); // user pin + distances recompute
+    _mapController.move(ll.LatLng(lat, lng), 14);
   }
 
   void _resetNorth() {
