@@ -142,11 +142,11 @@ void main() {
   });
 
   group('Sparks daily cap (store-rule #1)', () {
-    test('earning tapers at 100 across a day of care', () async {
+    test('capped streams taper at 150 across a day of care', () async {
       final pet0 = await RecoveryPetService.ensureHatched();
       expect(pet0.sparks, 0);
 
-      // Two walks pay in full (2 × 15).
+      // Two walks pay in full (2 × 15) — and are CAP-EXEMPT.
       await RecoveryPetService.logWalk();
       await RecoveryPetService.logWalk();
       var pet = await RecoveryPetService.ensureHatched();
@@ -157,20 +157,21 @@ void main() {
       pet = await RecoveryPetService.ensureHatched();
       expect(pet.sparks, 30);
 
-      // Groundings fill the remaining 70 of the global cap:
-      // 8×8=64, then the 9th partially grants the last 6.
-      for (var i = 0; i < 9; i++) {
+      // Groundings (capped stream) fill all 150 of the global cap:
+      // 18 × 8 = 144, then the 19th partially grants the last 6.
+      for (var i = 0; i < 19; i++) {
         await RecoveryPetService.logGrounding();
       }
       pet = await RecoveryPetService.ensureHatched();
-      expect(pet.sparks, 100);
+      expect(pet.sparks, 30 + 150);
 
-      // Further earning is tapered to zero…
+      // Further grounded earning is tapered to zero…
       await RecoveryPetService.logGrounding();
       pet = await RecoveryPetService.ensureHatched();
-      expect(pet.sparks, 100);
-      // …while the audit ledger keeps counting honest effort.
-      expect(await RecoveryPetService.earnedToday(), 30 + 9 * 8 + 8);
+      expect(pet.sparks, 180);
+      // …while the audit ledger keeps counting honest effort
+      // (exempt walks never touched it).
+      expect(await RecoveryPetService.earnedToday(), 20 * 8);
     });
 
     test('partial grant right under the cap', () async {
@@ -179,29 +180,57 @@ void main() {
           '${now.year}-${now.month}-${now.day}';
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          'recovery_pet_earn_day_v1', '$dayKey:96');
+          'recovery_pet_earn_day_v1', '$dayKey:146');
 
       final pet = await RecoveryPetService.logGrounding(); // asks 8
-      expect(pet.sparks, 4, reason: 'only 4 of the 100 remain today');
+      expect(pet.sparks, 4, reason: 'only 4 of the 150 remain today');
     });
 
     test('milestones are CAP-EXEMPT — a chip always pays in full',
         () async {
       // Exhaust the normal cap first.
-      for (var i = 0; i < 14; i++) {
+      for (var i = 0; i < 19; i++) {
         await RecoveryPetService.logGrounding();
       }
       final capped = await RecoveryPetService.ensureHatched();
-      expect(capped.sparks, 100);
+      expect(capped.sparks, 150);
       final ledgerAtCap = await RecoveryPetService.earnedToday();
 
       final pet = await RecoveryPetService.logMilestone('1 Year');
-      expect(pet.sparks, 200,
+      expect(pet.sparks, 250,
           reason:
               'milestone bypasses the taper entirely (store-rules §1)');
       expect(await RecoveryPetService.earnedToday(), ledgerAtCap,
           reason: 'exempt rewards never consume the daily allowance');
       expect(pet.bond, greaterThanOrEqualTo(5));
+    });
+
+    test('meetings are CAP-EXEMPT — showing up always counts', () async {
+      for (var i = 0; i < 19; i++) {
+        await RecoveryPetService.logGrounding();
+      }
+      final capped = await RecoveryPetService.ensureHatched();
+      expect(capped.sparks, 150);
+
+      final pet = await RecoveryPetService.logMeeting();
+      expect(pet.sparks, 158,
+          reason: '+8 meeting Sparks land on top of a full cap');
+      expect(await RecoveryPetService.earnedToday(), 152,
+          reason: 'exempt rewards never consume the daily allowance');
+    });
+
+    test('walks are CAP-EXEMPT — movement always counts', () async {
+      for (var i = 0; i < 19; i++) {
+        await RecoveryPetService.logGrounding();
+      }
+      final capped = await RecoveryPetService.ensureHatched();
+      expect(capped.sparks, 150);
+
+      final pet = await RecoveryPetService.logWalk();
+      expect(pet.sparks, 165,
+          reason: '+15 walk Sparks land on top of a full cap');
+      expect(await RecoveryPetService.earnedToday(), 152,
+          reason: 'exempt rewards never consume the daily allowance');
     });
   });
 

@@ -196,8 +196,12 @@ class RecoveryPetService {
 
   /// Soft ceiling on earned Sparks per calendar day across ALL actions.
   /// Store-rule #1: the economy cannot be gamed, and nobody should feel
-  /// they must grind to keep their companion well. Milestones/seeds exempt.
-  static const int dailyEarnCap = 100;
+  /// they must grind to keep their companion well.
+  /// CAP-EXEMPT streams (product decision, Aug 25): milestones/seeds,
+  /// meeting attendance, and walks — showing up and moving your body
+  /// should never be tapered. Exercise-style rewards, if ever added,
+  /// stay capped (unverifiable → abusable).
+  static const int dailyEarnCap = 150;
 
   /// Compassionate idle decay (pet checklist §2): after [idleGracePeriod]
   /// of quiet days the companion winds down toward rest at
@@ -477,11 +481,14 @@ class RecoveryPetService {
 
     // Store-rule #1: global soft daily cap. Actions still count toward the
     // audit trail and energy/bond — only extra Sparks taper off.
-    // Milestones are cap-EXEMPT (store-rules reward table + roadmap R6):
-    // a chip earned on a hard day always pays in full and never consumes
-    // the daily allowance.
+    // CAP-EXEMPT streams (store-rules §1): milestones/seeds, meeting
+    // attendance, and walks — a chip earned on a hard day, a room walked
+    // into, and steps taken always pay in full and never consume the
+    // daily allowance.
     var grantedSparks = sparksDelta;
-    final capExempt = type.startsWith('milestone_');
+    final capExempt = type.startsWith('milestone_') ||
+        type == 'meeting' ||
+        type == 'walk';
     if (grantedSparks > 0 && !capExempt) {
       final earned = await earnedToday();
       if (earned >= dailyEarnCap) {

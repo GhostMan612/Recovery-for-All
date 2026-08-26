@@ -7,9 +7,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OllamaService {
-  /// Standard local Ollama endpoint. Optional feature: unreachable
-  /// server simply falls back to the scripted coach downstream.
-  static const String defaultBaseUrl = 'http://127.0.0.1:11434';
+  /// Local Ollama endpoint for THIS fleet: Windows firewall viciously
+  /// blocks the default 11434, so the host runs OLLAMA_HOST=0.0.0.0:11450
+  /// and the app targets loopback on that port. Optional feature: an
+  /// unreachable server simply falls back to the scripted coach.
+  static const String defaultBaseUrl = 'http://127.0.0.1:11450';
   static const String defaultModelName = 'qwen2.5';
 
   final String baseUrl;
