@@ -16,6 +16,7 @@
 // capped and never targets the OSM endpooint aggressively (small zoom band,
 // hard tile ceiling, sequential-ish fetching).
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -37,9 +38,13 @@ class MapTileCache {
 
   /// Per-layer URL templates (single host — subdomain rotation is skipped
   /// so the cache key stays stable and prefetch stays polite).
+  /// Carto basemaps now require an API key (2024); Esri Canvas is the
+  /// keyless replacement for dark/light. Satellite stays Esri World Imagery.
   static const Map<String, String> _templates = {
-    'dark': 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    'light': 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    'dark':
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    'light':
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     'sat':
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     'topo': 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -65,9 +70,9 @@ class MapTileCache {
   static String _urlFor(String layer, int z, int x, int y) {
     final template = _templates[layer] ?? _templates['dark']!;
     return template
-        .replaceFirst('{z}', z.toString())
-        .replaceFirst('{x}', x.toString())
-        .replaceFirst('{y}', y.toString());
+        .replaceAll('{z}', z.toString())
+        .replaceAll('{x}', x.toString())
+        .replaceAll('{y}', y.toString());
   }
 
   /// Network fetch → cache write. Returns cached file on success.
@@ -141,21 +146,32 @@ class _CachedTileImageProvider
   }
 
   Future<ui.Codec> _loadAsync(_CachedTileImageProvider key) async {
-    final layerDir = await MapTileCache._dir(key.layer);
-    final file = MapTileCache._tileFile(layerDir, key.z, key.x, key.y);
+    try {
+      final layerDir = await MapTileCache._dir(key.layer);
+      final file = MapTileCache._tileFile(layerDir, key.z, key.x, key.y);
 
-    Uint8List bytes;
-    if (file.existsSync()) {
-      bytes = await file.readAsBytes();
-    } else {
-      final fetched =
-          await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
-      if (fetched == null) {
-        throw StateError('tile unavailable');
+      Uint8List bytes;
+      if (file.existsSync()) {
+        bytes = await file.readAsBytes();
+      } else {
+        final fetched =
+            await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
+        if (fetched == null) {
+          return await _transparentCodec();
+        }
+        bytes = await fetched.readAsBytes();
       }
-      bytes = await fetched.readAsBytes();
+      return await ui.instantiateImageCodec(bytes);
+    } catch (_) {
+      return await _transparentCodec();
     }
-    return ui.instantiateImageCodec(bytes);
+  }
+
+  Future<ui.Codec> _transparentCodec() async {
+    // 1x1 transparent PNG — prevents red error tiles / crashes.
+    const base64Png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
+    return ui.instantiateImageCodec(base64Decode(base64Png));
   }
 
   @override
