@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
@@ -244,6 +245,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             : '$broken of $checked links look down — affected entries are '
                 'dimmed in the Library and Community screens (details '
                 'still readable).')));
+  }
+
+  Future<void> _resetDashboardLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('dashboard_tool_order_v1');
+    await prefs.remove('dashboard_library_order_v1');
+    await prefs.remove('dashboard_hidden_tools_v1');
+    await prefs.remove('dashboard_hidden_library_v1');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dashboard layout reset — reopen to see.')));
   }
 
   Future<void> _changeJournalPin() async {
@@ -609,6 +621,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Check every literature & community link for link rot',
                     style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
                 onTap: _verifyResourceLinks,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.dashboard_customize_outlined,
+                    color: Color(0xFF38BDF8)),
+                title: const Text('Reset dashboard layout',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                    'Restore tile order and show hidden tiles',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                onTap: _resetDashboardLayout,
               ),
               const SizedBox(height: 24),
               const Text('My Sponsor', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),

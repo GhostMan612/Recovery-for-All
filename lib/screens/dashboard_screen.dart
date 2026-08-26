@@ -72,6 +72,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<ConstellationNode3D>? _skyNodes;
   String? _skyName;
 
+  // Modular tiles (dashboard-ia.md): order + hidden sets per tab.
+  static const String _keyToolOrder = 'dashboard_tool_order_v1';
+  static const String _keyLibraryOrder = 'dashboard_library_order_v1';
+  static const String _keyHiddenTools = 'dashboard_hidden_tools_v1';
+  static const String _keyHiddenLibrary = 'dashboard_hidden_library_v1';
+  List<String> _toolOrder = [];
+  List<String> _libraryOrder = [];
+  Set<String> _hiddenTools = {};
+  Set<String> _hiddenLibrary = {};
+  bool _editingPath = false;
+  bool _editingLibrary = false;
+
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
   @override
@@ -79,6 +91,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadUserData();
     _loadSky();
+    _loadLayoutPrefs();
+  }
+
+  Future<void> _loadLayoutPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _toolOrder = (prefs.getStringList(_keyToolOrder) ?? const <String>[])
+          .toList();
+      _libraryOrder =
+          (prefs.getStringList(_keyLibraryOrder) ?? const <String>[]).toList();
+      _hiddenTools =
+          (prefs.getStringList(_keyHiddenTools) ?? const <String>[]).toSet();
+      _hiddenLibrary =
+          (prefs.getStringList(_keyHiddenLibrary) ?? const <String>[]).toSet();
+    });
+  }
+
+  Future<void> _saveToolLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyToolOrder, _toolOrder);
+    await prefs.setStringList(_keyHiddenTools, _hiddenTools.toList());
+  }
+
+  Future<void> _saveLibraryLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyLibraryOrder, _libraryOrder);
+    await prefs.setStringList(_keyHiddenLibrary, _hiddenLibrary.toList());
+  }
+
+  List<_ToolCard> _ordered(
+      List<_ToolCard> cards, List<String> order, Set<String> hidden) {
+    final visible = cards.where((c) => !hidden.contains(c.label)).toList();
+    if (order.isEmpty) return visible;
+    final byLabel = {for (final c in visible) c.label: c};
+    final ordered = <_ToolCard>[];
+    for (final id in order) {
+      final card = byLabel.remove(id);
+      if (card != null) ordered.add(card);
+    }
+    ordered.addAll(byLabel.values);
+    // New cards that were never ordered append automatically.
+    return ordered;
   }
 
   Future<void> _loadSky() async {
@@ -786,6 +841,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPathTab() {
     final pet = _pet;
+    final ordered = _ordered(_buildToolCards(), _toolOrder, _hiddenTools);
+    final hiddenCount = _hiddenTools.length;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -824,13 +881,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onOpen: _openDresser,
               ),
             const SizedBox(height: 20),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Your Toolbox',
-                  style: TextStyle(
-                      color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Text('Your Toolbox',
+                    style: TextStyle(
+                        color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  tooltip: _editingPath ? 'Done' : 'Edit layout',
+                  icon: Icon(_editingPath ? Icons.check : Icons.edit_outlined,
+                      color: AppColors.accent, size: 18),
+                  onPressed: () => setState(() => _editingPath = !_editingPath),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            if (_editingPath && hiddenCount > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final id in _hiddenTools)
+                      ActionChip(
+                        label: Text(id, style: const TextStyle(fontSize: 11)),
+                        avatar: const Icon(Icons.visibility_off, size: 14),
+                        onPressed: () {
+                          setState(() => _hiddenTools.remove(id));
+                          _saveToolLayout();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: 4),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -838,7 +927,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 1.35,
-              children: [for (final card in _buildToolCards()) card],
+              children: [
+                for (var i = 0; i < ordered.length; i++)
+                  _buildDraggableToolCard(ordered, i, isLibrary: false),
+              ],
             ),
             const SizedBox(height: 90),
           ],
@@ -848,21 +940,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildLibraryTab() {
+    final ordered = _ordered(_buildLibraryCards(), _libraryOrder, _hiddenLibrary);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Library',
-                  style: TextStyle(
-                      color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Text('Library',
+                    style: TextStyle(
+                        color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  tooltip: _editingLibrary ? 'Done' : 'Edit layout',
+                  icon: Icon(_editingLibrary ? Icons.check : Icons.edit_outlined,
+                      color: AppColors.accent, size: 18),
+                  onPressed: () => setState(() => _editingLibrary = !_editingLibrary),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
             const Text('Literature, housing, and community — always one tap away.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            if (_editingLibrary && _hiddenLibrary.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final id in _hiddenLibrary)
+                      ActionChip(
+                        label: Text(id, style: const TextStyle(fontSize: 11)),
+                        avatar: const Icon(Icons.visibility_off, size: 14),
+                        onPressed: () {
+                          setState(() => _hiddenLibrary.remove(id));
+                          _saveLibraryLayout();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             GridView.count(
               crossAxisCount: 2,
@@ -871,7 +995,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 1.35,
-              children: [for (final card in _buildLibraryCards()) card],
+              children: [
+                for (var i = 0; i < ordered.length; i++)
+                  _buildDraggableToolCard(ordered, i, isLibrary: true),
+              ],
             ),
             const SizedBox(height: 90),
           ],
@@ -881,6 +1008,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   /// Resource cards live in Library, never in the Path toolbox.
+  Widget _buildDraggableToolCard(List<_ToolCard> ordered, int index,
+      {required bool isLibrary}) {
+    final card = ordered[index];
+    final editing = isLibrary ? _editingLibrary : _editingPath;
+    if (!editing) return card;
+    final isProtected = isLibrary
+        ? card.label == 'Crisis Lines'
+        : card.label == 'Meeting Finder';
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (d) => d.data != card.label,
+      onAcceptWithDetails: (details) {
+        final from = ordered.indexWhere((c) => c.label == details.data);
+        if (from == -1) return;
+        final reordered = List<_ToolCard>.from(ordered);
+        final moved = reordered.removeAt(from);
+        reordered.insert(index, moved);
+        setState(() {
+          if (isLibrary) {
+            _libraryOrder = reordered.map((c) => c.label).toList();
+            _saveLibraryLayout();
+          } else {
+            _toolOrder = reordered.map((c) => c.label).toList();
+            _saveToolLayout();
+          }
+        });
+      },
+      builder: (context, candidate, rejected) {
+        final isTarget = candidate.isNotEmpty;
+        return LongPressDraggable<String>(
+          data: card.label,
+          feedback: Opacity(
+              opacity: 0.85,
+              child: SizedBox(width: 160, height: 110, child: card)),
+          childWhenDragging: Opacity(opacity: 0.3, child: card),
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: isTarget
+                    ? BoxDecoration(
+                        border: Border.all(color: AppColors.accent, width: 2),
+                        borderRadius: BorderRadius.circular(16),
+                      )
+                    : null,
+                child: card,
+              ),
+              if (!isProtected)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isLibrary) {
+                          _hiddenLibrary.add(card.label);
+                          _saveLibraryLayout();
+                        } else {
+                          _hiddenTools.add(card.label);
+                          _saveToolLayout();
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                          color: Colors.black54, shape: BoxShape.circle),
+                      child: const Icon(Icons.visibility_off,
+                          size: 14, color: Colors.white),
+                    ),
+                  ),
+                ),
+              const Positioned(
+                bottom: 6,
+                right: 6,
+                child: Icon(Icons.drag_handle, size: 16, color: Colors.white38),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   List<_ToolCard> _buildLibraryCards() => [
         _ToolCard(
           label: 'Literature Library',
