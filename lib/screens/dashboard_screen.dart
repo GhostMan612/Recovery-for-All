@@ -33,6 +33,7 @@ import 'grounding_screen.dart';
 import 'journal_screen.dart';
 import 'meeting_map_screen.dart';
 import 'native_resources_screen.dart';
+import 'literature_library_screen.dart';
 import 'pet_home_screen.dart';
 import 'settings_screen.dart';
 import 'sober_housing_locator.dart';
@@ -494,12 +495,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       icon: Icons.map_outlined,
       onTap: _openMeetings,
     ));
-    cards.add(_ToolCard(
-      label: 'Sober Housing',
-      subtitle: 'Structured homes directory',
-      icon: Icons.home_work_outlined,
-      onTap: () => _push(const SoberHousingLocatorScreen()),
-    ));
 
     for (final tool in _tools) {
       if (tool == 'Encrypted Journal' || tool == 'Meeting Finder') continue;
@@ -518,12 +513,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         subtitle: 'White Bison gatherings',
         icon: Icons.circle_outlined,
         onTap: () => _push(const WellbrietyCirclesScreen()),
-      ));
-      cards.add(_ToolCard(
-        label: 'Native Resources',
-        subtitle: 'MN culturally specific care',
-        icon: Icons.spa_outlined,
-        onTap: () => _push(const NativeResourcesScreen()),
       ));
     }
 
@@ -556,12 +545,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       subtitle: 'Stats, outfits, care log',
       icon: Icons.pets_outlined,
       onTap: () => _push(PetHomeScreen(database: widget.database)),
-    ));
-    cards.add(_ToolCard(
-      label: 'Community Support',
-      subtitle: 'RCOs, meditations, online rooms',
-      icon: Icons.volunteer_activism,
-      onTap: () => _push(const CommunityResourcesScreen()),
     ));
     cards.add(_ToolCard(
       label: 'Recovery Circle',
@@ -741,8 +724,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ------------------------------------------------------------------
-  // Build
+  // Build — two-tab IA (dashboard-ia.md): Path | Library
   // ------------------------------------------------------------------
+
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -752,8 +737,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         body: Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8))),
       );
     }
-
-    final pet = _pet;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -769,72 +752,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Constellation crown — the path, visible on open.
-              _buildSkyCrown(),
-              const SizedBox(height: 12),
-              _buildPledgeCard(),
-              const SizedBox(height: 16),
-              if (_paths.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final path in _paths)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
-                        ),
-                        child: Text(
-                          path,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (pet != null)
-                RecoveryPetCard(
-                  pet: pet,
-                  onCheckIn: _handleCheckIn,
-                  onWalk: _handleWalk,
-                  onOpen: _openDresser,
-                ),
-              const SizedBox(height: 20),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Your Toolbox',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.35,
-                children: [for (final card in _buildToolCards()) card],
-              ),
-              const SizedBox(height: 90),
-            ],
-          ),
-        ),
+      body: _selectedIndex == 0 ? _buildPathTab() : _buildLibraryTab(),
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: const Color(0xFF1E293B),
+        indicatorColor: AppColors.accent.withValues(alpha: 0.22),
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: Colors.white70),
+              selectedIcon: Icon(Icons.home, color: Colors.white),
+              label: 'Path'),
+          NavigationDestination(
+              icon: Icon(Icons.menu_book_outlined, color: Colors.white70),
+              selectedIcon: Icon(Icons.menu_book, color: Colors.white),
+              label: 'Library'),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -850,6 +783,136 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildPathTab() {
+    final pet = _pet;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSkyCrown(),
+            const SizedBox(height: 12),
+            _buildPledgeCard(),
+            const SizedBox(height: 16),
+            if (_paths.isNotEmpty) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final path in _paths)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(path,
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (pet != null)
+              RecoveryPetCard(
+                pet: pet,
+                onCheckIn: _handleCheckIn,
+                onWalk: _handleWalk,
+                onOpen: _openDresser,
+              ),
+            const SizedBox(height: 20),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Your Toolbox',
+                  style: TextStyle(
+                      color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.35,
+              children: [for (final card in _buildToolCards()) card],
+            ),
+            const SizedBox(height: 90),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryTab() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Library',
+                  style: TextStyle(
+                      color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 4),
+            const Text('Literature, housing, and community — always one tap away.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.35,
+              children: [for (final card in _buildLibraryCards()) card],
+            ),
+            const SizedBox(height: 90),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Resource cards live in Library, never in the Path toolbox.
+  List<_ToolCard> _buildLibraryCards() => [
+        _ToolCard(
+          label: 'Literature Library',
+          subtitle: 'Books and pamphlets, free',
+          icon: Icons.menu_book_outlined,
+          onTap: () => _push(const LiteratureLibraryScreen()),
+        ),
+        _ToolCard(
+          label: 'Community Support',
+          subtitle: 'RCOs and online rooms',
+          icon: Icons.volunteer_activism,
+          onTap: () => _push(const CommunityResourcesScreen()),
+        ),
+        _ToolCard(
+          label: 'Native Resources',
+          subtitle: 'MN culturally specific care',
+          icon: Icons.spa_outlined,
+          onTap: () => _push(const NativeResourcesScreen()),
+        ),
+        _ToolCard(
+          label: 'Sober Housing',
+          subtitle: 'Structured homes directory',
+          icon: Icons.home_work_outlined,
+          onTap: () => _push(const SoberHousingLocatorScreen()),
+        ),
+        _ToolCard(
+          label: 'Crisis Lines',
+          subtitle: '988, SAMHSA, Trevor — 24/7',
+          icon: Icons.emergency_outlined,
+          onTap: _showSosSheet,
+        ),
+      ];
 }
 
 class _ToolCard extends StatelessWidget {
