@@ -518,7 +518,7 @@ class _ConstellationCanvas extends StatefulWidget {
 }
 
 class _ConstellationCanvasState extends State<_ConstellationCanvas>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _twinkleController;
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;

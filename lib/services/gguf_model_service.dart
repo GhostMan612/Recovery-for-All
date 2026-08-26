@@ -99,9 +99,11 @@ class GgufModelService {
       name: 'Gemma 3 270M',
       description:
           'Google\'s smallest instruct model. Fast, lightweight, good for short replies.',
+      // NOTE: HF resolve URLs are case-sensitive — quant suffix must be
+      // uppercase exactly as published (Q4_K_M, not q4_k_m).
       downloadUrl:
-          'https://huggingface.co/lmstudio-community/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-q4_k_m.gguf',
-      fileSizeBytes: 300 * 1024 * 1024, // ~300 MB
+          'https://huggingface.co/lmstudio-community/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q4_K_M.gguf',
+      fileSizeBytes: 253 * 1024 * 1024, // ~253 MB per HF files table
       minTier: DeviceTier.medium,
       contextWindow: 4096,
       quantization: 'Q4_K_M',
@@ -112,7 +114,7 @@ class GgufModelService {
       description:
           'Alibaba\'s 2026 compact model. Best balance of quality and size for 4–6 GB devices.',
       downloadUrl:
-          'https://huggingface.co/Qwen/Qwen3.5-0.8B-GGUF/resolve/main/qwen3.5-0.8b-q4_k_m.gguf',
+          'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf',
       fileSizeBytes: 530 * 1024 * 1024, // ~530 MB
       minTier: DeviceTier.medium,
       contextWindow: 8192,
@@ -136,7 +138,7 @@ class GgufModelService {
       description:
           'Microsoft\'s 3.8B reasoning model. Best quality sub-4B. MIT license.',
       downloadUrl:
-          'https://huggingface.co/microsoft/Phi-4-mini-instruct-gguf/resolve/main/phi-4-mini-q4_k_m.gguf',
+          'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
       fileSizeBytes: 2700 * 1024 * 1024, // ~2.7 GB
       minTier: DeviceTier.premium,
       contextWindow: 16384,
@@ -219,6 +221,11 @@ class GgufModelService {
 
   // ---- download management ----
 
+  /// Human-readable reason the last [downloadModel] failed, for UI
+  /// surfacing — "try again later" alone hides real causes (404s,
+  /// missing INTERNET permission, timeouts).
+  static String? lastDownloadError;
+
   Future<Set<String>> getDownloadedModels() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyDownloadedModels);
@@ -251,6 +258,7 @@ class GgufModelService {
     void Function(int downloaded, int total)? onProgress,
     bool Function()? isCancelled,
   }) async {
+    lastDownloadError = null;
     try {
       final dir = await _modelDir();
       final file = File('${dir.path}/${model.id}.gguf');
@@ -295,6 +303,7 @@ class GgufModelService {
       return true;
     } catch (e) {
       debugPrint('[gguf] download failed: $e');
+      lastDownloadError = e.toString();
       return false;
     }
   }

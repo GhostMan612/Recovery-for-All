@@ -141,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
           content: Text(ok
               ? '${model.name} ready for offline use.'
-              : 'Download failed — try again later.')),
+              : 'Download failed: ${GgufModelService.lastDownloadError ?? 'unknown error'}')),
     );
   }
 

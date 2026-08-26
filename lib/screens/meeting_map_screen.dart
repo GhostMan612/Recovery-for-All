@@ -105,9 +105,24 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
   Future<(double, double)> _resolveLocation() async {
     try {
+      // Location SERVICES off (GPS toggle) is not a permission problem —
+      // surface it distinctly instead of a generic failure.
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) {
+        if (mounted) {
+          setState(() =>
+              _locationDebug = 'Location services OFF — enable GPS and retry');
+        }
+        return const (44.9778, -93.2650);
+      }
+
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        // Only the OS app-settings page can undo this one.
+        await Geolocator.openAppSettings();
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
