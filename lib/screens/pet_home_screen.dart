@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
@@ -39,6 +40,20 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
   void initState() {
     super.initState();
     _load();
+    _maybeShowCardTip();
+  }
+
+  /// One-shot coach-mark (checklist §12.1).
+  Future<void> _maybeShowCardTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('seen_pet_card_tip') ?? false) return;
+    await prefs.setBool('seen_pet_card_tip', true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        duration: Duration(seconds: 4),
+        content: Text(
+            'Care actions earn Sparks · walks and meetings always pay in '
+            'full · your companion rests, never starves.')));
   }
 
   Future<void> _load() async {
@@ -78,6 +93,41 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     } else {
       _load();
     }
+  }
+
+  /// Memory-wall copy (P2.3): the pet_events ledger retold in the
+  /// companion's voice. Read-only — nothing new persisted.
+  String _memoryLine(PetEventRow e) {
+    final t = e.eventType;
+    if (t.startsWith('milestone_')) {
+      return 'Kin remembers your ${t.substring(10)} chip.';
+    }
+    if (t.startsWith('signoff_step')) {
+      return 'Kin remembers step ${t.substring(12)} signed off.';
+    }
+    if (t.startsWith('worksheet_step')) {
+      return 'Kin remembers step ${t.substring(14)} worked through.';
+    }
+    if (t.startsWith('worksheet_')) {
+      return 'Kin remembers a worksheet faced honestly.';
+    }
+    switch (t) {
+      case 'battle_win':
+        return 'Kin remembers a Trial won.';
+      case 'battle_learned':
+        return 'Kin remembers learning something the hard way.';
+      case 'goal_complete':
+        return 'Kin remembers a weekly goal finished.';
+      case 'star':
+        return 'Kin remembers a star added to your sky.';
+      case 'meeting':
+        return 'Kin remembers a room you walked into.';
+      case 'walk':
+        return 'Kin remembers moving together.';
+      case 'wellness':
+        return 'Kin remembers the wellness wheel checked.';
+    }
+    return _eventLabels[t] ?? 'Kin remembers a moment of care.';
   }
 
   Widget _statBar(String label, double fraction, Color color) {
@@ -206,6 +256,69 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Daily gentle quest (P3.1): an invitation, never a chore.
+                FutureBuilder<({String id, String title, bool done})>(
+                  future: RecoveryPetService.todayQuest(),
+                  builder: (context, snapshot) {
+                    final quest = snapshot.data;
+                    if (quest == null) return const SizedBox.shrink();
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            quest.done
+                                ? Icons.check_circle_outline
+                                : Icons.wb_twilight_outlined,
+                            color: quest.done
+                                ? AppColors.success
+                                : AppColors.accent,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  quest.done
+                                      ? quest.title
+                                      : quest.title,
+                                  style: TextStyle(
+                                      color: quest.done
+                                          ? AppColors.textMuted
+                                          : Colors.white,
+                                      fontSize: 13,
+                                      decoration: quest.done
+                                          ? TextDecoration.lineThrough
+                                          : null),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  quest.done
+                                      ? 'Done for today — that is all it asked.'
+                                      : 'Today\'s gentle invitation · +10 Sparks',
+                                  style: TextStyle(
+                                      color: quest.done
+                                          ? AppColors.textMuted
+                                          : AppColors.accent,
+                                      fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Species',
@@ -330,7 +443,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                 const SizedBox(height: 20),
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Recent Care',
+                  child: Text('Kin remembers',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -338,10 +451,11 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 StreamBuilder<List<PetEventRow>>(
-                  stream: widget.database.watchPetEvents(RecoveryPetService.defaultPetId),
+                  stream: widget.database
+                      .watchPetEvents(RecoveryPetService.defaultPetId),
                   builder: (context, snapshot) {
                     final events = (snapshot.data ?? const <PetEventRow>[])
-                        .take(10)
+                        .take(50)
                         .toList();
                     if (events.isEmpty) {
                       return Container(
@@ -352,8 +466,10 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          'Check in, journal, ground, or take a walk — your care history will appear here.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          'Check in, journal, ground, or take a walk — '
+                          'memories will gather here.',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 13),
                         ),
                       );
                     }
@@ -371,11 +487,10 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    _eventLabels[event.eventType] ?? event.eventType,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 13),
-                                  ),
+                                  child: Text(_memoryLine(event),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13)),
                                 ),
                                 if (event.sparksDelta > 0)
                                   Text('+${event.sparksDelta} ✦',

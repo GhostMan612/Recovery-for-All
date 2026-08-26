@@ -167,6 +167,36 @@ class PetSpeciesCatalog {
       unlockSparks: 150,
       unlockBond: 0.65,
     ),
+    PetSpecies(
+      id: 'riverglass_otter',
+      label: 'Riverglass Otter',
+      tagline: 'Plays through every season.',
+      emoji: '🦦',
+      bodyItemId: 'body_tide',
+      defaultAuraId: 'aura_calm_blue',
+      unlockSparks: 70,
+      unlockBond: 0.35,
+    ),
+    PetSpecies(
+      id: 'prairie_ember_hare',
+      label: 'Prairie Ember Hare',
+      tagline: 'Quick heart, warm burrow.',
+      emoji: '🐰',
+      bodyItemId: 'body_ember',
+      defaultAuraId: 'aura_warm',
+      unlockSparks: 120,
+      unlockBond: 0.55,
+    ),
+    PetSpecies(
+      id: 'north_star_loon',
+      label: 'North Star Loon',
+      tagline: 'Minnesota\'s state bird carries its own compass.',
+      emoji: '🦆',
+      bodyItemId: 'body_starlit',
+      defaultAuraId: 'aura_starfield',
+      unlockSparks: 200,
+      unlockBond: 0.75,
+    ),
   ];
 
   static PetSpecies byId(String id) =>
@@ -237,6 +267,87 @@ class RecoveryPetService {
     '1 Year': 100,
     '2 Years': 150,
   };
+
+  // ---- Daily gentle quest (pet-expansion-spec P3.1) ----
+
+  static const String _keyQuest = 'pet_quest_v1';
+  static const int sparksQuestBonus = 10;
+
+  /// Invitations only — never assignments. Unfinished quests vanish at
+  /// midnight unmentioned; no streaks, no makeups, no guilt copy.
+  static const Map<String, String> questCatalog = {
+    'journal': 'Write one honest journal reflection',
+    'gratitude': 'Note one thing you are grateful for',
+    'grounding': 'Take sixty slow grounding breaths',
+    'wellness': 'Check in with your wellness wheel',
+    'walk': 'Step outside for a short walk',
+    'meeting': 'Sit with your recovery circle',
+  };
+
+  /// Today's invitation, rolling over at local midnight. Deterministic
+  /// day-of-year rotation so both fresh installs and old pets agree.
+  static Future<({String id, String title, bool done})> todayQuest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyQuest);
+    final today = _todayKey();
+    if (raw != null) {
+      try {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        if (decoded['date'] == today &&
+            questCatalog.containsKey(decoded['id'])) {
+          return (
+            id: decoded['id'] as String,
+            title: questCatalog[decoded['id']]!,
+            done: decoded['done'] as bool? ?? false,
+          );
+        }
+      } catch (_) {}
+    }
+    final dayOfYear = DateTime.now().difference(DateTime(
+            DateTime.now().year, 1, 1))
+        .inDays;
+    final ids = questCatalog.keys.toList();
+    final id = ids[dayOfYear % ids.length];
+    await prefs.setString(
+        _keyQuest, jsonEncode({'date': today, 'id': id, 'done': false}));
+    return (id: id, title: questCatalog[id]!, done: false);
+  }
+
+  /// If [type] matches today's unfinished invitation, mark it done and
+  /// return the bonus Sparks (a CAPPED stream — quests are app actions).
+  static Future<int> _consumeQuestBonus(String type) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_keyQuest);
+      if (raw == null) return 0;
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      if (decoded['done'] == true || decoded['id'] != type) return 0;
+      await prefs.setString(
+        _keyQuest,
+        jsonEncode({
+          'date': decoded['date'],
+          'id': decoded['id'],
+          'done': true,
+        }),
+      );
+
+      // Bonus respects the same global cap (never exempt).
+      var bonus = sparksQuestBonus;
+      final earned = await earnedToday();
+      if (earned >= dailyEarnCap) {
+        bonus = 0;
+      } else {
+        bonus = bonus.clamp(0, dailyEarnCap - earned);
+      }
+      await prefs.setString(
+        _keyEarnDay,
+        '${_todayKey()}:${earned + sparksQuestBonus}',
+      );
+      return bonus;
+    } catch (_) {
+      return 0;
+    }
+  }
 
   static RecoveryDatabase? _db;
 
@@ -504,13 +615,17 @@ class RecoveryPetService {
       );
     }
 
+    // Gentle quest: completing today's invited action grants a one-time
+    // bonus (capped stream — quests are app actions, not exempt).
+    final questBonus = await _consumeQuestBonus(type);
+
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
       energy: (pet.energy + energyDelta).clamp(0, 100),
       bond: (pet.bond + bondDelta).clamp(0, 100),
       mood: mood ?? pet.mood,
-      sparks: pet.sparks + grantedSparks,
+      sparks: pet.sparks + grantedSparks + questBonus,
       unlockedItems: pet.unlockedItems,
       equippedOutfit: pet.equippedOutfit,
       speciesId: pet.speciesId,
@@ -519,7 +634,7 @@ class RecoveryPetService {
       createdAt: pet.createdAt,
     );
     await save(updated);
-    await _recordEvent(type, grantedSparks);
+    await _recordEvent(type, grantedSparks + questBonus);
     if (type.startsWith('milestone_')) {
       await FeedbackService.milestone();
     } else if (type.startsWith('signoff_')) {

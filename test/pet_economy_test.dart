@@ -259,4 +259,73 @@ void main() {
           reason: 'new day, fresh walks');
     });
   });
+
+  group('daily gentle quest (P3.1)', () {
+    test('returns a valid catalog invitation, stable within the day',
+        () async {
+      final a = await RecoveryPetService.todayQuest();
+      final b = await RecoveryPetService.todayQuest();
+      expect(RecoveryPetService.questCatalog.containsKey(a.id), isTrue);
+      expect(a.id, b.id);
+      expect(a.title, isNotEmpty);
+      expect(a.done, isFalse);
+    });
+
+    test('completing the invited action grants +10 exactly once', () async {
+      final now = DateTime.now();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'pet_quest_v1',
+        jsonEncode({
+          'date': '${now.year}-${now.month}-${now.day}',
+          'id': 'gratitude',
+          'done': false,
+        }),
+      );
+
+      final first = await RecoveryPetService.logGratitude(); // 5 + 10
+      expect(first.sparks, 15);
+
+      final second = await RecoveryPetService.logGratitude(); // 5 only
+      expect(second.sparks, 20,
+          reason: 'quest bonus must not repeat within the day');
+    });
+
+    test('non-invited actions never consume the quest', () async {
+      final now = DateTime.now();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'pet_quest_v1',
+        jsonEncode({
+          'date': '${now.year}-${now.month}-${now.day}',
+          'id': 'journal',
+          'done': false,
+        }),
+      );
+
+      final pet = await RecoveryPetService.logGratitude(); // quest wants journal
+      expect(pet.sparks, 5, reason: 'no bonus — wrong action');
+      final after = await RecoveryPetService.todayQuest();
+      expect(after.done, isFalse);
+    });
+
+    test('quest bonus respects the global cap (capped stream)', () async {
+      final now = DateTime.now();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'pet_quest_v1',
+        jsonEncode({
+          'date': '${now.year}-${now.month}-${now.day}',
+          'id': 'gratitude',
+          'done': false,
+        }),
+      );
+      await prefs.setString('recovery_pet_earn_day_v1',
+          '${now.year}-${now.month}-${now.day}:150');
+
+      final pet = await RecoveryPetService.logGratitude();
+      expect(pet.sparks, 0,
+          reason: 'cap full → action and bonus both taper to zero');
+    });
+  });
 }

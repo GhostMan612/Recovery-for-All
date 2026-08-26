@@ -79,10 +79,24 @@ class PetCosmetic {
 
   bool isAvailableAt(DateTime now) {
     if (!isSeasonal) return true;
-    final ms = now.millisecondsSinceEpoch;
-    if (availableFromMs != null && ms < availableFromMs!) return false;
-    if (availableUntilMs != null && ms > availableUntilMs!) return false;
-    return true;
+    // Launch-era freebie stays forever.
+    if (seasonId == 'launch') return true;
+
+    // P2.2 re-issue calendar: seasonal windows recur EVERY YEAR on their
+    // original month/day (store-rules S5 — nothing is forever-missed).
+    final from = availableFromMs;
+    final until = availableUntilMs;
+    if (from == null || until == null) return true;
+    final fLocal = DateTime.fromMillisecondsSinceEpoch(from);
+    final uLocal = DateTime.fromMillisecondsSinceEpoch(until);
+    var fThis = DateTime(now.year, fLocal.month, fLocal.day);
+    var uThis =
+        DateTime(now.year, uLocal.month, uLocal.day, 23, 59, 59, 999);
+    if (!uThis.isBefore(fThis)) {
+      return !now.isBefore(fThis) && !now.isAfter(uThis);
+    }
+    // Window wraps the year boundary (e.g., New Year: Dec 31 → Jan 14).
+    return !now.isBefore(fThis) || !now.isAfter(uThis);
   }
 }
 
