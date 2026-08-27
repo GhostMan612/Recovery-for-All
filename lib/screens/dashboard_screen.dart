@@ -601,7 +601,7 @@ Future<void> _handleWalk() async {
     ));
 
     for (final tool in _tools) {
-      if (tool == 'Encrypted Journal' || tool == 'Meeting Finder') continue;
+      if (tool == 'Encrypted Journal' || tool == 'Meeting Finder' || tool == 'Wellness Check-In') continue;
       cards.add(_ToolCard(
         label: tool,
         subtitle: '',
@@ -731,6 +731,7 @@ Future<void> _handleWalk() async {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -743,9 +744,23 @@ Future<void> _handleWalk() async {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'You are not alone.',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                // Header with gear icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'You are not alone.',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      tooltip: 'My Support Circle',
+                      icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        _push(SettingsScreen(database: widget.database));
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -753,70 +768,81 @@ Future<void> _handleWalk() async {
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
-                _SosTile(
-                  icon: Icons.phone_in_talk,
-                  color: const Color(0xFFDC2626),
-                  title: 'Call 988 Suicide & Crisis Lifeline',
-                  subtitle: 'Free · 24/7 · Confidential',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    SosNotificationService.startPersistentSos();
-                    _callNumber('988');
-                  },
+                // Row 1: 988 + Sponsor
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SosTile(
+                        icon: Icons.phone_in_talk,
+                        color: const Color(0xFFDC2626),
+                        title: 'Call 988',
+                        subtitle: 'Suicide & Crisis Lifeline · 24/7',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          SosNotificationService.startPersistentSos();
+                          _callNumber('988');
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SosTile(
+                        icon: Icons.person_pin_circle,
+                        color: AppColors.accent,
+                        title: sponsorPhone == null ? 'Call Sponsor' : 'Call Sponsor',
+                        subtitle: sponsorPhone ?? 'Add in Settings',
+                        enabled: sponsorPhone != null,
+                        onTap: sponsorPhone != null ? () {
+                          Navigator.pop(sheetContext);
+                          _callNumber(sponsorPhone!);
+                        } : null,
+                      ),
+                    ),
+                  ],
                 ),
-                _SosTile(
-                  icon: Icons.person_pin_circle,
-                  color: AppColors.accent,
-                  title: sponsorPhone == null ? 'Call Sponsor' : 'Call Sponsor · $sponsorPhone',
-                  subtitle: sponsorPhone == null ? 'Add a sponsor phone in Settings' : null,
-                  enabled: sponsorPhone != null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _callNumber(sponsorPhone!);
-                  },
-                ),
-                _SosTile(
-                  icon: Icons.groups_2,
-                  color: AppColors.accent,
-                  title: 'Nearest Meetings',
-                  subtitle: 'Three rooms close to you right now',
-                  onTap: () async {
-                    Navigator.pop(sheetContext);
-                    final (lat, lng) = await _resolveLocation();
-                    final fellowships = _allowedFellowships();
-                    var all = await _meetingFinder
-                        .findNearbyMeetings(lat, lng, fellowships: fellowships);
-                    if (all.isEmpty) {
-                      all = await _meetingFinder.findNearbyMeetings(lat, lng);
-                    }
-                    if (!mounted) return;
-                    _push(MeetingMapScreen(
-                        initialMeetings: all.take(3).toList(),
-                        database: widget.database));
-                  },
-                ),
-                _SosTile(
-                  icon: Icons.contacts_outlined,
-                  color: AppColors.accent,
-                  title: 'My Support Circle',
-                  subtitle: 'Emergency contacts & settings',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _push(SettingsScreen(database: widget.database));
-                  },
-                ),
-                _SosTile(
-                  icon: Icons.open_in_new,
-                  color: AppColors.textMuted,
-                  title: 'Crisis Resources Online',
-                  subtitle: '988lifeline.org',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    launchUrl(
-                      Uri.parse('https://988lifeline.org'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
+                const SizedBox(height: 8),
+                // Row 2: Meetings + Crisis Resources
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SosTile(
+                        icon: Icons.groups_2,
+                        color: AppColors.accent,
+                        title: 'Nearest Meetings',
+                        subtitle: 'Three rooms close to you',
+                        onTap: () async {
+                          Navigator.pop(sheetContext);
+                          final (lat, lng) = await _resolveLocation();
+                          final fellowships = _allowedFellowships();
+                          var all = await _meetingFinder
+                              .findNearbyMeetings(lat, lng, fellowships: fellowships);
+                          if (all.isEmpty) {
+                            all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                          }
+                          if (!mounted) return;
+                          _push(MeetingMapScreen(
+                              initialMeetings: all.take(3).toList(),
+                              database: widget.database));
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SosTile(
+                        icon: Icons.open_in_new,
+                        color: AppColors.textMuted,
+                        title: 'Crisis Resources',
+                        subtitle: '988lifeline.org',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          launchUrl(
+                            Uri.parse('https://988lifeline.org'),
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
               ],
@@ -1263,7 +1289,7 @@ class _SosTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool enabled;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _SosTile({
     required this.icon,
@@ -1271,7 +1297,7 @@ class _SosTile extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.enabled = true,
-    required this.onTap,
+    this.onTap,
   });
 
   @override

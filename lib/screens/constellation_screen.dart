@@ -556,7 +556,7 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
       onScaleUpdate: (details) {
         // Two-finger pinch drives the zoom; single-finger drags report
         // scale ≈ 1 and are therefore harmless here.
-        final next = (_pinchBaseZoom * details.scale).clamp(1.0, 3.0);
+        final next = (_pinchBaseZoom * details.scale).clamp(1.0, 10.0);
         if ((next - _zoomController.value).abs() > 0.001) {
           _zoomController.value = next;
         }
@@ -616,7 +616,7 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
                   child: Slider(
                     value: _zoomController.value,
                     min: 1.0,
-                    max: 3.0,
+                    max: 10.0,
                     activeColor: AppColors.accent,
                     onChanged: (v) => _zoomController.value = v,
                   ),

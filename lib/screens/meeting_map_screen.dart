@@ -58,7 +58,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   bool _showMapView = false;
 
   // Filters
-  double _radiusMi = 25;
+  double _radiusMi = 2; // Default 2 miles instead of 25 to prevent overload
   String _cityFilter = 'All';
   bool _showAllTime = false;
   List<RecoveryMeeting> _base = [];
@@ -66,7 +66,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
   // Layers — Sovereign Mantle pattern: independent toggles, stackable.
   // First active layer = base; subsequent = overlays rendered on top.
-  final Set<String> _activeLayers = {'dark'};
+  final Set<String> _activeLayers = {'osm'}; // Default to OSM instead of dark
 
   static const List<_MapLayer> _availableLayers = [
     // Esri Canvas (keyless, no API key required) - replaces Carto
@@ -219,7 +219,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     return MeetingFinderService().findNearbyMeetings(
       lat,
       lng,
-      radiusKm: _maxRadiusMi * _miToKm,
+      radiusKm: _radiusMi * _miToKm, // Use current radius filter
       upcomingOnly: !_showAllTime,
     );
   }
