@@ -147,13 +147,13 @@ void main() {
       expect(pet0.sparks, 0);
 
       // Two walks pay in full (2 × 15) — and are CAP-EXEMPT.
-      await RecoveryPetService.logWalk();
-      await RecoveryPetService.logWalk();
+      await RecoveryPetService.logWalk(requireVerification: false);
+      await RecoveryPetService.logWalk(requireVerification: false);
       var pet = await RecoveryPetService.ensureHatched();
       expect(pet.sparks, 30);
 
       // A third walk is walk-capped before economics even apply.
-      await RecoveryPetService.logWalk();
+      await RecoveryPetService.logWalk(requireVerification: false);
       pet = await RecoveryPetService.ensureHatched();
       expect(pet.sparks, 30);
 
@@ -226,7 +226,7 @@ void main() {
       final capped = await RecoveryPetService.ensureHatched();
       expect(capped.sparks, 150);
 
-      final pet = await RecoveryPetService.logWalk();
+      final pet = await RecoveryPetService.logWalk(requireVerification: false);
       expect(pet.sparks, 165,
           reason: '+15 walk Sparks land on top of a full cap');
       expect(await RecoveryPetService.earnedToday(), 152,
@@ -242,7 +242,7 @@ void main() {
           '${now.year}-${now.month}-${now.day}:2');
 
       final before = await RecoveryPetService.ensureHatched();
-      final after = await RecoveryPetService.logWalk();
+      final after = await RecoveryPetService.logWalk(requireVerification: false);
       expect(after.sparks, before.sparks,
           reason: 'third walk today earns nothing');
     });
@@ -254,7 +254,7 @@ void main() {
           '${yesterday.year}-${yesterday.month}-${yesterday.day}:2');
 
       final before = await RecoveryPetService.ensureHatched();
-      final after = await RecoveryPetService.logWalk();
+      final after = await RecoveryPetService.logWalk(requireVerification: false);
       expect(after.sparks, before.sparks + 15,
           reason: 'new day, fresh walks');
     });

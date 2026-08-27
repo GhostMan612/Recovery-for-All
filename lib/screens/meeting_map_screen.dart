@@ -69,15 +69,16 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   final Set<String> _activeLayers = {'dark'};
 
   static const List<_MapLayer> _availableLayers = [
-    _MapLayer('dark', 'Dark', 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        subdomains: ['a', 'b', 'c', 'd']),
-    _MapLayer('light', 'Light', 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        subdomains: ['a', 'b', 'c', 'd']),
+    // Esri Canvas (keyless, no API key required) - replaces Carto
+    _MapLayer('dark', 'Dark',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'),
+    _MapLayer('light', 'Light',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'),
     _MapLayer('sat', 'Satellite',
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
-    _MapLayer('topo', 'Topo', 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    _MapLayer('topo', 'Topo', 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
         subdomains: ['a', 'b', 'c']),
-    _MapLayer('osm', 'OSM', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    _MapLayer('osm', 'OSM', 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
         subdomains: ['a', 'b', 'c']),
   ];
 

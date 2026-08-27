@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'feedback_service.dart';
 import '../database/recovery_database.dart';
 import 'pet_cosmetic_catalog.dart';
+import 'step_counter_service.dart';
 
 enum PetMoodX {
   happy('Happy'),
@@ -566,8 +567,10 @@ class RecoveryPetService {
     return '${now.year}-${now.month}-${now.day}';
   }
 
-  /// Manual "I took a walk" → Sparks + Energy + Bond (capped daily).
-  static Future<RecoveryPet> logWalk() async {
+  /// Verified walk → Sparks + Energy + Bond (capped daily).
+  /// Requires step counter verification (min 500 steps in 30 min window).
+  /// Falls back to manual if pedometer unavailable.
+  static Future<RecoveryPet> logWalk({bool requireVerification = true}) async {
     final prefs = await SharedPreferences.getInstance();
     final dayKey = _todayKey();
     final stored = prefs.getString(_keyWalkDay);
@@ -577,6 +580,19 @@ class RecoveryPetService {
     if (count >= maxWalksPerDay) {
       return ensureHatched();
     }
+
+    // Check step counter verification
+    if (requireVerification) {
+      final verified = await StepCounterService.instance.stopWalkTracking();
+      if (!verified) {
+        // Walk not verified - return pet without rewards
+        return ensureHatched();
+      }
+    } else {
+      // Manual override (testing, pedometer unavailable)
+      await StepCounterService.instance.manuallyVerifyWalk();
+    }
+
     await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
     return _applyReward(type: 'walk', sparksDelta: sparksWalk, energyDelta: 4, bondDelta: 1);
   }

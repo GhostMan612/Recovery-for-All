@@ -19,6 +19,8 @@ import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
+import '../services/step_counter_service.dart';
+import '../services/tutorial_chatbot_service.dart';
 import '../widgets/themed_background.dart';
 import 'avatar_dresser_screen.dart';
 import 'chatbot_screen.dart';
@@ -44,6 +46,8 @@ import 'wellbriety_circles_screen.dart';
 import 'weekly_goals_screen.dart';
 import 'wellness_check_in_screen.dart';
 import '../widgets/recovery_pet_card.dart';
+import '../widgets/walk_tracking_dialog.dart';
+import '../widgets/tutorial_chatbot_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -89,6 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _tutorialChatbot = TutorialChatbotService.instance;
     _loadUserData();
     _loadSky();
     _loadLayoutPrefs();
@@ -308,20 +313,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _handleWalk() async {
+Future<void> _handleWalk() async {
+    // Start walk tracking
+    await StepCounterService.instance.startWalkTracking();
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WalkTrackingDialog(
+        onFinish: () async {
+          final verified = await StepCounterService.instance.stopWalkTracking();
+          if (!verified) {
+            if (!mounted) return false;
+            if (!context.mounted) return false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: const Color(0xFF1E293B),
+                content: const Text(
+                  'Walk not verified — need at least 500 steps in 30 minutes. '
+                  'Your companion understands, no Sparks this time.',
+                ),
+                action: SnackBarAction(
+                  label: 'Override',
+                  textColor: const Color(0xFF38BDF8),
+                  onPressed: () async {
+                    await StepCounterService.instance.manuallyVerifyWalk();
+                    await _completeWalk();
+                  },
+                ),
+              ),
+            );
+            return false;
+          }
+          await _completeWalk();
+          return true;
+        },
+      ),
+    );
+
+    if (confirmed == true) {
+      // Walk completed and verified
+    }
+  }
+
+  Future<void> _completeWalk() async {
     final before = _pet?.sparks ?? 0;
-    await RecoveryPetService.logWalk();
+    await RecoveryPetService.logWalk(requireVerification: false);
     await _refreshPet();
     if (!mounted) return;
     final after = _pet?.sparks ?? before;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
         content: Text(
           after > before
-              ? 'Walk logged · +${after - before} Sparks'
+              ? 'Walk verified · +${after - before} Sparks'
               : 'Walk appreciated · daily Sparks cap reached, see you tomorrow',
         ),
-        backgroundColor: const Color(0xFF1E293B),
       ),
     );
   }
@@ -779,10 +828,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ------------------------------------------------------------------
-  // Build — two-tab IA (dashboard-ia.md): Path | Library
-  // ------------------------------------------------------------------
+// Build — two-tab IA (dashboard-ia.md): Path | Library
+// ------------------------------------------------------------------
 
   int _selectedIndex = 0;
+  late final TutorialChatbotService _tutorialChatbot;
+
+  void _openTutorialChatbot() {
+    if (_pet == null) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => TutorialChatbotDialog(
+        pet: _pet!,
+        chatbotService: _tutorialChatbot,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -800,6 +862,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Text('Welcome, $_username', style: const TextStyle(color: Colors.white)),
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Tutorial Guide',
+            icon: const Icon(Icons.help_outline, color: Colors.white70),
+            onPressed: _openTutorialChatbot,
+          ),
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined, color: Colors.white70),
@@ -826,9 +893,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-      _writeCareAlert();
-      _showSosSheet();
-    },
+          _writeCareAlert();
+          _showSosSheet();
+        },
         backgroundColor: const Color(0xFFDC2626),
         icon: const Icon(Icons.sos, color: Colors.white),
         label: const Text(

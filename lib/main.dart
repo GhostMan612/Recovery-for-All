@@ -18,6 +18,7 @@ import 'services/community_feed_service.dart';
 import 'services/gentle_reminder_service.dart';
 import 'services/sos_notification_service.dart';
 import 'services/recovery_pet_service.dart';
+import 'services/step_counter_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +51,11 @@ void main() async {
     );
   }
 
-  // 3. Mount the local-first database
+  // 3. Initialize step counter for walk verification
+  await StepCounterService.instance.initialize();
+  debugPrint('[boot] step counter: ready');
+
+  // 4. Mount the local-first database
   final database = RecoveryDatabase();
   RecoveryPetService.bindDatabase(database);
 

@@ -152,7 +152,18 @@ class _CachedTileImageProvider
 
       Uint8List bytes;
       if (file.existsSync()) {
-        bytes = await file.readAsBytes();
+        try {
+          bytes = await file.readAsBytes();
+          // Validate cached bytes are actually decodable (old Carto HTML cache).
+          return await ui.instantiateImageCodec(bytes);
+        } catch (_) {
+          try { await file.delete(); } catch (_) {}
+          final fetched =
+              await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
+          if (fetched == null) return await _transparentCodec();
+          bytes = await fetched.readAsBytes();
+          return await ui.instantiateImageCodec(bytes);
+        }
       } else {
         final fetched =
             await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
