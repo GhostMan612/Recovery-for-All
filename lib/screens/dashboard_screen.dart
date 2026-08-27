@@ -891,17 +891,26 @@ Future<void> _handleWalk() async {
               label: 'Library'),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _writeCareAlert();
-          _showSosSheet();
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmallScreen = constraints.maxWidth < 360;
+          return FloatingActionButton.extended(
+            onPressed: () {
+              _writeCareAlert();
+              _showSosSheet();
+            },
+            backgroundColor: const Color(0xFFDC2626),
+            icon: const Icon(Icons.sos, color: Colors.white),
+            label: Text(
+              isSmallScreen ? 'SOS' : 'SOS Help',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            extendedPadding: EdgeInsets.symmetric(
+              horizontal: isSmallScreen ? 16 : 24,
+              vertical: 12,
+            ),
+          );
         },
-        backgroundColor: const Color(0xFFDC2626),
-        icon: const Icon(Icons.sos, color: Colors.white),
-        label: const Text(
-          'SOS Help',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
       ),
     );
   }
