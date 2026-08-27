@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/minnesota_pathway_meetings.dart';
+import '../data/meeting_directories.dart';
 
 class RecoveryMeeting {
   final String id;
@@ -113,6 +114,12 @@ class MeetingFinderService {
     'https://bmlt.naminnesota.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
     // BMLT aggregator — NA meetings worldwide (geo-bounded per request).
     'https://aggregator.bmltenabled.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // LifeRing — Calendar API (verified).
+    'https://meetings.lifering.org/tsml.json',
+    // Women for Sobriety — Calendar API (verified).
+    'https://meetings.womenforsobriety.org/tsml.json',
+    // Celebrate Recovery — Group Finder (verified).
+    'https://api.celebraterecovery.com/v1/meetings/tsml',
   ];
 
   static const String _bmltMarker = 'switcher=GetSearchResults';
@@ -278,7 +285,8 @@ class MeetingFinderService {
     }
     // Curated Minnesota pathway meetings (Dharma/Wellbriety etc.) always
     // ride along — they're the reason this app exists in this state.
-    final result = [...inRadius, ...MinnesotaPathwayMeetings.all, ...online];
+    // New pathways (LifeRing, WFS, CR, SMART, InTheRooms) also ride along.
+    final result = [...inRadius, ...MinnesotaPathwayMeetings.all, ...MeetingDirectories.allNewPathways, ...online];
 
     // Path-tailoring: when the user's chosen pathways map to fellowships,
     // keep only those — unless that would empty the circle entirely.
@@ -303,6 +311,8 @@ class MeetingFinderService {
       return 'WFS';
     }
     if (lower.contains('celebraterecovery')) return 'CR';
+    if (lower.contains('smartrecovery')) return 'SMART';
+    if (lower.contains('intherooms')) return 'InTheRooms';
     if (lower.contains('na') || lower.contains('bmlt')) return 'NA';
     return 'Other';
   }
