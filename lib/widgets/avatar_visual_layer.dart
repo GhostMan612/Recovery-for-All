@@ -423,7 +423,7 @@ class _CelebrationOverlay extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-gradient: RadialGradient(
+            gradient: RadialGradient(
               colors: [
                 color.withAlpha((0.6 * (1.0 - progress).clamp(0.0, 1.0) * 255).round()),
                 color.withAlpha(0),

@@ -9,9 +9,10 @@
 // Growth pattern: category-based phyllotaxis branches — each category forms
 /// its own spiral arm, preventing clustering and creating natural milestone
 /// branches. Stars of the same category form connected spiral arms.
+library;
+
 
 import 'dart:math' as math;
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -482,8 +483,8 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   double _pinchBaseZoom = 1.0;
   int? _focusedStarIndex;
   bool _is3DView = false;
-  double _yaw = 0.0;
-  double _pitch = 0.0;
+  final double _yaw = 0.0;
+  final double _pitch = 0.0;
 
   @override
   void initState() {
@@ -549,7 +550,11 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
           final dist = (details.localPosition - Offset(px, py)).distance;
           if (dist < 30 && dist < bestDist) { bestDist = dist; bestIndex = i; }
         }
-        if (bestIndex != null) _focusOnStar(bestIndex); else _clearFocus();
+        if (bestIndex != null) {
+          _focusOnStar(bestIndex);
+        } else {
+          _clearFocus();
+        }
       },
       child: Stack(
         fit: StackFit.expand,

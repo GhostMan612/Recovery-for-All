@@ -77,7 +77,7 @@ class StepCounterService {
     // Check for missed milestones on startup
     await _checkAndAwardMilestones();
     
-    developer.log('[step_counter] Initialized with ${_lastStepCount} steps');
+    developer.log('[step_counter] Initialized with $_lastStepCount steps');
   }
 
   void _onStepCount(StepCount event) {
@@ -155,7 +155,7 @@ class StepCounterService {
     // Award sparks (cap-exempt for movement)
     await RecoveryPetService.logWalk(requireVerification: false);
     
-    developer.log('[step_counter] Awarded ${sparksPerMilestone} Sparks for $milestone steps milestone');
+    developer.log('[step_counter] Awarded $sparksPerMilestone Sparks for $milestone steps milestone');
   }
 
   /// Check if pedometer permission has been requested
