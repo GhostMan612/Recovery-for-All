@@ -400,37 +400,42 @@ class _SimpleGlowPainter extends CustomPainter {
 
 /// Celebration overlay: radial flash + scale pulse when Sparks earned.
 class _CelebrationOverlay extends StatelessWidget {
-  final double size;
-  final double progress; // 0.0 to 1.0
-  final Color color;
-
   const _CelebrationOverlay({
     required this.size,
     required this.progress,
     required this.color,
   });
 
+  final double size;
+  final double progress;
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
-    final flashOpacity = (1.0 - progress).clamp(0.0, 1.0);
-    final scale = 1.0 + 0.15 * (1.0 - (progress - 0.5).abs() * 2.0);
+    final progressValue = progress.clamp(0.0, 1.0);
+    final flashOpacity = (1.0 - progressValue).clamp(0.0, 1.0);
+    final scale = 1.0 + 0.15 * (1.0 - (progressValue - 0.5).abs() * 2.0);
+    final alpha = (0.6 * (1.0 - progressValue).clamp(0.0, 1.0) * 255).round();
+    final colorAlpha = color.withAlpha(alpha);
+    final transparentColor = color.withAlpha(0);
+
     return Transform.scale(
       scale: scale,
       child: Opacity(
-        opacity: (1.0 - progress).clamp(0.0, 1.0),
-        child: Container(
+        opacity: flashOpacity,
+        child: SizedBox(
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                color.withAlpha((0.6 * (1.0 - progress).clamp(0.0, 1.0) * 255).round()),
-                color.withAlpha(0),
-              ],
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [colorAlpha, transparentColor],
+              ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
