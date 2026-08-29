@@ -380,6 +380,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   }
 
   Widget _buildLobby(RecoveryPet pet) {
+    final gearScore = pet.gearScore;
+    final pathLevel = pet.pathLevelComputed;
+    final abilitySlots = pet.abilitySlots;
     return FutureBuilder<int>(
       future: _battlesToday(),
       builder: (context, snapshot) {
@@ -412,7 +415,55 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       fontSize: 13,
                       height: 1.5),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                // R19: Gear score & path level display
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _GearStat(
+                            label: 'Gear Score',
+                            value: pet.gearScore.toString(),
+                            icon: Icons.diamond_outlined,
+                          ),
+                          _GearStat(
+                            label: 'Path Level',
+                            value: pet.pathLevelComputed.toString(),
+                            icon: Icons.star_outline,
+                          ),
+                          _GearStat(
+                            label: 'Ability Slots',
+                            value: pet.abilitySlots.toString(),
+                            icon: Icons.inventory_2_outlined,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: (pet.pathXp % 100) / 100.0,
+                        minHeight: 6,
+                        backgroundColor: AppColors.border,
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'XP to next level: ${100 - (pet.pathXp % 100)}',
+                        style: TextStyle(
+                            color: AppColors.textMuted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextButton.icon(
                   onPressed: _maybeShowTutorial,
                   icon: const Icon(Icons.info_outline, size: 16),
@@ -816,6 +867,46 @@ class _AbilityButton extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Gear stat display widget for the Trials lobby.
+class _GearStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _GearStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.accent, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }

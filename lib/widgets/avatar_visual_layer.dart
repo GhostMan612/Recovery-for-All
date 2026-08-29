@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:lottie/lottie.dart';
 
+import '../core/theme/app_colors.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import 'avatar_painter.dart';
@@ -49,6 +50,96 @@ class AvatarVisualLayer extends StatefulWidget {
     'neutral': 'assets/lottie/mood_calm.json',
     'sad': 'assets/lottie/mood_sad.json',
     '@resting': 'assets/lottie/mood_resting.json',
+  };
+
+  /// Category colors for cosmetic items.
+  static const Map<String, Color> _kCategoryColors = {
+    'body_soft_glow': Color(0xFFFFF8E7),
+    'body_ember': Color(0xFFFF6B35),
+    'body_tide': Color(0xFF4ECDC4),
+    'body_moss': Color(0xFF6BCB77),
+    'body_starlit': Color(0xFF45B7AA),
+    'body_sovereign': Color(0xFFD4A373),
+    'skin_pearl': Color(0xFFFDFDFD),
+    'skin_amber': Color(0xFFFFBF00),
+    'skin_slate': Color(0xFF708090),
+    'skin_rose': Color(0xFFFF6B6B),
+    'skin_jade': Color(0xFF00A86B),
+    'skin_obsidian': Color(0xFF2C2C2C),
+    'skin_aurora': Color(0xFF00FFFF),
+    'face_calm': Color(0xFF87CEEB),
+    'face_bright': Color(0xFF34D399),
+    'face_soft': Color(0xFFFFA07A),
+    'face_fierce': Color(0xFFF97316),
+    'face_dream': Color(0xFFA78BFA),
+    'hair_short_wave': Color(0xFF8B4513),
+    'hair_crop': Color(0xFF8B4513),
+    'hair_long_flow': Color(0xFF8B4513),
+    'hair_bun': Color(0xFFDEB887),
+    'hair_braids': Color(0xFF8B4513),
+    'hair_flame': Color(0xFFFF4500),
+    'top_tee_plain': Color(0xFF696969),
+    'top_hoodie_soft': Color(0xFF708090),
+    'top_tank': Color(0xFF696969),
+    'top_flannel': Color(0xFF8B4513),
+    'top_jacket_dawn': Color(0xFFDAA520),
+    'top_cloak_forest': Color(0xFF228B22),
+    'top_robe_river': Color(0xFF4682B4),
+    'top_armor_light': Color(0xFFB0C4DE),
+    'top_sovereign_mantle': Color(0xFFDAA520),
+    'bottom_shorts': Color(0xFF696969),
+    'bottom_joggers': Color(0xFF2F4F4F),
+    'bottom_jeans': Color(0xFF191970),
+    'bottom_skirt_flow': Color(0xFFFF69B4),
+    'bottom_cargo': Color(0xFF556B2F),
+    'bottom_wrap_moss': Color(0xFF8FBC8F),
+    'bottom_greaves': Color(0xFF708090),
+    'shoes_bare': Color(0xFFDEB887),
+    'shoes_sneakers': Color(0xFF696969),
+    'shoes_sandals': Color(0xFFDEB887),
+    'shoes_boots_trail': Color(0xFF8B4513),
+    'shoes_boots_storm': Color(0xFF4682B4),
+    'shoes_slippers_home': Color(0xFFF5DEB3),
+    'shoes_kicks_neon': Color(0xFF39FF14),
+    'shoes_sovereign': Color(0xFFFFD700),
+    'head_none': Colors.transparent,
+    'head_beanie': Color(0xFF2F4F4F),
+    'head_cap': Color(0xFF2F4F4F),
+    'head_bandana': Color(0xFF8B0000),
+    'head_hood': Color(0xFF2F4F4F),
+    'head_crown_leaf': Color(0xFF32CD32),
+    'head_crown_star': Color(0xFFFFD700),
+    'head_halo_soft': Color(0xFFFFF0F5),
+    'jewelry_none': Colors.transparent,
+    'jewelry_band_simple': Color(0xFFC0C0C0),
+    'jewelry_pendant_seed': Color(0xFF8FBC8F),
+    'jewelry_pendant_wave': Color(0xFF00CED1),
+    'jewelry_earring_dot': Color(0xFFE6E6FA),
+    'jewelry_earring_moon': Color(0xFFF0E68C),
+    'jewelry_ring_bond': Color(0xFFFF69B4),
+    'jewelry_chain_star': Color(0xFFDDA0DD),
+    'jewelry_crest_sovereign': Color(0xFFDAA520),
+    'acc_none': Colors.transparent,
+    'acc_bag_day': Color(0xFF8B4513),
+    'acc_scarf': Color(0xFFDC143C),
+    'acc_glasses': Color(0xFF708090),
+    'acc_watch': Color(0xFFC0C0C0),
+    'acc_lantern': Color(0xFFFF8C00),
+    'acc_staff_path': Color(0xFF8B4513),
+    'acc_wings_soft': Color(0xFFE0FFFF),
+    'aura_none': Colors.transparent,
+    'aura_warm': Color(0xFFFFD700),
+    'aura_calm_blue': Color(0xFF00BFFF),
+    'aura_forest': Color(0xFF228B22),
+    'aura_ember': Color(0xFFFF4500),
+    'aura_starfield': Color(0xFF191970),
+    'aura_sovereign': Color(0xFFDAA520),
+    'season_solstice_crown': Color(0xFFE0FFFF),
+    'season_solstice_cloak': Color(0xFFB0E0E6),
+    'season_equinox_bloom': Color(0xFFFFB6C1),
+    'season_harvest_lantern': Color(0xFFFF8C00),
+    'season_newyear_spark': Color(0xFFFFD700),
+    'season_always_comet': Color(0xFF00BFFF),
   };
 
   static final Map<String, LottieComposition?> _compositionCache = {};
@@ -117,10 +208,15 @@ class AvatarVisualLayer extends StatefulWidget {
   State<AvatarVisualLayer> createState() => _AvatarVisualLayerState();
 }
 
-class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
+class _AvatarVisualLayerState extends State<AvatarVisualLayer>
+    with TickerProviderStateMixin {
   LottieComposition? _auraComposition;
   LottieComposition? _moodComposition;
   String _resolvedMoodKey = '';
+
+  // Celebration animation controller for mood flash on Sparks earn
+  late final AnimationController _celebrationController;
+  bool _isCelebrating = false;
 
   String get _equippedAuraId =>
       widget.pet.slot(CosmeticCategory.aura) ?? '';
@@ -135,6 +231,22 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
         };
 
   @override
+  void initState() {
+    super.initState();
+    _celebrationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _resolveAnimations();
+  }
+
+  @override
+  void dispose() {
+    _celebrationController.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant AvatarVisualLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pet.slot(CosmeticCategory.aura) != _equippedAuraId ||
@@ -143,12 +255,19 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
         oldWidget.pet.mood != widget.pet.mood) {
       _resolveAnimations();
     }
+    // Trigger celebration when sparks increase
+    if (oldWidget.pet.sparks < widget.pet.sparks) {
+      _triggerCelebration();
+    }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _resolveAnimations();
+  /// Trigger celebration animation (mood flash + scale pulse) when Sparks earned
+  void _triggerCelebration() {
+    if (_isCelebrating) return;
+    setState(() => _isCelebrating = true);
+    _celebrationController.forward(from: 0).then((_) {
+      if (mounted) setState(() => _isCelebrating = false);
+    });
   }
 
   Future<void> _resolveAnimations() async {
@@ -236,8 +355,19 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer> {
             size: Size.square(size),
             painter: AvatarPainter(pet),
           ),
+          // Celebration overlay: flash + scale pulse when Sparks earned
+          _buildCelebrationOverlay(size),
         ],
       ),
+    );
+  }
+
+  Widget _buildCelebrationOverlay(double size) {
+    if (!_isCelebrating) return const SizedBox.shrink();
+    return _CelebrationOverlay(
+      size: size,
+      progress: _celebrationController.value,
+      color: AppColors.accent,
     );
   }
 }
@@ -266,4 +396,41 @@ class _SimpleGlowPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SimpleGlowPainter oldDelegate) =>
       oldDelegate.color != color;
+}
+
+/// Celebration overlay: radial flash + scale pulse when Sparks earned.
+class _CelebrationOverlay extends StatelessWidget {
+  final double size;
+  final double progress; // 0.0 to 1.0
+  final Color color;
+
+  const _CelebrationOverlay({
+    required this.size,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final flashOpacity = (1.0 - progress).clamp(0.0, 1.0);
+    final scale = 1.0 + 0.15 * (1.0 - (progress - 0.5).abs() * 2.0);
+    return Transform.scale(
+      scale: scale,
+      child: Opacity(
+        opacity: (1.0 - progress).clamp(0.0, 1.0),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+gradient: RadialGradient(
+              colors: [
+                color.withAlpha((0.6 * (1.0 - progress).clamp(0.0, 1.0) * 255).round()),
+                color.withAlpha(0),
+              ],
+            ),
+          ),
+        ),
+      );
+  }
 }

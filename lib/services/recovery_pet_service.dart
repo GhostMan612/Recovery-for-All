@@ -61,6 +61,9 @@ class RecoveryPet {
   final String speciesId;
   final int lastFedAt;
   final int createdAt;
+  // R19: Trials gear score & path level
+  final int pathLevel;
+  final int pathXp;
 
   RecoveryPet({
     required this.id,
@@ -75,6 +78,8 @@ class RecoveryPet {
     this.speciesId = PetSpeciesCatalog.emberKitId,
     required this.lastFedAt,
     required this.createdAt,
+    this.pathLevel = 1,
+    this.pathXp = 0,
   });
 
   String? slot(dynamic category) {
@@ -85,6 +90,75 @@ class RecoveryPet {
 
   /// Low energy means restful, never dead ("I'm here when you are").
   bool get isResting => energy < 25;
+
+  /// Calculates the total gear score based on equipped cosmetics.
+  /// Each equipped item contributes its cost as gear score.
+  /// Free/base items (cost 0) contribute 0.
+  /// Seasonal/launch items count if currently equipped.
+  int get gearScore {
+    int score = 0;
+    for (final entry in equippedSlots.entries) {
+      final itemId = entry.value;
+      final item = PetCosmeticCatalog.all
+          .where((c) => c.id == itemId)
+          .firstOrNull;
+      if (item != null) {
+        score += item.cost;
+      }
+    }
+    return score;
+  }
+
+  /// Calculates the Path Level based on total gear score and path XP.
+  /// Each 500 gear score = 1 Path Level.
+  /// Each 100 path XP = 1 Path Level.
+  int get pathLevelComputed {
+    final gearLevels = gearScore ~/ 500;
+    final xpLevels = pathXp ~/ 100;
+    return 1 + gearLevels + xpLevels;
+  }
+
+  /// Number of ability slots available in Trials based on Path Level.
+  /// Base 2 slots at Level 1, +1 slot every 2 levels (max 6).
+  int get abilitySlots {
+    final level = pathLevelComputed;
+    return (2 + (level - 1) ~/ 2).clamp(2, 6);
+  }
+
+  /// Creates a copy of this pet with the given fields replaced.
+  RecoveryPet copyWith({
+    String? id,
+    String? name,
+    int? energy,
+    int? bond,
+    PetMoodX? mood,
+    int? sparks,
+    List<String>? unlockedItems,
+    String? equippedOutfit,
+    Map<String, String>? equippedSlots,
+    String? speciesId,
+    int? lastFedAt,
+    int? createdAt,
+    int? pathLevel,
+    int? pathXp,
+  }) {
+    return RecoveryPet(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      energy: energy ?? this.energy,
+      bond: bond ?? this.bond,
+      mood: mood ?? this.mood,
+      sparks: sparks ?? this.sparks,
+      unlockedItems: unlockedItems ?? this.unlockedItems,
+      equippedOutfit: equippedOutfit ?? this.equippedOutfit,
+      equippedSlots: equippedSlots ?? this.equippedSlots,
+      speciesId: speciesId ?? this.speciesId,
+      lastFedAt: lastFedAt ?? this.lastFedAt,
+      createdAt: createdAt ?? this.createdAt,
+      pathLevel: pathLevel ?? this.pathLevel,
+      pathXp: pathXp ?? this.pathXp,
+    );
+  }
 }
 
 /// Adoptable companion styles ("single companion vs unlockable species"
@@ -839,6 +913,9 @@ class RecoveryPetService {
       'speciesId': pet.speciesId,
       'lastFedAt': pet.lastFedAt,
       'createdAt': pet.createdAt,
+      // R19: Trials gear score & path level
+      'pathLevel': pet.pathLevel,
+      'pathXp': pet.pathXp,
     };
     await prefs.setString(_keyPet, jsonEncode(data));
   }

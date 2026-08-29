@@ -3,7 +3,12 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/app_colors.dart';
@@ -11,6 +16,7 @@ import '../database/recovery_database.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
+import '../widgets/recovery_pet_card.dart';
 import 'avatar_dresser_screen.dart';
 import 'pet_trials_screen.dart';
 
@@ -95,6 +101,63 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     }
   }
 
+  /// Share pet card as image via share_plus (alias-only, C1–C5 compliant).
+  Future<void> _sharePetCard(RecoveryPet pet) async {
+    final key = GlobalKey();
+    if (!mounted) return;
+    
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 0,
+        left: 0,
+        child: RepaintBoundary(
+          key: key,
+          child: Material(
+            color: Colors.transparent,
+            child: RecoveryPetCard(
+              pet: pet,
+              onCheckIn: null,
+              onWalk: null,
+              onOpen: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    Overlay.of(context).insert(overlayEntry);
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    try {
+      final renderObject = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (renderObject == null) throw Exception('Could not find render object');
+      
+      final image = await renderObject.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) throw Exception('Failed to capture image');
+      
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/pet_card_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+      
+      // Use SharePlus instance (not deprecated Share.shareXFiles)
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Meet ${pet.name}! ✦${pet.sparks} Sparks · ${pet.bond}% Bond · ${pet.mood.emoji} ${pet.mood.label}',
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share: $e'), backgroundColor: AppColors.bgCard),
+        );
+      }
+    } finally {
+      overlayEntry.remove();
+    }
+  }
+
   /// Memory-wall copy (P2.3): the pet_events ledger retold in the
   /// companion's voice. Read-only — nothing new persisted.
   String _memoryLine(PetEventRow e) {
@@ -165,6 +228,13 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
         backgroundColor: const Color(0xFF1E293B),
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Companion', style: TextStyle(color: Colors.white)),
+        actions: [
+          IconButton(
+            tooltip: 'Share Pet Card',
+            icon: const Icon(Icons.share_outlined, color: Colors.white70),
+            onPressed: pet == null ? null : () => _sharePetCard(pet),
+          ),
+        ],
       ),
       body: pet == null
           ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
