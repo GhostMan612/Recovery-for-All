@@ -110,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen>
                   context,
                   MaterialPageRoute(
                       builder: (context) =>
-                          DashboardScreen(database: widget.database)),
+                          DashboardScreen(database: widget.database, isFirstLaunch: true)),
                 );
               },
             ),

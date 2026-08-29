@@ -48,11 +48,13 @@ import 'wellness_check_in_screen.dart';
 import '../widgets/recovery_pet_card.dart';
 import '../widgets/walk_tracking_dialog.dart';
 import '../widgets/tutorial_chatbot_dialog.dart';
+import '../widgets/step_counter_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final RecoveryDatabase database;
+  final bool isFirstLaunch;
 
-  const DashboardScreen({super.key, required this.database});
+  const DashboardScreen({super.key, required this.database, this.isFirstLaunch = false});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -97,6 +99,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserData();
     _loadSky();
     _loadLayoutPrefs();
+    if (widget.isFirstLaunch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openTutorialChatbot();
+      });
+    }
   }
 
   Future<void> _loadLayoutPrefs() async {
@@ -599,6 +606,44 @@ Future<void> _handleWalk() async {
       icon: Icons.map_outlined,
       onTap: _openMeetings,
     ));
+    // Step counter — shows daily steps, requests pedometer permission
+    cards.add(_ToolCard(
+      label: 'Step Counter',
+      subtitle: 'Track daily movement',
+      icon: Icons.directions_walk,
+      onTap: () {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: const Color(0xFF1E293B),
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (context) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Daily Steps',
+                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Track movement. Verify walks. Earn Sparks.',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  StepCounterCard(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    ));
 
     for (final tool in _tools) {
       if (tool == 'Encrypted Journal' || tool == 'Meeting Finder' || tool == 'Wellness Check-In') continue;
@@ -794,7 +839,7 @@ Future<void> _handleWalk() async {
                         enabled: sponsorPhone != null,
                         onTap: sponsorPhone != null ? () {
                           Navigator.pop(sheetContext);
-                          _callNumber(sponsorPhone!);
+                          _callNumber(sponsorPhone);
                         } : null,
                       ),
                     ),

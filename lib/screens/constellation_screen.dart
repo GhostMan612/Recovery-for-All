@@ -3,6 +3,13 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+// lib/screens/constellation_screen.dart
+//
+// Recovery Constellation — the user's path rendered as a living star map.
+// Growth pattern: category-based phyllotaxis branches — each category forms
+/// its own spiral arm, preventing clustering and creating natural milestone
+/// branches. Stars of the same category form connected spiral arms.
+
 import 'dart:math' as math;
 import 'dart:math';
 
@@ -18,12 +25,14 @@ import 'constellation_canvas_3d.dart';
 
 /// Recovery Constellation — the user's path rendered as a living star map.
 ///
-/// Growth pattern: phyllotaxis (sunflower spiral) — each new star extends
-/// outward from the center at a golden angle, so the constellation naturally
-/// spreads as milestones accumulate. Never clusters.
+/// Growth pattern: category-based phyllotaxis (sunflower spiral) — each 
+/// category forms its own spiral arm, preventing clustering and creating
+/// natural milestone branches. Stars of the same category form connected
+/// spiral arms.
 ///
-/// Features: category-colored stars, pinch/slide zoom, animated starfield
-/// background, tap-for-details, manual star addition.
+/// Features: category-colored stars, pinch/slide zoom (1x-10x), animated 
+/// starfield background, tap-for-details, manual star addition, 3D view toggle,
+/// star focus with detail panel, category branch lines.
 class ConstellationScreen extends StatefulWidget {
   final RecoveryDatabase database;
 
@@ -47,32 +56,62 @@ const Map<String, Color> _kCategoryColors = {
 Color _colorForCategory(String category) =>
     _kCategoryColors[category] ?? AppColors.accent;
 
-// ---- phyllotaxis positioning ----
+// ---- category-based phyllotaxis positioning ----
 
-/// Computes star positions using a sunflower spiral — each star is placed
-/// at a golden-angle increment from the previous, with radius growing by
-/// sqrt(index) for even distribution. This replaces the old hash-based
-/// scatter that caused clustering.
+/// Computes star positions using category-based phyllotaxis branches — 
+/// each category forms its own spiral arm, preventing clustering and 
+/// creating natural milestone branches. Stars of the same category 
+/// (e.g., 'milestone', 'step_work') form connected spiral arms.
 List<ConstellationNode3D> _phyllotaxisNodes(List<ConstellationPoint> points) {
+  if (points.isEmpty) return [];
+  
   final sorted = [...points]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  
+  // Group points by category for branch formation
+  final categoryGroups = <String, List<ConstellationPoint>>{};
+  for (final p in sorted) {
+    categoryGroups.putIfAbsent(p.category, () => []).add(p);
+  }
+  
+  // Assign each category a base angle for its spiral arm
+  final categoryAngles = <String, double>{};
+  final categoryOrder = ['milestone', 'step_work', 'community', 'service', 'mindfulness', 'spiritual'];
+  for (int i = 0; i < categoryOrder.length; i++) {
+    categoryAngles[categoryOrder[i]] = i * (2 * math.pi / categoryOrder.length);
+  }
+  
   const goldenAngle = 2.399963; // radians (~137.5°)
   const maxRadius = 0.42;
-
-  return sorted.asMap().entries.map((entry) {
-    final index = entry.key;
-    final p = entry.value;
-    final angle = index * goldenAngle;
-    final radius = maxRadius * sqrt(index + 1) / sqrt(sorted.length + 1);
-    return ConstellationNode3D(
-      id: p.id,
-      title: p.title,
-      category: p.category,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(p.timestamp),
-      x: radius * cos(angle),
-      y: radius * sin(angle) * 0.7, // slight vertical squash for aesthetics
-      z: ((p.title.hashCode % 100) / 100 - 0.5) * 0.15,
-    );
-  }).toList();
+  
+  final nodes = <ConstellationNode3D>[];
+  
+  // Process each category as its own spiral arm (branch)
+  for (final category in categoryOrder) {
+    final catPoints = categoryGroups[category] ?? [];
+    if (catPoints.isEmpty) continue;
+    
+    final baseAngle = categoryAngles[category] ?? 0.0;
+    
+    for (int i = 0; i < catPoints.length; i++) {
+      final p = catPoints[i];
+      // Angle = base category angle + golden angle increment within category
+      final angle = baseAngle + i * goldenAngle;
+      // Radius grows with sqrt for even distribution within the branch
+      final radius = maxRadius * math.sqrt(i + 1) / math.sqrt(catPoints.length + 1);
+      
+      nodes.add(ConstellationNode3D(
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(p.timestamp),
+        x: radius * math.cos(angle),
+        y: radius * math.sin(angle) * 0.7,
+        z: ((p.title.hashCode % 100) / 100 - 0.5) * 0.15,
+      ));
+    }
+  }
+  
+  return nodes;
 }
 
 class _ConstellationScreenState extends State<ConstellationScreen> {
@@ -109,8 +148,7 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title:
-            const Text('Name your sky', style: TextStyle(color: Colors.white)),
+        title: const Text('Name your sky', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -124,12 +162,10 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child:
-                const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
           ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
             onPressed: () => Navigator.pop(dialogContext,
                 controller.text.trim().isEmpty ? null : controller.text.trim()),
             child: const Text('Save', style: TextStyle(color: Colors.white)),
@@ -200,24 +236,17 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
               ),
               const SizedBox(height: 6),
               const Text('Shapes travel. Day counts stay private.',
-                  style:
-                      TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.copy_all_outlined,
-                    color: AppColors.accent),
-                title: const Text('Copy shape',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                leading: const Icon(Icons.copy_all_outlined, color: AppColors.accent),
+                title: const Text('Copy shape', style: TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () => Navigator.pop(sheetContext, 'copy'),
               ),
               ListTile(
-                leading: const Icon(Icons.forum_outlined,
-                    color: AppColors.accent),
-                title: const Text('Post to Recovery Circle',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
-                subtitle: const Text('Shape only — never your numbers',
-                    style: TextStyle(
-                        color: AppColors.textMuted, fontSize: 12)),
+                leading: const Icon(Icons.forum_outlined, color: AppColors.accent),
+                title: const Text('Post to Recovery Circle', style: TextStyle(color: Colors.white, fontSize: 14)),
+                subtitle: const Text('Shape only — never your numbers', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 onTap: () => Navigator.pop(sheetContext, 'post'),
               ),
             ],
@@ -238,13 +267,11 @@ ${nodes.length} stars over $spanDays nights
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF1E293B),
-          content:
-              const Text('Star shape copied — your day counts stay private'),
+          content: const Text('Star shape copied — your day counts stay private'),
         ),
       );
     } else if (choice == 'post') {
-      final profile =
-          await widget.database.getProfile('active_user_profile');
+      final profile = await widget.database.getProfile('active_user_profile');
       await CommunityFeedService(widget.database).compose(
         authorAlias: profile?.anonymousUsername ?? 'Anonymous',
         body: '$name — ${nodes.length} stars over $spanDays nights',
@@ -253,10 +280,7 @@ ${nodes.length} stars over $spanDays nights
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
-          content: const Text('Constellation shared with the circle.'),
-        ),
+        SnackBar(backgroundColor: const Color(0xFF1E293B), content: const Text('Constellation shared with the circle.')),
       );
     }
   }
@@ -268,16 +292,13 @@ ${nodes.length} stars over $spanDays nights
   Future<void> _addManualStar() async {
     final titleController = TextEditingController();
     var category = 'milestone';
-    const categories = [
-      'milestone', 'step_work', 'community', 'service', 'mindfulness', 'spiritual',
-    ];
+    const categories = ['milestone', 'step_work', 'community', 'service', 'mindfulness', 'spiritual'];
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
-          title:
-              const Text('Add a star', style: TextStyle(color: Colors.white)),
+          title: const Text('Add a star', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -301,9 +322,7 @@ ${nodes.length} stars over $spanDays nights
                       label: Text(cat,
                           style: TextStyle(
                               fontSize: 11,
-                              color: category == cat
-                                  ? Colors.white
-                                  : AppColors.textMuted)),
+                              color: category == cat ? Colors.white : AppColors.textMuted)),
                       selected: category == cat,
                       selectedColor: AppColors.accent,
                       backgroundColor: AppColors.bgCard,
@@ -314,18 +333,8 @@ ${nodes.length} stars over $spanDays nights
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child:
-                  const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
-            ),
-            ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
-              onPressed: () => Navigator.pop(
-                  dialogContext, titleController.text.trim().isNotEmpty),
-              child: const Text('Add', style: TextStyle(color: Colors.white)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8)))),
+            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent), onPressed: () => Navigator.pop(dialogContext, titleController.text.trim().isNotEmpty), child: const Text('Add', style: TextStyle(color: Colors.white))),
           ],
         ),
       ),
@@ -333,26 +342,18 @@ ${nodes.length} stars over $spanDays nights
     if (saved != true) return;
 
     final title = titleController.text.trim();
-    await widget.database.addConstellationPoint(
-      ConstellationPoint(
-        id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        category: category,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        positionX: 0.5,
-        positionY: 0.5,
-      ),
-    );
+    await widget.database.addConstellationPoint(ConstellationPoint(
+      id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      category: category,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      positionX: 0.5,
+      positionY: 0.5,
+    ));
     await RecoveryPetService.logStar(title);
     await _load();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
-          content: Text(
-              '"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks'),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks')));
     }
   }
 
@@ -369,45 +370,21 @@ ${nodes.length} stars over $spanDays nights
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration:
-                        BoxDecoration(shape: BoxShape.circle, color: color),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(node.title,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text('${node.category} · ${date.month}/${date.day}/${date.year}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-              const SizedBox(height: 12),
-              Text(
-                'This star is part of ${_skyName ?? "your constellation"} — '
-                'a moment you chose to mark. It stays here forever.',
-                style: TextStyle(
-                    color: AppColors.textMuted, fontSize: 13, height: 1.45),
-              ),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(width: 14, height: 14, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(node.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+            ]),
+            const SizedBox(height: 6),
+            Text('${node.category} · ${date.day}/${date.month}/${date.year}', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            const SizedBox(height: 12),
+            Text('This star is part of ${_skyName ?? "your constellation"} — a moment you chose to mark. It stays here forever.', style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.45)),
+          ]),
         ),
       ),
     );
@@ -427,27 +404,14 @@ ${nodes.length} stars over $spanDays nights
         iconTheme: const IconThemeData(color: Colors.white),
         title: GestureDetector(
           onTap: _renameSky,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(_skyName ?? 'Your Constellation',
-                    style: const TextStyle(color: Colors.white),
-                    overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.edit_outlined,
-                  size: 16, color: Colors.white38),
-            ],
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Flexible(child: Text(_skyName ?? 'Your Constellation', style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 6),
+            const Icon(Icons.edit_outlined, size: 16, color: Colors.white38),
+          ]),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Share shape',
-            icon: const Icon(Icons.ios_share, color: Colors.white70),
-            onPressed:
-                (nodes == null || nodes.isEmpty) ? null : _shareShape,
-          ),
+          IconButton(tooltip: 'Share shape', icon: const Icon(Icons.ios_share, color: Colors.white70), onPressed: (nodes == null || nodes.isEmpty) ? null : _shareShape),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -458,35 +422,29 @@ ${nodes.length} stars over $spanDays nights
         onPressed: _addManualStar,
       ),
       body: nodes == null
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
           : Column(
               children: [
                 Expanded(
                   child: nodes.isEmpty
                       ? _EmptySky(onSeed: () async {
                           await RecoveryPetService.ensureHatched();
-                          await widget.database.addConstellationPoint(
-                            ConstellationPoint(
-                              id: 'seed_first_path_${DateTime.now().millisecondsSinceEpoch}',
-                              title: 'Began My Recovery Path',
-                              category: 'milestone',
-                              timestamp:
-                                  DateTime.now().millisecondsSinceEpoch,
-                              positionX: 0.5,
-                              positionY: 0.5,
-                            ),
-                          );
-                          await RecoveryPetService.logStar(
-                              'Began My Recovery Path');
+                          await widget.database.addConstellationPoint(ConstellationPoint(
+                            id: 'seed_first_path_${DateTime.now().millisecondsSinceEpoch}',
+                            title: 'Began My Recovery Path',
+                            category: 'milestone',
+                            timestamp: DateTime.now().millisecondsSinceEpoch,
+                            positionX: 0.5,
+                            positionY: 0.5,
+                          ));
+                          await RecoveryPetService.logStar('Began My Recovery Path');
                           _load();
                         })
                       : _ConstellationCanvas(
                           nodes: nodes,
                           skyName: _skyName,
                           zoom: _zoom,
-                          onZoomChanged: (v) =>
-                              setState(() => _zoom = v),
+                          onZoomChanged: (v) => setState(() => _zoom = v),
                           onStarTap: _showStarDetails,
                         ),
                 ),
@@ -496,7 +454,7 @@ ${nodes.length} stars over $spanDays nights
   }
 }
 
-// ---- canvas widget with zoom + tap + starfield background ----
+// ---- canvas widget with zoom + tap + starfield background + 3D view + branch lines + star focus ----
 
 class _ConstellationCanvas extends StatefulWidget {
   final List<ConstellationNode3D> nodes;
@@ -517,52 +475,69 @@ class _ConstellationCanvas extends StatefulWidget {
   State<_ConstellationCanvas> createState() => _ConstellationCanvasState();
 }
 
-class _ConstellationCanvasState extends State<_ConstellationCanvas>
-    with TickerProviderStateMixin {
+class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerProviderStateMixin {
   late AnimationController _twinkleController;
   late AnimationController _zoomController;
+  late AnimationController _focusController;
   double _pinchBaseZoom = 1.0;
+  int? _focusedStarIndex;
+  bool _is3DView = false;
+  double _yaw = 0.0;
+  double _pitch = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _twinkleController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
-    // Unbounded: the controller holds ZOOM itself (1–3), not 0–1 progress.
-    // A default AnimationController clamps to 0..1, which silently killed
-    // every slider/pinch attempt.
-    _zoomController = AnimationController.unbounded(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-      value: widget.zoom,
-    );
+    _twinkleController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _zoomController = AnimationController.unbounded(vsync: this, duration: const Duration(milliseconds: 200), value: widget.zoom);
+    _focusController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+  }
+
+  @override
+  void didUpdateWidget(covariant _ConstellationCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.zoom != widget.zoom) _zoomController.value = widget.zoom;
   }
 
   @override
   void dispose() {
     _twinkleController.dispose();
     _zoomController.dispose();
+    _focusController.dispose();
     super.dispose();
+  }
+
+  void _focusOnStar(int index) {
+    setState(() {
+      _focusedStarIndex = index;
+      _focusController.forward(from: 0);
+    });
+    widget.onStarTap(index);
+  }
+
+  void _clearFocus() {
+    setState(() {
+      _focusedStarIndex = null;
+      _focusController.reverse();
+    });
+  }
+
+  void _toggle3DView() {
+    setState(() {
+      _is3DView = !_is3DView;
+      _clearFocus();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onScaleStart: (_) {
-        _pinchBaseZoom = _zoomController.value;
-      },
+      onScaleStart: (_) { _pinchBaseZoom = _zoomController.value; },
       onScaleUpdate: (details) {
-        // Two-finger pinch drives the zoom; single-finger drags report
-        // scale ≈ 1 and are therefore harmless here.
         final next = (_pinchBaseZoom * details.scale).clamp(1.0, 10.0);
-        if ((next - _zoomController.value).abs() > 0.001) {
-          _zoomController.value = next;
-        }
+        if ((next - _zoomController.value).abs() > 0.001) _zoomController.value = next;
       },
       onTapUp: (details) {
-        // Find the closest star to the tap point.
         final size = context.size;
         if (size == null) return;
         double bestDist = double.infinity;
@@ -572,72 +547,153 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas>
           final px = size.width / 2 + node.x * size.width * 0.45 * _zoomController.value;
           final py = size.height / 2 + node.y * size.height * 0.45 * _zoomController.value;
           final dist = (details.localPosition - Offset(px, py)).distance;
-          if (dist < 30 && dist < bestDist) {
-            bestDist = dist;
-            bestIndex = i;
-          }
+          if (dist < 30 && dist < bestDist) { bestDist = dist; bestIndex = i; }
         }
-        if (bestIndex != null) widget.onStarTap(bestIndex);
+        if (bestIndex != null) _focusOnStar(bestIndex); else _clearFocus();
       },
       child: Stack(
         fit: StackFit.expand,
         children: [
           // Animated starfield background
+          AnimatedBuilder(animation: _twinkleController, builder: (context, _) => CustomPaint(painter: _StarFieldPainter(time: _twinkleController.value))),
+          // Main constellation with zoom + branch lines + focus highlight
           AnimatedBuilder(
-            animation: _twinkleController,
-            builder: (context, _) => CustomPaint(
-              painter: _StarFieldPainter(
-                time: _twinkleController.value,
-              ),
-            ),
+            animation: Listenable.merge([_zoomController, _focusController]),
+            builder: (context, _) => CustomPaint(painter: _ConstellationCanvasPainter(
+              nodes: widget.nodes,
+              zoom: _zoomController.value,
+              focusedIndex: _focusedStarIndex,
+              focusProgress: _focusController.value,
+            )),
           ),
-          // Main constellation with zoom (rebuilds on controller ticks —
-          // slider and pinch both write straight to the controller).
-          AnimatedBuilder(
-            animation: _zoomController,
-            builder: (context, _) => CustomPaint(
-              painter: Constellation3DPainter(
-                nodes: widget.nodes,
-                yaw: 0,
-                pitch: 0,
-                zoom: _zoomController.value,
-              ),
-            ),
-          ),
+          // 3D view toggle
+          Positioned(left: 16, top: 12, child: Material(
+            color: const Color(0xFF1E293B).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(onTap: _toggle3DView, borderRadius: BorderRadius.circular(12), child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(_is3DView ? Icons.view_in_ar : Icons.crop_rotate, color: _is3DView ? AppColors.accent : Colors.white70, size: 20),
+                const SizedBox(width: 6),
+                Text(_is3DView ? '3D View' : '2D View', style: TextStyle(color: _is3DView ? AppColors.accent : Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ]),
+            )),
+          )),
+          // Focus info badge
+          if (_focusedStarIndex != null)
+            Positioned(top: 60, left: 16, right: 16, child: AnimatedBuilder(animation: _focusController, builder: (context, _) => Opacity(opacity: _focusController.value, child: Transform.translate(
+              offset: Offset(0, 20 * (1 - _focusController.value)),
+              child: Material(color: const Color(0xFF1E293B).withValues(alpha: 0.95), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.all(16), child: _buildFocusInfo(widget.nodes[_focusedStarIndex!])),
+            ))))),
+          // 3D view
+          if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
           // Zoom slider (bottom)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 12,
-            child: Row(
-              children: [
-                const Icon(Icons.zoom_out, size: 16, color: Colors.white38),
-                Expanded(
-                  child: Slider(
-                    value: _zoomController.value,
-                    min: 1.0,
-                    max: 10.0,
-                    activeColor: AppColors.accent,
-                    onChanged: (v) => _zoomController.value = v,
-                  ),
-                ),
-                const Icon(Icons.zoom_in, size: 16, color: Colors.white38),
-              ],
-            ),
-          ),
+          Positioned(left: 16, right: 16, bottom: 12, child: Row(children: [
+            const Icon(Icons.zoom_out, size: 16, color: Colors.white38),
+            Expanded(child: Slider(value: _zoomController.value, min: 1.0, max: 10.0, activeColor: AppColors.accent, onChanged: (v) => _zoomController.value = v)),
+            const Icon(Icons.zoom_in, size: 16, color: Colors.white38),
+          ])),
           // Sky name label
-          if (widget.skyName != null)
-            Positioned(
-              left: 12,
-              top: 8,
-              child: Text(widget.skyName!,
-                  style: TextStyle(
-                      color: AppColors.textMuted.withValues(alpha: 0.5),
-                      fontSize: 11)),
-            ),
+          if (widget.skyName != null) Positioned(left: 12, top: 8, child: Text(widget.skyName!, style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.5), fontSize: 11))),
         ],
       ),
     );
+  }
+
+  Widget _buildFocusInfo(ConstellationNode3D node) {
+    final color = _colorForCategory(node.category);
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(node.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+        IconButton(icon: const Icon(Icons.close, color: Colors.white70, size: 20), onPressed: _clearFocus),
+      ]),
+      const SizedBox(height: 8),
+      Text('${node.category} · ${node.timestamp.day}/${node.timestamp.month}/${node.timestamp.year}', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: ElevatedButton.icon(onPressed: () { _clearFocus(); widget.onStarTap(widget.nodes.indexOf(node)); }, icon: const Icon(Icons.info_outline, size: 18), label: const Text('Details'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.black))),
+        const SizedBox(width: 8),
+        Expanded(child: OutlinedButton.icon(onPressed: () { _clearFocus(); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Quick actions coming soon'))); }, icon: const Icon(Icons.star_border, size: 18), label: const Text('Quick Action'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent))),
+      ]),
+    ]);
+  }
+
+  Color _colorForCategory(String category) => _kCategoryColors[category] ?? AppColors.accent;
+}
+
+/// Custom painter for the 2D constellation canvas with branch lines and focus highlight
+class _ConstellationCanvasPainter extends CustomPainter {
+  final List<ConstellationNode3D> nodes;
+  final double zoom;
+  final int? focusedIndex;
+  final double focusProgress;
+
+  _ConstellationCanvasPainter({required this.nodes, required this.zoom, this.focusedIndex, this.focusProgress = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Group nodes by category for branch lines
+    final categoryGroups = <String, List<(ConstellationNode3D, int)>>{};
+    for (int i = 0; i < nodes.length; i++) {
+      final cat = nodes[i].category;
+      categoryGroups.putIfAbsent(cat, () => []).add((nodes[i], i));
+    }
+
+    // Draw branch lines first (behind stars)
+    final branchPaint = Paint()..color = const Color(0xFF38BDF8).withValues(alpha: 0.15)..strokeWidth = 1.5..style = PaintingStyle.stroke;
+
+    for (final entry in categoryGroups.entries) {
+      final catNodes = entry.value;
+      if (catNodes.length < 2) continue;
+      catNodes.sort((a, b) => a.$1.timestamp.compareTo(b.$1.timestamp));
+      for (int i = 1; i < catNodes.length; i++) {
+        final (prevNode, _) = catNodes[i - 1];
+        final (currNode, _) = catNodes[i];
+        final px1 = cx + prevNode.x * size.width * 0.45 * zoom;
+        final py1 = cy + prevNode.y * size.height * 0.45 * zoom;
+        final px2 = cx + currNode.x * size.width * 0.45 * zoom;
+        final py2 = cy + currNode.y * size.height * 0.45 * zoom;
+        final path = Path()..moveTo(px1, py1)..quadraticBezierTo((px1 + px2) / 2, (py1 + py2) / 2 - 30, px2, py2);
+        canvas.drawPath(path, branchPaint);
+      }
+    }
+
+    // Draw stars
+    for (int i = 0; i < nodes.length; i++) {
+      final node = nodes[i];
+      final px = cx + node.x * size.width * 0.45 * zoom;
+      final py = cy + node.y * size.height * 0.45 * zoom;
+      final color = _colorForCategory(node.category);
+      final isFocused = focusedIndex == i;
+      final focusScale = isFocused ? 1.0 + 0.5 * focusProgress : 1.0;
+      final focusAlpha = isFocused ? 1.0 : (focusProgress > 0 ? 0.3 : 1.0);
+
+      final glowPaint = Paint()..color = color.withValues(alpha: 0.4 * focusAlpha * focusScale)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0)..style = PaintingStyle.fill;
+      final starPaint = Paint()..color = color.withValues(alpha: focusAlpha)..style = PaintingStyle.fill;
+
+      final starSize = 6.0 * focusScale;
+      final glowSize = 14.0 * focusScale;
+
+      canvas.drawCircle(Offset(px, py), glowSize, glowPaint);
+      canvas.drawCircle(Offset(px, py), starSize, starPaint);
+
+      if (isFocused) {
+        final ringPaint = Paint()..color = color.withValues(alpha: 0.5 * focusProgress)..style = PaintingStyle.stroke..strokeWidth = 3.0;
+        canvas.drawCircle(Offset(px, py), starSize + 8 + 10 * focusProgress, ringPaint);
+      }
+    }
+  }
+
+  Color _colorForCategory(String category) => _kCategoryColors[category] ?? AppColors.accent;
+
+  @override
+  bool shouldRepaint(covariant _ConstellationCanvasPainter oldDelegate) {
+    return oldDelegate.zoom != zoom || oldDelegate.focusedIndex != focusedIndex || oldDelegate.focusProgress != focusProgress || oldDelegate.nodes != nodes;
   }
 }
 
@@ -649,54 +705,36 @@ class _StarFieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rnd = Random(42); // deterministic
+    final rnd = math.Random(42); // deterministic
     final paint = Paint();
     for (var i = 0; i < 80; i++) {
       final x = rnd.nextDouble() * size.width;
       final y = rnd.nextDouble() * size.height;
       final phase = (time * 2 * math.pi + i * 0.7) % (2 * math.pi);
-      final alpha = 0.08 + 0.18 * (0.5 + 0.5 * sin(phase));
+      final alpha = 0.08 + 0.18 * (0.5 + 0.5 * math.sin(phase));
       paint.color = Colors.white.withValues(alpha: alpha);
       canvas.drawCircle(Offset(x, y), 0.6 + rnd.nextDouble() * 1.0, paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) =>
-      oldDelegate.time != time;
+  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => oldDelegate.time != time;
 }
 
 class _EmptySky extends StatelessWidget {
   final Future<void> Function() onSeed;
-
   const _EmptySky({required this.onSeed});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.auto_awesome, color: AppColors.accent, size: 48),
-          const SizedBox(height: 16),
-          const Text('Your sky is waiting.',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
-          const SizedBox(height: 8),
-          const Text(
-            'Light your first star to mark the\nbeginning of your path.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: onSeed,
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white),
-            child: const Text('Begin My Path'),
-          ),
-        ],
-      ),
-    );
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Icon(Icons.auto_awesome, color: AppColors.accent, size: 48),
+      const SizedBox(height: 16),
+      const Text('Your sky is waiting.', style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
+      const SizedBox(height: 8),
+      const Text('Light your first star to mark the\nbeginning of your path.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+      const SizedBox(height: 20),
+      ElevatedButton(onPressed: onSeed, style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white), child: const Text('Begin My Path')),
+    ]));
   }
 }

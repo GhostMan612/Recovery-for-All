@@ -39,7 +39,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
   final List<_ChatMessage> _displayMessages = [];
 
   StreamSubscription? _messagesSub;
-  bool _isTyping = false;
+  final bool _isTyping = false;
 
   @override
   void initState() {
