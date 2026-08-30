@@ -8,7 +8,9 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import '../database/recovery_database.dart';
 import '../services/journal_crypto_service.dart';
+import '../services/narrative_export_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/chronicle_share_card.dart';
 
 class JournalScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -157,6 +159,101 @@ class _JournalScreenState extends State<JournalScreen> {
         '[Encrypted entry could not be opened with this key]';
   }
 
+  Future<void> _showChronicleGenerator(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+      ),
+    );
+
+    try {
+      final text = await NarrativeExportService.generateWeeklyChronicle(widget.database);
+      final pet = await RecoveryPetService.ensureHatched();
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        _showChronicleSheet(context, text, pet);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Generation failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _showChronicleSheet(BuildContext context, String text, RecoveryPet pet) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        bool isSaving = false;
+
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24.0,
+                right: 24.0,
+                top: 24.0,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Weekly Reflection',
+                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  ChronicleShareCard(chronicleText: text, pet: pet),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF38BDF8),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      icon: isSaving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
+                          : const Icon(Icons.bookmark, color: Color(0xFF0F172A)),
+                      label: Text(
+                        isSaving ? 'Saving...' : 'Save to Journal',
+                        style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setSheetState(() => isSaving = true);
+                              await NarrativeExportService.saveToJournal(widget.database, text);
+
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Chronicle securely encrypted and saved.')),
+                                );
+                              }
+                            },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_gate != _JournalGate.open) {
@@ -289,6 +386,11 @@ class _JournalScreenState extends State<JournalScreen> {
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8)),
+            tooltip: 'Generate Weekly Chronicle',
+            onPressed: () => _showChronicleGenerator(context),
+          ),
           IconButton(
             icon: const Icon(Icons.lock, color: Color(0xFFEF4444)),
             tooltip: 'Lock Journal',
