@@ -49,6 +49,7 @@ import '../widgets/recovery_pet_card.dart';
 import '../widgets/walk_tracking_dialog.dart';
 import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
+import '../widgets/next_meeting_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -1027,6 +1028,42 @@ Future<void> _handleWalk() async {
                 onWalk: _handleWalk,
                 onOpen: _openDresser,
               ),
+            const SizedBox(height: 16),
+            // R27: Predictive Next-Meeting Widget — live or next today from cache
+            FutureBuilder<List<RecoveryMeeting>>(
+              future: _meetingFinder.cachedMeetings(),
+              builder: (context, snapshot) {
+                final meetings = snapshot.data ?? const <RecoveryMeeting>[];
+                // Apply pathway tailoring to widget (same as finder) but keep fallback
+                var filtered = meetings;
+                final allowed = _allowedFellowships();
+                if (allowed != null && allowed.isNotEmpty && meetings.isNotEmpty) {
+                  final tail = meetings.where((m) => allowed.contains(m.fellowship)).toList();
+                  if (tail.isNotEmpty) filtered = tail;
+                }
+                final pick = filtered.isEmpty ? null : NextMeetingCard.pickNext(filtered, DateTime.now());
+                return NextMeetingCard(
+                  meeting: pick?.meeting,
+                  isLive: pick?.isLive ?? false,
+                  onOpenMap: pick == null
+                      ? null
+                      : () async {
+                          final (lat, lng) = await _resolveLocation();
+                          var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
+                          if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                          if (!context.mounted) return;
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
+                        },
+                  onFindMeetings: () async {
+                    final (lat, lng) = await _resolveLocation();
+                    var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
+                    if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                    if (!context.mounted) return;
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
+                  },
+                );
+              },
+            ),
             const SizedBox(height: 20),
             Row(
               children: [

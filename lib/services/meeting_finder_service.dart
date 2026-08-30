@@ -545,6 +545,9 @@ class MeetingFinderService {
     }
   }
 
+  /// Public accessor for widgets (R27). Returns cached meetings without network.
+  Future<List<RecoveryMeeting>> cachedMeetings() => _cachedMeetings();
+
   List<RecoveryMeeting> sortByDistance(
     List<RecoveryMeeting> meetings,
     double lat,
