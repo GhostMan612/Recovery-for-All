@@ -483,8 +483,6 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   double _pinchBaseZoom = 1.0;
   int? _focusedStarIndex;
   bool _is3DView = false;
-  final double _yaw = 0.0;
-  final double _pitch = 0.0;
 
   @override
   void initState() {

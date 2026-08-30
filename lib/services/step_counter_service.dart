@@ -26,20 +26,6 @@ class StepCounterService {
   static final StepCounterService _instance = StepCounterService._();
   static StepCounterService get instance => _instance;
 
-  // Walk verification keys
-  static const String _keyWalkSteps = 'walk_verification_steps_v1';
-  static const String _keyWalkStartTime = 'walk_start_time_v1';
-  static const String _keyWalkVerified = 'walk_verified_v1';
-
-  // Daily step counter keys
-  static const String _keyDailySteps = 'daily_steps_v1';
-  static const String _keyDailyStepsDate = 'daily_steps_date_v1';
-  static const String _keyPermissionRequested = 'pedometer_permission_requested_v1';
-
-  // Sparks awards
-  static const String _keyDailySparksAwarded = 'daily_sparks_awarded_v1';
-  static const String _keyLastSparksAwardStep = 'last_sparks_award_step_v1';
-
   /// Minimum steps required to verify a walk (approx. 500 steps = ~5 min walk)
   static const int minStepsForWalk = 500;
 

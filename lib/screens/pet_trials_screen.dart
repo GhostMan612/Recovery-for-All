@@ -380,9 +380,6 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   }
 
   Widget _buildLobby(RecoveryPet pet) {
-    final gearScore = pet.gearScore;
-    final pathLevel = pet.pathLevelComputed;
-    final abilitySlots = pet.abilitySlots;
     return FutureBuilder<int>(
       future: _battlesToday(),
       builder: (context, snapshot) {
