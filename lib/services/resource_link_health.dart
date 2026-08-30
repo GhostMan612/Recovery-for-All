@@ -96,23 +96,48 @@ class ResourceLinkHealth {
 
   /// Single live check. Returns true/false on a definitive HTTP answer,
   /// null when we simply could not reach the internet (inconclusive).
+  /// ASK-6: HEAD first (bandwidth), fallback to GET Range on 405.
   Future<bool?> checkUrl(String url) async {
+    // Try HEAD first (saves bandwidth); many CDNs/servers reject HEAD with 405.
+    Future<http.Response> doHead() => http
+        .head(Uri.parse(url), headers: {
+          'User-Agent': 'Mozilla/5.0 (RecoveryForAll link checker)',
+          'Accept': '*/*',
+        })
+        .timeout(_timeout)
+        .catchError((_) => http.Response('', 0));
+    Future<http.Response> doGet() => http
+        .get(Uri.parse(url), headers: {
+          'Range': 'bytes=0-1023',
+          'User-Agent': 'Mozilla/5.0 (RecoveryForAll link checker)',
+          'Accept': '*/*',
+        })
+        .timeout(_timeout)
+        .catchError((_) => http.Response('', 0));
+
     try {
-      final resp = await http
-          .get(Uri.parse(url),
-              headers: {
-                'Range': 'bytes=0-1023',
-                'User-Agent': 'Mozilla/5.0 (RecoveryForAll link checker)',
-                'Accept': '*/*',
-              })
-          .timeout(_timeout)
-          .then((r) => r)
-          .catchError((_) => http.Response('', 0));
-      // 0 = transport-level failure (offline, DNS, TLS) → inconclusive.
+      var resp = await doHead();
+      if (resp.statusCode == 405 || resp.statusCode == 501) {
+        resp = await doGet();
+      } else if (resp.statusCode == 0) {
+        // Transport failure on HEAD (offline/DNS) — don't try GET
+        return null;
+      } else if (resp.statusCode >= 200 && resp.statusCode < 400) {
+        return true;
+      } else if (resp.statusCode == 429) {
+        return true; // rate-limited means EXISTS
+      } else if (resp.statusCode >= 400) {
+        // 4xx/5xx on HEAD may be HEAD-specific; fallback once to GET
+        final getResp = await doGet();
+        if (getResp.statusCode == 0) return null;
+        return getResp.statusCode >= 200 && getResp.statusCode < 400 ||
+            getResp.statusCode == 405 ||
+            getResp.statusCode == 429;
+      }
       if (resp.statusCode == 0) return null;
       return resp.statusCode >= 200 && resp.statusCode < 400 ||
-          resp.statusCode == 405 || // method-not-allowed still means ALIVE
-          resp.statusCode == 429; // rate-limited means the site EXISTS
+          resp.statusCode == 405 ||
+          resp.statusCode == 429;
     } catch (_) {
       return null;
     }
@@ -120,6 +145,9 @@ class ResourceLinkHealth {
 
   /// Refresh expired entries (screen-open pass). Returns how many were
   /// actually re-checked this pass.
+  /// Gap G: already async (non-blocking) + staggered 250ms + 20 cap;
+  /// true `compute()` Isolate is WRONG for http (async + SharedPreferences
+  /// not sendable) — HTTP is I/O-bound, not CPU. Keep async, HEAD-first.
   Future<int> ensureFresh(List<String> urls) async {
     if (_busy) return 0;
     _busy = true;

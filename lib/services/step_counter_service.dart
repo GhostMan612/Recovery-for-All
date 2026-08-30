@@ -99,7 +99,9 @@ class StepCounterService {
   int getDailySteps() => _lastStepCount;
 
   /// Get daily steps asynchronously (forces refresh)
+  /// Gap D fix: reset at midnight boundary before returning (prevents double-award).
   Future<int> getDailyStepsAsync() async {
+    await _resetDailyStepsIfNewDay();
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('daily_steps_v1') ?? _lastStepCount;
   }

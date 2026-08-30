@@ -43,6 +43,9 @@ class GgufModelInfo {
   final DeviceTier minTier;
   final int contextWindow;
   final String quantization;
+  /// SHA-256 hex for integrity check after download (Gap B).
+  /// When null, verification is skipped (legacy catalog entries).
+  final String? sha256Hex;
 
   const GgufModelInfo({
     required this.id,
@@ -53,6 +56,7 @@ class GgufModelInfo {
     required this.minTier,
     required this.contextWindow,
     required this.quantization,
+    this.sha256Hex,
   });
 
   String get fileSizeMb => '${(fileSizeBytes / (1024 * 1024)).round()} MB';
@@ -91,7 +95,12 @@ class GgufModelService {
   DeviceTier _deviceTier = DeviceTier.low;
   bool _tierDetected = false;
 
-  // ---- model catalog (2026 research) ----
+  // ---- model catalog (2026 research, ASK-1 + Gap B) ----
+  // Adaptive defaulting (Gemini ASK-1 Option 3): Gemma 3 270M QAT fits ~350 MB RSS
+  // on 4 GB Moto G 2025. We KEEP opt-in (privacy/metered-data) but surface a
+  // one-time suggestion for medium tier instead of silent auto-download.
+  // SHA-256 TODO: fill from `sha256sum` of verified HF download; when present
+  // downloadModel will verify and retry once (see downloadModel below).
 
   static const List<GgufModelInfo> catalog = [
     GgufModelInfo(
@@ -107,6 +116,7 @@ class GgufModelService {
       minTier: DeviceTier.medium,
       contextWindow: 4096,
       quantization: 'Q4_K_M',
+      sha256Hex: null, // TODO: populate after verified download
     ),
     GgufModelInfo(
       id: 'qwen35_08b',
@@ -119,6 +129,7 @@ class GgufModelService {
       minTier: DeviceTier.medium,
       contextWindow: 8192,
       quantization: 'Q4_K_M',
+      sha256Hex: null,
     ),
     GgufModelInfo(
       id: 'smollm2_17b',
@@ -131,6 +142,7 @@ class GgufModelService {
       minTier: DeviceTier.high,
       contextWindow: 8192,
       quantization: 'Q4_K_M',
+      sha256Hex: null,
     ),
     GgufModelInfo(
       id: 'phi4mini',
@@ -143,6 +155,7 @@ class GgufModelService {
       minTier: DeviceTier.premium,
       contextWindow: 16384,
       quantization: 'Q4_K_M',
+      sha256Hex: null,
     ),
   ];
 

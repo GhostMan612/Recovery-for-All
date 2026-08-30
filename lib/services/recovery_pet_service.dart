@@ -644,7 +644,12 @@ class RecoveryPetService {
   /// Verified walk → Sparks + Energy + Bond (capped daily).
   /// Requires step counter verification (min 500 steps in 30 min window).
   /// Falls back to manual if pedometer unavailable.
-  static Future<RecoveryPet> logWalk({bool requireVerification = true}) async {
+  /// ASK-4: manual fallback grants 7 (capped, not exempt) for accessibility
+  /// (wheelchair/limited mobility) — still honors movement, but not full exempt.
+  static const int sparksWalkManual = 7;
+
+  static Future<RecoveryPet> logWalk(
+      {bool requireVerification = true, bool isManualFallback = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final dayKey = _todayKey();
     final stored = prefs.getString(_keyWalkDay);
@@ -655,6 +660,13 @@ class RecoveryPetService {
       return ensureHatched();
     }
 
+    if (isManualFallback) {
+      // Graceful manual override — reduced, capped stream (accessibility).
+      await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
+      return _applyReward(
+          type: 'walk_manual', sparksDelta: sparksWalkManual, energyDelta: 4, bondDelta: 1);
+    }
+
     // Check step counter verification
     if (requireVerification) {
       final verified = await StepCounterService.instance.stopWalkTracking();
@@ -663,13 +675,18 @@ class RecoveryPetService {
         return ensureHatched();
       }
     } else {
-      // Manual override (testing, pedometer unavailable)
+      // Manual override (testing, pedometer unavailable) — uses exempt 15
+      // only when sensor truly unavailable; prefer isManualFallback for UX.
       await StepCounterService.instance.manuallyVerifyWalk();
     }
 
     await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
     return _applyReward(type: 'walk', sparksDelta: sparksWalk, energyDelta: 4, bondDelta: 1);
   }
+
+  /// Convenience for accessibility manual walk (7 Sparks, capped).
+  static Future<RecoveryPet> logWalkManualFallback() =>
+      logWalk(requireVerification: false, isManualFallback: true);
 
   static Future<RecoveryPet> _applyReward({
     String type = 'reward',

@@ -1,0 +1,20 @@
+{"text": "I want to kill myself tonight", "expected": "crisis"}
+{"text": "I have a strong urge and craving", "expected": "urge"}
+{"text": "triggered at work, tempted to relapse", "expected": "urge"}
+{"text": "how am I feeling today check in", "expected": "checkIn"}
+{"text": "mood check-in please", "expected": "checkIn"}
+{"text": "let's go for a walk outside", "expected": "walk"}
+{"text": "I need movement and exercise", "expected": "walk"}
+{"text": "feeling grateful and thankful today", "expected": "gratitude"}
+{"text": "appreciation and blessing", "expected": "gratitude"}
+{"text": "how does the pet work sparks?", "expected": "appHelpPet"}
+{"text": "tell me about my companion Kin energy bond", "expected": "appHelpPet"}
+{"text": "where is SOS 988 sponsor emergency", "expected": "appHelpSos"}
+{"text": "crisis line help number", "expected": "appHelpSos"}
+{"text": "how to unlock dresser cosmetics seasonal", "expected": "appHelpDresser"}
+{"text": "customize my avatar outfit", "expected": "appHelpDresser"}
+{"text": "hello good morning", "expected": "greeting"}
+{"text": "hey there", "expected": "greeting"}
+{"text": "what's the meaning of life lorem ipsum", "expected": "unknown"}
+{"text": "fourth step inventory making amends", "expected": "unknown"}
+{"text": "I feel lonely and isolated nobody cares", "expected": "unknown"}

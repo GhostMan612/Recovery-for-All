@@ -57,6 +57,8 @@ class GgufInferenceService {
 
   /// Generates a response for the given prompt.
   /// Returns null if the model isn't loaded or generation fails.
+  /// Cooperative yielding every 15 tokens prevents ANR/watchdog kills
+  /// on Samsung (ASK-1: background watchdog >90s on blocked UI thread).
   static Future<String?> generate(
     String prompt, {
     int maxTokens = 256,
@@ -69,11 +71,21 @@ class GgufInferenceService {
       final buffer = StringBuffer();
       var tokenCount = 0;
 
-      await for (final token in _llama!.generateText()) {
-        buffer.write(token);
-        tokenCount++;
-        if (tokenCount >= maxTokens) break;
-      }
+      // Timeout the entire generation; fallback to scripted coach on expiry.
+      await Future<void>(() async {
+        await for (final token in _llama!.generateText()) {
+          buffer.write(token);
+          tokenCount++;
+          // Yield to event loop every 15 tokens — keeps watchdog happy
+          // and lets UI remain responsive on 4 GB Moto G 2025.
+          if (tokenCount % 15 == 0) {
+            await Future<void>.delayed(Duration.zero);
+          }
+          if (tokenCount >= maxTokens) break;
+        }
+      }).timeout(timeout, onTimeout: () {
+        debugPrint('[gguf] generation timed out after $timeout');
+      });
 
       final result = buffer.toString().trim();
       debugPrint('[gguf] generated $tokenCount tokens, ${result.length} chars');

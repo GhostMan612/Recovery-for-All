@@ -16,6 +16,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import 'recovery_coach_service.dart';
@@ -30,10 +31,36 @@ class CoachTfliteIntentService {
   static const double minConfidence = 0.14;
 
   /// Set true to skip the model entirely (low-RAM devices / settings toggle).
+  /// Persisted to prefs (Gap A) so fallback survives restart; surface a
+  /// one-time "using keywords" notice via debugPrint (UI toast optional).
   static bool forceKeywordOnly = false;
+  static const String _keyForceKeyword = 'coach_tflite_force_keyword_v1';
   static int minFreeRamMb = 1024;
   static bool _available = false;
   static bool _loadAttempted = false;
+
+  /// Load persisted forceKeywordOnly before first use (call at app boot).
+  static Future<void> loadPersistedForceKeyword() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      forceKeywordOnly = prefs.getBool(_keyForceKeyword) ?? false;
+      if (forceKeywordOnly) {
+        debugPrint('CoachTflite: forceKeywordOnly restored from prefs');
+      }
+    } catch (_) {}
+  }
+
+  /// Persist the user/system choice to skip TFLite.
+  static Future<void> setForceKeywordOnly(bool value) async {
+    forceKeywordOnly = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyForceKeyword, value);
+      if (value) {
+        debugPrint('CoachTflite: Intent classifier unavailable — using keywords.');
+      }
+    } catch (_) {}
+  }
 
   /// Order must match LABELS in tools/train_coach_intent.py.
   static const List<CoachIntent> labelOrder = [
@@ -62,7 +89,16 @@ class CoachTfliteIntentService {
   static Future<void> loadModel() async {
     if (_loadAttempted) return;
     _loadAttempted = true;
-    if (forceKeywordOnly) return;
+    // Respect persisted opt-out even if caller never called loadPersistedForceKeyword.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final persisted = prefs.getBool(_keyForceKeyword);
+      if (persisted != null) forceKeywordOnly = persisted;
+    } catch (_) {}
+    if (forceKeywordOnly) {
+      debugPrint('CoachTflite: forceKeywordOnly active — skipping model load');
+      return;
+    }
     try {
       // Tokenizer table; missing vocab file means the model cannot be used.
       final vocabRaw = await rootBundle.loadString(vocabAsset);
