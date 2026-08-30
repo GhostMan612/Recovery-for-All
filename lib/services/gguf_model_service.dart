@@ -201,6 +201,38 @@ class GgufModelService {
   /// True when the device can support deeper chat at all.
   bool get isSupported => _deviceTier != DeviceTier.low;
 
+  /// R24 Adaptive Router: suggested model for this tier (no auto-download).
+  /// Medium+ gets Gemma 3 270M QAT; low gets null (locked to TFLite).
+  GgufModelInfo? get suggestedModelForTier {
+    if (_deviceTier == DeviceTier.low) return null;
+    // Smallest available for tier — Gemma 270M for medium, larger for high/premium if needed
+    final avail = availableModels;
+    if (avail.isEmpty) return null;
+    // Prefer Gemma 270M on medium (smallest, ~350 MB RSS), else smallest
+    return avail.firstWhere((m) => m.id == 'gemma3_270m', orElse: () => avail.first);
+  }
+
+  /// Ensure a default model is selected for qualifying tiers (no download).
+  /// Call after detectDeviceTier(). Leaves existing selection untouched.
+  Future<void> ensureDefaultModelForTier() async {
+    await detectDeviceTier();
+    if (_deviceTier == DeviceTier.low) return;
+    final existing = await getSelectedModelId();
+    if (existing != null && existing.isNotEmpty) return;
+    final suggested = suggestedModelForTier;
+    if (suggested != null) {
+      await setSelectedModelId(suggested.id);
+      debugPrint('[gguf] auto-assigned default model ${suggested.id} for tier $_deviceTier');
+    }
+  }
+
+  /// True if tier qualifies but suggested model file is missing (show download card).
+  Future<bool> needsDownloadForSuggested() async {
+    final suggested = suggestedModelForTier;
+    if (suggested == null) return false;
+    return !(await isModelDownloaded(suggested.id));
+  }
+
   // ---- enabled toggle ----
 
   Future<bool> isEnabled() async {

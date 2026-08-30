@@ -7,11 +7,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OllamaService {
-  /// Local Ollama endpoint for THIS fleet: Windows firewall viciously
-  /// blocks the default 11434, so the host runs OLLAMA_HOST=0.0.0.0:11450
-  /// and the app targets loopback on that port. Optional feature: an
-  /// unreachable server simply falls back to the scripted coach.
-  static const String defaultBaseUrl = 'http://127.0.0.1:11450';
+  /// R24 Sovereign Mantle bridge: primary is your LAN Ollama at
+  /// 192.168.4.144:8000 (qwen2.5 for Pathfinder God / Sovereign Tagger).
+  /// Fallback loopback 127.0.0.1:11450 is kept for dev outside LAN.
+  /// Optional feature: unreachable server falls back to scripted coach.
+  static const String defaultBaseUrl = 'http://192.168.4.144:8000';
+  static const String fallbackBaseUrl = 'http://127.0.0.1:11450';
   static const String defaultModelName = 'qwen2.5';
 
   final String baseUrl;
@@ -23,45 +24,61 @@ class OllamaService {
   });
 
   Future<String> generateResponse(String prompt, {Map<String, dynamic>? options}) async {
-    final url = Uri.parse('$baseUrl/api/generate');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'model': modelName,
-        'prompt': prompt,
-        'stream': false,
-        'options': ?options,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['response'] as String;
-    } else {
-      throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
+    // Try primary Sovereign Mantle endpoint, fallback to loopback
+    for (final candidate in [baseUrl, if (baseUrl != fallbackBaseUrl) fallbackBaseUrl]) {
+      try {
+        final url = Uri.parse('$candidate/api/generate');
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'model': modelName,
+            'prompt': prompt,
+            'stream': false,
+            'options': ?options,
+          }),
+        ).timeout(const Duration(seconds: 20));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return data['response'] as String;
+        } else {
+          throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
+        }
+      } catch (e) {
+        if (candidate == fallbackBaseUrl || candidate == baseUrl && baseUrl == fallbackBaseUrl) rethrow;
+        // Try fallback on network failure
+        continue;
+      }
     }
+    throw Exception('Ollama unreachable (tried $baseUrl and $fallbackBaseUrl)');
   }
 
   Future<String> chat(List<Map<String, String>> messages, {Map<String, dynamic>? options}) async {
-    final url = Uri.parse('$baseUrl/api/chat');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'model': modelName,
-        'messages': messages,
-        'stream': false,
-        'options': ?options,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['message']['content'] as String;
-    } else {
-      throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
+    for (final candidate in [baseUrl, if (baseUrl != fallbackBaseUrl) fallbackBaseUrl]) {
+      try {
+        final url = Uri.parse('$candidate/api/chat');
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'model': modelName,
+            'messages': messages,
+            'stream': false,
+            'options': ?options,
+          }),
+        ).timeout(const Duration(seconds: 20));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return data['message']['content'] as String;
+        } else {
+          throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
+        }
+      } catch (e) {
+        if (candidate == fallbackBaseUrl || baseUrl == fallbackBaseUrl) rethrow;
+        continue;
+      }
     }
+    throw Exception('Ollama unreachable');
   }
 
   Stream<String> chatStream(List<Map<String, String>> messages, {Map<String, dynamic>? options}) async* {

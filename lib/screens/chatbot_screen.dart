@@ -37,6 +37,72 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isLoading = false;
   bool _preferDeepChat = false;
 
+  // R24 Adaptive Router state
+  DeviceTier? _tier;
+  GgufModelInfo? _suggestedModel;
+  bool _needsDownload = false;
+  bool _isDownloading = false;
+  double _downloadProgress = 0;
+  String? _downloadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkGgufPrompt();
+  }
+
+  Future<void> _checkGgufPrompt() async {
+    final svc = GgufModelService();
+    await svc.detectDeviceTier();
+    await svc.ensureDefaultModelForTier();
+    final tier = svc.deviceTier;
+    final suggested = svc.suggestedModelForTier;
+    final needs = suggested != null && !(await svc.isModelDownloaded(suggested.id));
+    if (!mounted) return;
+    setState(() {
+      _tier = tier;
+      _suggestedModel = suggested;
+      _needsDownload = needs;
+    });
+  }
+
+  Future<void> _startGgufDownload() async {
+    final svc = GgufModelService();
+    final model = _suggestedModel;
+    if (model == null) return;
+    setState(() {
+      _isDownloading = true;
+      _downloadProgress = 0;
+      _downloadError = null;
+    });
+    final ok = await svc.downloadModel(
+      model,
+      onProgress: (done, total) {
+        if (!mounted) return;
+        setState(() => _downloadProgress = total > 0 ? done / total : 0);
+      },
+    );
+    if (!mounted) return;
+    if (ok) {
+      await svc.setEnabled(true);
+      setState(() {
+        _isDownloading = false;
+        _needsDownload = false;
+        _downloadProgress = 1;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${model.name} ready — offline AI enabled'), backgroundColor: const Color(0xFF1E293B)),
+        );
+      }
+    } else {
+      setState(() {
+        _isDownloading = false;
+        _downloadError = GgufModelService.lastDownloadError ?? 'Download failed';
+      });
+    }
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -426,39 +492,108 @@ $text
               padding: EdgeInsets.only(bottom: 12),
               child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
             ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      style: const TextStyle(color: Colors.white),
-                      onSubmitted: (_) => _isLoading ? null : _sendMessage(),
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                        filled: true,
-                        fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+          // R24 metered-data trust: interception card when tier qualifies but .gguf missing
+          if (_needsDownload && _tier != null && _tier != DeviceTier.low && _suggestedModel != null)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.memory, color: Color(0xFF38BDF8), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Enable Offline AI Companion — ${_suggestedModel!.fileSizeMb} Download',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${_suggestedModel!.name} runs on your device, private & offline. No background data — tap to download on Wi-Fi.',
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_isDownloading) ...[
+                        LinearProgressIndicator(value: _downloadProgress, backgroundColor: const Color(0xFF334155), color: const Color(0xFF38BDF8)),
+                        const SizedBox(height: 6),
+                        Text('${(_downloadProgress * 100).toStringAsFixed(0)}% — keep app open',
+                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11), textAlign: TextAlign.center),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: _startGgufDownload,
+                                icon: const Icon(Icons.download, size: 18),
+                                label: Text('Download ${_suggestedModel!.fileSizeMb}'),
+                                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => setState(() => _needsDownload = false),
+                              child: const Text('Not now', style: TextStyle(color: Color(0xFF94A3B8))),
+                            ),
+                          ],
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        if (_downloadError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(_downloadError!, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 11)),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        style: const TextStyle(color: Colors.white),
+                        onSubmitted: (_) => _isLoading ? null : _sendMessage(),
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                          filled: true,
+                          fillColor: const Color(0xFF1E293B),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton(
-                    onPressed: _isLoading ? null : _sendMessage,
-                    backgroundColor: const Color(0xFF38BDF8),
-                    child: const Icon(Icons.send),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    FloatingActionButton(
+                      onPressed: _isLoading ? null : _sendMessage,
+                      backgroundColor: const Color(0xFF38BDF8),
+                      child: const Icon(Icons.send),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
