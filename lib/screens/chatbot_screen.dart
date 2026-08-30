@@ -6,6 +6,7 @@
 // lib/screens/chatbot_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'meeting_map_screen.dart';
 import 'steps_viewer_screen.dart';
@@ -38,6 +39,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _preferDeepChat = false;
 
   // R24 Adaptive Router state
+  static const String _keyDownloadDismissed = 'gguf_download_dismissed_v1';
   DeviceTier? _tier;
   GgufModelInfo? _suggestedModel;
   bool _needsDownload = false;
@@ -57,7 +59,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     await svc.ensureDefaultModelForTier();
     final tier = svc.deviceTier;
     final suggested = svc.suggestedModelForTier;
-    final needs = suggested != null && !(await svc.isModelDownloaded(suggested.id));
+    final needsFile = suggested != null && !(await svc.isModelDownloaded(suggested.id));
+    final dismissed = (await SharedPreferences.getInstance()).getBool(_keyDownloadDismissed) ?? false;
+    final needs = needsFile && tier != DeviceTier.low && !dismissed;
     if (!mounted) return;
     setState(() {
       _tier = tier;
@@ -85,6 +89,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (!mounted) return;
     if (ok) {
       await svc.setEnabled(true);
+      // Clear persistent dismissal on successful download
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyDownloadDismissed);
+      if (!mounted) return;
       setState(() {
         _isDownloading = false;
         _needsDownload = false;
@@ -544,7 +552,12 @@ $text
                             ),
                             const SizedBox(width: 8),
                             TextButton(
-                              onPressed: () => setState(() => _needsDownload = false),
+                              onPressed: () async {
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setBool(_keyDownloadDismissed, true);
+                                if (!mounted) return;
+                                setState(() => _needsDownload = false);
+                              },
                               child: const Text('Not now', style: TextStyle(color: Color(0xFF94A3B8))),
                             ),
                           ],

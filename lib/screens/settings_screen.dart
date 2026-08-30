@@ -119,6 +119,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleGguf(bool value) async {
     final service = GgufModelService();
     await service.setEnabled(value);
+    // R24: toggling in Settings clears persistent chat dismissal
+    if (value) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('gguf_download_dismissed_v1');
+    }
     if (!mounted) return;
     setState(() => _ggufEnabled = value);
   }
@@ -133,6 +138,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _ggufDownloading = false);
     if (ok) {
       await service.setSelectedModelId(model.id);
+      // Clear chat dismissal so offline AI prompt respects new download
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('gguf_download_dismissed_v1');
+      if (!mounted) return;
       setState(() {
         _ggufSelectedModel = model.id;
         _ggufDownloaded.add(model.id);
