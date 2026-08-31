@@ -401,7 +401,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       }
     }
 
-    // Geo-verification: must be within 500m of meeting location + mock detection
+    // Geo-verification: must be within 150m of meeting location + mock detection
     if (meeting.hasLocation) {
       try {
         final pos = await Geolocator.getCurrentPosition(
@@ -423,19 +423,20 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           return;
         }
 
+        const double maxDistanceMeters = 150.0;
         final distanceM = Geolocator.distanceBetween(
           pos.latitude,
           pos.longitude,
           meeting.latitude,
           meeting.longitude,
         );
-        if (distanceM > 500) {
+        if (distanceM > maxDistanceMeters) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFF1E293B),
               content: const Text(
-                'You must be within 500m of the meeting location to verify attendance.',
+                'You\'re a bit too far from this meeting to check in (within 150m required).',
               ),
             ),
           );
