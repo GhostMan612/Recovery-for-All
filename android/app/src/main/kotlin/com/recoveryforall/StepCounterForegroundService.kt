@@ -20,7 +20,7 @@ class StepCounterForegroundService : Service() {
         const val NOTIFICATION_ID = 1001
         const val ACTION_START = "START_STEP_COUNTER"
         const val ACTION_STOP = "STOP_STEP_COUNTER"
-        const val METHOD_CHANNEL = "com.example.recovery_companion/step_counter"
+        const val METHOD_CHANNEL = "com.recoveryforall/step_counter"
     }
 
     private var methodChannel: MethodChannel? = null

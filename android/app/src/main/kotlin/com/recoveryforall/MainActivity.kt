@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     companion object {
-        const val STEP_COUNTER_CHANNEL = "com.example.recovery_companion/step_counter"
+        const val STEP_COUNTER_CHANNEL = "com.recoveryforall/step_counter"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

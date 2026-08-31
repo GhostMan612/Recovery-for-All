@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -322,6 +323,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 Future<void> _handleWalk() async {
+    // Request activity recognition permission before starting walk
+    final status = await Permission.activityRecognition.request();
+    if (!status.isGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E293B),
+          content: const Text(
+            'Activity recognition permission is required to track walks. Please enable it in settings.',
+          ),
+        ),
+      );
+      return;
+    }
+
     // Start walk tracking
     await StepCounterService.instance.startWalkTracking();
 

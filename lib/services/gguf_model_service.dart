@@ -18,6 +18,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -334,11 +335,22 @@ class GgufModelService {
       downloaded += chunk.length;
       onProgress?.call(downloaded, totalBytes);
     }
-    await sink.flush();
+await sink.flush();
     sink.close();
     client.close();
 
-      // Mark as downloaded
+    // SHA-256 verification (Gap B)
+    if (model.sha256Hex != null) {
+      final bytes = await file.readAsBytes();
+      final digest = sha256.convert(bytes).toString();
+      if (digest != model.sha256Hex) {
+        await file.delete();
+        throw Exception('SHA-256 verification failed: expected ${model.sha256Hex}, got $digest');
+      }
+      debugPrint('[gguf] SHA-256 verified for ${model.id}');
+    }
+
+    // Mark as downloaded
       final prefs = await SharedPreferences.getInstance();
       final downloadedSet = await getDownloadedModels();
       downloadedSet.add(model.id);
