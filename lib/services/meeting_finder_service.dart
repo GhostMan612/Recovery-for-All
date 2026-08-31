@@ -32,6 +32,9 @@ class RecoveryMeeting {
   final int? day;
   final int? minutes;
 
+  /// Online conference URL (Zoom, etc.) — null for in-person only.
+  final String? conferenceUrl;
+
   RecoveryMeeting({
     required this.id,
     required this.name,
@@ -43,6 +46,7 @@ class RecoveryMeeting {
     this.fellowship = 'Other',
     this.day,
     this.minutes,
+    this.conferenceUrl,
   });
 
   bool get hasLocation => latitude != 0 || longitude != 0;
@@ -60,6 +64,7 @@ class RecoveryMeeting {
         'fellowship': fellowship,
         'day': day,
         'minutes': minutes,
+        'conferenceUrl': conferenceUrl,
       };
 
   factory RecoveryMeeting.fromJson(Map<String, dynamic> j) => RecoveryMeeting(
@@ -73,6 +78,7 @@ class RecoveryMeeting {
         fellowship: j['fellowship'] as String? ?? 'Other',
         day: j['day'] as int?,
         minutes: j['minutes'] as int?,
+        conferenceUrl: j['conferenceUrl'] as String?,
       );
 
   RecoveryMeeting withSchedule(int? day, int? minutes) => RecoveryMeeting(
@@ -86,6 +92,7 @@ class RecoveryMeeting {
         fellowship: fellowship,
         day: day ?? this.day,
         minutes: minutes ?? this.minutes,
+        conferenceUrl: conferenceUrl,
       );
 }
 
@@ -485,6 +492,7 @@ class MeetingFinderService {
         fellowship: fellowship,
         day: dayIndex,
         minutes: _parseMinutes(raw['time'] as String?),
+        conferenceUrl: conferenceUrl,
       ));
     }
     return out;
