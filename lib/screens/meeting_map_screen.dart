@@ -369,13 +369,60 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   }
 
   Future<void> _logAttended(RecoveryMeeting meeting) async {
-    // Geo-verification: must be within 500m of meeting location
+    final now = DateTime.now();
+
+    // Time-window validation: must be within ±30 minutes of scheduled start time
+    if (meeting.isDated) {
+      final nextOcc = MeetingFinderService.nextOccurrence(meeting, now);
+      if (nextOcc == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E293B),
+            content: const Text(
+              'Unable to determine meeting schedule. Please try again later.',
+            ),
+          ),
+        );
+        return;
+      }
+      final diff = now.difference(nextOcc).abs();
+      if (diff > const Duration(minutes: 30)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E293B),
+            content: const Text(
+              'You can only check in within 30 minutes of the meeting\'s scheduled time.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Geo-verification: must be within 500m of meeting location + mock detection
     if (meeting.hasLocation) {
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings:
               const LocationSettings(accuracy: LocationAccuracy.high),
         ).timeout(const Duration(seconds: 15));
+
+        // Mock location detection (geolocator 14+)
+        if (pos.isMocked) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF1E293B),
+              content: const Text(
+                'Mock location detected. Please disable location spoofing.',
+              ),
+            ),
+          );
+          return;
+        }
+
         final distanceM = Geolocator.distanceBetween(
           pos.latitude,
           pos.longitude,
@@ -409,74 +456,11 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     }
 
     if (!mounted) return;
-    final controller = TextEditingController();
-    final reflection = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFF1E293B),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('You attended "${meeting.name}"',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(
-                'One question before it counts — what did you take away '
-                'from the room today? (A sentence is plenty.)',
-                style: TextStyle(
-                    color: AppColors.textMuted, fontSize: 13, height: 1.4)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              maxLines: 3,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'It helped when…',
-                hintStyle: const TextStyle(color: Color(0xFF475569)),
-                filled: true,
-                fillColor: AppColors.bgCard,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accent),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white),
-                onPressed: () =>
-                    Navigator.pop(sheetContext, controller.text.trim()),
-                child: const Text('Save Reflection',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (reflection == null) return;
+
+    // Rule R3 Reflection Sheet — quick-tag chips + optional text
+    final reflectionData = await _showReflectionSheet(meeting);
+    if (reflectionData == null) return;
+
     final db = widget.database;
     if (db != null) {
       await db.addJournalEntry(JournalEntry(
@@ -484,7 +468,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         timestamp: DateTime.now().millisecondsSinceEpoch,
         moodRating: 4,
         contentEncrypted:
-            '[Meeting] ${meeting.name}: ${reflection.isEmpty ? "(attended, no notes)" : reflection}',
+            '[Meeting] ${meeting.name}: ${reflectionData.tag}${reflectionData.text.isNotEmpty ? ' — ${reflectionData.text}' : ''}',
         isSyncedToCloud: false,
       ));
     }
@@ -498,6 +482,114 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         content: Text(delta > 0
             ? 'Reflection saved · +$delta Sparks'
             : 'Reflection saved · daily Sparks cap reached, and that is fine'),
+      ),
+    );
+  }
+
+  /// Rule R3: Quick-tag reflection sheet for meeting attendance
+  Future<_ReflectionData?> _showReflectionSheet(RecoveryMeeting meeting) async {
+    const tags = [
+      'Listened & Supported',
+      'Shared my truth',
+      'Connected with a peer/sponsor',
+      'Needed a safe space',
+    ];
+    String? selectedTag;
+    final textController = TextEditingController();
+
+    return showModalBottomSheet<_ReflectionData>(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => Padding(
+          padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Meeting Reflection',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(
+                  'How did "${meeting.name}" feel today? Pick one, then add a note if you want.',
+                  style: TextStyle(
+                      color: AppColors.textMuted, fontSize: 13, height: 1.4)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final tag in tags)
+                    FilterChip(
+                      label: Text(tag,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: selectedTag == tag
+                                  ? Colors.white
+                                  : AppColors.textMuted)),
+                      selected: selectedTag == tag,
+                      selectedColor: AppColors.accent,
+                      backgroundColor: AppColors.bgCard,
+                      checkmarkColor: Colors.white,
+                      onSelected: (on) {
+                        setSheet(() => selectedTag = on ? tag : null);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: textController,
+                maxLines: 2,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'One takeaway from today… (optional)',
+                  hintStyle: const TextStyle(color: Color(0xFF475569)),
+                  filled: true,
+                  fillColor: AppColors.bgCard,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.accent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppColors.border,
+                      disabledForegroundColor: AppColors.textDim),
+                  onPressed: selectedTag == null
+                      ? null
+                      : () => Navigator.pop(
+                          sheetContext,
+                          _ReflectionData(
+                              tag: selectedTag!, text: textController.text.trim())),
+                  child: const Text('Confirm Attendance (+8✦)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1241,6 +1333,13 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       ],
     );
   }
+}
+
+/// Data returned from the Rule R3 reflection sheet.
+class _ReflectionData {
+  final String tag;
+  final String text;
+  const _ReflectionData({required this.tag, required this.text});
 }
 
 class _MapChip extends StatelessWidget {
