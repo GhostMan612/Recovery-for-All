@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:pedometer/pedometer.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'recovery_pet_service.dart';
@@ -48,6 +49,22 @@ class StepCounterService {
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _lastStepCount = prefs.getInt('last_step_count') ?? 0;
+
+    // Android 10+ strict permission gate: activity recognition must be granted
+    // before subscribing to pedometer streams.
+    try {
+      final status = await Permission.activityRecognition.request();
+      if (!status.isGranted) {
+        developer.log('[step_counter] Activity recognition denied: $status — streams not started');
+        await _resetDailyStepsIfNewDay();
+        await _checkAndAwardMilestones();
+        developer.log('[step_counter] Initialized (no pedometer) with $_lastStepCount steps');
+        return;
+      }
+      await markPermissionRequested();
+    } catch (e) {
+      developer.log('[step_counter] Permission check failed: $e');
+    }
 
     try {
       _stepCountSubscription = Pedometer.stepCountStream.listen(_onStepCount);
@@ -165,6 +182,12 @@ class StepCounterService {
 
   /// Start tracking a walk session
   Future<void> startWalkTracking() async {
+    final status = await Permission.activityRecognition.request();
+    if (!status.isGranted) {
+      developer.log('[step_counter] startWalkTracking denied: $status');
+      return;
+    }
+    await markPermissionRequested();
     _isTrackingWalk = true;
     _walkStartSteps = _lastStepCount;
     _walkStartTime = DateTime.now();

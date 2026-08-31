@@ -355,6 +355,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     } catch (_) {}
   }
 
+  Future<void> _joinZoomMeeting(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      // Zoom deep-link: externalApplication routes to OS Intent Resolver
+      // which auto-opens Zoom app and passes conference ID directly.
+      if (url.contains('zoom.us/j/')) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _logAttended(RecoveryMeeting meeting) async {
     final controller = TextEditingController();
     final reflection = await showModalBottomSheet<String>(
@@ -493,6 +506,24 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                     onPressed: () {
                       Navigator.pop(sheetContext);
                       _logAttended(meeting);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (meeting.conferenceUrl != null &&
+                  meeting.conferenceUrl!.contains('zoom.us/j/')) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B5CFF),
+                        foregroundColor: Colors.white),
+                    icon: const Icon(Icons.videocam_outlined),
+                    label: const Text('Join on Zoom'),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      _joinZoomMeeting(meeting.conferenceUrl!);
                     },
                   ),
                 ),
