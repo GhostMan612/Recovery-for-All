@@ -86,6 +86,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   static const String _keyBattles = 'pet_trials_battles_v1';
 
   static const List<_Ability> _abilities = [
+    _Ability('Take a Breath', focusCost: 0),
     _Ability('Grounding Shield', focusCost: 1, shields: true),
     _Ability('Meeting Rally', focusCost: 2, minDamage: 12, maxDamage: 20),
     _Ability('Gratitude Heal', focusCost: 2, heals: true),
@@ -163,6 +164,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             'Focus is your inner steadiness. You start each battle with 2 Focus '
             'and gain +1 every turn (max 5). Every coping skill costs Focus — '
             'plan your moves.\n\n'
+            'Take a Breath restores +2 Focus (free, always available).\n'
             'Grounding Shield blocks the next hit.\n'
             'Meeting Rally and Step Strike deal damage.\n'
             'Gratitude Heal restores Resolve.\n\n'
@@ -276,16 +278,24 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     _busy = true;
     final rng = math.Random();
 
-    if (ability.heals) {
+    // 0-cost breathe: free Focus regen to escape 0/1 soft-lock
+    if (ability.focusCost == 0) {
+      battle.focus = math.min(5, battle.focus + 2);
+      battle.addLog('You breathe and center — Focus restored (+2).');
+      _spawnPop('+2 Focus', AppColors.accent);
+      await FeedbackService.battleShield();
+    } else if (ability.heals) {
       battle.resolve = math.min(battle.maxResolve, battle.resolve + 15);
       battle.addLog('15 Resolve restored by ${ability.name}.');
       _spawnPop('+15', AppColors.success);
       await FeedbackService.battleHeal();
+      battle.focus = math.max(0, battle.focus - ability.focusCost);
     } else if (ability.shields) {
       battle.shieldActive = true;
       battle.addLog('Grounding Shield raised.');
       _spawnPop('Shield', AppColors.success);
       await FeedbackService.battleShield();
+      battle.focus = math.max(0, battle.focus - ability.focusCost);
     } else {
       final dmg = ability.minDamage +
           rng.nextInt(ability.maxDamage - ability.minDamage + 1);
@@ -295,8 +305,8 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
       _doFlash();
       _spawnPop('-$dmg', AppColors.accent);
       await FeedbackService.battleHit();
+      battle.focus = math.max(0, battle.focus - ability.focusCost);
     }
-    battle.focus = math.max(0, battle.focus - ability.focusCost);
     setState(() {});
 
     if (battle.enemyHp <= 0) {
