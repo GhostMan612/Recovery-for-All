@@ -6,10 +6,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/providers.dart';
+import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
@@ -23,16 +26,16 @@ import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
 import 'sponsor_mode_screen.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
 
   const SettingsScreen({super.key, required this.database});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _sponsorController = TextEditingController();
   final _customHelpController = TextEditingController();
   final _safetyPlanController = TextEditingController();
@@ -555,6 +558,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await AppSettings.openAppSettings();
                 },
               ),
+              const SizedBox(height: 24),
+              const Text('Appearance', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              const SizedBox(height: 10),
+              Builder(builder: (context) {
+                final current = ref.watch(themeProvider);
+                Widget chip(AppTheme t, String label, Color preview) => ChoiceChip(
+                      label: Text(label, style: TextStyle(color: current == t ? Colors.white : const Color(0xFF94A3B8), fontSize: 13)),
+                      selected: current == t,
+                      selectedColor: const Color(0xFF38BDF8),
+                      backgroundColor: const Color(0xFF1E293B),
+                      avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: preview, shape: BoxShape.circle, border: Border.all(color: Colors.white24))),
+                      onSelected: (sel) {
+                        if (sel) ref.read(themeProvider.notifier).setTheme(t);
+                      },
+                    );
+                return Wrap(spacing: 8, runSpacing: 8, children: [
+                  chip(AppTheme.midnightSlate, 'Midnight Slate', const Color(0xFF0F172A)),
+                  chip(AppTheme.deepForest, 'Deep Forest', const Color(0xFF0F1A14)),
+                  chip(AppTheme.oledPitch, 'OLED Pitch', const Color(0xFF000000)),
+                ]);
+              }),
               const SizedBox(height: 24),
               SwitchListTile(
                 title: const Text('Community moderator mode',

@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_navigator.dart';
+import 'core/providers.dart';
+import 'core/theme/app_colors.dart';
 import 'database/recovery_database.dart';
 import 'screens/splash_screen.dart';
 import 'services/community_feed_service.dart';
@@ -68,7 +70,7 @@ void main() async {
   );
 }
 
-class RecoveryCompanionApp extends StatelessWidget {
+class RecoveryCompanionApp extends ConsumerWidget {
   final RecoveryDatabase database;
 
   const RecoveryCompanionApp({
@@ -77,27 +79,13 @@ class RecoveryCompanionApp extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appTheme = ref.watch(themeProvider);
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       title: 'Private Recovery Coach',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        primaryColor: const Color(0xFF38BDF8),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF38BDF8),
-          brightness: Brightness.dark,
-        ),
-        snackBarTheme: SnackBarThemeData(
-          backgroundColor: const Color(0xFF1E293B),
-          contentTextStyle: const TextStyle(
-              color: Colors.white, fontSize: 14, height: 1.4),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
+      theme: AppColors.themeDataFor(appTheme),
       home: SplashScreen(database: database),
     );
   }

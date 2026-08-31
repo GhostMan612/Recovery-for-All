@@ -6,7 +6,9 @@
 // lib/core/providers.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/llama_ffi_service.dart';
 import '../services/local_embedding_service.dart';
@@ -99,3 +101,27 @@ final hasCompletedOnboardingProvider = Provider.autoDispose<bool>((ref) {
     orElse: () => false,
   );
 });
+
+class ThemeNotifier extends Notifier<AppTheme> {
+  static const _key = 'theme_preference_v1';
+  @override
+  AppTheme build() {
+    Future.microtask(() async {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw != null) {
+        final found = AppTheme.values.where((e) => e.name == raw);
+        if (found.isNotEmpty) state = found.first;
+      }
+    });
+    return AppTheme.midnightSlate;
+  }
+
+  Future<void> setTheme(AppTheme theme) async {
+    state = theme;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, theme.name);
+  }
+}
+
+final themeProvider = NotifierProvider<ThemeNotifier, AppTheme>(ThemeNotifier.new);
