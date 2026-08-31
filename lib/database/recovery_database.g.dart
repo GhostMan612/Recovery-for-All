@@ -2837,6 +2837,41 @@ class $RecoveryPetsTable extends RecoveryPets
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _equippedSlotsJsonMeta = const VerificationMeta(
+    'equippedSlotsJson',
+  );
+  @override
+  late final GeneratedColumn<String> equippedSlotsJson =
+      GeneratedColumn<String>(
+        'equipped_slots_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
+  static const VerificationMeta _pathLevelMeta = const VerificationMeta(
+    'pathLevel',
+  );
+  @override
+  late final GeneratedColumn<int> pathLevel = GeneratedColumn<int>(
+    'path_level',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _pathXpMeta = const VerificationMeta('pathXp');
+  @override
+  late final GeneratedColumn<int> pathXp = GeneratedColumn<int>(
+    'path_xp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2850,6 +2885,9 @@ class $RecoveryPetsTable extends RecoveryPets
     equippedOutfit,
     lastFedAt,
     createdAt,
+    equippedSlotsJson,
+    pathLevel,
+    pathXp,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2943,6 +2981,27 @@ class $RecoveryPetsTable extends RecoveryPets
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('equipped_slots_json')) {
+      context.handle(
+        _equippedSlotsJsonMeta,
+        equippedSlotsJson.isAcceptableOrUnknown(
+          data['equipped_slots_json']!,
+          _equippedSlotsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('path_level')) {
+      context.handle(
+        _pathLevelMeta,
+        pathLevel.isAcceptableOrUnknown(data['path_level']!, _pathLevelMeta),
+      );
+    }
+    if (data.containsKey('path_xp')) {
+      context.handle(
+        _pathXpMeta,
+        pathXp.isAcceptableOrUnknown(data['path_xp']!, _pathXpMeta),
+      );
+    }
     return context;
   }
 
@@ -2996,6 +3055,18 @@ class $RecoveryPetsTable extends RecoveryPets
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
       )!,
+      equippedSlotsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}equipped_slots_json'],
+      )!,
+      pathLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}path_level'],
+      )!,
+      pathXp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}path_xp'],
+      )!,
     );
   }
 
@@ -3017,6 +3088,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
   final String equippedOutfit;
   final int lastFedAt;
   final int createdAt;
+  final String equippedSlotsJson;
+  final int pathLevel;
+  final int pathXp;
   const RecoveryPetRow({
     required this.id,
     required this.name,
@@ -3029,6 +3103,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
     required this.equippedOutfit,
     required this.lastFedAt,
     required this.createdAt,
+    required this.equippedSlotsJson,
+    required this.pathLevel,
+    required this.pathXp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3044,6 +3121,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
     map['equipped_outfit'] = Variable<String>(equippedOutfit);
     map['last_fed_at'] = Variable<int>(lastFedAt);
     map['created_at'] = Variable<int>(createdAt);
+    map['equipped_slots_json'] = Variable<String>(equippedSlotsJson);
+    map['path_level'] = Variable<int>(pathLevel);
+    map['path_xp'] = Variable<int>(pathXp);
     return map;
   }
 
@@ -3060,6 +3140,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
       equippedOutfit: Value(equippedOutfit),
       lastFedAt: Value(lastFedAt),
       createdAt: Value(createdAt),
+      equippedSlotsJson: Value(equippedSlotsJson),
+      pathLevel: Value(pathLevel),
+      pathXp: Value(pathXp),
     );
   }
 
@@ -3080,6 +3163,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
       equippedOutfit: serializer.fromJson<String>(json['equippedOutfit']),
       lastFedAt: serializer.fromJson<int>(json['lastFedAt']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
+      equippedSlotsJson: serializer.fromJson<String>(json['equippedSlotsJson']),
+      pathLevel: serializer.fromJson<int>(json['pathLevel']),
+      pathXp: serializer.fromJson<int>(json['pathXp']),
     );
   }
   @override
@@ -3097,6 +3183,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
       'equippedOutfit': serializer.toJson<String>(equippedOutfit),
       'lastFedAt': serializer.toJson<int>(lastFedAt),
       'createdAt': serializer.toJson<int>(createdAt),
+      'equippedSlotsJson': serializer.toJson<String>(equippedSlotsJson),
+      'pathLevel': serializer.toJson<int>(pathLevel),
+      'pathXp': serializer.toJson<int>(pathXp),
     };
   }
 
@@ -3112,6 +3201,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
     String? equippedOutfit,
     int? lastFedAt,
     int? createdAt,
+    String? equippedSlotsJson,
+    int? pathLevel,
+    int? pathXp,
   }) => RecoveryPetRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3124,6 +3216,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
     equippedOutfit: equippedOutfit ?? this.equippedOutfit,
     lastFedAt: lastFedAt ?? this.lastFedAt,
     createdAt: createdAt ?? this.createdAt,
+    equippedSlotsJson: equippedSlotsJson ?? this.equippedSlotsJson,
+    pathLevel: pathLevel ?? this.pathLevel,
+    pathXp: pathXp ?? this.pathXp,
   );
   RecoveryPetRow copyWithCompanion(RecoveryPetsCompanion data) {
     return RecoveryPetRow(
@@ -3144,6 +3239,11 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
           : this.equippedOutfit,
       lastFedAt: data.lastFedAt.present ? data.lastFedAt.value : this.lastFedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      equippedSlotsJson: data.equippedSlotsJson.present
+          ? data.equippedSlotsJson.value
+          : this.equippedSlotsJson,
+      pathLevel: data.pathLevel.present ? data.pathLevel.value : this.pathLevel,
+      pathXp: data.pathXp.present ? data.pathXp.value : this.pathXp,
     );
   }
 
@@ -3160,7 +3260,10 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
           ..write('unlockedItems: $unlockedItems, ')
           ..write('equippedOutfit: $equippedOutfit, ')
           ..write('lastFedAt: $lastFedAt, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('equippedSlotsJson: $equippedSlotsJson, ')
+          ..write('pathLevel: $pathLevel, ')
+          ..write('pathXp: $pathXp')
           ..write(')'))
         .toString();
   }
@@ -3178,6 +3281,9 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
     equippedOutfit,
     lastFedAt,
     createdAt,
+    equippedSlotsJson,
+    pathLevel,
+    pathXp,
   );
   @override
   bool operator ==(Object other) =>
@@ -3193,7 +3299,10 @@ class RecoveryPetRow extends DataClass implements Insertable<RecoveryPetRow> {
           other.unlockedItems == this.unlockedItems &&
           other.equippedOutfit == this.equippedOutfit &&
           other.lastFedAt == this.lastFedAt &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.equippedSlotsJson == this.equippedSlotsJson &&
+          other.pathLevel == this.pathLevel &&
+          other.pathXp == this.pathXp);
 }
 
 class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
@@ -3208,6 +3317,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
   final Value<String> equippedOutfit;
   final Value<int> lastFedAt;
   final Value<int> createdAt;
+  final Value<String> equippedSlotsJson;
+  final Value<int> pathLevel;
+  final Value<int> pathXp;
   final Value<int> rowid;
   const RecoveryPetsCompanion({
     this.id = const Value.absent(),
@@ -3221,6 +3333,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
     this.equippedOutfit = const Value.absent(),
     this.lastFedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.equippedSlotsJson = const Value.absent(),
+    this.pathLevel = const Value.absent(),
+    this.pathXp = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RecoveryPetsCompanion.insert({
@@ -3235,6 +3350,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
     this.equippedOutfit = const Value.absent(),
     required int lastFedAt,
     required int createdAt,
+    this.equippedSlotsJson = const Value.absent(),
+    this.pathLevel = const Value.absent(),
+    this.pathXp = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -3252,6 +3370,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
     Expression<String>? equippedOutfit,
     Expression<int>? lastFedAt,
     Expression<int>? createdAt,
+    Expression<String>? equippedSlotsJson,
+    Expression<int>? pathLevel,
+    Expression<int>? pathXp,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3266,6 +3387,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
       if (equippedOutfit != null) 'equipped_outfit': equippedOutfit,
       if (lastFedAt != null) 'last_fed_at': lastFedAt,
       if (createdAt != null) 'created_at': createdAt,
+      if (equippedSlotsJson != null) 'equipped_slots_json': equippedSlotsJson,
+      if (pathLevel != null) 'path_level': pathLevel,
+      if (pathXp != null) 'path_xp': pathXp,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3282,6 +3406,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
     Value<String>? equippedOutfit,
     Value<int>? lastFedAt,
     Value<int>? createdAt,
+    Value<String>? equippedSlotsJson,
+    Value<int>? pathLevel,
+    Value<int>? pathXp,
     Value<int>? rowid,
   }) {
     return RecoveryPetsCompanion(
@@ -3296,6 +3423,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
       equippedOutfit: equippedOutfit ?? this.equippedOutfit,
       lastFedAt: lastFedAt ?? this.lastFedAt,
       createdAt: createdAt ?? this.createdAt,
+      equippedSlotsJson: equippedSlotsJson ?? this.equippedSlotsJson,
+      pathLevel: pathLevel ?? this.pathLevel,
+      pathXp: pathXp ?? this.pathXp,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3336,6 +3466,15 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
+    if (equippedSlotsJson.present) {
+      map['equipped_slots_json'] = Variable<String>(equippedSlotsJson.value);
+    }
+    if (pathLevel.present) {
+      map['path_level'] = Variable<int>(pathLevel.value);
+    }
+    if (pathXp.present) {
+      map['path_xp'] = Variable<int>(pathXp.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3356,6 +3495,9 @@ class RecoveryPetsCompanion extends UpdateCompanion<RecoveryPetRow> {
           ..write('equippedOutfit: $equippedOutfit, ')
           ..write('lastFedAt: $lastFedAt, ')
           ..write('createdAt: $createdAt, ')
+          ..write('equippedSlotsJson: $equippedSlotsJson, ')
+          ..write('pathLevel: $pathLevel, ')
+          ..write('pathXp: $pathXp, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6024,6 +6166,9 @@ typedef $$RecoveryPetsTableCreateCompanionBuilder =
       Value<String> equippedOutfit,
       required int lastFedAt,
       required int createdAt,
+      Value<String> equippedSlotsJson,
+      Value<int> pathLevel,
+      Value<int> pathXp,
       Value<int> rowid,
     });
 typedef $$RecoveryPetsTableUpdateCompanionBuilder =
@@ -6039,6 +6184,9 @@ typedef $$RecoveryPetsTableUpdateCompanionBuilder =
       Value<String> equippedOutfit,
       Value<int> lastFedAt,
       Value<int> createdAt,
+      Value<String> equippedSlotsJson,
+      Value<int> pathLevel,
+      Value<int> pathXp,
       Value<int> rowid,
     });
 
@@ -6103,6 +6251,21 @@ class $$RecoveryPetsTableFilterComposer
 
   ColumnFilters<int> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get equippedSlotsJson => $composableBuilder(
+    column: $table.equippedSlotsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pathLevel => $composableBuilder(
+    column: $table.pathLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pathXp => $composableBuilder(
+    column: $table.pathXp,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6170,6 +6333,21 @@ class $$RecoveryPetsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get equippedSlotsJson => $composableBuilder(
+    column: $table.equippedSlotsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pathLevel => $composableBuilder(
+    column: $table.pathLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pathXp => $composableBuilder(
+    column: $table.pathXp,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RecoveryPetsTableAnnotationComposer
@@ -6219,6 +6397,17 @@ class $$RecoveryPetsTableAnnotationComposer
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get equippedSlotsJson => $composableBuilder(
+    column: $table.equippedSlotsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get pathLevel =>
+      $composableBuilder(column: $table.pathLevel, builder: (column) => column);
+
+  GeneratedColumn<int> get pathXp =>
+      $composableBuilder(column: $table.pathXp, builder: (column) => column);
 }
 
 class $$RecoveryPetsTableTableManager
@@ -6269,6 +6458,9 @@ class $$RecoveryPetsTableTableManager
                 Value<String> equippedOutfit = const Value.absent(),
                 Value<int> lastFedAt = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
+                Value<String> equippedSlotsJson = const Value.absent(),
+                Value<int> pathLevel = const Value.absent(),
+                Value<int> pathXp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecoveryPetsCompanion(
                 id: id,
@@ -6282,6 +6474,9 @@ class $$RecoveryPetsTableTableManager
                 equippedOutfit: equippedOutfit,
                 lastFedAt: lastFedAt,
                 createdAt: createdAt,
+                equippedSlotsJson: equippedSlotsJson,
+                pathLevel: pathLevel,
+                pathXp: pathXp,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6297,6 +6492,9 @@ class $$RecoveryPetsTableTableManager
                 Value<String> equippedOutfit = const Value.absent(),
                 required int lastFedAt,
                 required int createdAt,
+                Value<String> equippedSlotsJson = const Value.absent(),
+                Value<int> pathLevel = const Value.absent(),
+                Value<int> pathXp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecoveryPetsCompanion.insert(
                 id: id,
@@ -6310,6 +6508,9 @@ class $$RecoveryPetsTableTableManager
                 equippedOutfit: equippedOutfit,
                 lastFedAt: lastFedAt,
                 createdAt: createdAt,
+                equippedSlotsJson: equippedSlotsJson,
+                pathLevel: pathLevel,
+                pathXp: pathXp,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

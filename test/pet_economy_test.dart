@@ -6,18 +6,30 @@
 // Host tests for the Sparks economy laws (pet-store-rules.md):
 // daily cap tapering, walk sub-cap, milestone cap-exemption, and the
 // compassionate idle decay that makes Resting/Napping reachable.
+// R28: Now tests use Drift NativeDatabase.memory for atomic pet state.
 
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show QueryExecutor;
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:recovery_companion/database/recovery_database.dart';
 import 'package:recovery_companion/services/recovery_pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  late RecoveryDatabase db;
+
+  setUp(() async {
+    db = RecoveryDatabase.forTesting(NativeDatabase.memory() as QueryExecutor);
+    RecoveryPetService.bindDatabase(db);
     SharedPreferences.setMockInitialValues({});
+  });
+
+  tearDown(() async {
+    await db.close();
   });
 
   group('decayedEnergy (pure math)', () {
@@ -76,26 +88,31 @@ void main() {
     });
   });
 
-  group('ensureHatched idle decay', () {
+group('ensureHatched idle decay (Drift-backed)', () {
     Future<void> seedPet({
       required int energy,
       required DateTime lastFedAt,
     }) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'recovery_pet_v1',
-        jsonEncode({
-          'id': 'active_pet',
-          'name': 'Kin',
-          'energy': energy,
-          'bond': 40,
-          'mood': 'neutral',
-          'sparks': 77,
-          'unlockedItems': ['starter_glow'],
-          'equippedSlots': <String, String>{},
-          'lastFedAt': lastFedAt.millisecondsSinceEpoch,
-          'createdAt': lastFedAt.millisecondsSinceEpoch,
-        }),
+      // Seed via Drift (R28: Drift is now source of truth)
+      final pet = RecoveryPet(
+        id: 'active_pet',
+        name: 'Kin',
+        energy: energy,
+        bond: 40,
+        mood: PetMoodX.neutral,
+        sparks: 77,
+        unlockedItems: ['starter_glow'],
+        equippedOutfit: 'default',
+        equippedSlots: <String, String>{},
+        speciesId: 'ember_kit',
+        lastFedAt: lastFedAt.millisecondsSinceEpoch,
+        createdAt: lastFedAt.millisecondsSinceEpoch,
+        pathLevel: 1,
+        pathXp: 0,
+      );
+      // Manually upsert to Drift (bypassing service to set specific state)
+      await RecoveryPetService.database!.upsertPet(
+        RecoveryPetService.rowFromPet(pet),
       );
     }
 
@@ -111,11 +128,9 @@ void main() {
       expect(pet.bond, 40, reason: 'Bond never decays');
       expect(pet.sparks, 77, reason: 'Sparks never decay');
 
-      // Decay persists so every surface agrees.
-      final prefs = await SharedPreferences.getInstance();
-      final stored =
-          jsonDecode(prefs.getString('recovery_pet_v1')!) as Map;
-      expect(stored['energy'], 40);
+      // Decay persists in Drift so every surface agrees.
+      final row = await db.getPet('active_pet');
+      expect(row!.energy, 0.4); // DB stores 0.0-1.0 scale
     });
 
     test('long absence reaches Resting — glad you are back', () async {
@@ -142,6 +157,11 @@ void main() {
   });
 
   group('Sparks daily cap (store-rule #1)', () {
+    setUp(() async {
+      // Ensure fresh pet for each test
+      await db.deleteAllPetData();
+    });
+
     test('capped streams taper at 150 across a day of care', () async {
       final pet0 = await RecoveryPetService.ensureHatched();
       expect(pet0.sparks, 0);

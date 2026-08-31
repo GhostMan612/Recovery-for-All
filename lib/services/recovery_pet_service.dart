@@ -438,10 +438,85 @@ class RecoveryPetService {
 
   static RecoveryDatabase? get database => _db;
 
+  // --- Drift mappers (R28) ---
+  /// Public mapper for tests and external use.
+  static RecoveryPet petFromRow(RecoveryPetRow row) {
+    List<String> unlocked;
+    try {
+      unlocked = (jsonDecode(row.unlockedItems) as List).map((e) => e.toString()).toList();
+    } catch (_) {
+      unlocked = <String>['starter_glow'];
+    }
+    Map<String, String> slots;
+    try {
+      final raw = jsonDecode(row.equippedSlotsJson) as Map<String, dynamic>;
+      slots = raw.map((k, v) => MapEntry(k, v.toString()));
+    } catch (_) {
+      slots = {};
+    }
+    // Backfill free items + default slots for rows saved before R28
+    unlocked.addAll(PetCosmeticCatalog.freeIds.where((id) => !unlocked.contains(id)));
+    PetCosmeticCatalog.defaultEquippedSlots.forEach((category, itemId) {
+      slots.putIfAbsent(category.name, () => itemId);
+    });
+    return RecoveryPet(
+      id: row.id,
+      name: row.name,
+      energy: (row.energy * 100).round().clamp(0, 100),
+      bond: (row.bond * 100).round().clamp(0, 100),
+      mood: PetMoodX.fromName(row.mood),
+      sparks: row.sparks,
+      unlockedItems: unlocked,
+      equippedOutfit: row.equippedOutfit,
+      equippedSlots: slots,
+      speciesId: row.speciesOrStyle,
+      lastFedAt: row.lastFedAt,
+      createdAt: row.createdAt,
+      pathLevel: row.pathLevel,
+      pathXp: row.pathXp,
+    );
+  }
+
+  /// Public mapper for tests and external use.
+  static RecoveryPetRow rowFromPet(RecoveryPet pet) {
+    return RecoveryPetRow(
+      id: pet.id,
+      name: pet.name,
+      speciesOrStyle: pet.speciesId,
+      energy: (pet.energy / 100).clamp(0.0, 1.0),
+      bond: (pet.bond / 100).clamp(0.0, 1.0),
+      mood: pet.mood.name,
+      sparks: pet.sparks,
+      unlockedItems: jsonEncode(pet.unlockedItems),
+      equippedOutfit: pet.equippedOutfit,
+      lastFedAt: pet.lastFedAt,
+      createdAt: pet.createdAt,
+      equippedSlotsJson: jsonEncode(pet.equippedSlots),
+      pathLevel: pet.pathLevel,
+      pathXp: pet.pathXp,
+    );
+  }
+
   static Future<RecoveryPet> ensureHatched({String? name}) async {
+    // 1. Try Drift first (R28 primary)
+    final db = _db;
+    if (db != null) {
+      try {
+        final row = await db.getPet(defaultPetId);
+        if (row != null) {
+          var pet = petFromRow(row);
+          final rested = decayedEnergy(pet.energy, pet.lastFedAt, DateTime.now());
+          if (rested != pet.energy) {
+            pet = pet.copyWith(energy: rested);
+            await save(pet);
+          }
+          return pet;
+        }
+      } catch (_) {}
+    }
+    // 2. Fallback to legacy prefs (migration path)
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = prefs.getString(_keyPet);
-    
     if (jsonStr != null) {
       try {
         final decoded = jsonDecode(jsonStr);
@@ -449,7 +524,6 @@ class RecoveryPetService {
                 ?.map((e) => e.toString()).toList() ??
             <String>['starter_glow'];
         final slots = Map<String, String>.from(decoded['equippedSlots'] ?? {});
-        // Backfill free items + default slots for pets saved by older builds.
         unlocked.addAll(
           PetCosmeticCatalog.freeIds.where((id) => !unlocked.contains(id)),
         );
@@ -471,32 +545,18 @@ class RecoveryPetService {
               : PetSpeciesCatalog.emberKitId,
           lastFedAt: decoded['lastFedAt'] ?? DateTime.now().millisecondsSinceEpoch,
           createdAt: decoded['createdAt'] ?? DateTime.now().millisecondsSinceEpoch,
+          pathLevel: decoded['pathLevel'] ?? 1,
+          pathXp: decoded['pathXp'] ?? 0,
         );
-        // Lazy idle decay on load: quiet days wind the companion toward
-        // rest (never past the floor). Persist so all surfaces agree.
-        final rested = decayedEnergy(
-            pet.energy, pet.lastFedAt, DateTime.now());
+        final rested = decayedEnergy(pet.energy, pet.lastFedAt, DateTime.now());
         if (rested != pet.energy) {
-          pet = RecoveryPet(
-            id: pet.id,
-            name: pet.name,
-            energy: rested,
-            bond: pet.bond,
-            mood: pet.mood,
-            sparks: pet.sparks,
-            unlockedItems: pet.unlockedItems,
-            equippedOutfit: pet.equippedOutfit,
-            equippedSlots: pet.equippedSlots,
-            speciesId: pet.speciesId,
-            lastFedAt: pet.lastFedAt,
-            createdAt: pet.createdAt,
-          );
-          await _savePet(pet, prefs);
+          pet = pet.copyWith(energy: rested);
         }
+        // Migrate to Drift
+        await save(pet);
         return pet;
       } catch (_) {}
     }
-    
     final newPet = RecoveryPet(
       id: defaultPetId,
       name: name ?? defaultName,
@@ -511,7 +571,7 @@ class RecoveryPetService {
       lastFedAt: DateTime.now().millisecondsSinceEpoch,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
-    await _savePet(newPet, prefs);
+    await save(newPet);
     return newPet;
   }
 
@@ -524,27 +584,30 @@ class RecoveryPetService {
         slots[category.name] = itemId;
       });
     }
-    final updated = RecoveryPet(
-      id: pet.id,
-      name: pet.name,
-      energy: pet.energy,
-      bond: pet.bond,
-      mood: pet.mood,
-      sparks: pet.sparks,
-      unlockedItems: pet.unlockedItems,
-      equippedOutfit: presetId,
-      speciesId: pet.speciesId,
-      equippedSlots: slots,
-      lastFedAt: pet.lastFedAt,
-      createdAt: pet.createdAt,
-    );
+    final updated = pet.copyWith(equippedOutfit: presetId, equippedSlots: slots);
     await save(updated);
     return updated;
   }
 
   static Future<void> save(RecoveryPet pet) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _savePet(pet, prefs);
+    // Dual-write: Drift primary + prefs fallback (R28 transition)
+    final db = _db;
+    if (db != null) {
+      try {
+        await db.upsertPet(rowFromPet(pet));
+      } catch (_) {}
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _savePet(pet, prefs);
+    } catch (_) {}
+  }
+
+  /// Drift stream for reactive UI (R28).
+  static Stream<RecoveryPet?> watchPetStream() {
+    final db = _db;
+    if (db == null) return Stream.value(null);
+    return db.watchPet(defaultPetId).map((row) => row == null ? null : petFromRow(row));
   }
 
   // ---- Reward hooks (pet checklist Â§3.1 / Â§8 integration map) ----
@@ -737,11 +800,41 @@ class RecoveryPetService {
       equippedOutfit: pet.equippedOutfit,
       speciesId: pet.speciesId,
       equippedSlots: pet.equippedSlots,
-      lastFedAt: DateTime.now().millisecondsSinceEpoch,
+      lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
+      pathLevel: pet.pathLevel,
+      pathXp: pet.pathXp,
     );
-    await save(updated);
-    await _recordEvent(type, grantedSparks + questBonus);
+    // R28 atomic: pet + event in one drift transaction (crash-safe)
+    final totalSparks = grantedSparks + questBonus;
+    final db = _db;
+    if (db != null) {
+      try {
+        await db.transaction(() async {
+          await db.upsertPet(rowFromPet(updated));
+          await db.addPetEvent(
+            PetEventRow(
+              id: 'pet_event_${DateTime.now().millisecondsSinceEpoch}_${(totalSparks * 31 + type.length) % 9973}',
+              petId: defaultPetId,
+              eventType: type,
+              sparksDelta: totalSparks,
+              timestamp: DateTime.now().millisecondsSinceEpoch,
+            ),
+          );
+        });
+        // Dual-write prefs for transition
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await _savePet(updated, prefs);
+        } catch (_) {}
+      } catch (_) {
+        await save(updated);
+        await _recordEvent(type, totalSparks);
+      }
+    } else {
+      await save(updated);
+      await _recordEvent(type, totalSparks);
+    }
     if (type.startsWith('milestone_')) {
       await FeedbackService.milestone();
     } else if (type.startsWith('signoff_')) {

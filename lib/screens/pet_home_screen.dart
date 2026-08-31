@@ -18,6 +18,7 @@ import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
 import '../widgets/recovery_pet_card.dart';
 import 'avatar_dresser_screen.dart';
+import 'memory_wall_screen.dart';
 import 'pet_trials_screen.dart';
 
 /// Full companion view: stats, equipped cosmetics, and the care activity log.
@@ -229,6 +230,16 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Companion', style: TextStyle(color: Colors.white)),
         actions: [
+          IconButton(
+            tooltip: 'View Memory Wall',
+            icon: const Icon(Icons.auto_awesome_outlined, color: Colors.white70),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MemoryWallScreen(database: widget.database),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Share Pet Card',
             icon: const Icon(Icons.share_outlined, color: Colors.white70),

@@ -143,6 +143,10 @@ class RecoveryPets extends Table {
   TextColumn get equippedOutfit => text().withDefault(const Constant('starter_glow'))();
   IntColumn get lastFedAt => integer()();
   IntColumn get createdAt => integer()();
+  // R28: migrated pet state — equippedSlots JSON, path progression
+  TextColumn get equippedSlotsJson => text().withDefault(const Constant('{}'))();
+  IntColumn get pathLevel => integer().withDefault(const Constant(1))();
+  IntColumn get pathXp => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -178,7 +182,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -211,6 +215,11 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             }
             if (from < 8) {
               await m.addColumn(counters, counters.dailyCost);
+            }
+            if (from < 9) {
+              await m.addColumn(recoveryPets, recoveryPets.equippedSlotsJson);
+              await m.addColumn(recoveryPets, recoveryPets.pathLevel);
+              await m.addColumn(recoveryPets, recoveryPets.pathXp);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -288,6 +297,14 @@ class RecoveryDatabase extends _$RecoveryDatabase {
       (update(weeklyGoals)).write(
         WeeklyGoalsCompanion(currentCount: const Value(0), isCompleted: const Value(false)),
       );
+
+  /// Testing helper: delete all pet data (used by integration tests).
+  Future<void> deleteAllPetData() async {
+    await transaction(() async {
+      await delete(petEvents).go();
+      await delete(recoveryPets).go();
+    });
+  }
 
   Future<int> deleteWeeklyGoal(String id) =>
       (delete(weeklyGoals)..where((tbl) => tbl.id.equals(id))).go();
