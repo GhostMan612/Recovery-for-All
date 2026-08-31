@@ -64,5 +64,12 @@ android/app/google-services.json
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
 
+# Counselor-provided workbooks (user-imported, copyrighted, never commit)
+media/*.pdf
+media/*.PDF
+assets/pdfs/
+*.pdf
+!docs/**/*.pdf
+
 # Exceptions — keep tracked generated Drift schema
 !lib/database/recovery_database.g.dart

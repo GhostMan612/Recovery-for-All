@@ -14,6 +14,7 @@ import '../core/theme/app_colors.dart';
 import '../data/recovery_literature.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/resource_link_health.dart';
+import 'custom_workbook_screen.dart';
 
 /// Free recovery literature, organized by pathway. Content lives in
 /// [RecoveryLiterature] (data registry). Pathway-tagged categories appear
@@ -117,6 +118,11 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
         title:
             const Text('Literature Library', style: TextStyle(color: Colors.white)),
         actions: [
+          IconButton(
+            tooltip: 'My Workbooks (on-device PDFs)',
+            icon: const Icon(Icons.menu_book_outlined, color: Colors.white70),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomWorkbookScreen())),
+          ),
           IconButton(
             tooltip: _showAll ? 'Showing everything' : 'Tailored to your paths',
             icon: Icon(

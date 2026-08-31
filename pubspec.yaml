@@ -44,6 +44,8 @@ dependencies:
   device_info_plus: ^13.2.0
   llama_cpp_dart: ^0.2.2
   pedometer: ^4.0.2
+  file_picker: ^12.1.2
+  flutter_pdfview: ^1.4.0
 
 dev_dependencies:
   flutter_test:
