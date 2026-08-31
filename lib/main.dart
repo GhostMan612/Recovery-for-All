@@ -16,12 +16,14 @@ import 'database/recovery_database.dart';
 import 'screens/splash_screen.dart';
 import 'services/community_feed_service.dart';
 import 'services/gentle_reminder_service.dart';
+import 'services/hardware_tier_service.dart';
 import 'services/sos_notification_service.dart';
 import 'services/recovery_pet_service.dart';
 import 'services/step_counter_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await HardwareTierService.initialize();
 
   // 0. Firebase (Recovery Circle cloud sync) — activates only when
   // android/app/google-services.json exists; local-only otherwise.

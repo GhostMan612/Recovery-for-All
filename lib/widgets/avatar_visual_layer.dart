@@ -15,6 +15,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:lottie/lottie.dart';
 
 import '../core/theme/app_colors.dart';
+import '../services/hardware_tier_service.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import 'avatar_painter.dart';
@@ -37,19 +38,20 @@ class AvatarVisualLayer extends StatefulWidget {
   });
 
   /// Equipped aura id -> bundled Lottie loop. Unmapped ids fall back to emoji.
+  /// DotLottie (.lottie zip) — lottie ^3.1 parses both .json and .lottie.
   static const Map<String, String> _auraLottie = {
-    'aura_warm': 'assets/lottie/aura_warm.json',
-    'aura_calm_blue': 'assets/lottie/aura_calm_blue.json',
-    'aura_starfield': 'assets/lottie/aura_starfield.json',
-    'aura_ember': 'assets/lottie/aura_ember.json',
+    'aura_warm': 'assets/lottie/aura_warm.lottie',
+    'aura_calm_blue': 'assets/lottie/aura_calm_blue.lottie',
+    'aura_starfield': 'assets/lottie/aura_starfield.lottie',
+    'aura_ember': 'assets/lottie/aura_ember.lottie',
   };
 
   /// PetMoodX name / resting -> mood-face underlay loop.
   static const Map<String, String> _moodLottie = {
-    'happy': 'assets/lottie/mood_happy.json',
-    'neutral': 'assets/lottie/mood_calm.json',
-    'sad': 'assets/lottie/mood_sad.json',
-    '@resting': 'assets/lottie/mood_resting.json',
+    'happy': 'assets/lottie/mood_happy.lottie',
+    'neutral': 'assets/lottie/mood_calm.lottie',
+    'sad': 'assets/lottie/mood_sad.lottie',
+    '@resting': 'assets/lottie/mood_resting.lottie',
   };
 
   static final Map<String, LottieComposition?> _compositionCache = {};
@@ -184,7 +186,8 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
     LottieComposition? aura;
     LottieComposition? mood;
 
-    if (!_reducedMotion) {
+    final disableMotion = HardwareTierService.isLowEnd || _reducedMotion;
+    if (!disableMotion) {
       final auraAsset =
           widget.showAura ? AvatarVisualLayer._auraLottie[_equippedAuraId] : null;
       // Concurrency guard (checklist §12.3): compact surfaces render at most
@@ -211,6 +214,38 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
 
   @override
   Widget build(BuildContext context) {
+    final disableMotion = HardwareTierService.isLowEnd || MediaQuery.disableAnimationsOf(context);
+    if (disableMotion) {
+      return SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (widget.showAura)
+              CustomPaint(
+                size: Size.square(widget.size * 0.98),
+                painter: _SimpleGlowPainter(
+                  color: AvatarPainter.auraColorFor(_equippedAuraId),
+                ),
+              ),
+            // Static emoji fallback — bypasses Lottie ticker entirely.
+            Center(
+              child: Text(
+                AvatarVisualLayer.displayEmoji(widget.pet.slot(CosmeticCategory.aura)),
+                style: TextStyle(fontSize: widget.size * 0.85),
+              ),
+            ),
+            CustomPaint(
+              size: Size.square(widget.size),
+              painter: AvatarPainter(widget.pet),
+            ),
+            _buildCelebrationOverlay(widget.size),
+          ],
+        ),
+      );
+    }
+
     final pet = widget.pet;
     final size = widget.size;
 

@@ -13,15 +13,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const assets = [
-    'assets/lottie/aura_warm.json',
-    'assets/lottie/aura_calm_blue.json',
-    'assets/lottie/aura_starfield.json',
-    'assets/lottie/aura_ember.json',
+    'assets/lottie/aura_warm.lottie',
+    'assets/lottie/aura_calm_blue.lottie',
+    'assets/lottie/aura_starfield.lottie',
+    'assets/lottie/aura_ember.lottie',
     // Mood-face underlays (PetMoodX + resting)
-    'assets/lottie/mood_happy.json',
-    'assets/lottie/mood_calm.json',
-    'assets/lottie/mood_sad.json',
-    'assets/lottie/mood_resting.json',
+    'assets/lottie/mood_happy.lottie',
+    'assets/lottie/mood_calm.lottie',
+    'assets/lottie/mood_sad.lottie',
+    'assets/lottie/mood_resting.lottie',
   ];
 
   for (final path in assets) {

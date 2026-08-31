@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../services/hardware_tier_service.dart';
 
 class ThemedBackground extends StatefulWidget {
   final Widget child;
@@ -45,7 +46,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduce = (MediaQuery.maybeOf(context)?.disableAnimations ?? false) || HardwareTierService.isLowEnd;
     final ctrl = _controller;
     if (ctrl == null) return;
     if (widget.enableKenBurns && !reduce) {
@@ -66,7 +67,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
 
   @override
   Widget build(BuildContext context) {
-    final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduce = (MediaQuery.maybeOf(context)?.disableAnimations ?? false) || HardwareTierService.isLowEnd;
     final animate = widget.enableKenBurns && !reduce && _controller != null;
 
     Widget background = Container(
