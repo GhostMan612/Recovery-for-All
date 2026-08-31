@@ -149,7 +149,8 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _resolveAnimations();
+    // disableMotion computed in build() where context is available
+    _resolveAnimations(disableMotion: HardwareTierService.isLowEnd);
   }
 
   @override
@@ -165,7 +166,7 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
         oldWidget.showAura != widget.showAura ||
         oldWidget.pet.isResting != widget.pet.isResting ||
         oldWidget.pet.mood != widget.pet.mood) {
-      _resolveAnimations();
+      _resolveAnimations(disableMotion: HardwareTierService.isLowEnd);
     }
     // Trigger celebration when sparks increase
     if (oldWidget.pet.sparks < widget.pet.sparks) {
@@ -182,11 +183,10 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
     });
   }
 
-  Future<void> _resolveAnimations() async {
+  Future<void> _resolveAnimations({required bool disableMotion}) async {
     LottieComposition? aura;
     LottieComposition? mood;
 
-    final disableMotion = HardwareTierService.isLowEnd || _reducedMotion;
     if (!disableMotion) {
       final auraAsset =
           widget.showAura ? AvatarVisualLayer._auraLottie[_equippedAuraId] : null;
@@ -209,8 +209,6 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
       _resolvedMoodKey = _moodKey;
     });
   }
-
-  bool get _reducedMotion => MediaQuery.disableAnimationsOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -251,11 +249,11 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
 
     final lottieAura = _auraComposition;
     final showLottieAura =
-        widget.showAura && lottieAura != null && !_reducedMotion;
+        widget.showAura && lottieAura != null && !disableMotion;
     // Mood underlay only when it matches the CURRENT state (a resolve may
     // have raced a mood change) and the surface is large enough.
     final moodKey = _moodKey;
-    final showMoodLottie = !_reducedMotion &&
+    final showMoodLottie = !disableMotion &&
         !widget.compact &&
         _resolvedMoodKey == moodKey &&
         _moodComposition != null;

@@ -38,6 +38,7 @@ dependencies:
   audioplayers: ^6.1.0
   cryptography: ^2.7.0
   firebase_core: ^4.14.0
+  firebase_auth: ^6.6.1
   cloud_firestore: ^6.9.0
   flutter_map_marker_cluster: ^8.2.2
   share_plus: ^13.3.0

@@ -7,6 +7,7 @@
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +33,7 @@ void main() async {
   // Timeout-guarded: a hung platform channel must never stall app boot.
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 8));
+    await FirebaseAuth.instance.signInAnonymously();
     CommunityFeedService.remoteReady = true;
     debugPrint('[boot] firebase: ready (cloud circle enabled)');
   } catch (e) {

@@ -369,6 +369,46 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   }
 
   Future<void> _logAttended(RecoveryMeeting meeting) async {
+    // Geo-verification: must be within 500m of meeting location
+    if (meeting.hasLocation) {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(const Duration(seconds: 15));
+        final distanceM = Geolocator.distanceBetween(
+          pos.latitude,
+          pos.longitude,
+          meeting.latitude,
+          meeting.longitude,
+        );
+        if (distanceM > 500) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF1E293B),
+              content: const Text(
+                'You must be within 500m of the meeting location to verify attendance.',
+              ),
+            ),
+          );
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E293B),
+            content: const Text(
+              'Unable to verify location. Please enable GPS and try again.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
     final controller = TextEditingController();
     final reflection = await showModalBottomSheet<String>(
       context: context,
