@@ -4,7 +4,7 @@
 // ============================================================
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/services/hardware_tier_service.dart';
+import 'package:recovery_for_all/services/hardware_tier_service.dart';
 
 void main() {
   group('HardwareTierService', () {

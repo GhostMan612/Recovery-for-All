@@ -13,7 +13,7 @@
 
 import 'dart:io';
 
-import 'package:recovery_companion/services/companion_guide_service.dart';
+import 'package:recovery_for_all/services/companion_guide_service.dart';
 
 void main() {
   final registry = CompanionTutorialRegistry.allTutorials;

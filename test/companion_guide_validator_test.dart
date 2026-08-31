@@ -9,7 +9,7 @@
 // Runs as a Flutter test so platform code compiles correctly.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/services/companion_guide_service.dart';
+import 'package:recovery_for_all/services/companion_guide_service.dart';
 
 void main() {
   group('CompanionTutorial route validation', () {

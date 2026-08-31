@@ -4,7 +4,7 @@
 // ============================================================
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/services/meeting_finder_service.dart';
+import 'package:recovery_for_all/services/meeting_finder_service.dart';
 
 void main() {
   final service = MeetingFinderService();

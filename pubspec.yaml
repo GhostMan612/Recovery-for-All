@@ -2,8 +2,8 @@
 # As Above, So Below. As Within, So Without.
 # The Future Dictates the Past and the Past is Always Present.
 # ============================================================
-name: recovery_companion
-description: "A private, offline-first recovery companion app."
+name: recovery_for_all
+description: "Recovery for All — A private, offline-first recovery companion."
 publish_to: 'none'
 version: 1.0.0+1
 

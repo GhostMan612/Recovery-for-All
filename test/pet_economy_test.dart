@@ -13,8 +13,8 @@ import 'dart:convert';
 import 'package:drift/drift.dart' show QueryExecutor;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/database/recovery_database.dart';
-import 'package:recovery_companion/services/recovery_pet_service.dart';
+import 'package:recovery_for_all/database/recovery_database.dart';
+import 'package:recovery_for_all/services/recovery_pet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

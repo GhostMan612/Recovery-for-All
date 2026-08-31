@@ -4,7 +4,7 @@
 // ============================================================
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/database/recovery_database.dart';
+import 'package:recovery_for_all/database/recovery_database.dart';
 
 void main() {
   group('MemoryWallScreen helper logic', () {

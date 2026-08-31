@@ -12,8 +12,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:recovery_companion/services/gguf_inference_service.dart';
-import 'package:recovery_companion/services/gguf_model_service.dart';
+import 'package:recovery_for_all/services/gguf_inference_service.dart';
+import 'package:recovery_for_all/services/gguf_model_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakePathProviderPlatform extends PathProviderPlatform {

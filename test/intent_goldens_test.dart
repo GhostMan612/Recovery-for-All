@@ -12,8 +12,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/services/coach_tflite_intent_service.dart';
-import 'package:recovery_companion/services/recovery_coach_service.dart';
+import 'package:recovery_for_all/services/coach_tflite_intent_service.dart';
+import 'package:recovery_for_all/services/recovery_coach_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 CoachIntent _parseExpected(String s) => switch (s) {

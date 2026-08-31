@@ -8,8 +8,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recovery_companion/services/meeting_finder_service.dart';
-import 'package:recovery_companion/widgets/next_meeting_card.dart';
+import 'package:recovery_for_all/services/meeting_finder_service.dart';
+import 'package:recovery_for_all/widgets/next_meeting_card.dart';
 
 RecoveryMeeting _m(String id, int? day, int? minutes, {String fellowship = 'AA', String name = 'Test Meeting'}) =>
     RecoveryMeeting(
