@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
 
 import '../services/companion_guide_service.dart';
+import '../services/hardware_tier_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
 
@@ -192,7 +193,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
       return const SizedBox.shrink();
     }
 
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final reducedMotion = MediaQuery.disableAnimationsOf(context) || HardwareTierService.isLowEnd;
 
     return Stack(
       children: [
@@ -252,10 +253,10 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Lottie aura (reuses avatar aura system)
+          // Lottie aura (reuses avatar aura system) — DotLottie
           if (!reducedMotion)
             Lottie.asset(
-              'assets/lottie/aura_warm.json',
+              'assets/lottie/aura_warm.lottie',
               width: 96,
               height: 96,
               repeat: true,
