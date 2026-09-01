@@ -56,23 +56,22 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "")
-            storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-            keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-            keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+            val storeFilePath = keystoreProperties.getProperty("storeFile") as String?
+            if (!storeFilePath.isNullOrBlank()) {
+                storeFile = file(storeFilePath)
+                keyAlias = keystoreProperties.getProperty("keyAlias") as String?
+                keyPassword = keystoreProperties.getProperty("keyPassword") as String?
+                storePassword = keystoreProperties.getProperty("storePassword") as String?
+            }
         }
     }
 
     buildTypes {
-        release {
-            // Signs with a real keystore when android/key.properties exists
-            // (storeFile/storePassword/keyAlias/keyPassword); otherwise falls
-            // back to debug signing so `flutter run --release` still works.
-            if (keystoreProperties.getProperty("storeFile") != null) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+        getByName("release") {
+            val releaseSig = signingConfigs.getByName("release")
+            signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
