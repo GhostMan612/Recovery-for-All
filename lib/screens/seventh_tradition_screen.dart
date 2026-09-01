@@ -159,7 +159,7 @@ class SeventhTraditionScreen extends StatelessWidget {
   static final _SupportLink _appSupportLink = _SupportLink(
     fellowship: null,
     label: 'Support Recovery for All Development',
-    url: 'https://github.com/sponsors/GhostMan612',
+    url: 'https://paypal.me/GhostMan612',
     description: 'Recovery for All is free, open-source, and offline-first. '
         'Your support covers hosting, device testing, and continued development. '
         'No ads, no tracking, no data collection — ever.',

@@ -662,6 +662,27 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 ),
                 const SizedBox(height: 10),
               ],
+              if (meeting.seventhTraditionUrl != null &&
+                  meeting.seventhTraditionUrl!.isNotEmpty) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFF472B6),
+                      side: BorderSide(
+                          color: const Color(0xFFF472B6).withValues(alpha: 0.5)),
+                    ),
+                    icon: const Icon(Icons.volunteer_activism_outlined),
+                    label: const Text('Pass the Basket (7th Tradition)'),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      _launchExternal(
+                          context, meeting.seventhTraditionUrl!, '7th Tradition');
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -1332,6 +1353,22 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Launches a URL in an external browser.
+Future<void> _launchExternal(BuildContext context, String url, String label) async {
+  try {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E293B),
+        content: Text('Could not open $label'),
+      ),
     );
   }
 }
