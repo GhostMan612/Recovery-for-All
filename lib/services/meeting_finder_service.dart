@@ -14,6 +14,99 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/minnesota_pathway_meetings.dart';
 import '../data/meeting_directories.dart';
 
+/// Canonical fellowship families — used for filtering, UI grouping, and 7th Tradition routing.
+enum RecoveryFellowship {
+  aa,
+  na,
+  cma, // Crystal Meth Anonymous
+  ca, // Cocaine Anonymous
+  oa, // Overeaters Anonymous
+  smart,
+  dharma,
+  alanon, // Al-Anon / Alateen
+  allRecovery, // All Recovery (secular, non-12-step)
+  lifering,
+  wfs, // Women for Sobriety
+  cr, // Celebrate Recovery
+  inTheRooms,
+  other;
+
+  /// Display name for UI
+  String get displayName {
+    switch (this) {
+      case RecoveryFellowship.aa:
+        return 'Alcoholics Anonymous';
+      case RecoveryFellowship.na:
+        return 'Narcotics Anonymous';
+      case RecoveryFellowship.cma:
+        return 'Crystal Meth Anonymous';
+      case RecoveryFellowship.ca:
+        return 'Cocaine Anonymous';
+      case RecoveryFellowship.oa:
+        return 'Overeaters Anonymous';
+      case RecoveryFellowship.smart:
+        return 'SMART Recovery';
+      case RecoveryFellowship.dharma:
+        return 'Recovery Dharma';
+      case RecoveryFellowship.alanon:
+        return 'Al-Anon / Alateen';
+      case RecoveryFellowship.allRecovery:
+        return 'All Recovery';
+      case RecoveryFellowship.lifering:
+        return 'LifeRing';
+      case RecoveryFellowship.wfs:
+        return 'Women for Sobriety';
+      case RecoveryFellowship.cr:
+        return 'Celebrate Recovery';
+      case RecoveryFellowship.inTheRooms:
+        return 'In The Rooms';
+      case RecoveryFellowship.other:
+        return 'Other';
+    }
+  }
+
+  /// Short code for storage / URL mapping
+  String get code {
+    switch (this) {
+      case RecoveryFellowship.aa:
+        return 'AA';
+      case RecoveryFellowship.na:
+        return 'NA';
+      case RecoveryFellowship.cma:
+        return 'CMA';
+      case RecoveryFellowship.ca:
+        return 'CA';
+      case RecoveryFellowship.oa:
+        return 'OA';
+      case RecoveryFellowship.smart:
+        return 'SMART';
+      case RecoveryFellowship.dharma:
+        return 'Dharma';
+      case RecoveryFellowship.alanon:
+        return 'AlAnon';
+      case RecoveryFellowship.allRecovery:
+        return 'AllRecovery';
+      case RecoveryFellowship.lifering:
+        return 'LifeRing';
+      case RecoveryFellowship.wfs:
+        return 'WFS';
+      case RecoveryFellowship.cr:
+        return 'CR';
+      case RecoveryFellowship.inTheRooms:
+        return 'InTheRooms';
+      case RecoveryFellowship.other:
+        return 'Other';
+    }
+  }
+
+  static RecoveryFellowship fromCode(String code) {
+    return RecoveryFellowship.values.firstWhere(
+      (f) => f.code.toLowerCase() == code.toLowerCase(),
+      orElse: () => RecoveryFellowship.other,
+    );
+  }
+}
+
 class RecoveryMeeting {
   final String id;
   final String name;
@@ -23,8 +116,7 @@ class RecoveryMeeting {
   final String time;
   final String address;
 
-  /// Fellowship family — drives path-tailored filtering:
-  /// 'AA' | 'NA' | 'Dharma' | 'Wellbriety' | 'SMART' | 'Other'
+  /// Fellowship family — drives path-tailored filtering.
   final String fellowship;
 
   /// Structured schedule (0 = Sunday … 6 = Saturday, minutes past midnight).
@@ -52,6 +144,9 @@ class RecoveryMeeting {
   bool get hasLocation => latitude != 0 || longitude != 0;
 
   bool get isDated => day != null && minutes != null;
+
+  /// Returns the fellowship as a typed enum (defaults to .other)
+  RecoveryFellowship get fellowshipEnum => RecoveryFellowship.fromCode(fellowship);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -127,6 +222,16 @@ class MeetingFinderService {
     'https://meetings.womenforsobriety.org/tsml.json',
     // Celebrate Recovery — Group Finder (verified).
     'https://api.celebraterecovery.com/v1/meetings/tsml',
+    // Crystal Meth Anonymous — CMA World Services (geo-bounded).
+    'https://cma.mylifecycle.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // Cocaine Anonymous — CA World Services (geo-bounded).
+    'https://ca.mylifecycle.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // Overeaters Anonymous — OA.org (geo-bounded).
+    'https://oa.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // Al-Anon / Alateen — WSO (geo-bounded).
+    'https://al-anon.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
+    // All Recovery — secular non-12-step meetings.
+    'https://allrecovery.org/main_server/client_interface/tsml/?switcher=GetSearchResults',
   ];
 
   static const String _bmltMarker = 'switcher=GetSearchResults';
@@ -320,6 +425,11 @@ class MeetingFinderService {
     if (lower.contains('celebraterecovery')) return 'CR';
     if (lower.contains('smartrecovery')) return 'SMART';
     if (lower.contains('intherooms')) return 'InTheRooms';
+    if (lower.contains('cma.mylifecycle') || lower.contains('crystal meth')) return 'CMA';
+    if (lower.contains('ca.mylifecycle') || lower.contains('cocaine anonymous')) return 'CA';
+    if (lower.contains('oa.org') || lower.contains('overeaters anonymous')) return 'OA';
+    if (lower.contains('al-anon') || lower.contains('alateen')) return 'AlAnon';
+    if (lower.contains('allrecovery') || lower.contains('all recovery')) return 'AllRecovery';
     if (lower.contains('na') || lower.contains('bmlt')) return 'NA';
     return 'Other';
   }
@@ -591,14 +701,19 @@ class MeetingFinderService {
   /// Built-in synthetic fallback (SAMPLE data only) for cold offline start.
   static List<RecoveryMeeting> sampleDirectory(double lat, double lng) {
     const templates = [
-      {'name': 'SAMPLE Sunrise Serenity', 'type': 'AA · Open Discussion', 'time': 'Daily · 7:00 AM'},
-      {'name': 'SAMPLE New Beginnings', 'type': 'NA · Step Study', 'time': 'Mon & Thu · 6:30 PM'},
-      {'name': 'SAMPLE Midday Reset', 'type': 'SMART · CBT Tools', 'time': 'Tue & Fri · 12:15 PM'},
-      {'name': 'SAMPLE Still Water Sangha', 'type': 'Dharma · Meditation', 'time': 'Wed · 6:00 PM'},
-      {'name': 'SAMPLE Four Directions Circle', 'type': 'Wellbriety · Medicine Wheel', 'time': 'Sun · 4:00 PM'},
-      {'name': 'SAMPLE Open Hearts Group', 'type': 'AA · Speaker Meeting', 'time': 'Sat · 8:00 PM'},
-      {'name': 'SAMPLE Evening Anchors', 'type': 'NA · Open Discussion', 'time': 'Nightly · 9:00 PM'},
-      {'name': 'SAMPLE Secular Path', 'type': 'Secular · Check-in', 'time': 'Thu · 7:30 PM'},
+      {'name': 'SAMPLE Sunrise Serenity', 'type': 'AA · Open Discussion', 'time': 'Daily · 7:00 AM', 'fellowship': 'AA'},
+      {'name': 'SAMPLE New Beginnings', 'type': 'NA · Step Study', 'time': 'Mon & Thu · 6:30 PM', 'fellowship': 'NA'},
+      {'name': 'SAMPLE Midday Reset', 'type': 'SMART · CBT Tools', 'time': 'Tue & Fri · 12:15 PM', 'fellowship': 'SMART'},
+      {'name': 'SAMPLE Still Water Sangha', 'type': 'Dharma · Meditation', 'time': 'Wed · 6:00 PM', 'fellowship': 'Dharma'},
+      {'name': 'SAMPLE Four Directions Circle', 'type': 'Wellbriety · Medicine Wheel', 'time': 'Sun · 4:00 PM', 'fellowship': 'Wellbriety'},
+      {'name': 'SAMPLE Open Hearts Group', 'type': 'AA · Speaker Meeting', 'time': 'Sat · 8:00 PM', 'fellowship': 'AA'},
+      {'name': 'SAMPLE Evening Anchors', 'type': 'NA · Open Discussion', 'time': 'Nightly · 9:00 PM', 'fellowship': 'NA'},
+      {'name': 'SAMPLE Secular Path', 'type': 'Secular · Check-in', 'time': 'Thu · 7:30 PM', 'fellowship': 'AllRecovery'},
+      {'name': 'SAMPLE Crystal Clear', 'type': 'CMA · Step Study', 'time': 'Tue · 7:00 PM', 'fellowship': 'CMA'},
+      {'name': 'SAMPLE Cocaine Free', 'type': 'CA · Open Discussion', 'time': 'Wed · 7:30 PM', 'fellowship': 'CA'},
+      {'name': 'SAMPLE Food Freedom', 'type': 'OA · Big Book Study', 'time': 'Sat · 10:00 AM', 'fellowship': 'OA'},
+      {'name': 'SAMPLE Family Recovery', 'type': 'Al-Anon · Family Group', 'time': 'Mon · 6:00 PM', 'fellowship': 'AlAnon'},
+      {'name': 'SAMPLE LifeRing Circle', 'type': 'LifeRing · Secular Support', 'time': 'Fri · 7:00 PM', 'fellowship': 'LifeRing'},
     ];
     return [
       for (var i = 0; i < templates.length; i++)
@@ -610,6 +725,7 @@ class MeetingFinderService {
           type: templates[i]['type']!,
           time: templates[i]['time']!,
           address: '${120 + i * 8} Fellowship Way, Suite ${i + 1}',
+          fellowship: templates[i]['fellowship']!,
         ),
     ];
   }

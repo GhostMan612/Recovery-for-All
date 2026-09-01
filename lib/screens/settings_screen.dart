@@ -23,6 +23,7 @@ import '../services/resource_link_health.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/data_export_service.dart';
 import '../services/sponsor_link_service.dart';
+import 'seventh_tradition_screen.dart';
 import '../services/sos_notification_service.dart';
 import 'sponsor_mode_screen.dart';
 
@@ -1043,6 +1044,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       Icon(Icons.open_in_new, size: 14, color: Color(0xFF64748B)),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 7th Tradition & Support
+              const Text('7th Tradition & Support',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text(
+                'Every fellowship is self-supporting. Links open in your browser — '
+                'Recovery for All does not process payments or collect financial data.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF472B6).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.volunteer_activism_outlined,
+                      color: Color(0xFFF472B6), size: 22),
+                ),
+                title: const Text('7th Tradition & Support',
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                  'Fellowship donations, literature stores, and app upkeep',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SeventhTraditionScreen()),
                 ),
               ),
             ],

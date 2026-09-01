@@ -65,7 +65,7 @@ class GgufModelInfo {
 
 // ---- download state ----
 
-enum DownloadState { idle, downloading, completed, failed }
+enum DownloadState { idle, downloading, completed, failed, notDownloaded }
 
 class DownloadProgress {
   final DownloadState state;
@@ -296,7 +296,7 @@ class GgufModelService {
     return dir;
   }
 
-  /// Downloads a model with streaming progress. Returns true on success.
+/// Downloads a model with streaming progress. Returns true on success.
   /// [onProgress] reports (downloaded, total). Cancel by setting
   /// [isCancelled] to true.
   Future<bool> downloadModel(
@@ -310,6 +310,9 @@ class GgufModelService {
       final file = File('${dir.path}/${model.id}.gguf');
       if (file.existsSync()) return true; // already downloaded
 
+      final tmpFile = File('${dir.path}/${model.id}.gguf.tmp');
+      if (tmpFile.existsSync()) await tmpFile.delete(); // clean stale temp
+
       final client = http.Client();
       final request =
           http.Request('GET', Uri.parse(model.downloadUrl));
@@ -321,36 +324,45 @@ class GgufModelService {
       }
 
       final totalBytes = response.contentLength ?? model.fileSizeBytes;
-      final sink = file.openWrite();
+      final sink = tmpFile.openWrite();
       var downloaded = 0;
 
-      await for (final chunk in response.stream) {
-      if (isCancelled?.call() ?? false) {
+      try {
+        await for (final chunk in response.stream) {
+          if (isCancelled?.call() ?? false) {
+            await sink.flush();
+            await sink.close();
+            if (tmpFile.existsSync()) await tmpFile.delete();
+            throw Exception('Download cancelled by user');
+          }
+          sink.add(chunk);
+          downloaded += chunk.length;
+          onProgress?.call(downloaded, totalBytes);
+        }
         await sink.flush();
-        sink.close();
-        await file.delete();
-        return false;
+        await sink.close();
+      } catch (e) {
+        await sink.close();
+        if (tmpFile.existsSync()) await tmpFile.delete();
+        rethrow;
       }
-      sink.add(chunk);
-      downloaded += chunk.length;
-      onProgress?.call(downloaded, totalBytes);
-    }
-await sink.flush();
-    sink.close();
-    client.close();
+      client.close();
 
-    // SHA-256 verification (Gap B)
-    if (model.sha256Hex != null) {
-      final bytes = await file.readAsBytes();
-      final digest = sha256.convert(bytes).toString();
-      if (digest != model.sha256Hex) {
-        await file.delete();
-        throw Exception('SHA-256 verification failed: expected ${model.sha256Hex}, got $digest');
+      // SHA-256 verification (Gap B) - read from tmp file
+      if (model.sha256Hex != null) {
+        final bytes = await tmpFile.readAsBytes();
+        final digest = sha256.convert(bytes).toString();
+        if (digest != model.sha256Hex) {
+          await tmpFile.delete();
+          throw Exception('SHA-256 verification failed: expected ${model.sha256Hex}, got $digest');
+        }
+        debugPrint('[gguf] SHA-256 verified for ${model.id}');
       }
-      debugPrint('[gguf] SHA-256 verified for ${model.id}');
-    }
 
-    // Mark as downloaded
+      // Atomic rename: .tmp -> .gguf
+      await tmpFile.rename(file.path);
+
+      // Mark as downloaded
       final prefs = await SharedPreferences.getInstance();
       final downloadedSet = await getDownloadedModels();
       downloadedSet.add(model.id);
@@ -363,6 +375,16 @@ await sink.flush();
       lastDownloadError = e.toString();
       return false;
     }
+  }
+
+  /// Checks if model file exists AND is reasonably sized (>1MB).
+  /// Prevents false positives from partial/corrupt downloads.
+  Future<bool> isModelReady(String modelId) async {
+    final dir = await _modelDir();
+    final file = File('${dir.path}/$modelId.gguf');
+    if (!file.existsSync()) return false;
+    final size = await file.length();
+    return size > 1000000; // 1MB minimum
   }
 
   Future<void> deleteModel(String modelId) async {
