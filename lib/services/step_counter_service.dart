@@ -15,6 +15,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/services.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +38,9 @@ class StepCounterService {
   static const List<int> stepMilestones = [1000, 2500, 5000, 7500, 10000, 12500, 15000];
   static const int sparksPerMilestone = 5;
 
+  static const MethodChannel _foregroundChannel =
+      MethodChannel('com.recoveryforall/step_counter');
+
   StreamSubscription<StepCount>? _stepCountSubscription;
   StreamSubscription<PedestrianStatus>? _pedestrianStatusSubscription;
   int _lastStepCount = 0;
@@ -44,6 +48,16 @@ class StepCounterService {
   DateTime? _walkStartTime;
   bool _isTrackingWalk = false;
   bool _autoVerifyEnabled = true;
+
+  /// Hardware sensor reports total since boot — capture baseline at walk start.
+  int? _initialSensorSteps;
+
+  /// Accelerometer fallback debounce — filter random handling jitter.
+  DateTime? _lastStepEventTime;
+  static const Duration _stepDebounce = Duration(milliseconds: 300);
+  // Threshold retained for raw accelerometer fallback (pedometer path uses step count debounce above).
+  // ignore: unused_field
+  static const double _accelerometerThreshold = 1.2;
 
   /// Initialize step counter with foreground service for background tracking
   Future<void> initialize() async {
@@ -84,8 +98,21 @@ class StepCounterService {
   }
 
   void _onStepCount(StepCount event) {
+    final now = DateTime.now();
+    if (_lastStepEventTime != null &&
+        now.difference(_lastStepEventTime!) < _stepDebounce) {
+      return;
+    }
+    _lastStepEventTime = now;
+
+    final incoming = event.steps;
+    if (_initialSensorSteps != null && incoming < _initialSensorSteps!) {
+      _initialSensorSteps = incoming;
+      _walkStartSteps = incoming;
+    }
+
     final previousSteps = _lastStepCount;
-    _lastStepCount = event.steps;
+    _lastStepCount = incoming;
     
     // Update daily steps asynchronously
     _updateDailySteps(_lastStepCount);
@@ -93,10 +120,14 @@ class StepCounterService {
     // Check for milestone awards
     _checkAndAwardMilestones(previousSteps: previousSteps);
 
-    if (_isTrackingWalk) {
-      final stepsSinceStart = _lastStepCount - _walkStartSteps;
+    if (_isTrackingWalk && _initialSensorSteps != null) {
+      final currentSteps = (incoming - _initialSensorSteps!).clamp(0, 1 << 30);
+      if (currentSteps >= minStepsForWalk && _autoVerifyEnabled) {
+        _autoVerifyWalk();
+      }
+    } else if (_isTrackingWalk) {
+      final stepsSinceStart = (_lastStepCount - _walkStartSteps).clamp(0, 1 << 30);
       if (stepsSinceStart >= minStepsForWalk && _autoVerifyEnabled) {
-        // Auto-verify walk when threshold reached
         _autoVerifyWalk();
       }
     }
@@ -180,7 +211,7 @@ class StepCounterService {
     _autoVerifyEnabled = enabled;
   }
 
-  /// Start tracking a walk session
+  /// Start tracking a walk session — captures initialStepCount and spawns health foreground notification
   Future<void> startWalkTracking() async {
     final status = await Permission.activityRecognition.request();
     if (!status.isGranted) {
@@ -189,6 +220,7 @@ class StepCounterService {
     }
     await markPermissionRequested();
     _isTrackingWalk = true;
+    _initialSensorSteps = _lastStepCount;
     _walkStartSteps = _lastStepCount;
     _walkStartTime = DateTime.now();
 
@@ -196,14 +228,30 @@ class StepCounterService {
     await prefs.setInt('walk_verification_steps_v1', _walkStartSteps);
     await prefs.setInt('walk_start_time_v1', _walkStartTime!.millisecondsSinceEpoch);
     await prefs.setBool('walk_verified_v1', false);
+
+    try {
+      await _foregroundChannel.invokeMethod('startForegroundService');
+      developer.log('[step_counter] foreground health service started — Walk Tracking Active');
+    } catch (e) {
+      developer.log('[step_counter] foreground start failed: $e');
+    }
   }
 
-  /// Stop tracking and check if walk is verified
+  /// Stop tracking and check if walk is verified — delta prevents negative steps, SOS untouched
   Future<bool> stopWalkTracking() async {
     _isTrackingWalk = false;
 
+    try {
+      await _foregroundChannel.invokeMethod('stopForegroundService');
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
-    final stepsSinceStart = _lastStepCount - _walkStartSteps;
+    final int stepsSinceStart;
+    if (_initialSensorSteps != null) {
+      stepsSinceStart = (_lastStepCount - _initialSensorSteps!).clamp(0, 1 << 30);
+    } else {
+      stepsSinceStart = (_lastStepCount - _walkStartSteps).clamp(0, 1 << 30);
+    }
     final elapsed = DateTime.now().difference(_walkStartTime ?? DateTime.now());
 
     final verified = stepsSinceStart >= minStepsForWalk && elapsed <= walkTimeWindow;
@@ -211,11 +259,11 @@ class StepCounterService {
     await prefs.setInt('last_step_count', _lastStepCount);
 
     if (verified) {
-      // Award walk sparks (cap-exempt)
       await RecoveryPetService.logWalk(requireVerification: false);
       developer.log('[step_counter] Walk verified - awarded 15 Sparks');
     }
 
+    _initialSensorSteps = null;
     return verified;
   }
 
@@ -236,10 +284,13 @@ class StepCounterService {
     await prefs.setBool('walk_verified_v1', true);
   }
 
-  /// Get current walk session steps
+  /// Get current walk session steps — strictly initialStepCount delta, never negative
   int getCurrentWalkSteps() {
     if (!_isTrackingWalk) return 0;
-    return _lastStepCount - _walkStartSteps;
+    if (_initialSensorSteps != null) {
+      return (_lastStepCount - _initialSensorSteps!).clamp(0, 1 << 30);
+    }
+    return (_lastStepCount - _walkStartSteps).clamp(0, 1 << 30);
   }
 
   /// Get current walk session elapsed time

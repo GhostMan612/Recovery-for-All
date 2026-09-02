@@ -41,9 +41,9 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-        <!-- Foreground service for background step counting -->
+        <!-- Foreground service for background step counting — Android 14 health compliance -->
         <service
-            android:name="com.example.recovery_companion.StepCounterForegroundService"
+            android:name="com.recoveryforall.StepCounterForegroundService"
             android:exported="false"
             android:foregroundServiceType="health"
             android:permission="android.permission.BIND_FOREGROUND_SERVICE" />

@@ -4,7 +4,7 @@
 # ============================================================
 name: recovery_for_all
 description: "Recovery for All — A private, offline-first recovery companion."
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.12.2

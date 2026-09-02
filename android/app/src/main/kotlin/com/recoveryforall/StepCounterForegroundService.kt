@@ -69,8 +69,8 @@ class StepCounterForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Step Counter Active")
-            .setContentText("Tracking your steps in the background")
+            .setContentTitle("Walk Tracking Active")
+            .setContentText("Tracking your walk — stay strong")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
