@@ -106,7 +106,16 @@ class StepCounterService {
     _lastStepEventTime = now;
 
     final incoming = event.steps;
-    if (_initialSensorSteps != null && incoming < _initialSensorSteps!) {
+
+    if (_initialSensorSteps == null) {
+      _initialSensorSteps = incoming;
+      _walkStartSteps = incoming;
+      _lastStepCount = incoming;
+      _updateDailySteps(_lastStepCount);
+      return;
+    }
+
+    if (incoming < _initialSensorSteps!) {
       _initialSensorSteps = incoming;
       _walkStartSteps = incoming;
     }
@@ -120,14 +129,9 @@ class StepCounterService {
     // Check for milestone awards
     _checkAndAwardMilestones(previousSteps: previousSteps);
 
-    if (_isTrackingWalk && _initialSensorSteps != null) {
+    if (_isTrackingWalk) {
       final currentSteps = (incoming - _initialSensorSteps!).clamp(0, 1 << 30);
       if (currentSteps >= minStepsForWalk && _autoVerifyEnabled) {
-        _autoVerifyWalk();
-      }
-    } else if (_isTrackingWalk) {
-      final stepsSinceStart = (_lastStepCount - _walkStartSteps).clamp(0, 1 << 30);
-      if (stepsSinceStart >= minStepsForWalk && _autoVerifyEnabled) {
         _autoVerifyWalk();
       }
     }
@@ -220,7 +224,7 @@ class StepCounterService {
     }
     await markPermissionRequested();
     _isTrackingWalk = true;
-    _initialSensorSteps = _lastStepCount;
+    _initialSensorSteps = null;
     _walkStartSteps = _lastStepCount;
     _walkStartTime = DateTime.now();
 
