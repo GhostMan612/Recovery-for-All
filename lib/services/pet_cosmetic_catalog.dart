@@ -198,6 +198,14 @@ class PetCosmeticCatalog {
     PetCosmetic(id: 'season_harvest_lantern', label: 'Harvest Lantern', category: CosmeticCategory.accessory, subcategory: 'seasonal', cost: 45, requiredBond: 0.15, seasonId: 'autumn_harvest', availableFromMs: 1759276800000, availableUntilMs: 1761955200000, emoji: '🎃'),
     PetCosmetic(id: 'season_newyear_spark', label: 'New Year Spark', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 60, requiredBond: 0.2, seasonId: 'new_year', availableFromMs: 1735689600000, availableUntilMs: 1737331200000, emoji: '🎆'),
     PetCosmetic(id: 'season_always_comet', label: 'Comet Trail', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 0, requiredBond: 0, free: true, seasonId: 'launch', emoji: '☄️'),
+    PetCosmetic(id: 'starter_glow_dup', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '✨'),
+    PetCosmetic(id: 'basic_shell_dup', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '🐚'),
+    PetCosmetic(id: 'neon_grid_aura_dup', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2, emoji: '🟦'),
+    PetCosmetic(id: 'tactical_streetwear_dup', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3, emoji: '🧥'),
+    PetCosmetic(id: 'cbt_deflector_shield_dup', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35, emoji: '🛡️'),
+    PetCosmetic(id: 'sovereign_mantle_dup', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8, emoji: '👑'),
+    PetCosmetic(id: 'cyber_monk_robes_dup', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85, emoji: '🥋'),
+    PetCosmetic(id: 'ethereal_wings_dup', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9, emoji: '🪽'),
   ];
 
   static List<String> get freeIds =>
@@ -311,4 +319,38 @@ class PetCosmeticCatalog {
     }
     return out;
   }
+
+  static const List<PetCosmetic> hatcheryTierItems = [
+    PetCosmetic(id: 'starter_glow', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '✨'),
+    PetCosmetic(id: 'basic_shell', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '🐚'),
+    PetCosmetic(id: 'neon_grid_aura', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2, emoji: '🟦'),
+    PetCosmetic(id: 'tactical_streetwear', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3, emoji: '🧥'),
+    PetCosmetic(id: 'cbt_deflector_shield', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35, emoji: '🛡️'),
+    PetCosmetic(id: 'sovereign_mantle_hatchery', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8, emoji: '👑'),
+    PetCosmetic(id: 'cyber_monk_robes', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85, emoji: '🥋'),
+    PetCosmetic(id: 'ethereal_wings', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9, emoji: '🪽'),
+  ];
 }
+
+class CosmeticItem {
+  final String id;
+  final String label;
+  final String category;
+  final int cost;
+  final String subcategory;
+  final String? emoji;
+  final bool isSeasonal;
+  final bool free;
+  const CosmeticItem({
+    required this.id,
+    required this.label,
+    required this.category,
+    required this.cost,
+    required this.subcategory,
+    this.emoji,
+    this.isSeasonal = false,
+    this.free = false,
+  });
+}
+
+typedef PetCosmeticItem = PetCosmetic;

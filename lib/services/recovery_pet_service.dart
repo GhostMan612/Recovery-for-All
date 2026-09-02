@@ -921,33 +921,44 @@ class RecoveryPetService {
     return updated;
   }
 
-  static Future<({RecoveryPet pet, bool unlocked, OutfitUnlockStatus status})> tryUnlockCosmetic(String itemId) async {
+  static Future<({RecoveryPet pet, bool unlocked, OutfitUnlockStatus status})> tryUnlockCosmetic(String itemId, int cost) async {
     final pet = await ensureHatched();
     if (pet.unlockedItems.contains(itemId)) {
       return (pet: pet, unlocked: false, status: OutfitUnlockStatus.alreadyOwned);
     }
+    if (pet.sparks < cost) {
+      return (pet: pet, unlocked: false, status: OutfitUnlockStatus.notEnoughSparks);
+    }
     final status = unlockStatus(pet, itemId);
-    if (status != OutfitUnlockStatus.available) {
+    if (status == OutfitUnlockStatus.seasonLocked || status == OutfitUnlockStatus.unknownItem) {
       return (pet: pet, unlocked: false, status: status);
     }
-    final item = PetCosmeticCatalog.byId(itemId)!;
+    if (status == OutfitUnlockStatus.bondTooLow) {
+      return (pet: pet, unlocked: false, status: status);
+    }
+    final newSparks = pet.sparks - cost;
+    final item = PetCosmeticCatalog.byId(itemId);
     final updated = RecoveryPet(
       id: pet.id,
       name: pet.name,
       energy: pet.energy,
       bond: pet.bond,
       mood: pet.mood,
-      sparks: item.free ? pet.sparks : pet.sparks - item.cost,
+      sparks: newSparks,
       unlockedItems: [...pet.unlockedItems, itemId],
       equippedOutfit: pet.equippedOutfit,
       speciesId: pet.speciesId,
-      equippedSlots: {...pet.equippedSlots, item.category.name: itemId},
+      equippedSlots: item != null ? {...pet.equippedSlots, item.category.name: itemId} : pet.equippedSlots,
       lastFedAt: pet.lastFedAt,
       createdAt: pet.createdAt,
+      pathLevel: pet.pathLevel,
+      pathXp: pet.pathXp,
     );
     await save(updated);
     return (pet: updated, unlocked: true, status: OutfitUnlockStatus.available);
   }
+
+  static Future<({RecoveryPet pet, bool unlocked, OutfitUnlockStatus status})> tryUnlockCosmeticLegacy(String itemId) => tryUnlockCosmetic(itemId, PetCosmeticCatalog.byId(itemId)?.cost ?? 0);
 
   static List<String> subcategoriesOf(dynamic category) {
     if (category is CosmeticCategory) {

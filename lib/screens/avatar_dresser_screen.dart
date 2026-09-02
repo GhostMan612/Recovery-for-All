@@ -60,29 +60,86 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
 
   Future<void> _swap(PetCosmetic item) async {
     if (_busy) return;
+    var pet = _pet;
+    final owned = pet.unlockedItems.contains(item.id);
+    final status = RecoveryPetService.unlockStatus(pet, item.id);
+    if (owned || status == OutfitUnlockStatus.alreadyOwned) {
+      setState(() => _busy = true);
+      try {
+        pet = await RecoveryPetService.equipCosmetic(item.id);
+        setState(() {
+          _pet = pet;
+          _busy = false;
+        });
+        widget.onChanged?.call(pet);
+      } catch (_) {
+        setState(() => _busy = false);
+      }
+      return;
+    }
+    if (status != OutfitUnlockStatus.available) {
+      if (mounted) _toast(_statusMessage(status));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Unlock Item?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Text('Unlock ${item.label} for ${item.cost} Sparks?', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8)))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Unlock ${item.cost}✦', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     setState(() => _busy = true);
     try {
-      var pet = _pet;
-      final status = RecoveryPetService.unlockStatus(pet, item.id);
-      if (status == OutfitUnlockStatus.alreadyOwned ||
-          pet.unlockedItems.contains(item.id)) {
-        pet = await RecoveryPetService.equipCosmetic(item.id);
-      } else if (status == OutfitUnlockStatus.available) {
-        final result = await RecoveryPetService.tryUnlockCosmetic(item.id);
-        pet = result.pet;
-        if (!result.unlocked && mounted) {
-          _toast(_statusMessage(result.status));
-        }
-      } else {
-        if (mounted) _toast(_statusMessage(status));
+      final result = await RecoveryPetService.tryUnlockCosmetic(item.id, item.cost);
+      if (!result.unlocked) {
+        if (mounted) _toast(_statusMessage(result.status));
         setState(() => _busy = false);
         return;
       }
+      pet = result.pet;
+      pet = await RecoveryPetService.equipCosmetic(item.id);
       setState(() {
         _pet = pet;
         _busy = false;
       });
       widget.onChanged?.call(pet);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E293B),
+            content: Row(
+              children: [
+                Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.celebration, color: Color(0xFF38BDF8), size: 18)),
+                const SizedBox(width: 10),
+                Expanded(child: Text('${item.label} unlocked! Equipped.', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     } catch (_) {
       setState(() => _busy = false);
     }
