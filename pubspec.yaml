@@ -4,7 +4,6 @@
 # ============================================================
 name: recovery_for_all
 description: "Recovery for All — A private, offline-first recovery companion."
-publish_to: 'none'
 version: 1.0.0+1
 
 environment:
