@@ -10,6 +10,7 @@ import '../database/recovery_database.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/narrative_export_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/xp_engine_service.dart';
 import '../widgets/chronicle_share_card.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -130,6 +131,8 @@ class _JournalScreenState extends State<JournalScreen> {
 
     final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
     await widget.database.addJournalEntry(entry);
+    if (!mounted) return;
+    await XpEngineService.processAction(context, widget.database, 'journal');
     await RecoveryPetService.logJournalEntry();
     final sparksDelta =
         (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/xp_engine_service.dart';
 
 /// Six-dimension wellness wheel check-in (NWI model) with a 7-check-in trend.
 class WellnessCheckInScreen extends StatefulWidget {
@@ -70,6 +71,8 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
         occupational: _scores['occupational']!,
       ),
     );
+    if (!mounted) return;
+    await XpEngineService.processAction(context, widget.database, 'check_in');
     await RecoveryPetService.logWellness();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
