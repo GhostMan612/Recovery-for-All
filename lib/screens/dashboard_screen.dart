@@ -39,6 +39,7 @@ import 'native_resources_screen.dart';
 import 'literature_library_screen.dart';
 import 'pet_home_screen.dart';
 import 'settings_screen.dart';
+import 'fellowship_sync_screen.dart';
 import 'seventh_tradition_screen.dart';
 import 'sober_housing_locator.dart';
 import 'sobriety_counter_screen.dart';
@@ -1134,6 +1135,40 @@ Future<void> _handleWalk() async {
               ],
             ),
             const SizedBox(height: 20),
+            Material(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FellowshipSyncScreen(database: widget.database))),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35))),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.qr_code_scanner, color: Color(0xFF38BDF8), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Fellowship Handshake', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                            SizedBox(height: 2),
+                            Text('QR connect • +50 XP • offline, private', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Material(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(16),
