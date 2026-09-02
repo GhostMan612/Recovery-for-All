@@ -39,6 +39,7 @@ import 'native_resources_screen.dart';
 import 'literature_library_screen.dart';
 import 'pet_home_screen.dart';
 import 'settings_screen.dart';
+import 'seventh_tradition_screen.dart';
 import 'sober_housing_locator.dart';
 import 'sobriety_counter_screen.dart';
 import 'steps_viewer_screen.dart';
@@ -1131,6 +1132,40 @@ Future<void> _handleWalk() async {
                 for (var i = 0; i < ordered.length; i++)
                   _buildDraggableToolCard(ordered, i, isLibrary: false),
               ],
+            ),
+            const SizedBox(height: 20),
+            Material(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SeventhTraditionScreen())),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFF472B6).withValues(alpha: 0.25))),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFFF472B6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.volunteer_activism_outlined, color: Color(0xFFF472B6), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('7th Tradition', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                            SizedBox(height: 2),
+                            Text('Voluntary support — keeps Recovery for All free', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                    ],
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 90),
           ],

@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart';
@@ -342,8 +343,102 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ],
             ),
-          )
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFF472B6),
+                side: const BorderSide(color: Color(0xFFF472B6), width: 1.2),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                backgroundColor: const Color(0xFFF472B6).withValues(alpha: 0.08),
+              ),
+              icon: const Icon(Icons.emergency_outlined, size: 20),
+              label: const Text(
+                'Need Help Now? (Rule 25 & Treatment)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              onPressed: _showRule25Sheet,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _showRule25Sheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFFF472B6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.health_and_safety_outlined, color: Color(0xFFF472B6)),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Rule 25 & Treatment Access', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Minnesota — immediate, confidential', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF334155))),
+                child: const Text(
+                  'Rule 25 is Minnesota’s chemical-use assessment that connects you to the right level of care — no wrong door.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _Rule25Tile(
+                icon: Icons.search_outlined,
+                title: 'FastTrackerMN',
+                subtitle: 'State directory for SUD programs • fasttrackermn.org',
+                onTap: () => launchUrl(Uri.parse('https://fasttrackermn.org/'), mode: LaunchMode.externalApplication),
+              ),
+              const SizedBox(height: 10),
+              _Rule25Tile(
+                icon: Icons.phone_in_talk_outlined,
+                title: 'Hennepin County SUD Assessment',
+                subtitle: '612-348-4111 • confidential screening',
+                onTap: () => launchUrl(Uri(scheme: 'tel', path: '6123484111'), mode: LaunchMode.externalApplication),
+              ),
+              const SizedBox(height: 10),
+              _Rule25Tile(
+                icon: Icons.phone_in_talk_outlined,
+                title: 'Ramsey County SUD Assessment',
+                subtitle: '651-266-4008 • confidential screening',
+                onTap: () => launchUrl(Uri(scheme: 'tel', path: '6512664008'), mode: LaunchMode.externalApplication),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Close', style: TextStyle(color: Color(0xFF94A3B8))),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -811,6 +906,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Rule25Tile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _Rule25Tile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF0F172A),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF334155))),
+          child: Row(
+            children: [
+              Icon(icon, color: const Color(0xFFF472B6), size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(subtitle, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.open_in_new, color: Color(0xFF64748B), size: 16),
+            ],
+          ),
+        ),
       ),
     );
   }
