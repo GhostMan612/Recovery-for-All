@@ -176,6 +176,19 @@ class FellowshipSyncs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('ActiveRaid')
+class ActiveRaids extends Table {
+  TextColumn get id => text()();
+  TextColumn get bossName => text()();
+  IntColumn get maxHp => integer()();
+  IntColumn get currentHp => integer()();
+  IntColumn get endTime => integer()();
+  IntColumn get userContribution => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   Profiles,
   Counters,
@@ -187,6 +200,7 @@ class FellowshipSyncs extends Table {
   PetEvents,
   FeedPosts,
   FellowshipSyncs,
+  ActiveRaids,
 ])
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
@@ -194,7 +208,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -235,6 +249,9 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             }
             if (from < 10) {
               await m.createTable(fellowshipSyncs);
+            }
+            if (from < 11) {
+              await m.createTable(activeRaids);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -445,6 +462,13 @@ class RecoveryDatabase extends _$RecoveryDatabase {
           ..where((t) => t.peerAlias.equals(peerAlias) & t.timestamp.isBiggerThanValue(sinceMs)))
         .get();
   }
+
+  Future<int> addActiveRaid(ActiveRaid raid) => into(activeRaids).insertOnConflictUpdate(raid);
+  Future<List<ActiveRaid>> getAllActiveRaids() => select(activeRaids).get();
+  Future<ActiveRaid?> getActiveRaidById(String id) => (select(activeRaids)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<bool> updateActiveRaid(ActiveRaid raid) => update(activeRaids).replace(raid);
+  Future<int> deleteActiveRaid(String id) => (delete(activeRaids)..where((t) => t.id.equals(id))).go();
+  Stream<List<ActiveRaid>> watchActiveRaids() => select(activeRaids).watch();
 }
 
 const _kDbKeyStorageKey = 'recovery_db_sqlcipher_key_v1';

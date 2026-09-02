@@ -5000,6 +5000,419 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
   }
 }
 
+class $ActiveRaidsTable extends ActiveRaids
+    with TableInfo<$ActiveRaidsTable, ActiveRaid> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActiveRaidsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bossNameMeta = const VerificationMeta(
+    'bossName',
+  );
+  @override
+  late final GeneratedColumn<String> bossName = GeneratedColumn<String>(
+    'boss_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _maxHpMeta = const VerificationMeta('maxHp');
+  @override
+  late final GeneratedColumn<int> maxHp = GeneratedColumn<int>(
+    'max_hp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _currentHpMeta = const VerificationMeta(
+    'currentHp',
+  );
+  @override
+  late final GeneratedColumn<int> currentHp = GeneratedColumn<int>(
+    'current_hp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<int> endTime = GeneratedColumn<int>(
+    'end_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userContributionMeta = const VerificationMeta(
+    'userContribution',
+  );
+  @override
+  late final GeneratedColumn<int> userContribution = GeneratedColumn<int>(
+    'user_contribution',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    bossName,
+    maxHp,
+    currentHp,
+    endTime,
+    userContribution,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'active_raids';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActiveRaid> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('boss_name')) {
+      context.handle(
+        _bossNameMeta,
+        bossName.isAcceptableOrUnknown(data['boss_name']!, _bossNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bossNameMeta);
+    }
+    if (data.containsKey('max_hp')) {
+      context.handle(
+        _maxHpMeta,
+        maxHp.isAcceptableOrUnknown(data['max_hp']!, _maxHpMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_maxHpMeta);
+    }
+    if (data.containsKey('current_hp')) {
+      context.handle(
+        _currentHpMeta,
+        currentHp.isAcceptableOrUnknown(data['current_hp']!, _currentHpMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_currentHpMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endTimeMeta);
+    }
+    if (data.containsKey('user_contribution')) {
+      context.handle(
+        _userContributionMeta,
+        userContribution.isAcceptableOrUnknown(
+          data['user_contribution']!,
+          _userContributionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_userContributionMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActiveRaid map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActiveRaid(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      bossName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}boss_name'],
+      )!,
+      maxHp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_hp'],
+      )!,
+      currentHp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}current_hp'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_time'],
+      )!,
+      userContribution: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}user_contribution'],
+      )!,
+    );
+  }
+
+  @override
+  $ActiveRaidsTable createAlias(String alias) {
+    return $ActiveRaidsTable(attachedDatabase, alias);
+  }
+}
+
+class ActiveRaid extends DataClass implements Insertable<ActiveRaid> {
+  final String id;
+  final String bossName;
+  final int maxHp;
+  final int currentHp;
+  final int endTime;
+  final int userContribution;
+  const ActiveRaid({
+    required this.id,
+    required this.bossName,
+    required this.maxHp,
+    required this.currentHp,
+    required this.endTime,
+    required this.userContribution,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['boss_name'] = Variable<String>(bossName);
+    map['max_hp'] = Variable<int>(maxHp);
+    map['current_hp'] = Variable<int>(currentHp);
+    map['end_time'] = Variable<int>(endTime);
+    map['user_contribution'] = Variable<int>(userContribution);
+    return map;
+  }
+
+  ActiveRaidsCompanion toCompanion(bool nullToAbsent) {
+    return ActiveRaidsCompanion(
+      id: Value(id),
+      bossName: Value(bossName),
+      maxHp: Value(maxHp),
+      currentHp: Value(currentHp),
+      endTime: Value(endTime),
+      userContribution: Value(userContribution),
+    );
+  }
+
+  factory ActiveRaid.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActiveRaid(
+      id: serializer.fromJson<String>(json['id']),
+      bossName: serializer.fromJson<String>(json['bossName']),
+      maxHp: serializer.fromJson<int>(json['maxHp']),
+      currentHp: serializer.fromJson<int>(json['currentHp']),
+      endTime: serializer.fromJson<int>(json['endTime']),
+      userContribution: serializer.fromJson<int>(json['userContribution']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'bossName': serializer.toJson<String>(bossName),
+      'maxHp': serializer.toJson<int>(maxHp),
+      'currentHp': serializer.toJson<int>(currentHp),
+      'endTime': serializer.toJson<int>(endTime),
+      'userContribution': serializer.toJson<int>(userContribution),
+    };
+  }
+
+  ActiveRaid copyWith({
+    String? id,
+    String? bossName,
+    int? maxHp,
+    int? currentHp,
+    int? endTime,
+    int? userContribution,
+  }) => ActiveRaid(
+    id: id ?? this.id,
+    bossName: bossName ?? this.bossName,
+    maxHp: maxHp ?? this.maxHp,
+    currentHp: currentHp ?? this.currentHp,
+    endTime: endTime ?? this.endTime,
+    userContribution: userContribution ?? this.userContribution,
+  );
+  ActiveRaid copyWithCompanion(ActiveRaidsCompanion data) {
+    return ActiveRaid(
+      id: data.id.present ? data.id.value : this.id,
+      bossName: data.bossName.present ? data.bossName.value : this.bossName,
+      maxHp: data.maxHp.present ? data.maxHp.value : this.maxHp,
+      currentHp: data.currentHp.present ? data.currentHp.value : this.currentHp,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+      userContribution: data.userContribution.present
+          ? data.userContribution.value
+          : this.userContribution,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveRaid(')
+          ..write('id: $id, ')
+          ..write('bossName: $bossName, ')
+          ..write('maxHp: $maxHp, ')
+          ..write('currentHp: $currentHp, ')
+          ..write('endTime: $endTime, ')
+          ..write('userContribution: $userContribution')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, bossName, maxHp, currentHp, endTime, userContribution);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActiveRaid &&
+          other.id == this.id &&
+          other.bossName == this.bossName &&
+          other.maxHp == this.maxHp &&
+          other.currentHp == this.currentHp &&
+          other.endTime == this.endTime &&
+          other.userContribution == this.userContribution);
+}
+
+class ActiveRaidsCompanion extends UpdateCompanion<ActiveRaid> {
+  final Value<String> id;
+  final Value<String> bossName;
+  final Value<int> maxHp;
+  final Value<int> currentHp;
+  final Value<int> endTime;
+  final Value<int> userContribution;
+  final Value<int> rowid;
+  const ActiveRaidsCompanion({
+    this.id = const Value.absent(),
+    this.bossName = const Value.absent(),
+    this.maxHp = const Value.absent(),
+    this.currentHp = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.userContribution = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActiveRaidsCompanion.insert({
+    required String id,
+    required String bossName,
+    required int maxHp,
+    required int currentHp,
+    required int endTime,
+    required int userContribution,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       bossName = Value(bossName),
+       maxHp = Value(maxHp),
+       currentHp = Value(currentHp),
+       endTime = Value(endTime),
+       userContribution = Value(userContribution);
+  static Insertable<ActiveRaid> custom({
+    Expression<String>? id,
+    Expression<String>? bossName,
+    Expression<int>? maxHp,
+    Expression<int>? currentHp,
+    Expression<int>? endTime,
+    Expression<int>? userContribution,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (bossName != null) 'boss_name': bossName,
+      if (maxHp != null) 'max_hp': maxHp,
+      if (currentHp != null) 'current_hp': currentHp,
+      if (endTime != null) 'end_time': endTime,
+      if (userContribution != null) 'user_contribution': userContribution,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActiveRaidsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? bossName,
+    Value<int>? maxHp,
+    Value<int>? currentHp,
+    Value<int>? endTime,
+    Value<int>? userContribution,
+    Value<int>? rowid,
+  }) {
+    return ActiveRaidsCompanion(
+      id: id ?? this.id,
+      bossName: bossName ?? this.bossName,
+      maxHp: maxHp ?? this.maxHp,
+      currentHp: currentHp ?? this.currentHp,
+      endTime: endTime ?? this.endTime,
+      userContribution: userContribution ?? this.userContribution,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (bossName.present) {
+      map['boss_name'] = Variable<String>(bossName.value);
+    }
+    if (maxHp.present) {
+      map['max_hp'] = Variable<int>(maxHp.value);
+    }
+    if (currentHp.present) {
+      map['current_hp'] = Variable<int>(currentHp.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<int>(endTime.value);
+    }
+    if (userContribution.present) {
+      map['user_contribution'] = Variable<int>(userContribution.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveRaidsCompanion(')
+          ..write('id: $id, ')
+          ..write('bossName: $bossName, ')
+          ..write('maxHp: $maxHp, ')
+          ..write('currentHp: $currentHp, ')
+          ..write('endTime: $endTime, ')
+          ..write('userContribution: $userContribution, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -5018,6 +5431,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
   late final $FellowshipSyncsTable fellowshipSyncs = $FellowshipSyncsTable(
     this,
   );
+  late final $ActiveRaidsTable activeRaids = $ActiveRaidsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5033,6 +5447,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     petEvents,
     feedPosts,
     fellowshipSyncs,
+    activeRaids,
   ];
 }
 
@@ -7623,6 +8038,227 @@ typedef $$FellowshipSyncsTableProcessedTableManager =
       FellowshipSync,
       PrefetchHooks Function()
     >;
+typedef $$ActiveRaidsTableCreateCompanionBuilder =
+    ActiveRaidsCompanion Function({
+      required String id,
+      required String bossName,
+      required int maxHp,
+      required int currentHp,
+      required int endTime,
+      required int userContribution,
+      Value<int> rowid,
+    });
+typedef $$ActiveRaidsTableUpdateCompanionBuilder =
+    ActiveRaidsCompanion Function({
+      Value<String> id,
+      Value<String> bossName,
+      Value<int> maxHp,
+      Value<int> currentHp,
+      Value<int> endTime,
+      Value<int> userContribution,
+      Value<int> rowid,
+    });
+
+class $$ActiveRaidsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $ActiveRaidsTable> {
+  $$ActiveRaidsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bossName => $composableBuilder(
+    column: $table.bossName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxHp => $composableBuilder(
+    column: $table.maxHp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get currentHp => $composableBuilder(
+    column: $table.currentHp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get userContribution => $composableBuilder(
+    column: $table.userContribution,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ActiveRaidsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $ActiveRaidsTable> {
+  $$ActiveRaidsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bossName => $composableBuilder(
+    column: $table.bossName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxHp => $composableBuilder(
+    column: $table.maxHp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get currentHp => $composableBuilder(
+    column: $table.currentHp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get userContribution => $composableBuilder(
+    column: $table.userContribution,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ActiveRaidsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $ActiveRaidsTable> {
+  $$ActiveRaidsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get bossName =>
+      $composableBuilder(column: $table.bossName, builder: (column) => column);
+
+  GeneratedColumn<int> get maxHp =>
+      $composableBuilder(column: $table.maxHp, builder: (column) => column);
+
+  GeneratedColumn<int> get currentHp =>
+      $composableBuilder(column: $table.currentHp, builder: (column) => column);
+
+  GeneratedColumn<int> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  GeneratedColumn<int> get userContribution => $composableBuilder(
+    column: $table.userContribution,
+    builder: (column) => column,
+  );
+}
+
+class $$ActiveRaidsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $ActiveRaidsTable,
+          ActiveRaid,
+          $$ActiveRaidsTableFilterComposer,
+          $$ActiveRaidsTableOrderingComposer,
+          $$ActiveRaidsTableAnnotationComposer,
+          $$ActiveRaidsTableCreateCompanionBuilder,
+          $$ActiveRaidsTableUpdateCompanionBuilder,
+          (
+            ActiveRaid,
+            BaseReferences<_$RecoveryDatabase, $ActiveRaidsTable, ActiveRaid>,
+          ),
+          ActiveRaid,
+          PrefetchHooks Function()
+        > {
+  $$ActiveRaidsTableTableManager(_$RecoveryDatabase db, $ActiveRaidsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActiveRaidsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActiveRaidsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActiveRaidsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> bossName = const Value.absent(),
+                Value<int> maxHp = const Value.absent(),
+                Value<int> currentHp = const Value.absent(),
+                Value<int> endTime = const Value.absent(),
+                Value<int> userContribution = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActiveRaidsCompanion(
+                id: id,
+                bossName: bossName,
+                maxHp: maxHp,
+                currentHp: currentHp,
+                endTime: endTime,
+                userContribution: userContribution,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String bossName,
+                required int maxHp,
+                required int currentHp,
+                required int endTime,
+                required int userContribution,
+                Value<int> rowid = const Value.absent(),
+              }) => ActiveRaidsCompanion.insert(
+                id: id,
+                bossName: bossName,
+                maxHp: maxHp,
+                currentHp: currentHp,
+                endTime: endTime,
+                userContribution: userContribution,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ActiveRaidsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $ActiveRaidsTable,
+      ActiveRaid,
+      $$ActiveRaidsTableFilterComposer,
+      $$ActiveRaidsTableOrderingComposer,
+      $$ActiveRaidsTableAnnotationComposer,
+      $$ActiveRaidsTableCreateCompanionBuilder,
+      $$ActiveRaidsTableUpdateCompanionBuilder,
+      (
+        ActiveRaid,
+        BaseReferences<_$RecoveryDatabase, $ActiveRaidsTable, ActiveRaid>,
+      ),
+      ActiveRaid,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -7647,4 +8283,6 @@ class $RecoveryDatabaseManager {
       $$FeedPostsTableTableManager(_db, _db.feedPosts);
   $$FellowshipSyncsTableTableManager get fellowshipSyncs =>
       $$FellowshipSyncsTableTableManager(_db, _db.fellowshipSyncs);
+  $$ActiveRaidsTableTableManager get activeRaids =>
+      $$ActiveRaidsTableTableManager(_db, _db.activeRaids);
 }

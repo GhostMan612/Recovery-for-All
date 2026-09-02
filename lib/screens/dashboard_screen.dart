@@ -41,6 +41,8 @@ import 'pet_home_screen.dart';
 import 'settings_screen.dart';
 import 'fellowship_sync_screen.dart';
 import 'seventh_tradition_screen.dart';
+import '../services/raid_service.dart';
+import '../widgets/raid_boss_card.dart';
 import '../widgets/skill_tree_modal.dart';
 import 'sober_housing_locator.dart';
 import 'sobriety_counter_screen.dart';
@@ -96,6 +98,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _editingLibrary = false;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
+  ActiveRaid? _activeRaid;
 
   @override
   void initState() {
@@ -237,6 +240,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _pet = pet;
       _isLoading = false;
     });
+    try {
+      final raid = await RaidService.getActiveRaid(widget.database);
+      if (!mounted) return;
+      setState(() => _activeRaid = raid);
+    } catch (_) {}
   }
 
   Future<void> _refreshPet() async {
@@ -1126,6 +1134,26 @@ Future<void> _handleWalk() async {
               },
             ),
             const SizedBox(height: 20),
+            if (_activeRaid != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: RaidBossCard(
+                  raid: _activeRaid!,
+                  onStrike: () async {
+                    final updated = await RaidService.dealDamage(widget.database, _activeRaid!.id, RaidService.strikeDamage);
+                    if (!mounted) return;
+                    setState(() => _activeRaid = updated);
+                    if (updated != null && updated.currentHp <= 0) {
+                      await _refreshPet();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Color(0xFF1E293B), content: Text('Boss defeated! +200 XP • Community triumph!')));
+                    } else if (updated != null) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('Strike! -${RaidService.strikeDamage} HP • You: ${updated.userContribution} DMG')));
+                    }
+                  },
+                ),
+              ),
             Row(
               children: [
                 const Text('Your Toolbox',
