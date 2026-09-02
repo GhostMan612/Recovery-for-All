@@ -41,6 +41,7 @@ import 'pet_home_screen.dart';
 import 'settings_screen.dart';
 import 'fellowship_sync_screen.dart';
 import 'seventh_tradition_screen.dart';
+import '../widgets/skill_tree_modal.dart';
 import 'sober_housing_locator.dart';
 import 'sobriety_counter_screen.dart';
 import 'steps_viewer_screen.dart';
@@ -241,6 +242,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _refreshPet() async {
     final pet = await RecoveryPetService.ensureHatched();
     if (mounted) setState(() => _pet = pet);
+  }
+
+  Widget _buildXpBar(RecoveryPet pet) {
+    final evaluated = RecoveryPetService.evaluateLevel(pet);
+    final level = evaluated.pathLevel;
+    final xpInto = evaluated.pathXp % 100;
+    final progress = xpInto / 100;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF38BDF8)),
+              const SizedBox(width: 6),
+              Text('Level $level • $xpInto/100 XP', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text('Tap for Skill Tree', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+              const SizedBox(width: 4),
+              const Icon(Icons.account_tree_outlined, size: 14, color: Color(0xFFF472B6)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: const Color(0xFF0F172A), valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8))),
+          ),
+        ],
+      ),
+    );
   }
 
   // ------------------------------------------------------------------
@@ -1040,11 +1073,21 @@ Future<void> _handleWalk() async {
               const SizedBox(height: 16),
             ],
             if (pet != null)
-              RecoveryPetCard(
-                pet: pet,
-                onCheckIn: _handleCheckIn,
-                onWalk: _handleWalk,
-                onOpen: _openDresser,
+              GestureDetector(
+                onTap: () => showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (_) => SkillTreeModal(database: widget.database)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RecoveryPetCard(
+                      pet: pet,
+                      onCheckIn: _handleCheckIn,
+                      onWalk: _handleWalk,
+                      onOpen: _openDresser,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildXpBar(pet),
+                  ],
+                ),
               ),
             const SizedBox(height: 16),
             // R27: Predictive Next-Meeting Widget — live or next today from cache

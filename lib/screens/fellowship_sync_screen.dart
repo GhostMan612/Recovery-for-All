@@ -94,7 +94,8 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
         return;
       }
       final pet = await RecoveryPetService.ensureHatched();
-      final updated = pet.copyWith(pathXp: pet.pathXp + 50);
+      final withXp = pet.copyWith(pathXp: pet.pathXp + 50);
+      final updated = RecoveryPetService.evaluateLevel(withXp);
       await RecoveryPetService.save(updated);
       final sync = FellowshipSync(
         id: 'sync_${DateTime.now().microsecondsSinceEpoch}_${peerAlias.hashCode.abs()}',

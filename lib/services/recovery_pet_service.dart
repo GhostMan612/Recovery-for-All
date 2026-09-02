@@ -332,6 +332,12 @@ class RecoveryPetService {
     return max(energy - idleDays * idleDecayPerDay, restingFloor);
   }
 
+  static RecoveryPet evaluateLevel(RecoveryPet pet) {
+    final calculated = (pet.pathXp / 100).floor() + 1;
+    if (calculated > pet.pathLevel) return pet.copyWith(pathLevel: calculated);
+    return pet;
+  }
+
   /// Counter milestone chip rewards by label tier.
   static const Map<String, int> milestoneRewards = {
     '24 Hours': 25,
