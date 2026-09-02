@@ -4690,6 +4690,316 @@ class FeedPostsCompanion extends UpdateCompanion<FeedPost> {
   }
 }
 
+class $FellowshipSyncsTable extends FellowshipSyncs
+    with TableInfo<$FellowshipSyncsTable, FellowshipSync> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FellowshipSyncsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _peerAliasMeta = const VerificationMeta(
+    'peerAlias',
+  );
+  @override
+  late final GeneratedColumn<String> peerAlias = GeneratedColumn<String>(
+    'peer_alias',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<int> timestamp = GeneratedColumn<int>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _xpAwardedMeta = const VerificationMeta(
+    'xpAwarded',
+  );
+  @override
+  late final GeneratedColumn<int> xpAwarded = GeneratedColumn<int>(
+    'xp_awarded',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, peerAlias, timestamp, xpAwarded];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'fellowship_syncs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FellowshipSync> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('peer_alias')) {
+      context.handle(
+        _peerAliasMeta,
+        peerAlias.isAcceptableOrUnknown(data['peer_alias']!, _peerAliasMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_peerAliasMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('xp_awarded')) {
+      context.handle(
+        _xpAwardedMeta,
+        xpAwarded.isAcceptableOrUnknown(data['xp_awarded']!, _xpAwardedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_xpAwardedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FellowshipSync map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FellowshipSync(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      peerAlias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}peer_alias'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      xpAwarded: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}xp_awarded'],
+      )!,
+    );
+  }
+
+  @override
+  $FellowshipSyncsTable createAlias(String alias) {
+    return $FellowshipSyncsTable(attachedDatabase, alias);
+  }
+}
+
+class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
+  final String id;
+  final String peerAlias;
+  final int timestamp;
+  final int xpAwarded;
+  const FellowshipSync({
+    required this.id,
+    required this.peerAlias,
+    required this.timestamp,
+    required this.xpAwarded,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['peer_alias'] = Variable<String>(peerAlias);
+    map['timestamp'] = Variable<int>(timestamp);
+    map['xp_awarded'] = Variable<int>(xpAwarded);
+    return map;
+  }
+
+  FellowshipSyncsCompanion toCompanion(bool nullToAbsent) {
+    return FellowshipSyncsCompanion(
+      id: Value(id),
+      peerAlias: Value(peerAlias),
+      timestamp: Value(timestamp),
+      xpAwarded: Value(xpAwarded),
+    );
+  }
+
+  factory FellowshipSync.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FellowshipSync(
+      id: serializer.fromJson<String>(json['id']),
+      peerAlias: serializer.fromJson<String>(json['peerAlias']),
+      timestamp: serializer.fromJson<int>(json['timestamp']),
+      xpAwarded: serializer.fromJson<int>(json['xpAwarded']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'peerAlias': serializer.toJson<String>(peerAlias),
+      'timestamp': serializer.toJson<int>(timestamp),
+      'xpAwarded': serializer.toJson<int>(xpAwarded),
+    };
+  }
+
+  FellowshipSync copyWith({
+    String? id,
+    String? peerAlias,
+    int? timestamp,
+    int? xpAwarded,
+  }) => FellowshipSync(
+    id: id ?? this.id,
+    peerAlias: peerAlias ?? this.peerAlias,
+    timestamp: timestamp ?? this.timestamp,
+    xpAwarded: xpAwarded ?? this.xpAwarded,
+  );
+  FellowshipSync copyWithCompanion(FellowshipSyncsCompanion data) {
+    return FellowshipSync(
+      id: data.id.present ? data.id.value : this.id,
+      peerAlias: data.peerAlias.present ? data.peerAlias.value : this.peerAlias,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      xpAwarded: data.xpAwarded.present ? data.xpAwarded.value : this.xpAwarded,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FellowshipSync(')
+          ..write('id: $id, ')
+          ..write('peerAlias: $peerAlias, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('xpAwarded: $xpAwarded')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, peerAlias, timestamp, xpAwarded);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FellowshipSync &&
+          other.id == this.id &&
+          other.peerAlias == this.peerAlias &&
+          other.timestamp == this.timestamp &&
+          other.xpAwarded == this.xpAwarded);
+}
+
+class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
+  final Value<String> id;
+  final Value<String> peerAlias;
+  final Value<int> timestamp;
+  final Value<int> xpAwarded;
+  final Value<int> rowid;
+  const FellowshipSyncsCompanion({
+    this.id = const Value.absent(),
+    this.peerAlias = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.xpAwarded = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FellowshipSyncsCompanion.insert({
+    required String id,
+    required String peerAlias,
+    required int timestamp,
+    required int xpAwarded,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       peerAlias = Value(peerAlias),
+       timestamp = Value(timestamp),
+       xpAwarded = Value(xpAwarded);
+  static Insertable<FellowshipSync> custom({
+    Expression<String>? id,
+    Expression<String>? peerAlias,
+    Expression<int>? timestamp,
+    Expression<int>? xpAwarded,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (peerAlias != null) 'peer_alias': peerAlias,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (xpAwarded != null) 'xp_awarded': xpAwarded,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FellowshipSyncsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? peerAlias,
+    Value<int>? timestamp,
+    Value<int>? xpAwarded,
+    Value<int>? rowid,
+  }) {
+    return FellowshipSyncsCompanion(
+      id: id ?? this.id,
+      peerAlias: peerAlias ?? this.peerAlias,
+      timestamp: timestamp ?? this.timestamp,
+      xpAwarded: xpAwarded ?? this.xpAwarded,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (peerAlias.present) {
+      map['peer_alias'] = Variable<String>(peerAlias.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<int>(timestamp.value);
+    }
+    if (xpAwarded.present) {
+      map['xp_awarded'] = Variable<int>(xpAwarded.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FellowshipSyncsCompanion(')
+          ..write('id: $id, ')
+          ..write('peerAlias: $peerAlias, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('xpAwarded: $xpAwarded, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -4705,6 +5015,9 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
   late final $RecoveryPetsTable recoveryPets = $RecoveryPetsTable(this);
   late final $PetEventsTable petEvents = $PetEventsTable(this);
   late final $FeedPostsTable feedPosts = $FeedPostsTable(this);
+  late final $FellowshipSyncsTable fellowshipSyncs = $FellowshipSyncsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4719,6 +5032,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     recoveryPets,
     petEvents,
     feedPosts,
+    fellowshipSyncs,
   ];
 }
 
@@ -7118,6 +7432,197 @@ typedef $$FeedPostsTableProcessedTableManager =
       FeedPost,
       PrefetchHooks Function()
     >;
+typedef $$FellowshipSyncsTableCreateCompanionBuilder =
+    FellowshipSyncsCompanion Function({
+      required String id,
+      required String peerAlias,
+      required int timestamp,
+      required int xpAwarded,
+      Value<int> rowid,
+    });
+typedef $$FellowshipSyncsTableUpdateCompanionBuilder =
+    FellowshipSyncsCompanion Function({
+      Value<String> id,
+      Value<String> peerAlias,
+      Value<int> timestamp,
+      Value<int> xpAwarded,
+      Value<int> rowid,
+    });
+
+class $$FellowshipSyncsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $FellowshipSyncsTable> {
+  $$FellowshipSyncsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get peerAlias => $composableBuilder(
+    column: $table.peerAlias,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get xpAwarded => $composableBuilder(
+    column: $table.xpAwarded,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FellowshipSyncsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $FellowshipSyncsTable> {
+  $$FellowshipSyncsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get peerAlias => $composableBuilder(
+    column: $table.peerAlias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get xpAwarded => $composableBuilder(
+    column: $table.xpAwarded,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FellowshipSyncsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $FellowshipSyncsTable> {
+  $$FellowshipSyncsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get peerAlias =>
+      $composableBuilder(column: $table.peerAlias, builder: (column) => column);
+
+  GeneratedColumn<int> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<int> get xpAwarded =>
+      $composableBuilder(column: $table.xpAwarded, builder: (column) => column);
+}
+
+class $$FellowshipSyncsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $FellowshipSyncsTable,
+          FellowshipSync,
+          $$FellowshipSyncsTableFilterComposer,
+          $$FellowshipSyncsTableOrderingComposer,
+          $$FellowshipSyncsTableAnnotationComposer,
+          $$FellowshipSyncsTableCreateCompanionBuilder,
+          $$FellowshipSyncsTableUpdateCompanionBuilder,
+          (
+            FellowshipSync,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $FellowshipSyncsTable,
+              FellowshipSync
+            >,
+          ),
+          FellowshipSync,
+          PrefetchHooks Function()
+        > {
+  $$FellowshipSyncsTableTableManager(
+    _$RecoveryDatabase db,
+    $FellowshipSyncsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FellowshipSyncsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FellowshipSyncsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FellowshipSyncsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> peerAlias = const Value.absent(),
+                Value<int> timestamp = const Value.absent(),
+                Value<int> xpAwarded = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FellowshipSyncsCompanion(
+                id: id,
+                peerAlias: peerAlias,
+                timestamp: timestamp,
+                xpAwarded: xpAwarded,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String peerAlias,
+                required int timestamp,
+                required int xpAwarded,
+                Value<int> rowid = const Value.absent(),
+              }) => FellowshipSyncsCompanion.insert(
+                id: id,
+                peerAlias: peerAlias,
+                timestamp: timestamp,
+                xpAwarded: xpAwarded,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FellowshipSyncsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $FellowshipSyncsTable,
+      FellowshipSync,
+      $$FellowshipSyncsTableFilterComposer,
+      $$FellowshipSyncsTableOrderingComposer,
+      $$FellowshipSyncsTableAnnotationComposer,
+      $$FellowshipSyncsTableCreateCompanionBuilder,
+      $$FellowshipSyncsTableUpdateCompanionBuilder,
+      (
+        FellowshipSync,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $FellowshipSyncsTable,
+          FellowshipSync
+        >,
+      ),
+      FellowshipSync,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -7140,4 +7645,6 @@ class $RecoveryDatabaseManager {
       $$PetEventsTableTableManager(_db, _db.petEvents);
   $$FeedPostsTableTableManager get feedPosts =>
       $$FeedPostsTableTableManager(_db, _db.feedPosts);
+  $$FellowshipSyncsTableTableManager get fellowshipSyncs =>
+      $$FellowshipSyncsTableTableManager(_db, _db.fellowshipSyncs);
 }

@@ -165,6 +165,17 @@ class PetEvents extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('FellowshipSync')
+class FellowshipSyncs extends Table {
+  TextColumn get id => text()();
+  TextColumn get peerAlias => text()();
+  IntColumn get timestamp => integer()();
+  IntColumn get xpAwarded => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   Profiles,
   Counters,
@@ -175,6 +186,7 @@ class PetEvents extends Table {
   RecoveryPets,
   PetEvents,
   FeedPosts,
+  FellowshipSyncs,
 ])
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
@@ -182,7 +194,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -220,6 +232,9 @@ class RecoveryDatabase extends _$RecoveryDatabase {
               await m.addColumn(recoveryPets, recoveryPets.equippedSlotsJson);
               await m.addColumn(recoveryPets, recoveryPets.pathLevel);
               await m.addColumn(recoveryPets, recoveryPets.pathXp);
+            }
+            if (from < 10) {
+              await m.createTable(fellowshipSyncs);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -417,6 +432,18 @@ class RecoveryDatabase extends _$RecoveryDatabase {
                 )
           ]))
         .watch();
+  }
+
+  Future<int> addFellowshipSync(FellowshipSync sync) =>
+      into(fellowshipSyncs).insertOnConflictUpdate(sync);
+
+  Future<List<FellowshipSync>> getAllFellowshipSyncs() =>
+      select(fellowshipSyncs).get();
+
+  Future<List<FellowshipSync>> getRecentFellowshipSyncsForPeer(String peerAlias, int sinceMs) {
+    return (select(fellowshipSyncs)
+          ..where((t) => t.peerAlias.equals(peerAlias) & t.timestamp.isBiggerThanValue(sinceMs)))
+        .get();
   }
 }
 
