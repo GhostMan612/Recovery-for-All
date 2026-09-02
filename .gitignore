@@ -57,9 +57,32 @@ app.*.map.json
 .venv*/
 *.pyc
 __pycache__/
+.opencode/
 
 # Firebase per-project config (drop in your own; never share publicly)
 android/app/google-services.json
+**/google-services.json
+*.firebase/
+
+# Signing & keystore — NEVER commit keys (see GH alert 2026-09-01)
+*.jks
+*.keystore
+*.p12
+*.pem
+*.mobileprovision
+android/key.properties
+**/key.properties
+upload-keystore.jks
+**/upload-keystore.jks
+key.properties
+
+# Secrets & env
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+**/secrets/
 
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
@@ -69,7 +92,27 @@ media/*.pdf
 media/*.PDF
 assets/pdfs/
 *.pdf
-!docs/**/*.pdf
+
+# --- Proprietary & internal docs (gitignored before any public mirror) ---
+# These files contain product reasoning, roadmap, and competitive IP.
+# They stay local-only. Remove this block if you intentionally publish docs.
+blueprints/
+docs/
+AGENTS.md
+CLAUDE.md
+RULES.md
+SESSION_HANDOFF.md
+
+# GitHub meta — uncomment to hide workflows from public mirror
+# .github/
+
+# Large prebuilt native libs — tracked via Git LFS on private repo;
+# uncomment to exclude from public mirror if binary size is concern
+# android/app/src/main/jniLibs/
+
+# Test coverage
+coverage/
+*.lcov
 
 # Exceptions — keep tracked generated Drift schema
 !lib/database/recovery_database.g.dart

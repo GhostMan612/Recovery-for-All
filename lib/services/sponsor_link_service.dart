@@ -26,6 +26,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -94,6 +95,19 @@ class SponsorLinkService {
 
   static const String _checksumAlphabet =
       'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/L/O/0/1 — unambiguous
+
+  /// Ensures an active Firebase Auth session to satisfy Security Rules
+  static Future<bool> _ensureAuth() async {
+    try {
+      if (Firebase.apps.isEmpty) return false;
+      if (FirebaseAuth.instance.currentUser == null) {
+        await FirebaseAuth.instance.signInAnonymously();
+      }
+      return FirebaseAuth.instance.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // ---- sponsor device: keypair + pairing code ----
 
@@ -271,7 +285,9 @@ class SponsorLinkService {
     required String title,
     required String bundleJson,
   }) async {
-    if (Firebase.apps.isEmpty) return null;
+    final authed = await _ensureAuth();
+    if (!authed) return null;
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('sponsor_bundles')
@@ -296,7 +312,9 @@ class SponsorLinkService {
     required String bundleDocId,
     required String bundleJson,
   }) async {
-    if (Firebase.apps.isEmpty) return false;
+    final authed = await _ensureAuth();
+    if (!authed) return false;
+
     try {
       final confirmation = await signBundle(bundleJson);
       await FirebaseFirestore.instance
@@ -313,8 +331,11 @@ class SponsorLinkService {
   }
 
   /// Sponsee: listens for a signed confirmation on a shared bundle.
-  static Stream<SignedConfirmation?> listenForConfirmation(String docId) {
-    return FirebaseFirestore.instance
+  static Stream<SignedConfirmation?> listenForConfirmation(String docId) async* {
+    final authed = await _ensureAuth();
+    if (!authed) return;
+
+    yield* FirebaseFirestore.instance
         .collection('sponsor_bundles')
         .doc(docId)
         .snapshots()
@@ -329,8 +350,14 @@ class SponsorLinkService {
 
   /// Sponsor: queries pending bundles matching their pairing code.
   static Stream<List<Map<String, dynamic>>> watchPendingBundles(
-      String pairingCode) {
-    return FirebaseFirestore.instance
+      String pairingCode) async* {
+    final authed = await _ensureAuth();
+    if (!authed) {
+      yield [];
+      return;
+    }
+
+    yield* FirebaseFirestore.instance
         .collection('sponsor_bundles')
         .where('sponsorCode', isEqualTo: pairingCode.trim().toUpperCase())
         .where('status', isEqualTo: 'pending')

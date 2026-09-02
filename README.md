@@ -132,6 +132,14 @@ python -m uv pip install --python .venv-tf numpy tensorflow-cpu
 
 Proprietary — Recovery for All. Not for commercial redistribution without permission.
 
+See [`LICENSE`](LICENSE) for the full proprietary license, [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) for data handling,
+and [`TERMS.md`](TERMS.md) for the app EULA. Third-party open-source licenses are displayed in-app via **Settings → About → Open Source Licenses**.
+
+- **App code & assets:** © 2024–2026 Recovery for All — proprietary, all rights reserved.
+- **Dependencies** (Flutter, Drift, SQLCipher, `llama_cpp_dart`, etc.) retain their own licenses — viewable in-app and in `pubspec.lock`.
+- **Meeting data:** Meeting Guide / BMLT feeds remain property of their respective intergroups.
+- **No analytics, no tracking, no sale of data** — see Privacy Policy for the full posture.
+
 ---
 
 *Built for the path you walk. No one else's.*
