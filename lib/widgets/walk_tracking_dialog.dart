@@ -16,8 +16,9 @@ import '../services/step_counter_service.dart';
 
 class WalkTrackingDialog extends StatefulWidget {
   final Future<bool> Function() onFinish;
+  final Future<void> Function()? onStop;
 
-  const WalkTrackingDialog({super.key, required this.onFinish});
+  const WalkTrackingDialog({super.key, required this.onFinish, this.onStop});
 
   @override
   State<WalkTrackingDialog> createState() => WalkTrackingDialogState();
@@ -152,11 +153,34 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () async {
+            if (widget.onStop != null) {
+              await widget.onStop!();
+            } else {
+              await StepCounterService.instance.stopWalkTracking();
+            }
+            if (context.mounted) Navigator.pop(context, false);
+          },
+          child: const Text('Stop Walk', style: TextStyle(color: Color(0xFFF87171))),
+        ),
+        TextButton(
+          onPressed: () async {
+            if (widget.onStop != null) {
+              await widget.onStop!();
+            } else {
+              await StepCounterService.instance.stopWalkTracking();
+            }
+            if (context.mounted) Navigator.pop(context, false);
+          },
           child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
         ),
         ElevatedButton(
-          onPressed: _verified ? () async => await widget.onFinish() : null,
+          onPressed: _verified
+              ? () async {
+                  final ok = await widget.onFinish();
+                  if (ok && context.mounted) Navigator.pop(context, true);
+                }
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.accent,
             foregroundColor: Colors.black,

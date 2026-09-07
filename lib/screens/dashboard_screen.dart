@@ -389,6 +389,9 @@ Future<void> _handleWalk() async {
       context: context,
       barrierDismissible: false,
       builder: (context) => WalkTrackingDialog(
+        onStop: () async {
+          await StepCounterService.instance.stopWalkTracking();
+        },
         onFinish: () async {
           final verified = await StepCounterService.instance.stopWalkTracking();
           if (!verified) {
@@ -419,6 +422,9 @@ Future<void> _handleWalk() async {
       ),
     );
 
+    if (confirmed == null) {
+      await StepCounterService.instance.stopWalkTracking();
+    }
     if (confirmed == true) {
       // Walk completed and verified
     }

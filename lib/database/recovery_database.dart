@@ -3,6 +3,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -481,21 +482,30 @@ String _generateKeyHex() {
 
 LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
-    // Route package:sqlite3 at the bundled SQLCipher build (the native-assets
-    // sqlite3mc experiment failed to ship libsqlite3.so on device).
     if (Platform.isAndroid) {
-      await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
-      open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+      try {
+        await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions().timeout(const Duration(seconds: 4));
+      } catch (_) {}
+      try {
+        open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+      } catch (_) {}
     }
 
     const storage = FlutterSecureStorage();
-    var key = await storage.read(key: _kDbKeyStorageKey);
+    String? key;
+    try {
+      key = await storage.read(key: _kDbKeyStorageKey).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      key = null;
+    }
     if (key == null || key.isEmpty) {
       key = _generateKeyHex();
-      await storage.write(key: _kDbKeyStorageKey, value: key);
+      try {
+        await storage.write(key: _kDbKeyStorageKey, value: key).timeout(const Duration(seconds: 4));
+      } catch (_) {}
     }
 
-    final dbFolder = await getApplicationDocumentsDirectory();
+    final dbFolder = await getApplicationDocumentsDirectory().timeout(const Duration(seconds: 4));
     final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
 
     return NativeDatabase(

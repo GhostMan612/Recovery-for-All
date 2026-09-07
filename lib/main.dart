@@ -33,7 +33,7 @@ void main() async {
   // Timeout-guarded: a hung platform channel must never stall app boot.
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 8));
-    await FirebaseAuth.instance.signInAnonymously();
+    await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 8));
     CommunityFeedService.remoteReady = true;
     debugPrint('[boot] firebase: ready (cloud circle enabled)');
   } catch (e) {
@@ -41,25 +41,41 @@ void main() async {
     debugPrint('[boot] firebase: local-only mode ($e)');
   }
 
-  // 1. Initialize the modern notification bridge
-  await SosNotificationService.initialize();
-  await GentleReminderService.initialize();
-  unawaited(GentleReminderService.rescheduleIfEnabled());
+  // 1. Initialize the modern notification bridge — never block boot
+  try {
+    await SosNotificationService.initialize().timeout(const Duration(seconds: 4));
+  } catch (e) {
+    debugPrint('[boot] sos init skipped: $e');
+  }
+  try {
+    await GentleReminderService.initialize().timeout(const Duration(seconds: 4));
+  } catch (e) {
+    debugPrint('[boot] gentle init skipped: $e');
+  }
+  unawaited(GentleReminderService.rescheduleIfEnabled().timeout(const Duration(seconds: 4)).catchError((e) => debugPrint('[boot] reschedule skipped: $e')));
   debugPrint('[boot] notifications: ready');
   
   // 2. Safely retrieve user preferences and restore SOS state if active
-  final sosSettings = await SosNotificationService.getStoredSettings();
-  if (sosSettings.enabled) {
-    await SosNotificationService.startPersistentSos(
-      sponsorPhone: sosSettings.sponsor,
-      customHelpPhone: sosSettings.custom,
-      safetyPlan: sosSettings.safetyPlan,
-    );
+  try {
+    final sosSettings = await SosNotificationService.getStoredSettings().timeout(const Duration(seconds: 4));
+    if (sosSettings.enabled) {
+      await SosNotificationService.startPersistentSos(
+        sponsorPhone: sosSettings.sponsor,
+        customHelpPhone: sosSettings.custom,
+        safetyPlan: sosSettings.safetyPlan,
+      ).timeout(const Duration(seconds: 4));
+    }
+  } catch (e) {
+    debugPrint('[boot] sos restore skipped: $e');
   }
 
-  // 3. Initialize step counter for walk verification
-  await StepCounterService.instance.initialize();
-  debugPrint('[boot] step counter: ready');
+  // 3. Initialize step counter for walk verification — never request permission at boot
+  try {
+    await StepCounterService.instance.initialize().timeout(const Duration(seconds: 4));
+    debugPrint('[boot] step counter: ready');
+  } catch (e) {
+    debugPrint('[boot] step counter init skipped: $e');
+  }
 
   // 4. Mount the local-first database
   final database = RecoveryDatabase();

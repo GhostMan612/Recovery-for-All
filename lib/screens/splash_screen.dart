@@ -89,10 +89,9 @@ class _SplashScreenState extends State<SplashScreen>
 
       final profile = await widget.database
           .getProfile('active_user_profile')
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 15));
       if (!mounted) return;
 
-      // Privacy gate: biometric lock applies before anything else loads.
       if (profile?.biometricLockEnabled ?? false) {
         setState(() => _locked = true);
         unawaited(_tryUnlock());
@@ -100,6 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
       }
 
       if (profile == null) {
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -117,6 +117,7 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         );
       } else {
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -125,11 +126,34 @@ class _SplashScreenState extends State<SplashScreen>
       }
     } catch (e, stack) {
       debugPrint('[splash] BOOT FAILURE: $e\n$stack');
-      if (mounted) {
-        setState(() => _bootError =
-            'Startup stalled at: ${e.runtimeType}\n$e');
-      }
+      if (!mounted) return;
+      setState(() => _bootError =
+          'Startup stalled at: ${e.runtimeType}\n$e\n\nThis is a fresh-install boot hang — tap Retry or Continue.');
     }
+  }
+
+  void _retryBoot() {
+    setState(() => _bootError = null);
+    _routeToNextScreen();
+  }
+
+  void _continueOffline() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OnboardingScreen(
+          database: widget.database,
+          onOnboardingComplete: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) =>
+                      DashboardScreen(database: widget.database, isFirstLaunch: true)),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -252,6 +276,29 @@ class _SplashScreenState extends State<SplashScreen>
                       style: const TextStyle(
                           color: Colors.white, fontSize: 12, height: 1.4),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _retryBoot,
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Color(0xFFF87171))),
+                          child: const Text('Retry'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _continueOffline,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white),
+                          child: const Text('Continue'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
