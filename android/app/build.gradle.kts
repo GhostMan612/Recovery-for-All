@@ -89,3 +89,18 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
+
+// 16 KB page-size compliance (Play policy for targetSdk 35+): force the
+// ML Kit / CameraX artifacts whose bundled .so files are 16 KB-aligned.
+// Pins come from mobile_scanner 3.5.7 (barcode-scanning:17.2.0 ships a 4 KB
+// libbarhopper_v3.so; camera-core:1.3.x ships a 4 KB
+// libimage_processing_util_jni.so). Minor-bump only — no Dart API change.
+configurations.all {
+    resolutionStrategy {
+        force("com.google.mlkit:barcode-scanning:17.3.0")
+        force("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
+        force("androidx.camera:camera-core:1.4.2")
+        force("androidx.camera:camera-camera2:1.4.2")
+        force("androidx.camera:camera-lifecycle:1.4.2")
+    }
+}

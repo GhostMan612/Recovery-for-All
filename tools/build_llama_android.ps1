@@ -70,6 +70,7 @@ try {
         -DCMAKE_TOOLCHAIN_FILE="$toolchainFile" `
         -DANDROID_ABI="arm64-v8a" `
         -DANDROID_PLATFORM="android-24" `
+        -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON `
         -DCMAKE_BUILD_TYPE="Release" `
         -flto=auto `
         -DLLAMA_CURL=OFF `
