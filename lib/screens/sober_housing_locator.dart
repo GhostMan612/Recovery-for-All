@@ -302,7 +302,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
                 if (widget.userPosition != null)
                   const Row(
                     children: [
-                      Icon(Icons.gps_fixed, color: Color(0xFF34D399), size: 14),
+                      Icon(Icons.my_location, color: Color(0xFF34D399), size: 14),
                       SizedBox(width: 6),
                       Text('Sorted by distance', style: TextStyle(color: Color(0xFF34D399), fontSize: 12)),
                     ],
