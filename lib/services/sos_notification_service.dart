@@ -16,12 +16,32 @@ class SosNotificationService {
   static const String prefEnabled = 'sos_enabled';
   static const String prefSafetyPlan = 'sos_safety_plan';
   static const String prefLockScreenPublic = 'sos_lock_screen_public';
+  static const String prefNotifPermissionRequested = 'sos_notif_permission_requested_v1';
 
   static Future<void> initialize() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await _notificationsPlugin.initialize(settings: initSettings);
+  }
+
+  /// Android 13+ gates every shown/scheduled notification behind a runtime
+  /// POST_NOTIFICATIONS grant. One-shot, persisted, and only ever invoked
+  /// from a user gesture (first SOS sheet open) — never at boot, so the
+  /// permission dialog never interrupts startup. Returns null when the
+  /// platform API is unavailable.
+  static Future<bool?> ensureNotificationPermission() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(prefNotifPermissionRequested) ?? false) return true;
+      final android = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await android?.requestNotificationsPermission();
+      await prefs.setBool(prefNotifPermissionRequested, true);
+      return granted;
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<({String? custom, bool enabled, bool lockScreenPublic, String safetyPlan, String? sponsor})> getStoredSettings() async {

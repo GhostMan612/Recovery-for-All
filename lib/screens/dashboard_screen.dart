@@ -3,6 +3,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -839,6 +840,9 @@ Future<void> _handleWalk() async {
   }
 
   void _showSosSheet() {
+    // User gesture: prime the Android 13+ notifications permission so the
+    // persistent SOS lifeline can display (one-shot; never at boot).
+    unawaited(SosNotificationService.ensureNotificationPermission());
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
