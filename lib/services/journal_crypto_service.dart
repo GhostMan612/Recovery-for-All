@@ -3,18 +3,6 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
-// lib/services/journal_crypto_service.dart
-//
-// Real journal privacy: a random 256-bit master key lives in system
-// secure storage (keystore-backed); entries are AES-GCM encrypted with
-// it. The PIN is a gate, never the key: it is stored as a salted
-// PBKDF2 hash, so a wrong guess never touches ciphertext and changing
-// the PIN never re-encrypts anything.
-//
-// Ciphertext scheme history:
-//   ENC_  — legacy base64 obfuscation (readable fallback)
-//   ENC2_ — base64(nonce | cipher | GCM mac) under the master key
-
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -40,19 +28,22 @@ class JournalCryptoService {
 
   static const int pinLength = 6;
 
-  // ---- lifecycle ----
-
-  /// True when the user has completed first-run PIN setup.
   static Future<bool> hasPin() async {
     try {
-      return await _storage.containsKey(key: _keyPinHash);
+      final hashB64 = await _storage.read(key: _keyPinHash);
+      final saltB64 = await _storage.read(key: _keyPinSalt);
+      if (hashB64 == null || hashB64.isEmpty) return false;
+      if (saltB64 == null || saltB64.isEmpty) return false;
+      final hash = base64Decode(hashB64);
+      final salt = base64Decode(saltB64);
+      if (hash.length != 32) return false;
+      if (salt.length != 16) return false;
+      return true;
     } catch (_) {
       return false;
     }
   }
 
-  /// First-run setup (or Settings change): sets/overwrites the PIN.
-  /// The master key is created once and never rotated by PIN changes.
   static Future<void> setPin(String pin) async {
     _assertPinFormat(pin);
     final salt = _randomBytes(16);
@@ -61,15 +52,20 @@ class JournalCryptoService {
     await _storage.write(key: _keyPinHash, value: base64Encode(hash));
   }
 
-  /// Verifies a candidate PIN against the stored hash.
+  static Future<void> clearPin() async {
+    try {
+      await _storage.delete(key: _keyPinHash);
+      await _storage.delete(key: _keyPinSalt);
+    } catch (_) {}
+  }
+
   static Future<bool> verifyPin(String pin) async {
     try {
       final saltB64 = await _storage.read(key: _keyPinSalt);
       final hashB64 = await _storage.read(key: _keyPinHash);
-      if (saltB64 == null || hashB64 == null) return false;
-      final candidate =
-          await _hashPin(pin, base64Decode(saltB64));
-      // Constant-time-ish compare.
+      if (saltB64 == null || saltB64.isEmpty) return false;
+      if (hashB64 == null || hashB64.isEmpty) return false;
+      final candidate = await _hashPin(pin, base64Decode(saltB64));
       var diff = 0;
       final stored = base64Decode(hashB64);
       if (stored.length != candidate.length) return false;
@@ -82,8 +78,6 @@ class JournalCryptoService {
     }
   }
 
-  /// Loads (creating on first use) the master key. Call ONLY after
-  /// [verifyPin] has succeeded — the key is the journal's contents.
   static Future<Uint8List> loadMasterKey() async {
     final existing = await _storage.read(key: _keyMaster);
     if (existing != null) {
@@ -94,10 +88,7 @@ class JournalCryptoService {
     return Uint8List.fromList(key);
   }
 
-  // ---- content ----
-
-  static Future<String> encrypt(
-      String plaintext, Uint8List masterKey) async {
+  static Future<String> encrypt(String plaintext, Uint8List masterKey) async {
     final secretBox = await _aes.encrypt(
       utf8.encode(plaintext),
       secretKey: SecretKey(masterKey),
@@ -110,8 +101,6 @@ class JournalCryptoService {
     return 'ENC2_${base64Encode(payload)}';
   }
 
-  /// Returns null when the payload cannot be authenticated with this
-  /// key (wrong key / corrupted). Falls back to legacy schemes.
   static Future<String?> decrypt(
       String ciphertext, Uint8List masterKey) async {
     if (!ciphertext.startsWith('ENC2_')) {
@@ -134,7 +123,6 @@ class JournalCryptoService {
     }
   }
 
-  /// Legacy `ENC_` base64 payloads (and any historical plaintext).
   static String? decryptLegacy(String ciphertext) {
     if (!ciphertext.startsWith('ENC_')) return ciphertext;
     try {
@@ -143,8 +131,6 @@ class JournalCryptoService {
       return null;
     }
   }
-
-  // ---- helpers ----
 
   static void _assertPinFormat(String pin) {
     if (pin.length != pinLength || int.tryParse(pin) == null) {

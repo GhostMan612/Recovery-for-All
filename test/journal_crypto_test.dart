@@ -7,6 +7,7 @@
 // AES-GCM entry encryption under the secure-storage master key, and
 // legacy payload compatibility.
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +55,28 @@ void main() {
       expect(keyAfter, keyBefore,
           reason:
               'PIN change must not rotate the key or orphan old entries');
+    });
+
+    test('empty-string PIN state reads as no PIN (v3 to v6 lockout)', () async {
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'journal_pin_hash_v1', value: '');
+      await storage.write(key: 'journal_pin_salt_v1', value: '');
+      expect(await JournalCryptoService.hasPin(), isFalse);
+      expect(await JournalCryptoService.verifyPin('123456'), isFalse);
+    });
+
+    test('clearPin forgets the PIN but keeps entries readable', () async {
+      await JournalCryptoService.setPin('123456');
+      final key = await JournalCryptoService.loadMasterKey();
+      final cipher = await JournalCryptoService.encrypt('keep me', key);
+
+      await JournalCryptoService.clearPin();
+      expect(await JournalCryptoService.hasPin(), isFalse);
+
+      await JournalCryptoService.setPin('654321');
+      expect(await JournalCryptoService.verifyPin('654321'), isTrue);
+      final reopened = await JournalCryptoService.loadMasterKey();
+      expect(await JournalCryptoService.decrypt(cipher, reopened), 'keep me');
     });
   });
 

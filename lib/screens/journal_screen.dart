@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
+import 'package:local_auth/local_auth.dart';
 import '../database/recovery_database.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/narrative_export_service.dart';
@@ -31,14 +32,14 @@ const int kPinDigits = JournalCryptoService.pinLength;
 
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _contentController = TextEditingController();
-  int _selectedMood = 3; // Neutral default mood (3 = Okay)
+  int _selectedMood = 3;
   _JournalGate _gate = _JournalGate.loading;
   final TextEditingController _pinController = TextEditingController();
 
-  /// Master key held only for this unlocked session.
   Uint8List? _masterKey;
   String _firstEntryPin = '';
   bool _pinError = false;
+  bool _resettingBiometric = false;
 
   @override
   void initState() {
@@ -95,6 +96,35 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
+  Future<void> _forgotPin() async {
+    if (_resettingBiometric) return;
+    setState(() => _resettingBiometric = true);
+    try {
+      final auth = LocalAuthentication();
+      final ok = await auth.authenticate(
+        localizedReason: 'Confirm it is you to reset your journal PIN',
+        biometricOnly: false,
+      );
+      if (!ok) return;
+      await JournalCryptoService.clearPin();
+      if (!mounted) return;
+      setState(() {
+        _gate = _JournalGate.setupPin;
+        _firstEntryPin = '';
+        _pinError = false;
+        _pinController.clear();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Biometric reset unavailable on this device')),
+      );
+    } finally {
+      if (mounted) setState(() => _resettingBiometric = false);
+    }
+  }
+
   Future<void> _openSession() async {
     final key = await JournalCryptoService.loadMasterKey();
     if (!mounted) return;
@@ -108,7 +138,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
   void _relock() {
     setState(() {
-      _masterKey = null; // Key leaves memory with the lock.
+      _masterKey = null;
       _gate = _JournalGate.unlock;
       _contentController.clear();
     });
@@ -375,6 +405,15 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
                     child: Text(buttonLabel),
                   ),
+                if (_gate == _JournalGate.unlock)
+                  TextButton(
+                    onPressed: _resettingBiometric ? null : _forgotPin,
+                    child: Text(
+                      _resettingBiometric ? 'Checking…' : 'Forgot PIN?',
+                      style: const TextStyle(
+                          color: Color(0xFF38BDF8), fontSize: 13),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -583,7 +622,6 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 }
 
-/// Decrypts lazily per card — AES-GCM auth happens off the build path.
 class _EntryText extends StatelessWidget {
   final Future<String> future;
 
