@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/icon_registry.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
@@ -622,29 +623,6 @@ Future<void> _handleWalk() async {
       }
     }
 
-    IconData iconFor(String tool) {
-      switch (tool) {
-        case 'Encrypted Journal':
-          return Icons.lock_outline;
-        case 'Daily Reflections':
-          return Icons.menu_book_outlined;
-        case 'Urge Surfing Timer':
-          return Icons.self_improvement;
-        case 'Meditation Timer':
-          return Icons.timer_outlined;
-        case 'Cost-Benefit Analysis':
-          return Icons.balance;
-        case 'Meeting Finder':
-          return Icons.map_outlined;
-        case 'Medicine Wheel':
-          return Icons.auto_awesome_outlined;
-        case 'Wellness Check-In':
-          return Icons.donut_large_outlined;
-        default:
-          return Icons.handyman_outlined;
-      }
-    }
-
     final cards = <_ToolCard>[];
 
     // Universal tools (blueprint §2.3): Journal, Gratitude, Counters,
@@ -717,7 +695,7 @@ Future<void> _handleWalk() async {
       cards.add(_ToolCard(
         label: tool,
         subtitle: '',
-        icon: iconFor(tool),
+        icon: IconRegistry.toolIcon(tool),
         onTap: () => _push(screenFor(tool)),
       ));
     }

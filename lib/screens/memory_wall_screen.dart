@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/icon_registry.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
@@ -105,38 +106,6 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
         return 'Kin remembers a new form adopted.';
     }
     return 'Kin remembers a moment of care.';
-  }
-
-  IconData _iconForEvent(String eventType) {
-    if (eventType.startsWith('milestone_')) return Icons.emoji_events_outlined;
-    if (eventType.startsWith('signoff_')) return Icons.verified_outlined;
-    if (eventType.startsWith('worksheet_')) return Icons.assignment_turned_in_outlined;
-    switch (eventType) {
-      case 'battle_win':
-        return Icons.shield_outlined;
-      case 'battle_learned':
-        return Icons.school_outlined;
-      case 'goal_complete':
-        return Icons.flag_outlined;
-      case 'star':
-        return Icons.star_outline;
-      case 'meeting':
-        return Icons.groups_outlined;
-      case 'walk':
-        return Icons.directions_walk_outlined;
-      case 'wellness':
-        return Icons.favorite_border;
-      case 'check_in':
-        return Icons.favorite_outline;
-      case 'journal':
-        return Icons.book_outlined;
-      case 'gratitude':
-        return Icons.sentiment_satisfied_outlined;
-      case 'grounding':
-        return Icons.air_outlined;
-      default:
-        return Icons.circle_outlined;
-    }
   }
 
   Color _colorForEvent(String eventType) {
@@ -266,7 +235,7 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
 
   Widget _buildEventCard(PetEventRow event) {
     final color = _colorForEvent(event.eventType);
-    final icon = _iconForEvent(event.eventType);
+    final icon = IconRegistry.eventIcon(event.eventType);
     final timeAgo = _formatTimestamp(event.timestamp);
     final hasSparks = event.sparksDelta > 0;
 
