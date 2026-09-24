@@ -9,11 +9,13 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/icon_registry.dart';
+import '../core/meeting_radius_logic.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
@@ -101,6 +103,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
   ActiveRaid? _activeRaid;
+  double? _cachedLat;
+  double? _cachedLng;
+  int? _cachedTime;
+  bool _enforceRadius = true;
 
   @override
   void initState() {
@@ -109,6 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserData();
     _loadSky();
     _loadLayoutPrefs();
+    unawaited(_loadRadiusPrefs());
     if (widget.isFirstLaunch) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openTutorialChatbot();
@@ -128,6 +135,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (prefs.getStringList(_keyHiddenTools) ?? const <String>[]).toSet();
       _hiddenLibrary =
           (prefs.getStringList(_keyHiddenLibrary) ?? const <String>[]).toSet();
+    });
+  }
+
+  Future<void> _loadRadiusPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble(MeetingRadiusPrefs.latKey);
+    final lng = prefs.getDouble(MeetingRadiusPrefs.lngKey);
+    final t = prefs.getInt(MeetingRadiusPrefs.timeKey);
+    final enforce = prefs.getBool(MeetingRadiusPrefs.enforceKey) ?? true;
+    if (!mounted) return;
+    setState(() {
+      _cachedLat = lat;
+      _cachedLng = lng;
+      _cachedTime = t;
+      _enforceRadius = enforce;
     });
   }
 
@@ -208,6 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 8));
+      unawaited(cacheLocation(pos.latitude, pos.longitude));
       return (pos.latitude, pos.longitude);
     } catch (_) {
       return _defaultCenter;
@@ -1091,33 +1114,64 @@ Future<void> _handleWalk() async {
               future: _meetingFinder.cachedMeetings(),
               builder: (context, snapshot) {
                 final meetings = snapshot.data ?? const <RecoveryMeeting>[];
-                // Apply pathway tailoring to widget (same as finder) but keep fallback
                 var filtered = meetings;
                 final allowed = _allowedFellowships();
                 if (allowed != null && allowed.isNotEmpty && meetings.isNotEmpty) {
                   final tail = meetings.where((m) => allowed.contains(m.fellowship)).toList();
                   if (tail.isNotEmpty) filtered = tail;
                 }
-                final pick = filtered.isEmpty ? null : NextMeetingCard.pickNext(filtered, DateTime.now());
-                return NextMeetingCard(
-                  meeting: pick?.meeting,
-                  isLive: pick?.isLive ?? false,
-                  onOpenMap: pick == null
-                      ? null
-                      : () async {
-                          final (lat, lng) = await _resolveLocation();
-                          var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
-                          if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
-                          if (!context.mounted) return;
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
-                        },
-                  onFindMeetings: () async {
-                    final (lat, lng) = await _resolveLocation();
-                    var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
-                    if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                var display = filtered;
+                String? tierLabel;
+                final cacheUsable = _enforceRadius &&
+                    _cachedLat != null &&
+                    _cachedLng != null &&
+                    isCacheFresh(_cachedTime);
+                if (cacheUsable) {
+                  final userLoc = ll.LatLng(_cachedLat!, _cachedLng!);
+                  final tiered = applyRadiusTiers(filtered, userLoc);
+                  display = sortMeetings(tiered.meetings, userLoc, DateTime.now());
+                  tierLabel = tiered.tierLabel;
+                }
+                final pick = display.isEmpty ? null : NextMeetingCard.pickNext(display, DateTime.now());
+                return GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onLongPress: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    final next = !_enforceRadius;
+                    await prefs.setBool(MeetingRadiusPrefs.enforceKey, next);
                     if (!context.mounted) return;
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
+                    setState(() => _enforceRadius = next);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: const Color(0xFF1E293B),
+                        content: Text(
+                          'Meeting radius filtering: ${next ? 'ON' : 'OFF'}',
+                          style: const TextStyle(color: Color(0xFF38BDF8)),
+                        ),
+                      ),
+                    );
                   },
+                  child: NextMeetingCard(
+                    meeting: pick?.meeting,
+                    isLive: pick?.isLive ?? false,
+                    tierLabel: tierLabel,
+                    onOpenMap: pick == null
+                        ? null
+                        : () async {
+                            final (lat, lng) = await _resolveLocation();
+                            var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
+                            if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                            if (!context.mounted) return;
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
+                          },
+                    onFindMeetings: () async {
+                      final (lat, lng) = await _resolveLocation();
+                      var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
+                      if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
+                      if (!context.mounted) return;
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
+                    },
+                  ),
                 );
               },
             ),

@@ -3,6 +3,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
+import '../core/meeting_radius_logic.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
@@ -164,6 +166,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             setState(() => _locationDebug =
                 'Last known: ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)}');
           }
+          unawaited(cacheLocation(last.latitude, last.longitude));
           return (last.latitude, last.longitude);
         }
       }
@@ -177,6 +180,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         setState(() => _locationDebug =
             'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}');
       }
+      unawaited(cacheLocation(pos.latitude, pos.longitude));
       return (pos.latitude, pos.longitude);
     } catch (e) {
       // Fresh fix failed (cold GPS, timeout, etc). A STALE fix still
@@ -190,6 +194,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             setState(() => _locationDebug =
                 'Stale fix (${ageMin}m old): ${last.latitude.toStringAsFixed(4)}, ${last.longitude.toStringAsFixed(4)} — tap for details');
           }
+          unawaited(cacheLocation(last.latitude, last.longitude));
           return (last.latitude, last.longitude);
         }
       } catch (_) {}

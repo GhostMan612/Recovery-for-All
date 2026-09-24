@@ -15,6 +15,7 @@ import '../services/meeting_finder_service.dart';
 class NextMeetingCard extends StatelessWidget {
   final RecoveryMeeting? meeting;
   final bool isLive;
+  final String? tierLabel;
   final VoidCallback? onOpenMap;
   final VoidCallback? onFindMeetings;
 
@@ -22,6 +23,7 @@ class NextMeetingCard extends StatelessWidget {
     super.key,
     this.meeting,
     this.isLive = false,
+    this.tierLabel,
     this.onOpenMap,
     this.onFindMeetings,
   });
@@ -136,6 +138,10 @@ class NextMeetingCard extends StatelessWidget {
           Text(m.name, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
           Text('${m.type} · ${m.time}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (tierLabel != null) ...[
+            const SizedBox(height: 4),
+            Text(tierLabel!, style: const TextStyle(color: AppColors.textMuted, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
           if (m.address.isNotEmpty) ...[
             const SizedBox(height: 2),
             Row(
