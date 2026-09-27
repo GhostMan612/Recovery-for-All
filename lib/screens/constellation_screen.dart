@@ -121,28 +121,21 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
   List<ConstellationNode3D>? _nodes;
   String? _skyName;
   double _zoom = 1.0;
-  late final Stream<List<ConstellationPoint>> _pointsStream;
 
   @override
   void initState() {
     super.initState();
-    _pointsStream = widget.database.watchConstellationPoints();
-    _loadSkyName();
+    _load();
   }
 
-  Future<void> _loadSkyName() async {
+  Future<void> _load() async {
+    final points = await widget.database.getConstellationPoints();
+    final nodes = _phyllotaxisNodes(points);
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _skyName = prefs.getString(_skyNameKey);
-    });
-  }
-
-  void _onPointsChanged(List<ConstellationPoint> points) {
-    final nodes = _phyllotaxisNodes(points);
-    if (!mounted) return;
-    setState(() {
       _nodes = nodes;
+      _skyName = prefs.getString(_skyNameKey);
     });
   }
 
@@ -188,7 +181,7 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     } else {
       await prefs.setString(_skyNameKey, name);
     }
-    if (mounted) setState(() => _skyName = name.isEmpty ? null : name);
+    if (mounted) setState(() => _skyName = name);
   }
 
   // ------------------------------------------------------------------
@@ -359,7 +352,7 @@ ${nodes.length} stars over $spanDays nights
       positionY: 0.5,
     ));
     await RecoveryPetService.logStar(title);
-    // stream handles load
+    await _load();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks')));
     }
@@ -404,6 +397,7 @@ ${nodes.length} stars over $spanDays nights
 
   @override
   Widget build(BuildContext context) {
+    final nodes = _nodes;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -418,7 +412,7 @@ ${nodes.length} stars over $spanDays nights
           ]),
         ),
         actions: [
-          IconButton(tooltip: 'Share shape', icon: const Icon(Icons.ios_share, color: Colors.white70), onPressed: (_nodes == null || _nodes!.isEmpty) ? null : _shareShape),
+          IconButton(tooltip: 'Share shape', icon: const Icon(Icons.ios_share, color: Colors.white70), onPressed: (nodes == null || nodes.isEmpty) ? null : _shareShape),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -428,50 +422,35 @@ ${nodes.length} stars over $spanDays nights
         label: const Text('Add Star', style: TextStyle(color: Colors.white)),
         onPressed: _addManualStar,
       ),
-      body: StreamBuilder<List<ConstellationPoint>>(
-        stream: _pointsStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && _nodes == null) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.accent));
-          }
-          if (snapshot.hasData) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _onPointsChanged(snapshot.data!);
-            });
-          }
-          final nodes = _nodes ?? [];
-          if (nodes.isEmpty) {
-            return _EmptySky(onSeed: () async {
-              await RecoveryPetService.ensureHatched();
-              await widget.database.addConstellationPoint(ConstellationPoint(
-                id: 'seed_first_path_${DateTime.now().millisecondsSinceEpoch}',
-                title: 'Began My Recovery Path',
-                category: 'milestone',
-                timestamp: DateTime.now().millisecondsSinceEpoch,
-                positionX: 0.5,
-                positionY: 0.5,
-              ));
-              await RecoveryPetService.logStar('Began My Recovery Path');
-              _loadSkyName();
-            });
-          }
-          return Column(
-            children: [
-              // P3: Category legend
-              const _CategoryLegend(),
-              Expanded(
-                child: _ConstellationCanvas(
-                  nodes: nodes,
-                  skyName: _skyName,
-                  zoom: _zoom,
-                  onZoomChanged: (v) => setState(() => _zoom = v),
-                  onStarTap: _showStarDetails,
+      body: nodes == null
+          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+          : Column(
+              children: [
+                Expanded(
+                  child: nodes.isEmpty
+                      ? _EmptySky(onSeed: () async {
+                          await RecoveryPetService.ensureHatched();
+                          await widget.database.addConstellationPoint(ConstellationPoint(
+                            id: 'seed_first_path_${DateTime.now().millisecondsSinceEpoch}',
+                            title: 'Began My Recovery Path',
+                            category: 'milestone',
+                            timestamp: DateTime.now().millisecondsSinceEpoch,
+                            positionX: 0.5,
+                            positionY: 0.5,
+                          ));
+                          await RecoveryPetService.logStar('Began My Recovery Path');
+                          _load();
+                        })
+                      : _ConstellationCanvas(
+                          nodes: nodes,
+                          skyName: _skyName,
+                          zoom: _zoom,
+                          onZoomChanged: (v) => setState(() => _zoom = v),
+                          onStarTap: _showStarDetails,
+                        ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
+              ],
+            ),
     );
   }
 }
@@ -760,58 +739,5 @@ class _EmptySky extends StatelessWidget {
       const SizedBox(height: 20),
       ElevatedButton(onPressed: onSeed, style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white), child: const Text('Begin My Path')),
     ]));
-  }
-}
-
-
-// ---- P3: Category legend ----
-
-class _CategoryLegend extends StatelessWidget {
-  const _CategoryLegend();
-
-  static const _labels = {
-    'milestone': 'Milestones',
-    'step_work': 'Step Work',
-    'community': 'Community',
-    'service': 'Goals',
-    'mindfulness': 'Mindfulness',
-    'spiritual': 'Spiritual',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF0F172A),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final entry in _kCategoryColors.entries)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: entry.value,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _labels[entry.key] ?? entry.key,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 10,
-                    ),
-                  ),
-                ]),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 }

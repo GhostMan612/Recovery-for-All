@@ -9,7 +9,6 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'feedback_service.dart';
 import '../database/recovery_database.dart';
-import 'constellation_service.dart';
 import 'pet_cosmetic_catalog.dart';
 import 'step_counter_service.dart';
 
@@ -673,12 +672,10 @@ class RecoveryPetService {
         type: 'signoff_step$stepNumber', sparksDelta: sparksSignOff, bondDelta: 5);
   }
 
-  /// Battle victory → Sparks + Bond (R9 pet RPG) + constellation star.
-  static Future<RecoveryPet> logBattleWin() async {
+  /// Battle victory → Sparks + Bond (R9 pet RPG).
+  static Future<RecoveryPet> logBattleWin() {
     final reward = 15 + Random.secure().nextInt(26); // 15–40
-    final pet = await _applyReward(type: 'battle_win', sparksDelta: reward, bondDelta: 3);
-    await ConstellationService.addBattleWinStar();
-    return pet;
+    return _applyReward(type: 'battle_win', sparksDelta: reward, bondDelta: 3);
   }
 
   /// Battle defeat → small Bond gain (learned something, never punitive).
