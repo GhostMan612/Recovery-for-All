@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/constellation_service.dart';
 
 /// Simple weekly goals tracker: add goals with a target count, check off
 /// completions, start a fresh week when ready. Data lives locally forever.
@@ -231,6 +232,9 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                                 .firstWhere((g) => g.id == goal.id);
                             if (!wasComplete && refreshed.isCompleted) {
                               await RecoveryPetService.logGoalComplete();
+                              await ConstellationService.addGoalStar(
+                                widget.database, goal.title,
+                              );
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

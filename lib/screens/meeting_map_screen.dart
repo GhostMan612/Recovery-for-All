@@ -19,6 +19,7 @@ import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/constellation_service.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
@@ -480,6 +481,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     }
     final before = (await RecoveryPetService.ensureHatched()).sparks;
     await RecoveryPetService.logMeeting();
+    if (db != null) {
+      await ConstellationService.addMeetingStar(db, meetingName: meeting.name);
+    }
     final delta = (await RecoveryPetService.ensureHatched()).sparks - before;
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

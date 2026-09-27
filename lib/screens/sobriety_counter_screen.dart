@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/constellation_service.dart';
 
 import 'package:flutter/material.dart';
 
@@ -181,6 +182,9 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
           awarded.add(chip.label);
           await prefs.setStringList(key, awarded.toList());
           await RecoveryPetService.logMilestone(chip.label);
+          await ConstellationService.addMilestoneStar(
+            widget.database, counter.label, chip.label,
+          );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

@@ -10,6 +10,7 @@ import 'package:local_auth/local_auth.dart';
 import '../database/recovery_database.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/narrative_export_service.dart';
+import '../services/constellation_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/xp_engine_service.dart';
 import '../widgets/chronicle_share_card.dart';
@@ -164,6 +165,7 @@ class _JournalScreenState extends State<JournalScreen> {
     if (!mounted) return;
     await XpEngineService.processAction(context, widget.database, 'journal');
     await RecoveryPetService.logJournalEntry();
+    await ConstellationService.addJournalStar(widget.database);
     final sparksDelta =
         (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
     _contentController.clear();

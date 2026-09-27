@@ -22,6 +22,7 @@ import '../services/community_feed_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/constellation_service.dart';
 import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
 import '../services/step_counter_service.dart';
@@ -458,6 +459,7 @@ Future<void> _handleWalk() async {
   Future<void> _completeWalk() async {
     final before = _pet?.sparks ?? 0;
     await RecoveryPetService.logWalk(requireVerification: false);
+    await ConstellationService.addWalkStar(widget.database);
     await _refreshPet();
     if (!mounted) return;
     final after = _pet?.sparks ?? before;
