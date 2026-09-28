@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-3 are **complete and verified**. Phases 4-16 are **not started**.
+Phases 0-4 are **complete and verified**. Phases 5-16 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -42,15 +42,20 @@ Phases 0-3 are **complete and verified**. Phases 4-16 are **not started**.
 | 1 — Semantic design system | COMPLETE | spacing/radii/type/state tokens + 3 palettes x 2 brightness |
 | 2 — M3 theme engine | COMPLETE | 6-scheme matrix, `themeMode` wired, persistence, centralized component themes |
 | 3 — Color & styling migration | COMPLETE | 875 -> 0 raw literals outside allowlist; `tools/verify_no_hardcoded_colors.py` green |
-| 4-16 | NOT STARTED | no code, no gates run |
+| 4 — Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
+| 5-16 | NOT STARTED | no code, no gates run |
 
 Gates at the close of Phase 3: `flutter analyze --no-pub` -> No issues found;
 `flutter test` -> all passing; `verify_no_hardcoded_colors.py` -> exit 0.
 
-**Next phase is Phase 4 (Reusable UI Component System).** Its gate must be read
-against Phase 3 first: a component that reintroduces a literal now fails the
-color gate, and a component that hardcodes a domain color (mood, raid, star)
-breaks the brightness-independence rule established in Phase 3.
+**Open risk carried into later phases:** 398 references to the dark-pinned top-level
+`AppColors` statics (`accent` 149, `textMuted` 72, `bgCard` 50, `success` 45, `border` 39,
+`textDim` 25, `textPrimary` 11) remain across 32 files. The Phase 3 gate only matches
+`Color(0x...)`, so these pass it while still pinning those screens to dark. Light mode is
+therefore only partially real today. Phases 5-9 should drain these as they touch each
+screen, and the gate should be extended to fail on `AppColors.<dark-pinned>`.
+
+**Next phase is Phase 5 (Dashboard State Decomposition).**
 
 ---
 
@@ -237,6 +242,8 @@ Do not force avatar species, aura, clothing, or illustration colors through the 
 ---
 
 # Phase 4 — Reusable UI Component System
+
+**Status: COMPLETE** — five primitives shipped in `lib/widgets/app_primitives.dart`, each built only where the pattern was already repeated: `AppCard` (67 `Border.all` card surfaces across 30 files), `AppSectionHeader` (40 bold-title ladders; 11 in `settings_screen.dart` alone), `AppLoadingState` (31 spinners across 23 files), `AppEmptyState` (52 empty-state blocks across 29 files), `AppActionTile`. Every primitive consumes `ColorScheme` + `AppSpacing`/`AppRadii`/`AppType`, so it is correct in both brightness modes with no per-screen override. `AppSectionHeader` deliberately renders at 18/w700 to match the dominant existing convention rather than restyle shipped screens. Adopted in `memory_wall_screen.dart` (event cards + empty state) and `settings_screen.dart` (11 section headers). `test/app_primitives_test.dart` covers render-in-both-modes, the tap and disabled contracts, and the 6-cell palette x brightness matrix. The other eight candidate primitives were **not** built: `AppPrimaryButton`/`AppSecondaryButton`/`AppIconButton`/`AppStatusChip` would only wrap Material widgets that the centralized component themes already style, `AppAvatar` already exists, and `AppMetricCard`/`AppHeader` had no demonstrated repetition. That exclusion is the "no unnecessary abstraction layer" half of this gate. 9 new tests (189 -> 198).
 
 ### Objective
 Create enough shared primitives to make the application visually coherent without creating an over-engineered component framework.

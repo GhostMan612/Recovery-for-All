@@ -9,6 +9,7 @@ import '../core/icon_registry.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/app_primitives.dart';
 
 /// Dedicated view for the "Kin Remembers..." memory wall.
 /// Shows the user's recovery event history (pet_events) chronologically,
@@ -181,6 +182,7 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
   }
 
   Widget _buildEmptyState() {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -190,24 +192,24 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
             Icon(
               Icons.auto_awesome_outlined,
               size: 64,
-              color: AppColors.accent.withValues(alpha: 0.5),
+              color: scheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
               'Your recovery constellation of memories will appear here as you log events.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textMuted,
+                color: scheme.onSurface,
                 fontSize: 16,
                 height: 1.5,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Check in, journal, ground, take a walk \u2014 each moment becomes a star.',
+              'Check in, journal, ground, take a walk — each moment becomes a star.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textDim,
+                color: scheme.outline,
                 fontSize: 13,
               ),
             ),
@@ -234,14 +236,12 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
     final timeAgo = _formatTimestamp(event.timestamp);
     final hasSparks = event.sparksDelta > 0;
 
-    return Container(
+    return AppCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
+      color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
+      borderColor: color.withValues(alpha: 0.15),
+      radius: 14,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -260,7 +260,10 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
               children: [
                 Text(
                   _memoryLine(event),
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -268,18 +271,19 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
                     Text(
                       timeAgo,
                       style: TextStyle(
-                        color: AppColors.textDim,
+                        color: Theme.of(context).colorScheme.outline,
                         fontSize: 11,
                       ),
                     ),
                     if (hasSparks) ...[
                       const SizedBox(width: 12),
-                      Icon(Icons.auto_awesome, size: 12, color: AppColors.accent),
+                      Icon(Icons.auto_awesome,
+                          size: 12, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 2),
                       Text(
-                        '+${event.sparksDelta} \u2726',
-                        style: const TextStyle(
-                          color: AppColors.accent,
+                        '+${event.sparksDelta} ✦',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),

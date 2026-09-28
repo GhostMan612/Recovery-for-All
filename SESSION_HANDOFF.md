@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Program Phases 0-3 COMPLETE — 875→0 raw color literals, `tools/verify_no_hardcoded_colors.py` green; analyze 0, test 189; plan marked complete)
+**Last updated:** September 28, 2026 (UI/UX Program Phases 0-4 COMPLETE — Phase 4 shipped 5 shared primitives (`app_primitives.dart`), adopted in memory_wall + 11 settings headers; analyze 0, test 198)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -102,7 +102,9 @@ resume without losing progress. Update it at every session end.
 ## 7 · Next moves (current)
 
 **UI-UX Themes Plan COMPLETE** (Rewrote `UI-UX-themes-plan.md` to ground it in existing `AppColors`/`NavigationBar` implementation based on agent critique).
-**UI/UX Program Phases 0-3 COMPLETE (Sep 28)** — see `blueprints/UI-UX-themes-plan.md` "Execution Status". Phase 0 baseline, Phase 1 semantic tokens, Phase 2 six-scheme M3 engine (fromSeed light+dark, themeMode wired, `theme_preference_v1`+`theme_mode_v1`), Phase 3 migration 875→0 raw literals. New standing gate: `python tools/verify_no_hardcoded_colors.py` (exit 0 required). Rules: domain colors (mood/raid/star/monster) are named `AppColors` tokens and MUST stay brightness-independent; brand color = `AppColors.brandZoom`; the two CustomPainters take injected colors compared in `shouldRepaint` (paint() has no BuildContext); per-screen AppBar overrides were deleted so `appBarTheme` is the single source of truth. **Next: Phase 4 (Reusable UI Component System).** Phases 4-16 not started.
+**UI/UX Program Phases 0-4 COMPLETE (Sep 28)** — see `blueprints/UI-UX-themes-plan.md` "Execution Status". Phase 0 baseline, Phase 1 semantic tokens, Phase 2 six-scheme M3 engine, Phase 3 migration 875→0 raw literals, Phase 4 shared primitives: `lib/widgets/app_primitives.dart` = `AppCard` / `AppSectionHeader` / `AppLoadingState` / `AppEmptyState` / `AppActionTile` (all consume ColorScheme + AppSpacing/AppRadii/AppType). Adopted in `memory_wall_screen.dart` + 11 headers in `settings_screen.dart`; 9 tests in `test/app_primitives_test.dart`. Deliberately NOT built: button/icon-button/chip wrappers (Material + centralized component themes already cover them), AppAvatar (exists), AppMetricCard/AppHeader (no repetition) — the "no unnecessary abstraction layer" rule. Gates: analyze 0, test 198, `tools/verify_no_hardcoded_colors.py` exit 0.
+**⚠ OPEN RISK (carried from Phase 3):** 398 refs to dark-pinned top-level `AppColors` statics (`accent` 149, `textMuted` 72, `bgCard` 50, `success` 45, `border` 39, `textDim` 25, `textPrimary` 11) across 32 files. The color gate only matches `Color(0x…)` so these pass it while pinning those screens to dark — **light mode is only partially real**. Drain during Phases 5-9; extend the gate to fail on `AppColors.<dark-pinned>`.
+**Next: Phase 5 (Dashboard State Decomposition).** Phases 5-16 not started.
 **R15 Self-Healing Tutorial System COMPLETE** (companion_guide_service.dart, overlay, validator).
 **R16 Expanded Meeting Directories COMPLETE** (LifeRing/WFS/CR TSML + SMART/InTheRooms curated).
 **R17 Full-App Tutorial Chatbot COMPLETE** (keyword, covers every feature).

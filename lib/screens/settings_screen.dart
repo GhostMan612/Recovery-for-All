@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/providers.dart';
 import '../core/theme/app_colors.dart';
+import '../widgets/app_primitives.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../services/feedback_service.dart';
@@ -543,8 +544,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('System Permissions', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+                            const AppSectionHeader(
+                title: 'System Permissions',
+              ),
               ListTile(
                 title: Text('Battery Optimization', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 subtitle: Text('Disable for reliable background SOS', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -561,8 +563,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              Text('Appearance', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+                            const AppSectionHeader(
+                title: 'Appearance',
+              ),
               Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const SizedBox(height: 10),
               Builder(builder: (context) {
@@ -600,8 +603,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              Text('Gentle Reminder', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                            const AppSectionHeader(
+                title: 'Gentle Reminder',
+              ),
               Text(
                 'One invitational nudge a day. No streaks, no guilt — '
                 'just an open door at a time you choose.',
@@ -673,8 +677,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: _resetDashboardLayout,
               ),
               const SizedBox(height: 24),
-              Text('My Sponsor', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                            const AppSectionHeader(
+                title: 'My Sponsor',
+              ),
               if (_registeredSponsor != null) ...[
                 ListTile(
                   dense: true,
@@ -805,9 +810,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               if (_ggufSupported) ...[
-                Text('Deeper Chat (Optional)',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
+                                const AppSectionHeader(
+                  title: 'Deeper Chat (Optional)',
+                ),
                 Text(
                   'Download a small AI model for richer coach replies. '
                   'Runs entirely on your device. Your scripted coach remains '
@@ -889,8 +894,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
               ],
               const SizedBox(height: 24),
-              Text('Export Data', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                            const AppSectionHeader(
+                title: 'Export Data',
+              ),
               Text(
                 'Share your recovery data with a therapist, counselor, or healthcare provider.',
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
@@ -940,8 +946,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              Text('SOS Contacts', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
+                            const AppSectionHeader(
+                title: 'SOS Contacts',
+              ),
               _buildPhoneField(
                 controller: _sponsorController,
                 label: 'Sponsor Phone',
@@ -962,8 +969,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: const Text('Test Call Sponsor'),
               ),
               const SizedBox(height: 24),
-              Text('Meeting Directory', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                            const AppSectionHeader(
+                title: 'Meeting Directory',
+              ),
               Text(
                 'Open feeds following the Meeting Guide spec (AA intergroups, BMLT for NA). '
                 'Downloaded meetings are cached and work fully offline.',
@@ -1052,9 +1060,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 24),
 
               // 7th Tradition & Support
-              Text('7th Tradition & Support',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                            const AppSectionHeader(
+                title: '7th Tradition & Support',
+              ),
               Text(
                 'Every fellowship is self-supporting. Links open in your browser — '
                 'Recovery for All does not process payments or collect financial data.',
@@ -1085,9 +1093,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text('Legal',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+                            const AppSectionHeader(
+                title: 'Legal',
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary),
