@@ -47,11 +47,13 @@ Phases 0-6 are **complete and verified**. Phases 7-17 are **not started**.
 | 6 — Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
 | 7-17 | NOT STARTED | no code, no gates run |
 
-Gates at the close of Phase 3: `flutter analyze --no-pub` -> No issues found;
-`flutter test` -> all passing; `verify_no_hardcoded_colors.py` -> exit 0.
+Gates at the close of Phase 6: `flutter analyze --no-pub` -> No issues found;
+`flutter test` -> 201 passing; `verify_no_hardcoded_colors.py` -> exit 0.
 
-**Resolved:** the 398 dark-pinned `AppColors` statics were the Phase 5 blocker and
-are now gone. Remaining known gaps are tracked per phase below.
+**Resolved:** the dark-pinned `AppColors` statics were the Phase 5 blocker and
+are now gone. (The audit counted ~398 references across 32 files; by the time
+the drain ran, earlier phases had already removed some, leaving 390 across
+31 files — all drained.) Remaining known gaps are tracked per phase below.
 
 **Next phase is Phase 7 (Dashboard State Decomposition)** — state ownership before any
 view splitting, per this phase's own prohibited-shortcut rule.
@@ -63,9 +65,10 @@ The original phase order had two dependency defects, found while executing:
 1. **The dark-pinned `AppColors` statics were never scheduled for retirement.**
    Phase 3 banned `Color(0x...)` literals, but the old top-level constants
    (`AppColors.accent`, `.textMuted`, `.bgCard`, ...) are semantically the same
-   thing — fixed dark values. 398 references across 32 files survived the gate.
-   Light mode is therefore only partially real. This is cross-cutting: every
-   later phase edits those files, so draining first means touching them once.
+   thing — fixed dark values. The audit found ~398 references across 32 files
+   still using them after Phase 3, so the literal gate alone did not make light
+   mode real. This is cross-cutting: every later phase edits those files, so
+   draining first means touching them once.
 2. **Empty/loading/error states (old Phase 13) were scheduled after dashboard
    decomposition (old Phases 5-6).** That is backwards: the decomposition moves
    those states, and Phase 4 now supplies shared primitives for them. Doing
@@ -307,8 +310,9 @@ equivalent that the literal gate cannot see.
    `bgDeep -> surface`, `bgCard -> surfaceContainer`, `border -> outlineVariant`,
    `textPrimary -> onSurface`, `textMuted -> onSurfaceVariant`,
    `textDim -> outline`, `textHint -> outline`.
-2. Replace all 398 references across 32 files, in dependency order: leaf widgets
-   and services first, then screens, then the dashboard.
+2. Replace every remaining reference (audit estimated ~398 across 32 files) in
+   dependency order: leaf widgets and services first, then screens, then the
+   dashboard.
 3. Keep genuinely domain-scoped constants (`star*`, `mood*`, `fellow*`, `pin*`,
    `housing*`, `raid*`, `brandZoom`, `monsterHound`, `starfield`) as tokens —
    they are brightness-independent by design and must NOT be drained.
