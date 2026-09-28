@@ -5,6 +5,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+
 class SponsorContact {
   final String id;
   final String name;
@@ -78,15 +80,15 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
   Color _getPathwayColor(String pathway) {
     switch (pathway.toUpperCase()) {
       case 'AA':
-        return const Color(0xFF38BDF8);
+        return AppColors.fellowAA;
       case 'NA':
-        return const Color(0xFFA78BFA);
+        return AppColors.fellowNA;
       case 'SMART':
-        return const Color(0xFFFBBF24);
+        return AppColors.fellowSMART;
       case 'WELLBRIETY':
-        return const Color(0xFF34D399);
+        return AppColors.fellowWellbriety;
       default:
-        return const Color(0xFF94A3B8);
+        return AppColors.textMuted;
     }
   }
 
@@ -99,7 +101,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -119,10 +121,10 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
+                    Text(
                       'Add Support Contact',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -130,15 +132,15 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _nameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      decoration: InputDecoration(
                         labelText: 'Contact Name',
-                        labelStyle: TextStyle(color: Color(0xFF94A3B8)),
+                        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF334155)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                         ),
                         focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF38BDF8)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       validator: (value) {
@@ -151,16 +153,16 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _phoneController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Phone Number',
-                        labelStyle: TextStyle(color: Color(0xFF94A3B8)),
+                        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF334155)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                         ),
                         focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF38BDF8)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       validator: (value) {
@@ -173,13 +175,13 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: _selectedPathway,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      decoration: InputDecoration(
                         labelText: 'Pathway Affiliation',
-                        labelStyle: TextStyle(color: Color(0xFF94A3B8)),
+                        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF334155)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                         ),
                       ),
                       items: ['AA', 'NA', 'SMART', 'Wellbriety', 'Custom'].map((String val) {
@@ -199,16 +201,16 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _notesController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       maxLines: 2,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Notes (Optional)',
-                        labelStyle: TextStyle(color: Color(0xFF94A3B8)),
+                        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF334155)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                         ),
                         focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF38BDF8)),
+                          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                     ),
@@ -231,8 +233,8 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF38BDF8),
-                        foregroundColor: const Color(0xFF0F172A),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.surface,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -265,9 +267,9 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        border: Border.all(color: Theme.of(context).colorScheme.surfaceContainer),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,14 +277,14 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.people_outline, color: Color(0xFF38BDF8), size: 22),
+                  Icon(Icons.people_outline, color: Theme.of(context).colorScheme.primary, size: 22),
                   SizedBox(width: 8),
                   Text(
                     'Peer Support Network',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -291,20 +293,20 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
               ),
               IconButton(
                 onPressed: _openAddContactSheet,
-                icon: const Icon(Icons.add, color: Color(0xFF38BDF8)),
+                icon: Icon(Icons.add, color: Theme.of(context).colorScheme.primary),
                 tooltip: 'Add Support Contact',
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (_contacts.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 24.0),
               child: Center(
                 child: Text(
                   'No sponsor or support contacts saved yet.\nTap the + icon above to secure your circle.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.4),
+                  style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13, height: 1.4),
                 ),
               ),
             )
@@ -321,9 +323,9 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: Row(
                     children: [
@@ -344,8 +346,8 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                               children: [
                                 Text(
                                   contact.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -375,8 +377,8 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                             const SizedBox(height: 4),
                             Text(
                               contact.phone,
-                              style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -384,8 +386,8 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                               const SizedBox(height: 4),
                               Text(
                                 contact.notes,
-                                style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.outline,
                                   fontSize: 11,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -400,12 +402,12 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.phone_in_talk, color: Color(0xFF34D399), size: 20),
+                            icon: Icon(Icons.phone_in_talk, color: Theme.of(context).colorScheme.tertiary, size: 20),
                             onPressed: () => widget.onCallInitiated(contact),
                             tooltip: 'Call Support Contact',
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 18),
+                            icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 18),
                             onPressed: () => _deleteContact(index),
                             tooltip: 'Delete Contact',
                           ),

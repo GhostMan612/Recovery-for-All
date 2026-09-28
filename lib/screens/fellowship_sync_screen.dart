@@ -79,7 +79,7 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
       if (peerAlias == _alias) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(backgroundColor: Color(0xFF1E293B), content: Text('You cannot sync with yourself.')),
+          SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('You cannot sync with yourself.')),
         );
         return;
       }
@@ -89,7 +89,7 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
       if (recent.isNotEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('Already synced with $peerAlias in the last 24 hours.')),
+          SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('Already synced with $peerAlias in the last 24 hours.')),
         );
         return;
       }
@@ -115,14 +115,14 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           content: Text('Fellowship Buff Acquired! Connected with $peerAlias +50 XP'),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(backgroundColor: Color(0xFF1E293B), content: Text('Invalid fellowship code.')),
+        SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('Invalid fellowship code.')),
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -141,16 +141,16 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0F172A),
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text('Fellowship Handshake', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+          title: Text('Fellowship Handshake', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
           elevation: 0,
-          bottom: const TabBar(
-            indicatorColor: Color(0xFF38BDF8),
-            labelColor: Colors.white,
-            unselectedLabelColor: Color(0xFF94A3B8),
+          bottom: TabBar(
+            indicatorColor: Theme.of(context).colorScheme.primary,
+            labelColor: Theme.of(context).colorScheme.onSurface,
+            unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
             tabs: [
               Tab(icon: Icon(Icons.qr_code_rounded), text: 'My Code'),
               Tab(icon: Icon(Icons.qr_code_scanner_rounded), text: 'Scan Peer'),
@@ -175,27 +175,27 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.person_outline, color: Color(0xFF38BDF8)),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.person_outline, color: Theme.of(context).colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_alias, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const Text('Anonymous • offline • no PII', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(_alias, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Anonymous • offline • no PII', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                     ],
                   ),
                 ),
                 IconButton(
                   tooltip: 'Refresh code',
-                  icon: const Icon(Icons.refresh, color: Color(0xFF38BDF8)),
+                  icon: Icon(Icons.refresh, color: Theme.of(context).colorScheme.primary),
                   onPressed: _refreshPayload,
                 ),
               ],
@@ -204,31 +204,31 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3), width: 1.2)),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.onSurface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3), width: 1.2)),
             child: _payload.isEmpty
-                ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8))))
+                ? SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)))
                 : QrImageView(
                     data: _payload,
                     version: QrVersions.auto,
                     size: 260,
-                    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0F172A)),
-                    dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0F172A)),
-                    backgroundColor: Colors.white,
+                    eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: Theme.of(context).colorScheme.surface),
+                    dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Theme.of(context).colorScheme.surface),
+                    backgroundColor: Theme.of(context).colorScheme.onSurface,
                   ),
           ),
           const SizedBox(height: 12),
           Center(
-            child: Text('Refreshed ${_payloadTime.hour.toString().padLeft(2, '0')}:${_payloadTime.minute.toString().padLeft(2, '0')} • tap refresh to rotate', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+            child: Text('Refreshed ${_payloadTime.hour.toString().padLeft(2, '0')}:${_payloadTime.minute.toString().padLeft(2, '0')} • tap refresh to rotate', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF334155))),
-            child: const Row(
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Color(0xFF334155))),
+            child: Row(
               children: [
-                Icon(Icons.lock_outline, color: Color(0xFF34D399), size: 18),
+                Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.tertiary, size: 18),
                 SizedBox(width: 10),
-                Expanded(child: Text('Privacy-safe. Shares only your alias + timestamp. No location, no contact.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4))),
+                Expanded(child: Text('Privacy-safe. Shares only your alias + timestamp. No location, no contact.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, height: 1.4))),
               ],
             ),
           ),
@@ -259,17 +259,17 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
           bottom: 24,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(color: const Color(0xFF0F172A).withValues(alpha: 0.92), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.handshake_outlined, color: Color(0xFF38BDF8), size: 20),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.handshake_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(child: Text('Align peer QR inside frame. Awards +50 XP • 24h cooldown per peer.', style: TextStyle(color: Colors.white, fontSize: 12, height: 1.3))),
-                if (_isProcessing) const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8))),
+                Expanded(child: Text('Align peer QR inside frame. Awards +50 XP • 24h cooldown per peer.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, height: 1.3))),
+                if (_isProcessing) SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary)),
               ],
             ),
           ),

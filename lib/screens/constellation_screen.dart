@@ -46,16 +46,16 @@ class ConstellationScreen extends StatefulWidget {
 // ---- category colors ----
 
 const Map<String, Color> _kCategoryColors = {
-  'milestone': Color(0xFFFBBF24), // gold
-  'step_work': Color(0xFF34D399), // green
-  'community': Color(0xFF38BDF8), // blue
-  'service': Color(0xFFF97316),   // orange
-  'mindfulness': Color(0xFFA78BFA), // purple
-  'spiritual': Color(0xFF34D399), // green
+  'milestone': AppColors.starMilestone, // gold
+  'step_work': AppColors.starStepWork, // green
+  'community': AppColors.starCommunity, // blue
+  'service': AppColors.starService,   // orange
+  'mindfulness': AppColors.starMindfulness, // purple
+  'spiritual': AppColors.starSpiritual, // green
 };
 
-Color _colorForCategory(String category) =>
-    _kCategoryColors[category] ?? AppColors.accent;
+Color _colorForCategory(String category, Color fallback) =>
+    _kCategoryColors[category] ?? fallback;
 
 // ---- category-based phyllotaxis positioning ----
 
@@ -155,28 +155,28 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Name your sky', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text('Name your sky', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 32,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: const InputDecoration(
             hintText: 'e.g. The Return, North Star, Second Chances',
-            hintStyle: TextStyle(color: Color(0xFF64748B)),
+            hintStyle: TextStyle(color: AppColors.textDim),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () => Navigator.pop(dialogContext,
                 controller.text.trim().isEmpty ? null : controller.text.trim()),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: Text('Save', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ),
         ],
       ),
@@ -222,7 +222,7 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
 
     final choice = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
@@ -235,7 +235,7 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(shape,
@@ -243,18 +243,18 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
                         fontSize: 11, height: 1.3, letterSpacing: 2)),
               ),
               const SizedBox(height: 6),
-              const Text('Shapes travel. Day counts stay private.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              Text('Shapes travel. Day counts stay private.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.copy_all_outlined, color: AppColors.accent),
-                title: const Text('Copy shape', style: TextStyle(color: Colors.white, fontSize: 14)),
+                leading: Icon(Icons.copy_all_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Copy shape', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14)),
                 onTap: () => Navigator.pop(sheetContext, 'copy'),
               ),
               ListTile(
-                leading: const Icon(Icons.forum_outlined, color: AppColors.accent),
-                title: const Text('Post to Recovery Circle', style: TextStyle(color: Colors.white, fontSize: 14)),
-                subtitle: const Text('Shape only — never your numbers', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                leading: Icon(Icons.forum_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Post to Recovery Circle', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14)),
+                subtitle: Text('Shape only — never your numbers', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 onTap: () => Navigator.pop(sheetContext, 'post'),
               ),
             ],
@@ -274,7 +274,7 @@ ${nodes.length} stars over $spanDays nights
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           content: const Text('Star shape copied — your day counts stay private'),
         ),
       );
@@ -288,7 +288,7 @@ ${nodes.length} stars over $spanDays nights
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: const Color(0xFF1E293B), content: const Text('Constellation shared with the circle.')),
+        SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('Constellation shared with the circle.')),
       );
     }
   }
@@ -305,8 +305,8 @@ ${nodes.length} stars over $spanDays nights
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text('Add a star', style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          title: Text('Add a star', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -314,10 +314,10 @@ ${nodes.length} stars over $spanDays nights
                 controller: titleController,
                 autofocus: true,
                 maxLength: 40,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 decoration: const InputDecoration(
                   hintText: 'e.g. 90 meetings, Made amends, Sponsored someone',
-                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                  hintStyle: TextStyle(color: AppColors.textDim),
                 ),
               ),
               const SizedBox(height: 8),
@@ -330,10 +330,10 @@ ${nodes.length} stars over $spanDays nights
                       label: Text(cat,
                           style: TextStyle(
                               fontSize: 11,
-                              color: category == cat ? Colors.white : AppColors.textMuted)),
+                              color: category == cat ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant)),
                       selected: category == cat,
-                      selectedColor: AppColors.accent,
-                      backgroundColor: AppColors.bgCard,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                       onSelected: (_) => setDialog(() => category = cat),
                     ),
                 ],
@@ -341,8 +341,8 @@ ${nodes.length} stars over $spanDays nights
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8)))),
-            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent), onPressed: () => Navigator.pop(dialogContext, titleController.text.trim().isNotEmpty), child: const Text('Add', style: TextStyle(color: Colors.white))),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), onPressed: () => Navigator.pop(dialogContext, titleController.text.trim().isNotEmpty), child: Text('Add', style: TextStyle(color: Theme.of(context).colorScheme.onSurface))),
           ],
         ),
       ),
@@ -361,7 +361,7 @@ ${nodes.length} stars over $spanDays nights
     await RecoveryPetService.logStar(title);
     // stream handles load
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('"$title" added to ${_skyName ?? "your sky"} · +${RecoveryPetService.sparksStar} Sparks')));
     }
   }
 
@@ -373,11 +373,11 @@ ${nodes.length} stars over $spanDays nights
     final nodes = _nodes;
     if (nodes == null || index >= nodes.length) return;
     final node = nodes[index];
-    final color = _colorForCategory(node.category);
+    final color = _colorForCategory(node.category, Theme.of(context).colorScheme.primary);
     final date = node.timestamp;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
         child: Padding(
@@ -386,12 +386,12 @@ ${nodes.length} stars over $spanDays nights
             Row(children: [
               Container(width: 14, height: 14, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
               const SizedBox(width: 10),
-              Expanded(child: Text(node.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+              Expanded(child: Text(node.title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold))),
             ]),
             const SizedBox(height: 6),
-            Text('${node.category} · ${date.day}/${date.month}/${date.year}', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            Text('${node.category} · ${date.day}/${date.month}/${date.year}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 12),
-            Text('This star is part of ${_skyName ?? "your constellation"} — a moment you chose to mark. It stays here forever.', style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.45)),
+            Text('This star is part of ${_skyName ?? "your constellation"} — a moment you chose to mark. It stays here forever.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.45)),
           ]),
         ),
       ),
@@ -405,34 +405,34 @@ ${nodes.length} stars over $spanDays nights
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         title: GestureDetector(
           onTap: _renameSky,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: Text(_skyName ?? 'Your Constellation', style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis)),
+            Flexible(child: Text(_skyName ?? 'Your Constellation', style: TextStyle(color: Theme.of(context).colorScheme.onSurface), overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 6),
-            const Icon(Icons.edit_outlined, size: 16, color: Colors.white38),
+            Icon(Icons.edit_outlined, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
           ]),
         ),
         actions: [
-          IconButton(tooltip: 'Share shape', icon: const Icon(Icons.ios_share, color: Colors.white70), onPressed: (_nodes == null || _nodes!.isEmpty) ? null : _shareShape),
+          IconButton(tooltip: 'Share shape', icon: Icon(Icons.ios_share, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), onPressed: (_nodes == null || _nodes!.isEmpty) ? null : _shareShape),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add_star',
-        backgroundColor: AppColors.accent,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Star', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
+        label: Text('Add Star', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         onPressed: _addManualStar,
       ),
       body: StreamBuilder<List<ConstellationPoint>>(
         stream: _pointsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting && _nodes == null) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.accent));
+            return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
           }
           if (snapshot.hasData) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -579,7 +579,7 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
         fit: StackFit.expand,
         children: [
           // Animated starfield background
-          AnimatedBuilder(animation: _twinkleController, builder: (context, _) => CustomPaint(painter: _StarFieldPainter(time: _twinkleController.value))),
+          AnimatedBuilder(animation: _twinkleController, builder: (context, _) => CustomPaint(painter: _StarFieldPainter(time: _twinkleController.value, starColor: Theme.of(context).colorScheme.onSurface))),
           // Main constellation with zoom + branch lines + focus highlight
           AnimatedBuilder(
             animation: Listenable.merge([_zoomController, _focusController]),
@@ -588,18 +588,20 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
               zoom: _zoomController.value,
               focusedIndex: _focusedStarIndex,
               focusProgress: _focusController.value,
+              fallbackColor: Theme.of(context).colorScheme.primary,
+              branchColor: Theme.of(context).colorScheme.primary,
             )),
           ),
           // 3D view toggle
           Positioned(left: 16, top: 12, child: Material(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.9),
+            color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(12),
             child: InkWell(onTap: _toggle3DView, borderRadius: BorderRadius.circular(12), child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_is3DView ? Icons.view_in_ar : Icons.crop_rotate, color: _is3DView ? AppColors.accent : Colors.white70, size: 20),
+                Icon(_is3DView ? Icons.view_in_ar : Icons.crop_rotate, color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), size: 20),
                 const SizedBox(width: 6),
-                Text(_is3DView ? '3D View' : '2D View', style: TextStyle(color: _is3DView ? AppColors.accent : Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(_is3DView ? '3D View' : '2D View', style: TextStyle(color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.w600)),
               ]),
             )),
           )),
@@ -607,44 +609,44 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
           if (_focusedStarIndex != null)
             Positioned(top: 60, left: 16, right: 16, child: AnimatedBuilder(animation: _focusController, builder: (context, _) => Opacity(opacity: _focusController.value, child: Transform.translate(
               offset: Offset(0, 20 * (1 - _focusController.value)),
-              child: Material(color: const Color(0xFF1E293B).withValues(alpha: 0.95), borderRadius: BorderRadius.circular(16), child: Padding(padding: const EdgeInsets.all(16), child: _buildFocusInfo(widget.nodes[_focusedStarIndex!])),
+              child: Material(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.95), borderRadius: BorderRadius.circular(16), child: Padding(padding: EdgeInsets.all(16), child: _buildFocusInfo(widget.nodes[_focusedStarIndex!])),
             ))))),
           // 3D view
           if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
           // Zoom slider (bottom)
           Positioned(left: 16, right: 16, bottom: 12, child: Row(children: [
-            const Icon(Icons.zoom_out, size: 16, color: Colors.white38),
-            Expanded(child: Slider(value: _zoomController.value, min: 1.0, max: 10.0, activeColor: AppColors.accent, onChanged: (v) => _zoomController.value = v)),
-            const Icon(Icons.zoom_in, size: 16, color: Colors.white38),
+            Icon(Icons.zoom_out, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+            Expanded(child: Slider(value: _zoomController.value, min: 1.0, max: 10.0, activeColor: Theme.of(context).colorScheme.primary, onChanged: (v) => _zoomController.value = v)),
+            Icon(Icons.zoom_in, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
           ])),
           // Sky name label
-          if (widget.skyName != null) Positioned(left: 12, top: 8, child: Text(widget.skyName!, style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.5), fontSize: 11))),
+          if (widget.skyName != null) Positioned(left: 12, top: 8, child: Text(widget.skyName!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 11))),
         ],
       ),
     );
   }
 
   Widget _buildFocusInfo(ConstellationNode3D node) {
-    final color = _colorForCategory(node.category);
+    final color = _colorForCategory(node.category, Theme.of(context).colorScheme.primary);
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
         const SizedBox(width: 10),
-        Expanded(child: Text(node.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-        IconButton(icon: const Icon(Icons.close, color: Colors.white70, size: 20), onPressed: _clearFocus),
+        Expanded(child: Text(node.title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+        IconButton(icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), size: 20), onPressed: _clearFocus),
       ]),
       const SizedBox(height: 8),
-      Text('${node.category} · ${node.timestamp.day}/${node.timestamp.month}/${node.timestamp.year}', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+      Text('${node.category} · ${node.timestamp.day}/${node.timestamp.month}/${node.timestamp.year}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: ElevatedButton.icon(onPressed: () { _clearFocus(); widget.onStarTap(widget.nodes.indexOf(node)); }, icon: const Icon(Icons.info_outline, size: 18), label: const Text('Details'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.black))),
+        Expanded(child: ElevatedButton.icon(onPressed: () { _clearFocus(); widget.onStarTap(widget.nodes.indexOf(node)); }, icon: const Icon(Icons.info_outline, size: 18), label: const Text('Details'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.black))),
         const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: () { _clearFocus(); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Quick actions coming soon'))); }, icon: const Icon(Icons.star_border, size: 18), label: const Text('Quick Action'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent))),
+        Expanded(child: OutlinedButton.icon(onPressed: () { _clearFocus(); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Quick actions coming soon'))); }, icon: const Icon(Icons.star_border, size: 18), label: const Text('Quick Action'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
       ]),
     ]);
   }
 
-  Color _colorForCategory(String category) => _kCategoryColors[category] ?? AppColors.accent;
+  Color _colorForCategory(String category, Color fallback) => _kCategoryColors[category] ?? fallback;
 }
 
 /// Custom painter for the 2D constellation canvas with branch lines and focus highlight
@@ -653,8 +655,17 @@ class _ConstellationCanvasPainter extends CustomPainter {
   final double zoom;
   final int? focusedIndex;
   final double focusProgress;
+  final Color fallbackColor;
+  final Color branchColor;
 
-  _ConstellationCanvasPainter({required this.nodes, required this.zoom, this.focusedIndex, this.focusProgress = 0.0});
+  _ConstellationCanvasPainter({
+    required this.nodes,
+    required this.zoom,
+    required this.fallbackColor,
+    required this.branchColor,
+    this.focusedIndex,
+    this.focusProgress = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -669,7 +680,7 @@ class _ConstellationCanvasPainter extends CustomPainter {
     }
 
     // Draw branch lines first (behind stars)
-    final branchPaint = Paint()..color = const Color(0xFF38BDF8).withValues(alpha: 0.15)..strokeWidth = 1.5..style = PaintingStyle.stroke;
+    final branchPaint = Paint()..color = branchColor.withValues(alpha: 0.15)..strokeWidth = 1.5..style = PaintingStyle.stroke;
 
     for (final entry in categoryGroups.entries) {
       final catNodes = entry.value;
@@ -713,11 +724,11 @@ class _ConstellationCanvasPainter extends CustomPainter {
     }
   }
 
-  Color _colorForCategory(String category) => _kCategoryColors[category] ?? AppColors.accent;
+  Color _colorForCategory(String category) => _kCategoryColors[category] ?? fallbackColor;
 
   @override
   bool shouldRepaint(covariant _ConstellationCanvasPainter oldDelegate) {
-    return oldDelegate.zoom != zoom || oldDelegate.focusedIndex != focusedIndex || oldDelegate.focusProgress != focusProgress || oldDelegate.nodes != nodes;
+    return oldDelegate.zoom != zoom || oldDelegate.focusedIndex != focusedIndex || oldDelegate.focusProgress != focusProgress || oldDelegate.nodes != nodes || oldDelegate.fallbackColor != fallbackColor || oldDelegate.branchColor != branchColor;
   }
 }
 
@@ -725,7 +736,8 @@ class _ConstellationCanvasPainter extends CustomPainter {
 
 class _StarFieldPainter extends CustomPainter {
   final double time;
-  _StarFieldPainter({required this.time});
+  final Color starColor;
+  _StarFieldPainter({required this.time, required this.starColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -736,13 +748,13 @@ class _StarFieldPainter extends CustomPainter {
       final y = rnd.nextDouble() * size.height;
       final phase = (time * 2 * math.pi + i * 0.7) % (2 * math.pi);
       final alpha = 0.08 + 0.18 * (0.5 + 0.5 * math.sin(phase));
-      paint.color = Colors.white.withValues(alpha: alpha);
+      paint.color = starColor.withValues(alpha: alpha);
       canvas.drawCircle(Offset(x, y), 0.6 + rnd.nextDouble() * 1.0, paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => oldDelegate.time != time;
+  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => oldDelegate.time != time || oldDelegate.starColor != starColor;
 }
 
 class _EmptySky extends StatelessWidget {
@@ -752,13 +764,13 @@ class _EmptySky extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      const Icon(Icons.auto_awesome, color: AppColors.accent, size: 48),
+      Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary, size: 48),
       const SizedBox(height: 16),
-      const Text('Your sky is waiting.', style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
+      Text('Your sky is waiting.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18)),
       const SizedBox(height: 8),
-      const Text('Light your first star to mark the\nbeginning of your path.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+      Text('Light your first star to mark the\nbeginning of your path.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
       const SizedBox(height: 20),
-      ElevatedButton(onPressed: onSeed, style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white), child: const Text('Begin My Path')),
+      ElevatedButton(onPressed: onSeed, style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onSurface), child: const Text('Begin My Path')),
     ]));
   }
 }
@@ -781,7 +793,7 @@ class _CategoryLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF0F172A),
+      color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -803,7 +815,7 @@ class _CategoryLegend extends StatelessWidget {
                   Text(
                     _labels[entry.key] ?? entry.key,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 10,
                     ),
                   ),

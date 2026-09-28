@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../database/recovery_database.dart';
+import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 
 class _Perk {
@@ -120,7 +121,7 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
     final pet = _pet;
     final level = pet?.pathLevel ?? 1;
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF0F172A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SafeArea(
         child: Padding(
@@ -128,35 +129,35 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(2))),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Theme.of(context).colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.account_tree_outlined, color: Color(0xFF38BDF8)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(Icons.account_tree_outlined, color: Theme.of(context).colorScheme.primary),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Skill Tree', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text(_paths.isEmpty ? 'Your path' : _paths.join(' • '), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                        Text('Skill Tree', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(_paths.isEmpty ? 'Your path' : _paths.join(' • '), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: const Color(0xFFF472B6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                    child: Text('Lv $level', style: const TextStyle(color: Color(0xFFF472B6), fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(color: AppColors.pink.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                    child: Text('Lv $level', style: const TextStyle(color: AppColors.pink, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               if (_loading)
-                const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
               else
                 Flexible(
                   child: ListView.separated(
@@ -175,14 +176,14 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                                 width: 36,
                                 height: 36,
                                 decoration: BoxDecoration(
-                                  color: achieved ? const Color(0xFF38BDF8).withValues(alpha: 0.18) : const Color(0xFF1E293B),
+                                  color: achieved ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18) : Theme.of(context).colorScheme.surfaceContainer,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: achieved ? const Color(0xFF38BDF8) : const Color(0xFF334155)),
+                                  border: Border.all(color: achieved ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant),
                                 ),
-                                child: Icon(perk.icon, size: 18, color: achieved ? const Color(0xFF38BDF8) : const Color(0xFF64748B)),
+                                child: Icon(perk.icon, size: 18, color: achieved ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline),
                               ),
                               if (index != perks.length - 1)
-                                Container(width: 2, height: 28, color: achieved ? const Color(0xFF38BDF8).withValues(alpha: 0.35) : const Color(0xFF1E293B)),
+                                Container(width: 2, height: 28, color: achieved ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35) : Theme.of(context).colorScheme.surfaceContainer),
                             ],
                           ),
                           const SizedBox(width: 12),
@@ -190,9 +191,9 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
-                                color: achieved ? const Color(0xFF1E293B) : const Color(0xFF0B1220),
+                                color: achieved ? Theme.of(context).colorScheme.surfaceContainer : Color(0xFF0B1220),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: achieved ? const Color(0xFF38BDF8).withValues(alpha: 0.35) : const Color(0xFF1E293B)),
+                                border: Border.all(color: achieved ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35) : Theme.of(context).colorScheme.surfaceContainer),
                               ),
                               child: Row(
                                 children: [
@@ -200,13 +201,13 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('Lv ${perk.level} • ${perk.title}', style: TextStyle(color: achieved ? Colors.white : const Color(0xFF64748B), fontWeight: FontWeight.bold, fontSize: 13)),
+                                        Text('Lv ${perk.level} • ${perk.title}', style: TextStyle(color: achieved ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outline, fontWeight: FontWeight.bold, fontSize: 13)),
                                         const SizedBox(height: 2),
-                                        Text(perk.subtitle, style: TextStyle(color: achieved ? const Color(0xFF94A3B8) : const Color(0xFF475569), fontSize: 11)),
+                                        Text(perk.subtitle, style: TextStyle(color: achieved ? Theme.of(context).colorScheme.onSurfaceVariant : Color(0xFF475569), fontSize: 11)),
                                       ],
                                     ),
                                   ),
-                                  Icon(achieved ? Icons.check_circle : Icons.lock_outline, color: achieved ? const Color(0xFFF472B6) : const Color(0xFF334155), size: 18),
+                                  Icon(achieved ? Icons.check_circle : Icons.lock_outline, color: achieved ? AppColors.pink : Theme.of(context).colorScheme.outlineVariant, size: 18),
                                 ],
                               ),
                             ),
@@ -217,7 +218,7 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                   ),
                 ),
               const SizedBox(height: 12),
-              Text('${pet?.pathXp ?? 0} XP total • ${100 - ((pet?.pathXp ?? 0) % 100)} XP to next level', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+              Text('${pet?.pathXp ?? 0} XP total • ${100 - ((pet?.pathXp ?? 0) % 100)} XP to next level', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
             ],
           ),
         ),

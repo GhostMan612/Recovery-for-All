@@ -126,6 +126,18 @@ class AppColors {
   static const Color housingMaternal = Color(0xFFA78BFA);
   static const Color housingDefault = Color(0xFFFBBF24);
 
+  static const Color fellowAA = Color(0xFF38BDF8);
+  static const Color fellowNA = Color(0xFFA78BFA);
+  static const Color fellowSMART = Color(0xFFFBBF24);
+  static const Color fellowWellbriety = Color(0xFF34D399);
+
+  static const Color starMilestone = Color(0xFFFBBF24);
+  static const Color starStepWork = Color(0xFF34D399);
+  static const Color starCommunity = Color(0xFF38BDF8);
+  static const Color starService = Color(0xFFF97316);
+  static const Color starMindfulness = Color(0xFFA78BFA);
+  static const Color starSpiritual = Color(0xFF34D399);
+
   static Color scrim([double opacity = 0.72]) => bgDeep.withValues(alpha: opacity);
 
   static const AppPalette midnightSlate = AppPalette(
