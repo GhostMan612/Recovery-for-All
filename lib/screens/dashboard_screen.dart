@@ -9,12 +9,14 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/icon_registry.dart';
+import '../core/dashboard_providers.dart';
 import '../core/meeting_radius_logic.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
@@ -62,17 +64,17 @@ import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
 import '../widgets/next_meeting_card.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
   final bool isFirstLaunch;
 
   const DashboardScreen({super.key, required this.database, this.isFirstLaunch = false});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // Minnesota-first: when location permission is denied, the meeting finder
   // still reflects the state this app is built for (Twin Cities metro).
   static const _defaultCenter = (44.9778, -93.2650);
@@ -83,31 +85,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   RecoveryPet? _pet;
   List<String> _paths = [];
   List<String> _tools = [];
-  bool _pledgedToday = false;
-  String _pledgeDate = '';
 
   // Constellation crown — the user's path, visible on open.
   List<ConstellationNode3D>? _skyNodes;
-  String? _skyName;
 
-  // Modular tiles (dashboard-ia.md): order + hidden sets per tab.
-  static const String _keyToolOrder = 'dashboard_tool_order_v1';
-  static const String _keyLibraryOrder = 'dashboard_library_order_v1';
-  static const String _keyHiddenTools = 'dashboard_hidden_tools_v1';
-  static const String _keyHiddenLibrary = 'dashboard_hidden_library_v1';
-  List<String> _toolOrder = [];
-  List<String> _libraryOrder = [];
-  Set<String> _hiddenTools = {};
-  Set<String> _hiddenLibrary = {};
+  // Ephemeral interaction state only. Everything persisted (card order, hidden
+  // sets, radius preference, pledge, sky name) now lives in a notifier — see
+  // lib/core/dashboard_providers.dart (Phase 7).
   bool _editingPath = false;
   bool _editingLibrary = false;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
   ActiveRaid? _activeRaid;
-  double? _cachedLat;
-  double? _cachedLng;
-  int? _cachedTime;
-  bool _enforceRadius = true;
+
+  DashboardLayout get _layout => ref.read(dashboardLayoutProvider);
+  MeetingRadiusState get _radius => ref.read(meetingRadiusProvider);
 
   @override
   void initState() {
@@ -115,8 +107,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _tutorialChatbot = TutorialChatbotService.instance;
     _loadUserData();
     _loadSky();
-    _loadLayoutPrefs();
-    unawaited(_loadRadiusPrefs());
     if (widget.isFirstLaunch) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openTutorialChatbot();
@@ -124,61 +114,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _loadLayoutPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _toolOrder = (prefs.getStringList(_keyToolOrder) ?? const <String>[])
-          .toList();
-      _libraryOrder =
-          (prefs.getStringList(_keyLibraryOrder) ?? const <String>[]).toList();
-      _hiddenTools =
-          (prefs.getStringList(_keyHiddenTools) ?? const <String>[]).toSet();
-      _hiddenLibrary =
-          (prefs.getStringList(_keyHiddenLibrary) ?? const <String>[]).toSet();
-    });
-  }
-
-  Future<void> _loadRadiusPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lat = prefs.getDouble(MeetingRadiusPrefs.latKey);
-    final lng = prefs.getDouble(MeetingRadiusPrefs.lngKey);
-    final t = prefs.getInt(MeetingRadiusPrefs.timeKey);
-    final enforce = prefs.getBool(MeetingRadiusPrefs.enforceKey) ?? true;
-    if (!mounted) return;
-    setState(() {
-      _cachedLat = lat;
-      _cachedLng = lng;
-      _cachedTime = t;
-      _enforceRadius = enforce;
-    });
-  }
-
-  Future<void> _saveToolLayout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_keyToolOrder, _toolOrder);
-    await prefs.setStringList(_keyHiddenTools, _hiddenTools.toList());
-  }
-
-  Future<void> _saveLibraryLayout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_keyLibraryOrder, _libraryOrder);
-    await prefs.setStringList(_keyHiddenLibrary, _hiddenLibrary.toList());
-  }
-
   List<_ToolCard> _ordered(
       List<_ToolCard> cards, List<String> order, Set<String> hidden) {
-    final visible = cards.where((c) => !hidden.contains(c.label)).toList();
-    if (order.isEmpty) return visible;
-    final byLabel = {for (final c in visible) c.label: c};
-    final ordered = <_ToolCard>[];
-    for (final id in order) {
-      final card = byLabel.remove(id);
-      if (card != null) ordered.add(card);
-    }
-    ordered.addAll(byLabel.values);
-    // New cards that were never ordered append automatically.
-    return ordered;
+    return _layout.ordered(cards, (c) => c.label, order, hidden);
   }
 
   Future<void> _loadSky() async {
@@ -187,9 +125,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final sorted = [...points]
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
       final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString('constellation_sky_name_v1') case final name?) {
+        await ref.read(skyNameProvider.notifier).setName(name);
+      }
       if (!mounted) return;
       setState(() {
-        _skyName = prefs.getString('constellation_sky_name_v1');
         _skyNodes = sorted
             .map((p) => ConstellationNode3D(
                   id: p.id,
@@ -241,13 +181,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadUserData() async {
     final profile = await widget.database.getProfile('active_user_profile');
     final pet = await RecoveryPetService.ensureHatched();
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10);
 
     if (!mounted) return;
     setState(() {
-      _pledgedToday = prefs.getString('daily_pledge_date') == today;
-      _pledgeDate = today;
       _profile = profile;
       if (profile?.anonymousUsername?.isNotEmpty ?? false) {
         _username = profile!.anonymousUsername!;
@@ -534,7 +470,7 @@ Future<void> _handleWalk() async {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _skyName ?? 'Your Constellation',
+                      ref.watch(skyNameProvider) ?? 'Your Constellation',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
@@ -566,14 +502,12 @@ Future<void> _handleWalk() async {
   // ------------------------------------------------------------------
 
   Future<void> _confirmPledge() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('daily_pledge_date', _pledgeDate);
-    setState(() => _pledgedToday = true);
+    await ref.read(dailyPledgeProvider.notifier).markPledged();
     await FeedbackService.selection();
   }
 
   Widget _buildPledgeCard() {
-    if (_pledgedToday) {
+    if (ref.watch(dailyPledgeProvider)) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -1061,8 +995,8 @@ Future<void> _handleWalk() async {
 
   Widget _buildPathTab() {
     final pet = _pet;
-    final ordered = _ordered(_buildToolCards(), _toolOrder, _hiddenTools);
-    final hiddenCount = _hiddenTools.length;
+    final ordered = _ordered(_buildToolCards(), _layout.toolOrder, _layout.hiddenTools);
+    final hiddenCount = _layout.hiddenTools.length;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -1124,12 +1058,12 @@ Future<void> _handleWalk() async {
                 }
                 var display = filtered;
                 String? tierLabel;
-                final cacheUsable = _enforceRadius &&
-                    _cachedLat != null &&
-                    _cachedLng != null &&
-                    isCacheFresh(_cachedTime);
+                final cacheUsable = _radius.enforce &&
+                    _radius.lat != null &&
+                    _radius.lng != null &&
+                    isCacheFresh(_radius.cachedAtMs);
                 if (cacheUsable) {
-                  final userLoc = ll.LatLng(_cachedLat!, _cachedLng!);
+                  final userLoc = ll.LatLng(_radius.lat!, _radius.lng!);
                   final tiered = applyRadiusTiers(filtered, userLoc);
                   display = sortMeetings(tiered.meetings, userLoc, DateTime.now());
                   tierLabel = tiered.tierLabel;
@@ -1138,11 +1072,9 @@ Future<void> _handleWalk() async {
                 return GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onLongPress: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    final next = !_enforceRadius;
-                    await prefs.setBool(MeetingRadiusPrefs.enforceKey, next);
+                    final next = !ref.read(meetingRadiusProvider).enforce;
+                    await ref.read(meetingRadiusProvider.notifier).setEnforce(next);
                     if (!context.mounted) return;
-                    setState(() => _enforceRadius = next);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
@@ -1222,13 +1154,18 @@ Future<void> _handleWalk() async {
                 child: Wrap(
                   spacing: 6,
                   children: [
-                    for (final id in _hiddenTools)
+                    for (final id in _layout.hiddenTools)
                       ActionChip(
                         label: Text(id, style: const TextStyle(fontSize: 11)),
                         avatar: const Icon(Icons.visibility_off, size: 14),
                         onPressed: () {
-                          setState(() => _hiddenTools.remove(id));
-                          _saveToolLayout();
+                          final l = _layout;
+                          ref
+                              .read(dashboardLayoutProvider.notifier)
+                              .saveToolOrder(
+                                l.toolOrder,
+                                Set<String>.from(l.hiddenTools)..remove(id),
+                              );
                         },
                       ),
                   ],
@@ -1325,7 +1262,7 @@ Future<void> _handleWalk() async {
   }
 
   Widget _buildLibraryTab() {
-    final ordered = _ordered(_buildLibraryCards(), _libraryOrder, _hiddenLibrary);
+    final ordered = _ordered(_buildLibraryCards(), _layout.libraryOrder, _layout.hiddenLibrary);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -1348,7 +1285,7 @@ Future<void> _handleWalk() async {
             ),
             Text('Literature, housing, and community — always one tap away.',
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-            if (_editingLibrary && _hiddenLibrary.isNotEmpty) ...[
+            if (_editingLibrary && _layout.hiddenLibrary.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -1359,13 +1296,18 @@ Future<void> _handleWalk() async {
                 child: Wrap(
                   spacing: 6,
                   children: [
-                    for (final id in _hiddenLibrary)
+                    for (final id in _layout.hiddenLibrary)
                       ActionChip(
                         label: Text(id, style: const TextStyle(fontSize: 11)),
                         avatar: const Icon(Icons.visibility_off, size: 14),
                         onPressed: () {
-                          setState(() => _hiddenLibrary.remove(id));
-                          _saveLibraryLayout();
+                          final l = _layout;
+                          ref
+                              .read(dashboardLayoutProvider.notifier)
+                              .saveLibraryOrder(
+                                l.libraryOrder,
+                                Set<String>.from(l.hiddenLibrary)..remove(id),
+                              );
                         },
                       ),
                   ],
@@ -1409,15 +1351,14 @@ Future<void> _handleWalk() async {
         final reordered = List<_ToolCard>.from(ordered);
         final moved = reordered.removeAt(from);
         reordered.insert(index, moved);
-        setState(() {
-          if (isLibrary) {
-            _libraryOrder = reordered.map((c) => c.label).toList();
-            _saveLibraryLayout();
-          } else {
-            _toolOrder = reordered.map((c) => c.label).toList();
-            _saveToolLayout();
-          }
-        });
+        final labels = reordered.map((c) => c.label).toList();
+        final notifier = ref.read(dashboardLayoutProvider.notifier);
+        if (isLibrary) {
+          unawaited(notifier.saveLibraryOrder(labels, _layout.hiddenLibrary));
+        } else {
+          unawaited(notifier.saveToolOrder(labels, _layout.hiddenTools));
+        }
+        setState(() {});
       },
       builder: (context, candidate, rejected) {
         final isTarget = candidate.isNotEmpty;
@@ -1445,15 +1386,18 @@ Future<void> _handleWalk() async {
                   right: 6,
                   child: InkWell(
                     onTap: () {
-                      setState(() {
-                        if (isLibrary) {
-                          _hiddenLibrary.add(card.label);
-                          _saveLibraryLayout();
-                        } else {
-                          _hiddenTools.add(card.label);
-                          _saveToolLayout();
-                        }
-                      });
+                      final l = _layout;
+                      final notifier =
+                          ref.read(dashboardLayoutProvider.notifier);
+                      if (isLibrary) {
+                        unawaited(notifier.saveLibraryOrder(
+                            l.libraryOrder,
+                            Set<String>.from(l.hiddenLibrary)..add(card.label)));
+                      } else {
+                        unawaited(notifier.saveToolOrder(
+                            l.toolOrder,
+                            Set<String>.from(l.hiddenTools)..add(card.label)));
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(4),
