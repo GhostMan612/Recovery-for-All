@@ -5,6 +5,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import '../services/recovery_pet_service.dart';
 
@@ -135,7 +136,7 @@ class _GroundingScreenState extends State<GroundingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -156,7 +157,7 @@ class _GroundingScreenState extends State<GroundingScreen>
           child: TextButton(
             onPressed: () => Navigator.of(context).maybePop(),
             child:
-                const Text('Close', style: TextStyle(color: Color(0xFF94A3B8))),
+                Text('Close', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
         ),
         const Spacer(),
@@ -180,10 +181,10 @@ class _GroundingScreenState extends State<GroundingScreen>
           onTap: _startExtended,
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Both patterns activate the parasympathetic\nnervous system — rest and digest.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+          style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12),
         ),
         const Spacer(),
       ],
@@ -211,7 +212,7 @@ class _GroundingScreenState extends State<GroundingScreen>
               Navigator.of(context).maybePop();
             },
             child:
-                const Text('Close', style: TextStyle(color: Color(0xFF94A3B8))),
+                Text('Close', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
         ),
         const Spacer(),
@@ -237,13 +238,13 @@ class _GroundingScreenState extends State<GroundingScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF38BDF8).withValues(alpha: 0.9),
-                  const Color(0xFF0EA5E9).withValues(alpha: 0.3),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.9),
+                  AppColors.accentSky.withValues(alpha: 0.3),
                 ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                   blurRadius: 40,
                   spreadRadius: 8,
                 ),
@@ -254,8 +255,8 @@ class _GroundingScreenState extends State<GroundingScreen>
         const SizedBox(height: 40),
         Text(
           isDone ? 'Done' : '$_remaining s',
-          style: const TextStyle(
-            color: Color(0xFF94A3B8),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 22,
             fontWeight: FontWeight.w600,
           ),
@@ -266,8 +267,8 @@ class _GroundingScreenState extends State<GroundingScreen>
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 8,
-            backgroundColor: const Color(0xFF1E293B),
-            color: const Color(0xFF38BDF8),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
         const Spacer(),
@@ -276,8 +277,8 @@ class _GroundingScreenState extends State<GroundingScreen>
               ? 'Inhale through your nose.\nExhale slowly through your mouth.'
               : 'Feel your feet on the floor.\nName one thing you can see.',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.outline,
             fontSize: 15,
             height: 1.5,
           ),
@@ -304,7 +305,7 @@ class _ModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF1E293B),
+      color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -314,11 +315,11 @@ class _ModeCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+            border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFF38BDF8), size: 32),
+              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 32),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -331,8 +332,8 @@ class _ModeCard extends StatelessWidget {
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(subtitle,
-                        style: const TextStyle(
-                            color: Color(0xFF94A3B8), fontSize: 13,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13,
                             height: 1.3)),
                   ],
                 ),

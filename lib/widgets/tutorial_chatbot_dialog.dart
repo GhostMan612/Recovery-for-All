@@ -90,9 +90,9 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: Row(
           children: [
             AvatarVisualLayer(
@@ -113,7 +113,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  backgroundColor: const Color(0xFF1E293B),
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                   title: const Text('Clear chat?', style: TextStyle(color: Colors.white)),
                   content: const Text('This will delete all chat history.', style: TextStyle(color: Colors.white70)),
                   actions: [
@@ -190,12 +190,12 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                     controller: _inputController,
                     focusNode: _inputFocus,
                     style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Ask about meetings, journal, pet, constellations...',
-                      hintStyle: TextStyle(color: Colors.white38),
+                      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       border: InputBorder.none,
                       filled: true,
-                      fillColor: Color(0xFF1E293B),
+                      fillColor: Theme.of(context).colorScheme.surfaceContainer,
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -241,7 +241,7 @@ class _ChatBubble extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 300),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: message.isUser ? AppColors.accent : const Color(0xFF1E293B),
+            color: message.isUser ? AppColors.accent : Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(16).copyWith(
               bottomLeft: message.isUser ? const Radius.circular(16) : const Radius.circular(4),
               bottomRight: message.isUser ? const Radius.circular(4) : const Radius.circular(16),

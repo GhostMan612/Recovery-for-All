@@ -111,12 +111,9 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
   Widget build(BuildContext context) {
     final sections = _visibleSections;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title:
-            const Text('Literature Library', style: TextStyle(color: Colors.white)),
+        title: const Text('Literature Library'),
         actions: [
           IconButton(
             tooltip: 'My Workbooks (on-device PDFs)',

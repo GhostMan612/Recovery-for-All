@@ -107,6 +107,7 @@ class AppColors {
   static const Color accent = Color(0xFF38BDF8);
   static const Color success = Color(0xFF34D399);
   static const Color danger = Color(0xFFDC2626);
+  static const Color dangerSoft = Color(0xFFF87171);
   static const Color textPrimary = Colors.white;
   static const Color textMuted = Color(0xFF94A3B8);
   static const Color textDim = Color(0xFF64748B);
@@ -114,9 +115,30 @@ class AppColors {
 
   static const Color pink = Color(0xFFF472B6);
 
+  static const Color brandZoom = Color(0xFF0B5CFF);
+  static const Color accentSky = Color(0xFF0EA5E9);
+  static const Color monsterHound = Color(0xFFEA580C);
+
+  /// Domain raid-boss status scale. Brightness-independent: a raid outcome must
+  /// not change meaning when the user switches theme.
+  static const Color raidVictory = Color(0xFF10B981);
+  static const Color raidVictorySoft = Color(0xFF6EE7B7);
+  static const Color raidVictoryDeep = Color(0xFF064E3B);
+  static const Color raidActiveDeep = Color(0xFF7F1D1D);
+
   static const Color moodGood = Color(0xFF60A5FA);
   static const Color moodStruggling = Color(0xFFFBBF24);
   static const Color moodNeedHelp = Color(0xFFEF4444);
+
+  /// Domain mood scale: terrible -> great. Deliberately brightness-independent
+  /// so a mood never changes meaning when the user switches theme.
+  static const List<Color> moodScale = [
+    Color(0xFFEF4444),
+    Color(0xFFF97316),
+    Color(0xFFEAB308),
+    Color(0xFF10B981),
+    Color(0xFF3B82F6),
+  ];
 
   static const Color starfield = Color(0xFF0B1120);
 

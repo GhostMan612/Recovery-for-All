@@ -179,12 +179,9 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
   Widget build(BuildContext context) {
     final sections = _visibleSections;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Community Support',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Community Support'),
         actions: [
           IconButton(
             tooltip: _showAll ? 'Showing everything' : 'Tailored to your paths',

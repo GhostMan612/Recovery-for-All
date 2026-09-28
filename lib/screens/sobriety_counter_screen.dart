@@ -90,7 +90,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           title: const Text('New Counter', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -99,9 +99,9 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                 controller: controller,
                 autofocus: true,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'e.g. Alcohol, Nicotine, Gaming',
-                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                 ),
               ),
               const SizedBox(height: 8),
@@ -109,19 +109,19 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                 controller: costController,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Avg daily cost (optional)',
-                  hintStyle: TextStyle(color: Color(0xFF64748B)),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                   prefixText: r'$ ',
-                  prefixStyle: TextStyle(color: Color(0xFF64748B)),
+                  prefixStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                 ),
               ),
               const SizedBox(height: 8),
               ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event_outlined,
-                    color: Color(0xFF38BDF8), size: 20),
+                leading: Icon(Icons.event_outlined,
+                    color: Theme.of(context).colorScheme.primary, size: 20),
                 title: const Text('Started on',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 trailing: Text(
@@ -143,7 +143,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
@@ -188,7 +188,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: const Color(0xFF1E293B),
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                 content: Text(
                     '${counter.label}: ${chip.label} chip earned — companion celebrates!'),
               ),
@@ -203,12 +203,12 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: Text('Reset "${counter.label}"?', style: const TextStyle(color: Colors.white)),
-        content: const Text(
+        content: Text(
           'This starts a new Day One for this counter. Nothing is deleted — '
           'every day you made still counts toward you.',
-          style: TextStyle(color: Color(0xFF94A3B8)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
@@ -216,7 +216,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
             child: const Text('Keep going', style: TextStyle(color: AppColors.accent)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('New Day One', style: TextStyle(color: Colors.white)),
           ),
@@ -233,7 +233,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
     final elapsed = DateTime.now().difference(start);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -302,8 +302,8 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFF87171),
-                    side: BorderSide(color: const Color(0xFFDC2626).withValues(alpha: 0.5)),
+                    foregroundColor: AppColors.dangerSoft,
+                    side: BorderSide(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
                   ),
                   icon: const Icon(Icons.restart_alt),
                   label: const Text('Start a New Day One'),
@@ -323,9 +323,9 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Counters', style: TextStyle(color: Colors.white)),
       ),
@@ -353,12 +353,12 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                     style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
                   const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 40),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
                       'Start one below. Every minute counts, and only you see them.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                     ),
                   ),
                 ],

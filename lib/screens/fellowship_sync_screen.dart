@@ -223,7 +223,7 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Color(0xFF334155))),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
             child: Row(
               children: [
                 Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.tertiary, size: 18),

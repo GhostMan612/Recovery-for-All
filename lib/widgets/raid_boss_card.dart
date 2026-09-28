@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 
 import '../database/recovery_database.dart';
 import '../services/raid_service.dart';
@@ -22,13 +23,13 @@ class RaidBossCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDefeated ? const Color(0xFF10B981) : const Color(0xFFDC2626).withValues(alpha: 0.5)),
+        border: Border.all(color: isDefeated ? AppColors.raidVictory : Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
         gradient: LinearGradient(
           colors: isDefeated
-              ? [const Color(0xFF064E3B).withValues(alpha: 0.35), const Color(0xFF1E293B)]
-              : [const Color(0xFF7F1D1D).withValues(alpha: 0.35), const Color(0xFF1E293B)],
+              ? [AppColors.raidVictoryDeep.withValues(alpha: 0.35), Theme.of(context).colorScheme.surfaceContainer]
+              : [AppColors.raidActiveDeep.withValues(alpha: 0.35), Theme.of(context).colorScheme.surfaceContainer],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -40,8 +41,8 @@ class RaidBossCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFDC2626).withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
-                child: Icon(isDefeated ? Icons.emoji_events_outlined : Icons.crisis_alert_outlined, color: isDefeated ? const Color(0xFF10B981) : const Color(0xFFDC2626)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                child: Icon(isDefeated ? Icons.emoji_events_outlined : Icons.crisis_alert_outlined, color: isDefeated ? AppColors.raidVictory : Theme.of(context).colorScheme.error),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -49,13 +50,13 @@ class RaidBossCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(raid.bossName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(isDefeated ? 'Defeated • +${RaidService.victoryXp} XP awarded' : 'Ends in ~$hoursLeft h • Community Raid', style: TextStyle(color: isDefeated ? const Color(0xFF6EE7B7) : const Color(0xFF94A3B8), fontSize: 11)),
+                    Text(isDefeated ? 'Defeated • +${RaidService.victoryXp} XP awarded' : 'Ends in ~$hoursLeft h • Community Raid', style: TextStyle(color: isDefeated ? AppColors.raidVictorySoft : Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
                 child: Text('${raid.currentHp}/${raid.maxHp} HP', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -66,16 +67,16 @@ class RaidBossCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 10,
-              backgroundColor: const Color(0xFF0F172A),
-              valueColor: AlwaysStoppedAnimation<Color>(isDefeated ? const Color(0xFF10B981) : const Color(0xFFDC2626)),
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              valueColor: AlwaysStoppedAnimation<Color>(isDefeated ? AppColors.raidVictory : Theme.of(context).colorScheme.error),
             ),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.person_outline, size: 14, color: Color(0xFF38BDF8)),
+              Icon(Icons.person_outline, size: 14, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 6),
-              Text('Your contribution: ${raid.userContribution} DMG', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              Text('Your contribution: ${raid.userContribution} DMG', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const Spacer(),
               Text('${(progress * 100).round()}% HP', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
@@ -85,7 +86,7 @@ class RaidBossCard extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDefeated ? const Color(0xFF334155) : const Color(0xFFDC2626),
+                backgroundColor: isDefeated ? Theme.of(context).colorScheme.outlineVariant : Theme.of(context).colorScheme.error,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 12),

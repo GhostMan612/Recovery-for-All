@@ -60,7 +60,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -99,7 +99,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 onChanged: (_) => setSheetState(() {}),
                 decoration: InputDecoration(
                   hintText: 'How is your path going?',
-                  hintStyle: const TextStyle(color: Color(0xFF475569)),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                   filled: true,
                   fillColor: AppColors.bgCard,
                   enabledBorder: OutlineInputBorder(
@@ -152,7 +152,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       case FeedComposeResult.publishedWithSupport:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text(
                 'Shared. Support resources stay pinned to this post — '
                 'you are not alone in this.'),
@@ -161,7 +161,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       case FeedComposeResult.published:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text('Shared with the circle.'),
           ),
         );
@@ -172,7 +172,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   void _showCrisisDoor() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -198,7 +198,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const SizedBox(height: 16),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626),
+                  backgroundColor: Theme.of(context).colorScheme.error,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                 ),
@@ -299,14 +299,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Material(
-                  color: const Color(0xFFDC2626).withValues(alpha: 0.18),
+                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _showCrisisDoor,
                     child: const ListTile(
                       dense: true,
-                      leading: Icon(Icons.support, color: Color(0xFFF87171)),
+                      leading: Icon(Icons.support, color: AppColors.dangerSoft),
                       title: Text(
                         'Need help now? 988 · your people · one tap away',
                         style: TextStyle(
@@ -337,14 +337,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                                 style: TextStyle(
                                     color: Colors.white, fontSize: 17)),
                             const SizedBox(height: 8),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 40),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
                                 'Be the first to share how today went — '
                                 'alias only, no numbers needed.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    color: Color(0xFF94A3B8), fontSize: 13),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                               ),
                             ),
                           ],
@@ -492,7 +492,7 @@ class _ShapeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -515,7 +515,7 @@ class _ModerationQueueDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -580,9 +580,9 @@ class _ModerationQueueDialog extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 TextButton(
-                                  child: const Text('Hide',
+                                  child: Text('Hide',
                                       style: TextStyle(
-                                          color: Color(0xFFF87171))),
+                                          color: AppColors.dangerSoft)),
                                   onPressed: () =>
                                       service.hide(post.id),
                                 ),

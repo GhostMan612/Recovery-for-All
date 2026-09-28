@@ -6,6 +6,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+
 class ConstellationNode3D {
   final String id;
   final String title;
@@ -108,12 +110,15 @@ class _RecoveryConstellation3DWidgetState
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        color: const Color(0xFF0F172A),
+        color: Theme.of(context).colorScheme.surface,
         child: CustomPaint(
           painter: Constellation3DPainter(
             nodes: widget.nodes,
             yaw: _yaw,
             pitch: _pitch,
+            centerColor: Theme.of(context).colorScheme.primary,
+            linkColor: AppColors.accentSky,
+            labelColor: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -126,12 +131,18 @@ class Constellation3DPainter extends CustomPainter {
   final double yaw;
   final double pitch;
   final double zoom;
+  final Color centerColor;
+  final Color linkColor;
+  final Color labelColor;
 
   Constellation3DPainter({
     required this.nodes,
     required this.yaw,
     required this.pitch,
     this.zoom = 1.0,
+    required this.centerColor,
+    required this.linkColor,
+    required this.labelColor,
   });
 
   @override
@@ -141,13 +152,13 @@ class Constellation3DPainter extends CustomPainter {
     final double perspective = 300.0;
 
     final centerPaint = Paint()
-      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.3)
+      ..color = centerColor.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(Offset(cx, cy), 8.0, centerPaint);
 
     final corePaint = Paint()
-      ..color = const Color(0xFF38BDF8)
+      ..color = centerColor
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(Offset(cx, cy), 4.0, corePaint);
@@ -182,7 +193,7 @@ class Constellation3DPainter extends CustomPainter {
     }
 
     final linePaint = Paint()
-      ..color = const Color(0xFF0EA5E9).withValues(alpha: 0.3)
+      ..color = linkColor.withValues(alpha: 0.3)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -218,7 +229,7 @@ class Constellation3DPainter extends CustomPainter {
         text: TextSpan(
           text: nodes[i].title,
           style: TextStyle(
-            color: const Color(0xFF94A3B8).withValues(alpha: depthAlpha),
+            color: labelColor.withValues(alpha: depthAlpha),
             fontSize: 9.0 * depthAlpha,
             fontWeight: FontWeight.bold,
           ),
@@ -235,12 +246,12 @@ class Constellation3DPainter extends CustomPainter {
 
   static Color _categoryColor(String category) {
     switch (category) {
-      case 'step_work': return const Color(0xFF34D399);
-      case 'community': return const Color(0xFF38BDF8);
-      case 'service': return const Color(0xFFF97316);
-      case 'mindfulness': return const Color(0xFFA78BFA);
-      case 'spiritual': return const Color(0xFF34D399);
-      default: return const Color(0xFFFBBF24); // milestone = gold
+      case 'step_work': return AppColors.starStepWork;
+      case 'community': return AppColors.starCommunity;
+      case 'service': return AppColors.starService;
+      case 'mindfulness': return AppColors.starMindfulness;
+      case 'spiritual': return AppColors.starSpiritual;
+      default: return AppColors.starMilestone; // milestone = gold
     }
   }
 

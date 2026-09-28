@@ -76,7 +76,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     final spent = before - updated.sparks;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
           spent > 0
               ? 'Welcome, ${updated.name} the ${species.label} · −$spent Sparks'
@@ -224,9 +224,9 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
   Widget build(BuildContext context) {
     final pet = _pet;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Companion', style: TextStyle(color: Colors.white)),
         actions: [

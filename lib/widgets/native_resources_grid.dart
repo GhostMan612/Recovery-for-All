@@ -74,7 +74,7 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
             margin: const EdgeInsets.only(bottom: 16.0),
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(16.0),
             ),
             child: Column(
@@ -91,8 +91,8 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                 const SizedBox(height: 8),
                 Text(
                   resource.description,
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 14,
                   ),
                 ),
@@ -104,7 +104,7 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF334155),
+                        color: Theme.of(context).colorScheme.outlineVariant,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -118,19 +118,19 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-                const Divider(color: Color(0xFF334155), height: 1),
+                Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 16),
+                        Icon(Icons.location_on_outlined, color: Theme.of(context).colorScheme.outline, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           resource.city,
-                          style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -139,8 +139,8 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                     if (distance >= 0)
                       Text(
                         '${distance.toStringAsFixed(1)} mi away',
-                        style: const TextStyle(
-                          color: Color(0xFF38BDF8),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),

@@ -567,12 +567,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 10),
               Builder(builder: (context) {
                 final current = ref.watch(themeProvider).palette;
-                Widget chip(AppTheme t, String label, Color preview) => ChoiceChip(
+                Widget chip(AppTheme t, String label) => ChoiceChip(
                       label: Text(label, style: TextStyle(color: current == t ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                       selected: current == t,
                       selectedColor: Theme.of(context).colorScheme.primary,
                       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                      avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: preview, shape: BoxShape.circle, border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)))),
+                      avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: AppColors.paletteFor(t).bgDeep, shape: BoxShape.circle, border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)))),
                       onSelected: (sel) {
                         if (sel) {
                           ref.read(themeProvider.notifier).setPalette(t);
@@ -580,9 +580,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       },
                     );
                 return Wrap(spacing: 8, runSpacing: 8, children: [
-                  chip(AppTheme.midnightSlate, 'Midnight Slate', const Color(0xFF0F172A)),
-                  chip(AppTheme.deepForest, 'Deep Forest', const Color(0xFF0F1A14)),
-                  chip(AppTheme.oledPitch, 'OLED Pitch', const Color(0xFF000000)),
+                  chip(AppTheme.midnightSlate, 'Midnight Slate'),
+                  chip(AppTheme.deepForest, 'Deep Forest'),
+                  chip(AppTheme.oledPitch, 'OLED Pitch'),
                 ]);
               }),
               const SizedBox(height: 24),
@@ -708,8 +708,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFF87171),
-                          side: BorderSide(color: const Color(0xFFF87171).withValues(alpha: 0.4)),
+                          foregroundColor: AppColors.dangerSoft,
+                          side: BorderSide(color: AppColors.dangerSoft.withValues(alpha: 0.4)),
                         ),
                         icon: const Icon(Icons.link_off, size: 18),
                         label: const Text('Unlink'),
@@ -855,8 +855,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2))
                             : _ggufDownloaded.contains(model.id)
                                 ? IconButton(
-                                    icon: const Icon(Icons.delete_outline,
-                                        color: Color(0xFFEF4444), size: 20),
+                                    icon: Icon(Icons.delete_outline,
+                                        color: Theme.of(context).colorScheme.error, size: 20),
                                     onPressed: () async {
                                       await GgufModelService().deleteModel(model.id);
                                       final downloaded =
@@ -882,7 +882,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: LinearProgressIndicator(
                       value: _ggufProgress,
-                      backgroundColor: const Color(0xFF334155),
+                      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
@@ -984,8 +984,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
                   trailing: IconButton(
                     tooltip: 'Remove feed',
-                    icon: const Icon(Icons.delete_outline,
-                        color: Color(0xFFEF4444), size: 20),
+                    icon: Icon(Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error, size: 20),
                     onPressed: () => _removeSource(url),
                   ),
                 ),
@@ -1066,11 +1066,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF472B6).withValues(alpha: 0.15),
+                    color: AppColors.pink.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.volunteer_activism_outlined,
-                      color: Color(0xFFF472B6), size: 22),
+                  child: Icon(Icons.volunteer_activism_outlined,
+                      color: AppColors.pink, size: 22),
                 ),
                 title: Text('7th Tradition & Support',
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),

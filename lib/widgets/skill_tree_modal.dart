@@ -191,7 +191,7 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
-                                color: achieved ? Theme.of(context).colorScheme.surfaceContainer : Color(0xFF0B1220),
+                                color: achieved ? Theme.of(context).colorScheme.surfaceContainer : Theme.of(context).colorScheme.surface,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: achieved ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35) : Theme.of(context).colorScheme.surfaceContainer),
                               ),
@@ -203,7 +203,7 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                                       children: [
                                         Text('Lv ${perk.level} • ${perk.title}', style: TextStyle(color: achieved ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outline, fontWeight: FontWeight.bold, fontSize: 13)),
                                         const SizedBox(height: 2),
-                                        Text(perk.subtitle, style: TextStyle(color: achieved ? Theme.of(context).colorScheme.onSurfaceVariant : Color(0xFF475569), fontSize: 11)),
+                                        Text(perk.subtitle, style: TextStyle(color: achieved ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.disabled, fontSize: 11)),
                                       ],
                                     ),
                                   ),

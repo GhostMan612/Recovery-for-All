@@ -7,7 +7,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/hardware_tier_service.dart';
 
 class ThemedBackground extends StatefulWidget {
@@ -70,15 +69,16 @@ class _ThemedBackgroundState extends State<ThemedBackground>
     final reduce = (MediaQuery.maybeOf(context)?.disableAnimations ?? false) || HardwareTierService.isLowEnd;
     final animate = widget.enableKenBurns && !reduce && _controller != null;
 
+    final scheme = Theme.of(context).colorScheme;
     Widget background = Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.bgDeep,
-            const Color(0xFF1E293B),
-            const Color(0xFF0F172A),
+            scheme.surface,
+            scheme.surfaceContainer,
+            scheme.surface,
           ],
         ),
       ),
@@ -108,7 +108,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
       fit: StackFit.expand,
       children: [
         background,
-        Container(color: AppColors.scrim(widget.scrimOpacity)),
+        Container(color: scheme.surface.withValues(alpha: widget.scrimOpacity)),
         content,
       ],
     );

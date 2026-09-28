@@ -100,7 +100,7 @@ class NextMeetingCard extends StatelessWidget {
     final m = meeting!;
     final fellowship = m.fellowship;
     final chipLabel = isLive ? 'In Progress Now' : MeetingFinderService.upcomingLabel(m, DateTime.now());
-    final chipColor = isLive ? const Color(0xFF34D399) : const Color(0xFF38BDF8);
+    final chipColor = isLive ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(16),

@@ -111,10 +111,10 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   }
 
   Color _colorFor(_Monster m) {
-    if (m == _reaper) return const Color(0xFFDC2626);
-    if (m.name.contains('Hound')) return const Color(0xFFEA580C);
-    if (m.name.contains('Fog')) return const Color(0xFF38BDF8);
-    return const Color(0xFF64748B);
+    if (m == _reaper) return Theme.of(context).colorScheme.error;
+    if (m.name.contains('Hound')) return AppColors.monsterHound;
+    if (m.name.contains('Fog')) return Theme.of(context).colorScheme.primary;
+    return Theme.of(context).colorScheme.outline;
   }
 
   @override
@@ -146,7 +146,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     if (!mounted) return;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => Padding(
@@ -342,7 +342,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
         _spawnPop('-$dmg blocked', AppColors.success);
       } else {
         battle.addLog('${battle.monster.name} deals $dmg damage.');
-        _spawnPop('-$dmg', const Color(0xFFEF4444));
+        _spawnPop('-$dmg', Theme.of(context).colorScheme.error);
         _doShake();
         _doFlash();
       }
@@ -367,9 +367,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     final pet = _pet;
     final battle = _battle;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Trials of the Path',
             style: TextStyle(color: Colors.white)),
@@ -550,7 +550,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                 ),

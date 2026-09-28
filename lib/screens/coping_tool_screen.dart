@@ -59,9 +59,9 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
         title: const Text('Urge Coping Tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         leading: IconButton(
@@ -83,7 +83,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
         children: [
           const Text('Choose a coping strategy for managing urges', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Different tools work for different situations. Try several to find what resonates with you.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+          Text('Different tools work for different situations. Try several to find what resonates with you.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
           const SizedBox(height: 24),
           ListView.builder(
             shrinkWrap: true,
@@ -97,9 +97,9 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF475569)),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline),
                   ),
                   child: Row(
                     children: [
@@ -111,13 +111,13 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                           children: [
                             Text(tool['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text(tool['description'] as String, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                            Text(tool['description'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             const SizedBox(height: 4),
-                            Text('Duration: ${tool['duration']}', style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w500)),
+                            Text('Duration: ${tool['duration']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios, color: Color(0xFF475569), size: 16),
+                      Icon(Icons.arrow_forward_ios, color: Theme.of(context).colorScheme.outline, size: 16),
                     ],
                   ),
                 ),
@@ -139,27 +139,27 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
             children: [
               GestureDetector(
                 onTap: () => setState(() => _selectedToolIndex = -1),
-                child: const Icon(Icons.arrow_back, color: Color(0xFF38BDF8), size: 24),
+                child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary, size: 24),
               ),
               const SizedBox(width: 12),
               Text(tool['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(tool['description'] as String, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+          Text(tool['description'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF38BDF8)),
+              border: Border.all(color: Theme.of(context).colorScheme.primary),
             ),
             child: Row(
               children: [
-                const Icon(Icons.schedule, color: Color(0xFF38BDF8), size: 16),
+                Icon(Icons.schedule, color: Theme.of(context).colorScheme.primary, size: 16),
                 const SizedBox(width: 8),
-                Text('Duration: ${tool['duration']}', style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold)),
+                Text('Duration: ${tool['duration']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -175,7 +175,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                   Container(
                     width: 36,
                     height: 36,
-                    decoration: BoxDecoration(color: const Color(0xFF38BDF8), borderRadius: BorderRadius.circular(50)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(50)),
                     child: Center(child: Text('${entry.key + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                   ),
                   const SizedBox(width: 16),
@@ -207,7 +207,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
             icon: const Icon(Icons.check_circle_outline),
             label: const Text('Log This Session', style: TextStyle(fontSize: 16)),
           ),

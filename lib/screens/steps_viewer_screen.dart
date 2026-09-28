@@ -149,7 +149,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: Text(
                 'Step $number worked · star added to your constellation · +${RecoveryPetService.sparksStar} Sparks'),
           ),
@@ -170,7 +170,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           content:
               Text('Worksheet saved · +${RecoveryPetService.sparksWorksheet} Sparks'),
         ),
@@ -235,7 +235,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(cloudMsg ??
             'Bundle copied — send it to your sponsor. Redeem their signed code here after.'),
       ),
@@ -250,14 +250,14 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     final raw = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: const Text('Redeem sign-off', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
                 'Paste the RC-SIGNOFF code your sponsor sent back.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 10),
             TextField(
               controller: controller,
@@ -270,7 +270,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
@@ -316,7 +316,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
             'Step $number sponsor-verified · +${RecoveryPetService.sparksSignOff} Sparks · Bond +5'),
       ),
@@ -326,9 +326,9 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('The Twelve Steps', style: TextStyle(color: Colors.white)),
       ),
@@ -576,7 +576,7 @@ class _WorksheetFieldsState extends State<_WorksheetFields> {
             style: const TextStyle(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
               filled: true,
-              fillColor: const Color(0xFF0F172A),
+              fillColor: Theme.of(context).colorScheme.surface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppColors.border),

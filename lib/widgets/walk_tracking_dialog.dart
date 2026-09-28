@@ -67,7 +67,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
     final progress = (_steps / StepCounterService.minStepsForWalk).clamp(0.0, 1.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text(
         'Tracking Walk',
@@ -80,7 +80,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
             ),
@@ -125,7 +125,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.border),
             ),
@@ -161,7 +161,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
             }
             if (context.mounted) Navigator.pop(context, false);
           },
-          child: const Text('Stop Walk', style: TextStyle(color: Color(0xFFF87171))),
+            child: Text('Stop Walk', style: TextStyle(color: AppColors.dangerSoft)),
         ),
         TextButton(
           onPressed: () async {

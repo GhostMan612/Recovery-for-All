@@ -87,7 +87,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
             content: Text(sparksDelta > 0
                 ? 'Gratitude saved · +$sparksDelta Sparks'
                 : 'Gratitude saved'),
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           ),
         );
         Navigator.of(context).pop();
@@ -110,9 +110,9 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: const Text('Daily Gratitude', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
@@ -141,10 +141,10 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF1E293B),
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent,
+                          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                           width: 2,
                         ),
                       ),
@@ -155,7 +155,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                           Text(
                             mood['label'] as String,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                              color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
@@ -191,7 +191,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveEntry,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38BDF8),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -225,8 +225,8 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFFE2E8F0),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -238,16 +238,16 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFF475569), fontSize: 13),
-            fillColor: const Color(0xFF1E293B),
+            hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13),
+            fillColor: Theme.of(context).colorScheme.surfaceContainer,
             filled: true,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF334155)),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
             ),
           ),
         ),

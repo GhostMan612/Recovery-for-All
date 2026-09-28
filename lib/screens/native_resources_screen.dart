@@ -15,12 +15,9 @@ class NativeResourcesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Native Recovery Resources',
-            style: TextStyle(color: Colors.white)),
+        title: const Text('Native Recovery Resources'),
       ),
       body: const NativeResourcesGrid(),
     );

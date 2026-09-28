@@ -244,7 +244,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             blurRadius: 12,
             spreadRadius: 2,
           ),
@@ -279,7 +279,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF38BDF8),
+                  color: Theme.of(context).colorScheme.primary,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.black, width: 2),
                 ),
@@ -317,9 +317,9 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
               padding: const EdgeInsets.all(20),
               constraints: const BoxConstraints(maxWidth: 360),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
@@ -349,8 +349,8 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                             ),
                             Text(
                               'Step ${_currentStepIndex + 1} of ${tutorial.steps.length}',
-                              style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -358,7 +358,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFF94A3B8)),
+                        icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         onPressed: () => setState(() => _isExpanded = false),
                       ),
                     ],
@@ -393,8 +393,8 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                           margin: EdgeInsets.only(right: index < tutorial.steps.length - 1 ? 6 : 0),
                           decoration: BoxDecoration(
                             color: index <= _currentStepIndex
-                                ? const Color(0xFF38BDF8)
-                                : const Color(0xFF334155),
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.outlineVariant,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -423,8 +423,8 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
           child: OutlinedButton(
             onPressed: _dismissTutorial,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF94A3B8),
-              side: const BorderSide(color: Color(0xFF334155)),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
             child: const Text('Not now'),
@@ -437,8 +437,8 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
           child: OutlinedButton(
             onPressed: _dismissTutorial,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF94A3B8),
-              side: const BorderSide(color: Color(0xFF334155)),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
             child: const Text('Dismiss'),
@@ -452,7 +452,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
         child: ElevatedButton(
           onPressed: isLastStep ? _completeTutorial : _nextStep,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF38BDF8),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(

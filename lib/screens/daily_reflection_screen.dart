@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 
 class DailyReflectionScreen extends StatefulWidget {
@@ -26,13 +27,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   bool _isLoading = true;
 
   final List<String> _moodLabels = ['Terrible', 'Bad', 'Okay', 'Good', 'Great'];
-  final List<Color> _moodColors = [
-    const Color(0xFFEF4444),
-    const Color(0xFFF97316),
-    const Color(0xFFEAB308),
-    const Color(0xFF10B981),
-    const Color(0xFF3B82F6),
-  ];
+  final List<Color> _moodColors = AppColors.moodScale;
 
   final List<String> _reflectionPrompts = [
     'What am I grateful for today?',
@@ -119,9 +114,9 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
         title: const Text(
           'Daily Reflections',
@@ -165,7 +160,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? _moodColors[index].withValues(alpha: 0.3)
-                              : const Color(0xFF1E293B),
+                              : Theme.of(context).colorScheme.surfaceContainer,
                           border: Border.all(
                             color: _moodColors[index],
                             width: isSelected ? 2 : 1,
@@ -226,10 +221,10 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                             _selectedGratitude = index;
                           });
                         },
-                        backgroundColor: const Color(0xFF1E293B),
-                        selectedColor: const Color(0xFF38BDF8),
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                        selectedColor: Theme.of(context).colorScheme.primary,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                          color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),
@@ -253,20 +248,20 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Write your thoughts and feelings...',
-                  hintStyle: const TextStyle(color: Color(0xFF475569)),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                   filled: true,
-                  fillColor: const Color(0xFF1E293B),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainer,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF475569)),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF475569)),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 2),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                   ),
                 ),
               ),
@@ -276,7 +271,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _saveReflection,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38BDF8),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 50),
                   ),
@@ -295,12 +290,12 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
               ),
               const SizedBox(height: 12),
               if (_isLoading)
-                const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
               else if (_journalEntries.isEmpty)
-                const Center(
+                Center(
                   child: Text(
                     'No reflections yet. Start by writing your first one!',
-                    style: TextStyle(color: Color(0xFF94A3B8)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 )
               else
@@ -313,16 +308,16 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF475569)),
+                        border: Border.all(color: Theme.of(context).colorScheme.outline),
                       ),
                       child: Text(
                         _journalEntries[index],
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                         ),
                       ),

@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:local_auth/local_auth.dart';
@@ -167,13 +168,13 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     if (_locked) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.lock_outline,
-                  size: 56, color: Color(0xFF38BDF8)),
+              Icon(Icons.lock_outline,
+                  size: 56, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 20),
               const Text(
                 'This space stays yours.',
@@ -183,14 +184,14 @@ class _SplashScreenState extends State<SplashScreen>
                     fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Unlock to continue — nothing is shared until you say so.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 28),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF38BDF8),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                       horizontal: 28, vertical: 14),
@@ -206,7 +207,7 @@ class _SplashScreenState extends State<SplashScreen>
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -251,10 +252,10 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'The path you build.',
                 style: TextStyle(
-                  color: Color(0xFF38BDF8),
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 16,
                   fontStyle: FontStyle.italic,
                 ),
@@ -266,10 +267,10 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7F1D1D),
+                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(12),
                       border:
-                          Border.all(color: const Color(0xFFF87171), width: 1),
+                          Border.all(color: AppColors.dangerSoft, width: 1),
                     ),
                     child: SelectableText(
                       '$_bootError',
@@ -286,7 +287,7 @@ class _SplashScreenState extends State<SplashScreen>
                       Expanded(
                         child: OutlinedButton(
                           onPressed: _retryBoot,
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Color(0xFFF87171))),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: AppColors.dangerSoft)),
                           child: const Text('Retry'),
                         ),
                       ),
@@ -294,7 +295,7 @@ class _SplashScreenState extends State<SplashScreen>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _continueOffline,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
                           child: const Text('Continue'),
                         ),
                       ),

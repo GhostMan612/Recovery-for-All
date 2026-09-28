@@ -659,7 +659,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B5CFF),
+                        backgroundColor: AppColors.brandZoom,
                         foregroundColor: Colors.white),
                     icon: const Icon(Icons.videocam_outlined),
                     label: const Text('Join on Zoom'),

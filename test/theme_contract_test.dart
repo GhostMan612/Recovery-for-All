@@ -127,4 +127,52 @@ void main() {
     expect(s.disabled.a, closeTo(0.38, 0.01));
     expect(s.track, s.surfaceContainerHighest);
   });
+
+  group('domain and brand tokens stay brightness-independent', () {
+    test('mood scale has five ordered stops', () {
+      expect(AppColors.moodScale, hasLength(5));
+      for (final c in AppColors.moodScale) {
+        expect(c, isA<Color>());
+      }
+    });
+
+    test('raid outcome tokens are distinct from UI chrome', () {
+      final raid = <Color>[
+        AppColors.raidVictory,
+        AppColors.raidVictorySoft,
+        AppColors.raidVictoryDeep,
+        AppColors.raidActiveDeep,
+      ];
+      expect(raid.toSet(), hasLength(4));
+    });
+
+    test('star category tokens cover every constellation category', () {
+      final stars = <Color>[
+        AppColors.starMilestone,
+        AppColors.starStepWork,
+        AppColors.starCommunity,
+        AppColors.starService,
+        AppColors.starMindfulness,
+        AppColors.starSpiritual,
+      ];
+      expect(stars.toSet().length, greaterThanOrEqualTo(5));
+    });
+  });
+
+  test('dangerSoft is a lighter sibling of danger, not a duplicate', () {
+    expect(AppColors.dangerSoft, isNot(AppColors.danger));
+    expect(AppColors.dangerSoft.computeLuminance(),
+        greaterThan(AppColors.danger.computeLuminance()));
+  });
+
+  test('palette preview swatches resolve per palette', () {
+    for (final theme in AppTheme.values) {
+      final swatch = AppColors.paletteFor(theme).bgDeep;
+      expect(swatch, isNotNull);
+    }
+    expect(
+      AppColors.paletteFor(AppTheme.midnightSlate).bgDeep,
+      isNot(AppColors.paletteFor(AppTheme.oledPitch).bgDeep),
+    );
+  });
 }

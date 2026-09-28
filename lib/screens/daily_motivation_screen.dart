@@ -109,9 +109,9 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
   Widget build(BuildContext context) {
     final quotes = _visibleQuotes;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(_showFavoritesOnly ? 'Favorites' : 'Daily Motivation',
             style: const TextStyle(color: Colors.white)),
@@ -136,9 +136,9 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                   const Text('No favorites yet.',
                       style: TextStyle(color: Colors.white, fontSize: 18)),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Tap the star on any quote to keep it close.',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                   ),
                 ],
               ),
@@ -212,7 +212,7 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                             const Text('Prev', style: TextStyle(color: Colors.white70)),
                       ),
                       Text('${_page + 1} / ${quotes.length}',
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13)),
                       TextButton.icon(
                         onPressed: _page < quotes.length - 1
                             ? () => _pageController.nextPage(

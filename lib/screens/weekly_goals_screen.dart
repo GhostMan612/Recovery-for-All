@@ -28,7 +28,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
     final result = await showDialog<(String, int)?>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: const Text('New Weekly Goal', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -37,9 +37,9 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
               controller: titleController,
               autofocus: true,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'e.g. Attend 3 meetings',
-                hintStyle: TextStyle(color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
               ),
             ),
             const SizedBox(height: 12),
@@ -47,9 +47,9 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
               controller: targetController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Times this week',
-                hintStyle: TextStyle(color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
               ),
             ),
           ],
@@ -57,7 +57,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
@@ -88,11 +88,11 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: const Text('Start a new week?', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        content: Text(
           'All goal progress resets to zero. Your goals stay.',
-          style: TextStyle(color: Color(0xFF94A3B8)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
@@ -115,9 +115,9 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Weekly Goals', style: TextStyle(color: Colors.white)),
         actions: [
@@ -148,9 +148,9 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                   const Text('No goals for this week yet.',
                       style: TextStyle(color: Colors.white, fontSize: 18)),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Small promises kept build trust in yourself.',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                   ),
                 ],
               ),
@@ -171,10 +171,10 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626).withValues(alpha: 0.25),
+                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.delete_outline, color: Color(0xFFF87171)),
+                  child: Icon(Icons.delete_outline, color: AppColors.dangerSoft),
                 ),
                 onDismissed: (_) =>
                     widget.database.deleteWeeklyGoal(goal.id),
@@ -238,7 +238,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  backgroundColor: const Color(0xFF1E293B),
+                                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                                   content: Text(
                                       '"${goal.title}" complete · +${RecoveryPetService.sparksGoalComplete} Sparks'),
                                 ),

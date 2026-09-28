@@ -98,9 +98,9 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Wellness Check-In', style: TextStyle(color: Colors.white)),
       ),
@@ -193,7 +193,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           if (_history == null)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+            Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           else if (_history!.isEmpty)
             Text('Your history will appear here after your first check-in.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13))

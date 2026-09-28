@@ -168,9 +168,9 @@ class SeventhTraditionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('7th Tradition & Support',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
@@ -184,11 +184,11 @@ class SeventhTraditionScreen extends StatelessWidget {
             title: 'What Is the 7th Tradition?',
             icon: Icons.info_outline_rounded,
             iconColor: AppColors.accent,
-            child: const Text(
+            child: Text(
               'Every fellowship is self-supporting through its own contributions. '
               'The 7th Tradition ensures no outside affiliations, no dues or fees, '
               'and that the message reaches those who still suffer — free of charge.',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, height: 1.5),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
             ),
           ),
           const SizedBox(height: 20),
@@ -216,7 +216,7 @@ class SeventhTraditionScreen extends StatelessWidget {
             title: 'Official Literature Stores',
             subtitle: 'Buy conference-approved books, pamphlets, and keytags',
             icon: Icons.menu_book_outlined,
-            iconColor: const Color(0xFFA78BFA),
+            iconColor: AppColors.housingMaternal,
             child: Column(
               children: [
                 for (final link in _literatureLinks)
@@ -234,14 +234,14 @@ class SeventhTraditionScreen extends StatelessWidget {
             title: 'Community App Upkeep',
             subtitle: 'Keep Recovery for All free, private, and offline-first',
             icon: Icons.favorite_outline_rounded,
-            iconColor: const Color(0xFFF472B6),
+            iconColor: AppColors.pink,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Recovery for All is built by people in recovery, for people in recovery. '
                   'No ads. No tracking. No accounts required. Fully offline-capable.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, height: 1.5),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -259,7 +259,7 @@ class SeventhTraditionScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(left: 8, bottom: 4),
                     child: Text(
                       e,
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.4),
                     ),
                   ),
                 ),
@@ -269,7 +269,7 @@ class SeventhTraditionScreen extends StatelessWidget {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF472B6),
+                      backgroundColor: AppColors.pink,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -311,7 +311,7 @@ class SeventhTraditionScreen extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           content: Text('Could not open $label'),
         ),
       );
@@ -338,7 +338,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
@@ -369,15 +369,15 @@ class _SectionCard extends StatelessWidget {
                               fontWeight: FontWeight.bold)),
                       if (subtitle != null)
                         Text(subtitle!,
-                            style: const TextStyle(
-                                color: Color(0xFF64748B), fontSize: 12)),
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.outline, fontSize: 12)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(color: Color(0xFF334155), height: 1, indent: 16, endIndent: 16),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1, indent: 16, endIndent: 16),
           Padding(padding: const EdgeInsets.all(16), child: child),
         ],
       ),
@@ -441,15 +441,15 @@ class _SupportListTile extends StatelessWidget {
                   if (link.description.isNotEmpty)
                     Text(
                       link.description,
-                      style: const TextStyle(
-                          color: Color(0xFF64748B), fontSize: 11, height: 1.3),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.outline, fontSize: 11, height: 1.3),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
             ),
-            const Icon(Icons.open_in_new_rounded, color: Color(0xFF64748B), size: 18),
+            Icon(Icons.open_in_new_rounded, color: Theme.of(context).colorScheme.outline, size: 18),
           ],
         ),
       ),

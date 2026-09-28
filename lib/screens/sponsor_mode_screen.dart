@@ -45,16 +45,16 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
     final bundle = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title:
             const Text('Review step work', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Paste the bundle your sponsee shared (it arrives as a '
               'RC-BUNDLE block).',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -64,7 +64,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 11),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFF0F172A),
+                fillColor: Theme.of(context).colorScheme.surface,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -77,7 +77,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child:
-                const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+                Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
@@ -114,14 +114,14 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: const Text('Sign & confirm', style: TextStyle(color: Colors.white)),
         content: Text(
           'Sign off Step $stepNumber — "$stepTitle"?\n\n'
           'This produces a signed confirmation your sponsee pastes back '
           'into their app.',
-          style: const TextStyle(
-              color: Color(0xFF94A3B8), fontSize: 13, height: 1.45),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.45),
         ),
         actions: [
           TextButton(
@@ -186,9 +186,9 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
   Widget build(BuildContext context) {
     final identity = _identity;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Sponsor Mode',
             style: TextStyle(color: Colors.white)),

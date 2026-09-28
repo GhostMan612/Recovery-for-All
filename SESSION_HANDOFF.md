@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 27, 2026 (Generated `muse_spark_phase1_spec.md` for executor agent; analyze 0, test 167)
+**Last updated:** September 28, 2026 (UI/UX Program Phases 0-3 COMPLETE — 875→0 raw color literals, `tools/verify_no_hardcoded_colors.py` green; analyze 0, test 189; plan marked complete)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -101,8 +101,8 @@ resume without losing progress. Update it at every session end.
 
 ## 7 · Next moves (current)
 
-**Phase 1 Color Migration Spec COMPLETE** (Generated `blueprints/muse_spark_phase1_spec.md` as handoff for Muse Spark 1.3 to execute the dark/light mode migration).
 **UI-UX Themes Plan COMPLETE** (Rewrote `UI-UX-themes-plan.md` to ground it in existing `AppColors`/`NavigationBar` implementation based on agent critique).
+**UI/UX Program Phases 0-3 COMPLETE (Sep 28)** — see `blueprints/UI-UX-themes-plan.md` "Execution Status". Phase 0 baseline, Phase 1 semantic tokens, Phase 2 six-scheme M3 engine (fromSeed light+dark, themeMode wired, `theme_preference_v1`+`theme_mode_v1`), Phase 3 migration 875→0 raw literals. New standing gate: `python tools/verify_no_hardcoded_colors.py` (exit 0 required). Rules: domain colors (mood/raid/star/monster) are named `AppColors` tokens and MUST stay brightness-independent; brand color = `AppColors.brandZoom`; the two CustomPainters take injected colors compared in `shouldRepaint` (paint() has no BuildContext); per-screen AppBar overrides were deleted so `appBarTheme` is the single source of truth. **Next: Phase 4 (Reusable UI Component System).** Phases 4-16 not started.
 **R15 Self-Healing Tutorial System COMPLETE** (companion_guide_service.dart, overlay, validator).
 **R16 Expanded Meeting Directories COMPLETE** (LifeRing/WFS/CR TSML + SMART/InTheRooms curated).
 **R17 Full-App Tutorial Chatbot COMPLETE** (keyword, covers every feature).

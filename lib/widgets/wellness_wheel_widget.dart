@@ -6,6 +6,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
+
 class WellnessWheelWidget extends StatefulWidget {
   final Map<String, double> initialScores;
   final ValueChanged<Map<String, double>>? onScoresChanged;
@@ -93,6 +95,11 @@ class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
               painter: _WheelPainter(
                 dimensions: _dimensions,
                 scores: _scores,
+                gridColor: Theme.of(context).colorScheme.outlineVariant,
+                primaryColor: Theme.of(context).colorScheme.primary,
+                nodeColor: Theme.of(context).colorScheme.surfaceContainer,
+                labelColor: Theme.of(context).colorScheme.onSurface,
+                accentGlow: AppColors.starMindfulness,
               ),
             ),
           );
@@ -105,10 +112,20 @@ class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
 class _WheelPainter extends CustomPainter {
   final List<String> dimensions;
   final Map<String, double> scores;
+  final Color gridColor;
+  final Color primaryColor;
+  final Color nodeColor;
+  final Color labelColor;
+  final Color accentGlow;
 
   _WheelPainter({
     required this.dimensions,
     required this.scores,
+    required this.gridColor,
+    required this.primaryColor,
+    required this.nodeColor,
+    required this.labelColor,
+    required this.accentGlow,
   });
 
   @override
@@ -117,7 +134,7 @@ class _WheelPainter extends CustomPainter {
     final maxRadius = (size.width / 2) - 40.0;
 
     final gridPaint = Paint()
-      ..color = const Color(0xFF334155)
+      ..color = gridColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -145,8 +162,8 @@ class _WheelPainter extends CustomPainter {
         canvas,
         dimensions[i],
         labelOffset,
-        const TextStyle(
-          color: Colors.white70,
+        TextStyle(
+          color: labelColor,
           fontSize: 10,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
@@ -177,10 +194,10 @@ class _WheelPainter extends CustomPainter {
     path.close();
 
     final fillPaint = Paint()
-      ..shader = const RadialGradient(
+      ..shader = RadialGradient(
         colors: [
-          Color(0x1F38BDF8),
-          Color(0x66A78BFA),
+          primaryColor.withValues(alpha: 0.12),
+          accentGlow.withValues(alpha: 0.4),
         ],
       ).createShader(Rect.fromCircle(center: center, radius: maxRadius))
       ..style = PaintingStyle.fill;
@@ -188,10 +205,10 @@ class _WheelPainter extends CustomPainter {
     canvas.drawPath(path, fillPaint);
 
     final outlinePaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         colors: [
-          Color(0xFF38BDF8),
-          Color(0xFFA78BFA),
+          primaryColor,
+          accentGlow,
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.stroke
@@ -204,17 +221,17 @@ class _WheelPainter extends CustomPainter {
       final Offset point = points[i];
 
       final outerNodePaint = Paint()
-        ..color = const Color(0xFF1E293B)
+        ..color = nodeColor
         ..style = PaintingStyle.fill;
       canvas.drawCircle(point, 6.0, outerNodePaint);
 
       final innerNodePaint = Paint()
-        ..color = const Color(0xFF38BDF8)
+        ..color = primaryColor
         ..style = PaintingStyle.fill;
       canvas.drawCircle(point, 4.0, innerNodePaint);
 
       final glowPaint = Paint()
-        ..color = const Color(0x8038BDF8)
+        ..color = primaryColor.withValues(alpha: 0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
       canvas.drawCircle(point, 8.0, glowPaint);
@@ -237,6 +254,12 @@ class _WheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WheelPainter oldDelegate) {
-    return oldDelegate.dimensions != dimensions || oldDelegate.scores != scores;
+    return oldDelegate.dimensions != dimensions ||
+        oldDelegate.scores != scores ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.primaryColor != primaryColor ||
+        oldDelegate.nodeColor != nodeColor ||
+        oldDelegate.labelColor != labelColor ||
+        oldDelegate.accentGlow != accentGlow;
   }
 }

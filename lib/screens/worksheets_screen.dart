@@ -59,7 +59,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
             'Worksheet saved · +${RecoveryPetService.sparksWorksheet} Sparks'),
       ),
@@ -72,12 +72,9 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
     final entry =
         widget.id == null ? null : WorksheetsRegistry.byId(widget.id!);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(entry?.title ?? 'Worksheets',
-            style: const TextStyle(color: Colors.white)),
+        title: Text(entry?.title ?? 'Worksheets'),
       ),
       body: !_loaded
           ? const Center(

@@ -47,16 +47,16 @@ class XpEngineService {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 16),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+              child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary, size: 16),
             ),
             const SizedBox(width: 10),
-            Expanded(child: Text('Action Logged! +$xp XP$raidSuffix$levelSuffix', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+            Expanded(child: Text('Action Logged! +$xp XP$raidSuffix$levelSuffix', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13, fontWeight: FontWeight.w600))),
           ],
         ),
         behavior: SnackBarBehavior.floating,

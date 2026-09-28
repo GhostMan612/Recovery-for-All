@@ -84,24 +84,24 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.2)),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 20),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary, size: 20),
             ),
             const SizedBox(width: 10),
             const Expanded(child: Text('Unlock Item?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
           ],
         ),
-        content: Text('Unlock ${item.label} for ${item.cost} Sparks?', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+        content: Text('Unlock ${item.label} for ${item.cost} Sparks?', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8)))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Unlock ${item.cost}✦', style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -127,10 +127,10 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: Row(
               children: [
-                Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.celebration, color: Color(0xFF38BDF8), size: 18)),
+                Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.celebration, color: Theme.of(context).colorScheme.primary, size: 18)),
                 const SizedBox(width: 10),
                 Expanded(child: Text('${item.label} unlocked! Equipped.', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
               ],
