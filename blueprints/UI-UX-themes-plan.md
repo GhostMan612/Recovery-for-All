@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-7 are **complete and verified** (Phase 7 state half). Phases 8-17 are **not started**.
+Phases 0-7 are **complete and verified**. Phases 8-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -45,7 +45,7 @@ Phases 0-7 are **complete and verified** (Phase 7 state half). Phases 8-17 are *
 | 4 — Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
 | 5 — Brightness drain | COMPLETE | 390 dark-pinned refs -> 0, constants deleted, gate extended |
 | 6 — Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
-| 7 — Dashboard state (persisted half) | COMPLETE | 4 notifiers, widget -> `ConsumerState`, 13 tests |
+| 7 — Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
 | 8-17 | NOT STARTED | no code, no gates run |
 
 Gates at the close of Phase 6: `flutter analyze --no-pub` -> No issues found;
@@ -56,8 +56,8 @@ are now gone. (The audit counted ~398 references across 32 files; by the time
 the drain ran, earlier phases had already removed some, leaving 390 across
 31 files — all drained.) Remaining known gaps are tracked per phase below.
 
-**Next: finish Phase 7's remaining half** (extract `_profile` / `_pet` / `_isLoading` /
-`_skyNodes` / `_activeRaid` into async notifiers), then Phase 8 (view reconstruction).
+**Next phase is Phase 8 (Dashboard View Reconstruction)** — safe now that state ownership
+is explicit; the split cannot leave a giant coupled controller behind.
 
 ## Re-Sequencing Rationale (Sep 28)
 
@@ -357,7 +357,11 @@ Do not fabricate offline functionality; distinguish unavailable network data fro
 
 # Phase 7 — Dashboard State Decomposition
 
-**Status: COMPLETE (state half)** — every field in `_DashboardScreenState` was inventoried and classified by ownership, then the persisted preferences were lifted into `lib/core/dashboard_providers.dart` following the existing `ThemeNotifier` pattern: `DashboardLayoutNotifier` (tool/library order + hidden sets, plus the `_ordered` merge logic that had been a private method), `MeetingRadiusNotifier` (cached fix + enforce flag), `DailyPledgeNotifier`, `SkyNameNotifier`. The dashboard became a `ConsumerStatefulWidget`/`ConsumerState` and now holds only ephemeral interaction state (`_editingPath`, `_editingLibrary`) plus async domain state it still owns. Two prefs loaders, two savers, four static key constants and eight mutable fields were deleted from the widget. **All four `SharedPreferences` key strings were kept byte-identical** so no existing tester loses their saved layout, and `test/dashboard_providers_test.dart` (13 tests) pins that round-trip, the 'a new card is never hidden by a stale preference' merge rule, and that toggling the radius flag never discards the cached fix. **Not yet done:** `_profile`, `_pet`, `_isLoading`, `_skyNodes` and `_activeRaid` are still local async domain state. They are the next extraction and are deliberately not rushed into this commit — the loads have ordering dependencies (pet before XP bar, profile before sponsor phone) that want their own focused pass with tests.
+**Status: COMPLETE** — every field in `_DashboardScreenState` was inventoried and classified, then lifted into `lib/core/dashboard_providers.dart` following the existing `ThemeNotifier` pattern. `DashboardScreen` went from 22 mutable fields to **3** (`_editingPath`, `_editingLibrary` — ephemeral by design — and `_selectedIndex`, which is navigation state and is isolated from the domain loaders) plus `_skyNodes`, a pure view model computed from the constellation stream. The widget shrank 1551 -> 1449 lines.
+
+Extracted: `DashboardLayoutNotifier` (tool/library order + hidden sets, and it now owns the `_ordered` merge that used to be a private method), `MeetingRadiusNotifier`, `DailyPledgeNotifier`, `SkyNameNotifier`, and `DashboardDataNotifier` (profile + pet + raid, with the load order made explicit: pet before the XP bar, profile before the sponsor phone, and a raid lookup that is best-effort so a miss cannot block the dashboard). `DashboardScreen` is now a `ConsumerStatefulWidget`; `_loadUserData`, `_loadRadiusPrefs`, `_loadLayoutPrefs`, `_saveToolLayout`, `_saveLibraryLayout`, `_refreshPet`'s body and 4 static key constants were deleted. 18 tests (201 -> 219) cover ordering/hiding semantics, persistence round-trips under the **unchanged** key strings, and the profile-decode fallback so a corrupt profile cannot take down the dashboard.
+
+**Latent bug found and fixed here:** `databaseProvider` was lazily constructing a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file, with its own key read — while `main.dart` built its own. Six providers watched it, so any of them coming alive would have opened that second connection. `main.dart` now overrides `databaseProvider` with the single instance, so the notifiers and the screens share one database.
 
 ### Objective
 Separate dashboard state from the 1,600-line presentation monolith before extracting major views.

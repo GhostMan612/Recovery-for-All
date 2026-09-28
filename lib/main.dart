@@ -83,6 +83,12 @@ void main() async {
 
   runApp(
     ProviderScope(
+      // One database instance for the whole app. Without this override
+      // `databaseProvider` lazily builds a SECOND RecoveryDatabase, which is a
+      // second SQLCipher connection to the same encrypted file (lock
+      // contention, and a second key read). Anything that watches a provider
+      // must resolve to the instance the screens already use.
+      overrides: [databaseProvider.overrideWithValue(database)],
       child: RecoveryCompanionApp(database: database),
     ),
   );

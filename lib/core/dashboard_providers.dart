@@ -15,10 +15,16 @@
 // Ephemeral interaction state (edit mode, tap-debounce timestamps) deliberately
 // stays local to the widget — it is meaningless anywhere else.
 
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../database/recovery_database.dart';
+import '../services/raid_service.dart';
+import '../services/recovery_pet_service.dart';
 import 'meeting_radius_logic.dart' show MeetingRadiusPrefs;
+import 'providers.dart' show databaseProvider;
 
 /// Alias so this file names the keys the same way it names its own state.
 class MeetingRadiusKeys {
@@ -220,6 +226,109 @@ final dailyPledgeProvider =
     NotifierProvider<DailyPledgeNotifier, bool>(DailyPledgeNotifier.new);
 
 /// The user's saved constellation sky name.
+/// Async domain state the dashboard needs on open: who the user is, their pet,
+/// and any active community raid. Owned here rather than in the widget so the
+/// load order is explicit and testable (pet before the XP bar, profile before
+/// the sponsor phone), and so a tab switch cannot accidentally re-trigger a
+/// load.
+class DashboardDataState {
+  final Profile? profile;
+  final RecoveryPet? pet;
+  final ActiveRaid? raid;
+  final bool loading;
+
+  const DashboardDataState({
+    this.profile,
+    this.pet,
+    this.raid,
+    this.loading = true,
+  });
+
+  DashboardDataState copyWith({
+    Profile? profile,
+    RecoveryPet? pet,
+    ActiveRaid? raid,
+    bool? loading,
+  }) {
+    return DashboardDataState(
+      profile: profile ?? this.profile,
+      pet: pet ?? this.pet,
+      raid: raid ?? this.raid,
+      loading: loading ?? this.loading,
+    );
+  }
+
+  String get username {
+    final name = profile?.anonymousUsername;
+    if (name == null || name.isEmpty) return 'Friend';
+    return name;
+  }
+
+  /// The profile stores these as JSON arrays; a malformed value must degrade
+  /// to an empty list rather than taking down the dashboard.
+  static List<String> decodeList(String? json) {
+    if (json == null || json.isEmpty) return <String>[];
+    try {
+      return (jsonDecode(json) as List).map((e) => e.toString()).toList();
+    } catch (_) {
+      return <String>[];
+    }
+  }
+
+  List<String> get paths => decodeList(profile?.activePaths);
+  List<String> get tools => decodeList(profile?.selectedValues);
+  String? get sponsorPhone => profile?.sponsorPhone;
+}
+
+class DashboardDataNotifier extends Notifier<DashboardDataState> {
+  @override
+  DashboardDataState build() {
+    _load();
+    return const DashboardDataState();
+  }
+
+  Future<void> _load() async {
+    final db = ref.watch(databaseProvider);
+    final profile = await db.getProfile('active_user_profile');
+    final pet = await RecoveryPetService.ensureHatched();
+    if (!ref.mounted) return;
+    state = state.copyWith(profile: profile, pet: pet, loading: false);
+    // Raid lookup is best-effort: a raid miss must not block the dashboard.
+    try {
+      final raid = await RaidService.getActiveRaid(db);
+      if (!ref.mounted) return;
+      state = state.copyWith(raid: raid);
+    } catch (_) {}
+  }
+
+  Future<void> refreshPet() async {
+    final pet = await RecoveryPetService.ensureHatched();
+    if (!ref.mounted) return;
+    state = state.copyWith(pet: pet);
+  }
+
+  Future<void> refreshProfile() async {
+    final db = ref.watch(databaseProvider);
+    final profile = await db.getProfile('active_user_profile');
+    if (!ref.mounted) return;
+    state = state.copyWith(profile: profile);
+  }
+
+  Future<void> setPet(RecoveryPet pet) async {
+    if (!ref.mounted) return;
+    state = state.copyWith(pet: pet);
+  }
+
+  Future<void> setRaid(ActiveRaid raid) async {
+    if (!ref.mounted) return;
+    state = state.copyWith(raid: raid);
+  }
+}
+
+final dashboardDataProvider =
+    NotifierProvider<DashboardDataNotifier, DashboardDataState>(
+        DashboardDataNotifier.new);
+
 class SkyNameNotifier extends Notifier<String?> {
   static const String key = 'constellation_sky_name_v1';
 

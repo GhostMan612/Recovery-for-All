@@ -4,7 +4,6 @@
 // ============================================================
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -79,12 +78,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // still reflects the state this app is built for (Twin Cities metro).
   static const _defaultCenter = (44.9778, -93.2650);
 
-  String _username = 'Friend';
-  bool _isLoading = true;
-  Profile? _profile;
-  RecoveryPet? _pet;
-  List<String> _paths = [];
-  List<String> _tools = [];
 
   // Constellation crown — the user's path, visible on open.
   List<ConstellationNode3D>? _skyNodes;
@@ -96,7 +89,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _editingLibrary = false;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
-  ActiveRaid? _activeRaid;
 
   DashboardLayout get _layout => ref.read(dashboardLayoutProvider);
   MeetingRadiusState get _radius => ref.read(meetingRadiusProvider);
@@ -105,7 +97,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _tutorialChatbot = TutorialChatbotService.instance;
-    _loadUserData();
+    // dashboardDataProvider loads profile + pet + raid on first watch.
+    ref.watch(dashboardDataProvider);
     _loadSky();
     if (widget.isFirstLaunch) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -150,9 +143,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// Pathway → fellowship families for meeting tailoring.
   Set<String>? _allowedFellowships() {
     final set = <String>{};
-    if (_paths.contains('12-Step (AA/NA)')) set.addAll({'AA', 'NA'});
-    if (_paths.contains('Recovery Dharma')) set.add('Dharma');
-    if (_paths.contains('Wellbriety')) set.add('Wellbriety');
+    if (ref.watch(dashboardDataProvider).paths.contains('12-Step (AA/NA)')) set.addAll({'AA', 'NA'});
+    if (ref.watch(dashboardDataProvider).paths.contains('Recovery Dharma')) set.add('Dharma');
+    if (ref.watch(dashboardDataProvider).paths.contains('Wellbriety')) set.add('Wellbriety');
     return set.isEmpty ? null : set;
   }
 
@@ -178,40 +171,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _loadUserData() async {
-    final profile = await widget.database.getProfile('active_user_profile');
-    final pet = await RecoveryPetService.ensureHatched();
-
-    if (!mounted) return;
-    setState(() {
-      _profile = profile;
-      if (profile?.anonymousUsername?.isNotEmpty ?? false) {
-        _username = profile!.anonymousUsername!;
-      }
-      List<String> decode(String? json) {
-        if (json == null || json.isEmpty) return [];
-        try {
-          return (jsonDecode(json) as List).map((e) => e.toString()).toList();
-        } catch (_) {
-          return [];
-        }
-      }
-
-      _paths = profile == null ? [] : decode(profile.activePaths);
-      _tools = profile == null ? [] : decode(profile.selectedValues);
-      _pet = pet;
-      _isLoading = false;
-    });
-    try {
-      final raid = await RaidService.getActiveRaid(widget.database);
-      if (!mounted) return;
-      setState(() => _activeRaid = raid);
-    } catch (_) {}
-  }
-
   Future<void> _refreshPet() async {
-    final pet = await RecoveryPetService.ensureHatched();
-    if (mounted) setState(() => _pet = pet);
+    await ref.read(dashboardDataProvider.notifier).refreshPet();
   }
 
   Widget _buildXpBar(RecoveryPet pet) {
@@ -393,12 +354,12 @@ Future<void> _handleWalk() async {
   }
 
   Future<void> _completeWalk() async {
-    final before = _pet?.sparks ?? 0;
+    final before = ref.watch(dashboardDataProvider).pet?.sparks ?? 0;
     await RecoveryPetService.logWalk(requireVerification: false);
     await ConstellationService.addWalkStar(widget.database);
     await _refreshPet();
     if (!mounted) return;
-    final after = _pet?.sparks ?? before;
+    final after = ref.watch(dashboardDataProvider).pet?.sparks ?? before;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
@@ -412,7 +373,7 @@ Future<void> _handleWalk() async {
   }
 
   void _openDresser() {
-    final pet = _pet;
+    final pet = ref.watch(dashboardDataProvider).pet;
     if (pet == null) return;
     Navigator.push(
       context,
@@ -420,7 +381,7 @@ Future<void> _handleWalk() async {
         builder: (context) => AvatarDresserScreen(
           initialPet: pet,
           onChanged: (updated) {
-            setState(() => _pet = updated);
+            unawaited(ref.read(dashboardDataProvider.notifier).setPet(updated));
           },
         ),
       ),
@@ -649,7 +610,7 @@ Future<void> _handleWalk() async {
       },
     ));
 
-    for (final tool in _tools) {
+    for (final tool in ref.watch(dashboardDataProvider).tools) {
       if (tool == 'Encrypted Journal' || tool == 'Meeting Finder' || tool == 'Wellness Check-In') continue;
       cards.add(_ToolCard(
         label: tool,
@@ -660,7 +621,7 @@ Future<void> _handleWalk() async {
     }
 
     // Culturally specific pathway content, shown when selected onboarding.
-    if (_paths.contains('Wellbriety')) {
+    if (ref.watch(dashboardDataProvider).paths.contains('Wellbriety')) {
       cards.add(_ToolCard(
         label: 'Wellbriety Circles',
         subtitle: 'White Bison gatherings',
@@ -788,7 +749,7 @@ Future<void> _handleWalk() async {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        final sponsorPhone = _profile?.sponsorPhone;
+        final sponsorPhone = ref.watch(dashboardDataProvider).sponsorPhone;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -913,12 +874,12 @@ Future<void> _handleWalk() async {
   late final TutorialChatbotService _tutorialChatbot;
 
   void _openTutorialChatbot() {
-    if (_pet == null) return;
+    if (ref.watch(dashboardDataProvider).pet == null) return;
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (context) => TutorialChatbotDialog(
-        pet: _pet!,
+        pet: ref.watch(dashboardDataProvider).pet!,
         chatbotService: _tutorialChatbot,
       ),
     );
@@ -926,7 +887,7 @@ Future<void> _handleWalk() async {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (ref.watch(dashboardDataProvider).loading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
@@ -937,7 +898,7 @@ Future<void> _handleWalk() async {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: Text('Welcome, $_username', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        title: Text('Welcome, $ref.watch(dashboardDataProvider).username', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         elevation: 0,
         actions: [
           IconButton(
@@ -994,7 +955,7 @@ Future<void> _handleWalk() async {
   }
 
   Widget _buildPathTab() {
-    final pet = _pet;
+    final pet = ref.watch(dashboardDataProvider).pet;
     final ordered = _ordered(_buildToolCards(), _layout.toolOrder, _layout.hiddenTools);
     final hiddenCount = _layout.hiddenTools.length;
     return SafeArea(
@@ -1007,12 +968,12 @@ Future<void> _handleWalk() async {
             const SizedBox(height: 12),
             _buildPledgeCard(),
             const SizedBox(height: 16),
-            if (_paths.isNotEmpty) ...[
+            if (ref.watch(dashboardDataProvider).paths.isNotEmpty) ...[
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final path in _paths)
+                  for (final path in ref.watch(dashboardDataProvider).paths)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -1110,15 +1071,15 @@ Future<void> _handleWalk() async {
               },
             ),
             const SizedBox(height: 20),
-            if (_activeRaid != null)
+            if (ref.watch(dashboardDataProvider).raid != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: RaidBossCard(
-                  raid: _activeRaid!,
+                  raid: ref.watch(dashboardDataProvider).raid!,
                   onStrike: () async {
-                    final updated = await RaidService.dealDamage(widget.database, _activeRaid!.id, RaidService.strikeDamage);
+                    final updated = await RaidService.dealDamage(widget.database, ref.watch(dashboardDataProvider).raid!.id, RaidService.strikeDamage);
                     if (!mounted) return;
-                    setState(() => _activeRaid = updated);
+                    if (updated != null) unawaited(ref.read(dashboardDataProvider.notifier).setRaid(updated));
                     if (updated != null && updated.currentHp <= 0) {
                       await _refreshPet();
                       if (!mounted) return;

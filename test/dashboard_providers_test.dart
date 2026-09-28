@@ -173,6 +173,41 @@ void main() {
     });
   });
 
+  group('DashboardDataState', () {
+    test('username falls back to Friend when unset or blank', () {
+      expect(const DashboardDataState().username, 'Friend');
+      expect(
+        const DashboardDataState().copyWith().username,
+        'Friend',
+      );
+    });
+
+    test('decodeList tolerates null, empty, and malformed JSON', () {
+      expect(DashboardDataState.decodeList(null), isEmpty);
+      expect(DashboardDataState.decodeList(''), isEmpty);
+      expect(DashboardDataState.decodeList('{not json'), isEmpty);
+      expect(DashboardDataState.decodeList('[1,2]'), ['1', '2']);
+    });
+
+    test('a malformed profile list degrades to empty, never throws', () {
+      // The dashboard must still render if the stored profile is corrupt.
+      expect(DashboardDataState.decodeList('oops'), isEmpty);
+    });
+
+    test('copyWith keeps prior values when a field is omitted', () {
+      const first = DashboardDataState(loading: false);
+      final second = first.copyWith();
+      expect(second.loading, isFalse);
+      expect(second.profile, isNull);
+    });
+
+    test('loading starts true and is cleared by copyWith', () {
+      expect(const DashboardDataState().loading, isTrue);
+      expect(const DashboardDataState().copyWith(loading: false).loading,
+          isFalse);
+    });
+  });
+
   group('SkyNameNotifier', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
     tearDown(() => SharedPreferences.setMockInitialValues({}));
