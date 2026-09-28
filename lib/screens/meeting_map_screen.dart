@@ -20,6 +20,7 @@ import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/constellation_service.dart';
+import '../widgets/app_primitives.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
@@ -1258,13 +1259,11 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
   Widget _buildList(DateTime now, List<RecoveryMeeting> visible) {
     if (_loadError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(_loadError!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        ),
+      return AppErrorState(
+        icon: Icons.cloud_off,
+        title: 'Could not load the meeting directory',
+        message: _loadError,
+        onRetry: _me != null ? () => _load(_me!.$1, _me!.$2) : null,
       );
     }
     if (visible.isEmpty) {

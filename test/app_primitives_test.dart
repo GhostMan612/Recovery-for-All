@@ -144,6 +144,49 @@ void main() {
     });
   });
 
+  group('AppErrorState', () {
+    testWidgets('renders title, message, and retry when retryable',
+        (tester) async {
+      var retries = 0;
+      await tester.pumpWidget(_host(
+        AppErrorState(
+          title: 'Could not load the directory',
+          message: 'No connection.',
+          onRetry: () => retries++,
+        ),
+        brightness: Brightness.dark,
+      ));
+      expect(find.text('Could not load the directory'), findsOneWidget);
+      expect(find.text('No connection.'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      await tester.tap(find.text('Try again'));
+      expect(retries, 1);
+    });
+
+    testWidgets('omits the retry affordance when not retryable',
+        (tester) async {
+      await tester.pumpWidget(_host(
+        const AppErrorState(title: 'Nothing to show'),
+        brightness: Brightness.light,
+      ));
+      expect(find.text('Try again'), findsNothing);
+    });
+  });
+
+  group('AppOfflineState', () {
+    testWidgets('explains cached data survives, and can retry', (tester) async {
+      var retries = 0;
+      await tester.pumpWidget(_host(
+        AppOfflineState(onRetry: () => retries++),
+        brightness: Brightness.dark,
+      ));
+      expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+      expect(find.textContaining('saved on this device'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      expect(retries, 1);
+    });
+  });
+
   group('theme contract', () {
     test('primitives compile against every palette x brightness pair',
         () {

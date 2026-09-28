@@ -22,6 +22,7 @@ import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/app_primitives.dart';
 import 'constellation_canvas_3d.dart';
 
 /// Recovery Constellation — the user's path rendered as a living star map.
@@ -432,7 +433,7 @@ ${nodes.length} stars over $spanDays nights
         stream: _pointsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting && _nodes == null) {
-            return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
+            return const AppLoadingState();
           }
           if (snapshot.hasData) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -763,15 +764,15 @@ class _EmptySky extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary, size: 48),
-      const SizedBox(height: 16),
-      Text('Your sky is waiting.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18)),
-      const SizedBox(height: 8),
-      Text('Light your first star to mark the\nbeginning of your path.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
-      const SizedBox(height: 20),
-      ElevatedButton(onPressed: onSeed, style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onSurface), child: const Text('Begin My Path')),
-    ]));
+    return AppEmptyState(
+      icon: Icons.auto_awesome,
+      title: 'Your sky is waiting.',
+      message: 'Light your first star to mark the\nbeginning of your path.',
+      action: FilledButton(
+        onPressed: onSeed,
+        child: const Text('Begin My Path'),
+      ),
+    );
   }
 }
 

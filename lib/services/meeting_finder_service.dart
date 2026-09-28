@@ -270,6 +270,16 @@ class MeetingFinderService {
     return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
+  /// True when the cached directory is missing or older than [cacheTtl].
+  /// Surfaces as an explicit offline affordance rather than a silent
+  /// stale-data surprise: the user's locally saved meetings are still shown,
+  /// only the "what's happening tonight" view is out of date.
+  Future<bool> isCacheStale() async {
+    final stamp = await lastRefreshed();
+    if (stamp == null) return true;
+    return DateTime.now().difference(stamp) > cacheTtl;
+  }
+
   /// Meetings near (lat, lng): located meetings are filtered to [radiusKm],
   /// nearest first. Online / ungeocoded meetings (joinable from anywhere)
   /// follow, capped so the list stays human. Falls back to the built-in

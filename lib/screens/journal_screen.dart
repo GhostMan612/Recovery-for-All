@@ -14,6 +14,7 @@ import '../services/narrative_export_service.dart';
 import '../services/constellation_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/xp_engine_service.dart';
+import '../widgets/app_primitives.dart';
 import '../widgets/chronicle_share_card.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -456,11 +457,10 @@ class _JournalScreenState extends State<JournalScreen> {
                 final List<JournalEntry> entries = snapshot.data ?? [];
 
                 if (entries.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No reflections logged yet. Speak your mind freely.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
-                    ),
+                  return const AppEmptyState(
+                    icon: Icons.menu_book_outlined,
+                    title: 'No reflections logged yet',
+                    message: 'Speak your mind freely — nothing leaves this device.',
                   );
                 }
 

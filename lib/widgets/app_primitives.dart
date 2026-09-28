@@ -86,6 +86,115 @@ class AppCard extends StatelessWidget {
   }
 }
 
+/// Failure state with an optional retry. Recovery-oriented copy: name what
+/// failed, never blame the user, and always offer a way forward when the
+/// failure is retryable.
+class AppErrorState extends StatelessWidget {
+  final String title;
+  final String? message;
+  final VoidCallback? onRetry;
+  final String retryLabel;
+  final IconData icon;
+
+  const AppErrorState({
+    super.key,
+    required this.title,
+    this.message,
+    this.onRetry,
+    this.retryLabel = 'Try again',
+    this.icon = Icons.error_outline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 40, color: theme.colorScheme.error),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (message case final message?) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (onRetry != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.tonalIcon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(retryLabel),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Network-dependent content that cannot be reached. Deliberately distinct from
+/// AppErrorState: locally cached data is still shown around it, so the copy
+/// must not imply the user's own data is gone.
+class AppOfflineState extends StatelessWidget {
+  final String? message;
+  final VoidCallback? onRetry;
+
+  const AppOfflineState({super.key, this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off, size: 18, color: theme.colorScheme.outline),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              message ??
+                  'Offline — showing what is saved on this device. Some things need a connection.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Screen/section title. Replaces the ad-hoc bold text + SizedBox ladder.
 /// Title metrics intentionally match the app's dominant existing convention
 /// (18 / w700) so centralizing it does not restyle already-shipped screens.

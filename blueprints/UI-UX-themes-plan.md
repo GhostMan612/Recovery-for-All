@@ -44,6 +44,7 @@ Phases 0-6 are **complete and verified**. Phases 7-17 are **not started**.
 | 3 — Color & styling migration | COMPLETE | 875 -> 0 raw literals outside allowlist; `tools/verify_no_hardcoded_colors.py` green |
 | 4 — Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
 | 5 — Brightness drain | COMPLETE | 390 dark-pinned refs -> 0, constants deleted, gate extended |
+| 6 — Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
 | 7-17 | NOT STARTED | no code, no gates run |
 
 Gates at the close of Phase 3: `flutter analyze --no-pub` -> No issues found;
@@ -52,9 +53,8 @@ Gates at the close of Phase 3: `flutter analyze --no-pub` -> No issues found;
 **Resolved:** the 398 dark-pinned `AppColors` statics were the Phase 5 blocker and
 are now gone. Remaining known gaps are tracked per phase below.
 
-**Next phase is Phase 7 (Dashboard State Decomposition).** Phase 6
-(Empty/Loading/Error/Offline) was moved ahead of it by the Sep 28 re-sequencing
-because the Phase 4 primitives now make those states mechanical to apply.
+**Next phase is Phase 7 (Dashboard State Decomposition)** — state ownership before any
+view splitting, per this phase's own prohibited-shortcut rule.
 
 ## Re-Sequencing Rationale (Sep 28)
 
@@ -327,6 +327,8 @@ screen.**
 ---
 
 # Phase 6 — Empty, Loading, Error & Offline UX
+
+**Status: COMPLETE** — two more primitives added to `app_primitives.dart`: `AppErrorState` (title/message/optional retry; copy never blames the user) and `AppOfflineState` (deliberately distinct from the error state, because locally cached data is still on screen — the copy says so). Adopted: `journal_screen.dart` empty state, `constellation_screen.dart` empty sky + loading, `meeting_map_screen.dart` load failure now uses `AppErrorState` with a real retry wired to `_load`. Offline is now a first-class, distinguished condition: `MeetingFinderService.isCacheStale()` was added (missing or older than the 24h `cacheTtl`) so stale network data can be surfaced as an offline affordance instead of silently looking fresh. 3 new tests (198 -> 201). Phase 4's candidates `AppMetricCard`/`AppHeader` remain unbuilt — still no demonstrated repetition.
 
 ### Objective
 Eliminate unfinished-feeling states throughout the primary product surfaces.
