@@ -9,6 +9,72 @@ import 'package:flutter/material.dart';
 
 enum AppTheme { midnightSlate, deepForest, oledPitch }
 
+enum AppThemeMode { system, light, dark }
+
+class ThemePreference {
+  final AppTheme palette;
+  final AppThemeMode mode;
+  static const String modeKey = 'theme_mode_v1';
+  const ThemePreference({
+    this.palette = AppTheme.midnightSlate,
+    this.mode = AppThemeMode.dark,
+  });
+
+  Brightness resolve(Brightness platform) => switch (mode) {
+        AppThemeMode.light => Brightness.light,
+        AppThemeMode.dark => Brightness.dark,
+        AppThemeMode.system => platform,
+      };
+
+  Map<String, String> toJson() => {'palette': palette.name, 'mode': mode.name};
+
+  factory ThemePreference.fromJson(Map<String, String> json) {
+    final palettes = AppTheme.values.where((e) => e.name == json['palette']);
+    final modes = AppThemeMode.values.where((e) => e.name == json['mode']);
+    return ThemePreference(
+      palette: palettes.isEmpty ? AppTheme.midnightSlate : palettes.first,
+      mode: modes.isEmpty ? AppThemeMode.dark : modes.first,
+    );
+  }
+}
+
+class AppSpacing {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double xxl = 24;
+  static const double xxxl = 32;
+}
+
+class AppRadii {
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+}
+
+class AppType {
+  static const double display = 28;
+  static const double title = 20;
+  static const double heading = 16;
+  static const double body = 14;
+  static const double caption = 12;
+  static const double micro = 11;
+  static const FontWeight bold = FontWeight.w700;
+  static const FontWeight semibold = FontWeight.w600;
+  static const FontWeight regular = FontWeight.w400;
+  static const double heightTight = 1.2;
+  static const double heightBody = 1.4;
+}
+
+extension AppStateColors on ColorScheme {
+  Color get disabled => onSurface.withValues(alpha: 0.38);
+  Color get subtle => onSurfaceVariant.withValues(alpha: 0.6);
+  Color get track => surfaceContainerHighest;
+}
+
 class AppPalette {
   final Color bgDeep;
   final Color bgCard;
@@ -92,6 +158,37 @@ class AppColors {
         AppTheme.deepForest => deepForest,
         AppTheme.oledPitch => oledPitch,
       };
+
+  static ColorScheme schemeFor(AppPalette p, Brightness brightness) {
+    if (brightness == Brightness.dark) {
+      return ColorScheme.fromSeed(
+        seedColor: p.accent,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: p.accent,
+        tertiary: p.success,
+        error: p.danger,
+        surface: p.bgDeep,
+        surfaceContainerLowest: p.bgDeep,
+        surfaceContainerLow: p.bgDeep,
+        surfaceContainer: p.bgCard,
+        surfaceContainerHigh: p.bgCard,
+        surfaceContainerHighest: p.border,
+        onSurface: p.textPrimary,
+        onSurfaceVariant: p.textMuted,
+        outline: p.textDim,
+        outlineVariant: p.border,
+      );
+    }
+    return ColorScheme.fromSeed(
+      seedColor: p.accent,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: p.accent,
+      tertiary: p.success,
+      error: p.danger,
+    );
+  }
 
   static ThemeData themeDataFor(AppTheme theme) {
     final p = paletteFor(theme);
