@@ -384,7 +384,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text(
               'Unable to determine meeting schedule. Please try again later.',
             ),
@@ -397,7 +397,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text(
               'You can only check in within 30 minutes of the meeting\'s scheduled time.',
             ),
@@ -420,7 +420,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF1E293B),
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               content: const Text(
                 'Mock location detected. Please disable location spoofing.',
               ),
@@ -440,7 +440,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF1E293B),
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               content: const Text(
                 'You\'re a bit too far from this meeting to check in (within 150m required).',
               ),
@@ -452,7 +452,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text(
               'Unable to verify location. Please enable GPS and try again.',
             ),
@@ -488,7 +488,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(delta > 0
             ? 'Reflection saved · +$delta Sparks'
             : 'Reflection saved · daily Sparks cap reached, and that is fine'),
@@ -509,7 +509,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
     return showModalBottomSheet<_ReflectionData>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -525,15 +525,15 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Meeting Reflection',
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               Text(
                   'How did "${meeting.name}" feel today? Pick one, then add a note if you want.',
                   style: TextStyle(
-                      color: AppColors.textMuted, fontSize: 13, height: 1.4)),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.4)),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -546,10 +546,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                               fontSize: 13,
                               color: selectedTag == tag
                                   ? Colors.white
-                                  : AppColors.textMuted)),
+                                  : Theme.of(context).colorScheme.onSurfaceVariant)),
                       selected: selectedTag == tag,
-                      selectedColor: AppColors.accent,
-                      backgroundColor: AppColors.bgCard,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                       checkmarkColor: Colors.white,
                       onSelected: (on) {
                         setSheet(() => selectedTag = on ? tag : null);
@@ -561,19 +561,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               TextField(
                 controller: textController,
                 maxLines: 2,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'One takeaway from today… (optional)',
-                  hintStyle: const TextStyle(color: Color(0xFF475569)),
+                  hintStyle: const TextStyle(color: AppColors.textHint),
                   filled: true,
-                  fillColor: AppColors.bgCard,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainer,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.accent),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
@@ -583,10 +583,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppColors.border,
-                      disabledForegroundColor: AppColors.textDim),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      disabledBackgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                      disabledForegroundColor: Theme.of(context).colorScheme.outline),
                   onPressed: selectedTag == null
                       ? null
                       : () => Navigator.pop(
@@ -610,7 +610,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     final label = MeetingFinderService.upcomingLabel(meeting, now);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
@@ -621,27 +621,27 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(meeting.name,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text('${live ? 'LIVE NOW · ' : ''}$label · ${meeting.type}',
                   style: TextStyle(
-                      color: live ? AppColors.success : AppColors.accent,
+                      color: live ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary,
                       fontSize: 13,
                       fontWeight: live ? FontWeight.bold : FontWeight.w500)),
               const SizedBox(height: 8),
               Text(meeting.address,
                   style:
-                      TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                      TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
               const SizedBox(height: 16),
               if (widget.database != null) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
+                        backgroundColor: Theme.of(context).colorScheme.tertiary,
                         foregroundColor: Colors.white),
                     icon: const Icon(Icons.how_to_reg_outlined),
                     label: const Text('I attended — reflect'),
@@ -677,9 +677,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFF472B6),
+                      foregroundColor: AppColors.pink,
                       side: BorderSide(
-                          color: const Color(0xFFF472B6).withValues(alpha: 0.5)),
+                          color: AppColors.pink.withValues(alpha: 0.5)),
                     ),
                     icon: const Icon(Icons.volunteer_activism_outlined),
                     label: const Text('Pass the Basket (7th Tradition)'),
@@ -696,7 +696,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white),
                   icon: const Icon(Icons.directions_outlined),
                   label: const Text('Get Directions'),
@@ -720,7 +720,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   void _openLayers() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => StatefulBuilder(
@@ -731,16 +731,16 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Map Layers',
+                Text('Map Layers',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(
                     'Toggle multiple layers — they stack on top of each other.',
                     style:
-                        TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
@@ -753,10 +753,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                                 fontSize: 13,
                                 color: _activeLayers.contains(layer.id)
                                     ? Colors.white
-                                    : AppColors.textMuted)),
+                                    : Theme.of(context).colorScheme.onSurfaceVariant)),
                         selected: _activeLayers.contains(layer.id),
-                        selectedColor: AppColors.accent,
-                        backgroundColor: AppColors.bgCard,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         checkmarkColor: Colors.white,
                         onSelected: (on) {
                           setSheet(() {
@@ -787,7 +787,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   void _openFilters() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -799,29 +799,29 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Filter Meetings',
+                Text('Filter Meetings',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 14),
                 Text('Radius · ${_radiusMi.round()} mi',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                 Slider(
                   value: _radiusMi,
                   min: 1,
                   max: _maxRadiusMi,
                   divisions: 49,
-                  activeColor: AppColors.accent,
+                  activeColor: Theme.of(context).colorScheme.primary,
                   label: '${_radiusMi.round()} mi',
                   onChanged: (v) => setSheet(() => _radiusMi = v),
                   onChangeEnd: (v) => setState(() => _radiusMi = v),
                 ),
                 const SizedBox(height: 8),
-                const Text('City / Area',
+                Text('City / Area',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                        color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -834,10 +834,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                                 fontSize: 12,
                                 color: _cityFilter == city
                                     ? Colors.white
-                                    : AppColors.textMuted)),
+                                    : Theme.of(context).colorScheme.onSurfaceVariant)),
                         selected: _cityFilter == city,
-                        selectedColor: AppColors.accent,
-                        backgroundColor: AppColors.bgCard,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         checkmarkColor: Colors.white,
                         onSelected: (_) {
                           setSheet(() => _cityFilter = city);
@@ -850,14 +850,14 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Show every meeting (all week)',
+                  title: Text('Show every meeting (all week)',
                       style:
-                          TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: const Text('Off = live now + next 7 days only',
+                          TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14)),
+                  subtitle: Text('Off = live now + next 7 days only',
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 12)),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   value: _showAllTime,
-                  activeThumbColor: AppColors.accent,
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
                   onChanged: (v) async {
                     setSheet(() => _showAllTime = v);
                     setState(() => _showAllTime = v);
@@ -893,27 +893,27 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text('Downloading offline pack',
-              style: TextStyle(color: Colors.white, fontSize: 16)),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          title: Text('Downloading offline pack',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                   'Securing map tiles for ${_radiusMi.round()} mi around you.',
                   style: TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       height: 1.4)),
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: total == 0 ? null : done / total,
-                backgroundColor: const Color(0xFF334155),
-                color: const Color(0xFF38BDF8),
+                backgroundColor: Theme.of(context).colorScheme.track,
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 8),
               Text('$done / $total tiles',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             ],
           ),
           actions: [
@@ -922,8 +922,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 cancelled = true;
                 Navigator.pop(dialogContext);
               },
-              child: const Text('Cancel',
-                  style: TextStyle(color: Color(0xFF94A3B8))),
+              child: Text('Cancel',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
           ],
         ),
@@ -949,7 +949,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(cancelled
             ? 'Pack paused · $secured tiles secured'
             : 'Pack complete · $secured tiles offline'),
@@ -963,13 +963,13 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
   Color _pinColor(RecoveryMeeting m) {
     final now = DateTime.now();
-    if (MeetingFinderService.isInProgress(m, now)) return AppColors.success;
-    if (m.type.contains('Online')) return const Color(0xFFA78BFA);
+    if (MeetingFinderService.isInProgress(m, now)) return Theme.of(context).colorScheme.tertiary;
+    if (m.type.contains('Online')) return AppColors.pinOnline;
     final next = MeetingFinderService.nextOccurrence(m, now);
     if (next != null) {
-      if (next.difference(now).inHours < 24) return const Color(0xFFFBBF24);
+      if (next.difference(now).inHours < 24) return AppColors.pinSoon;
     }
-    return AppColors.accent;
+    return Theme.of(context).colorScheme.primary;
   }
 
   // ------------------------------------------------------------------
@@ -991,8 +991,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.accent.withValues(alpha: 0.3),
-            border: Border.all(color: AppColors.accent, width: 2),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+            border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
           ),
           child: const Icon(Icons.person_pin_circle,
               size: 14, color: Colors.white),
@@ -1015,7 +1015,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               shape: BoxShape.circle,
               color: color,
               border: Border.all(
-                  color: live ? Colors.white : Colors.white70,
+                  color: live ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   width: live ? 2.2 : 1.4),
             ),
             child: Icon(
@@ -1048,10 +1048,10 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         visible.where((m) => MeetingFinderService.isInProgress(m, now)).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         title: const Text('Meeting Finder'),
         elevation: 0,
         actions: [
@@ -1059,7 +1059,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             tooltip: _showMapView ? 'Show list' : 'Show map',
             icon: Icon(
                 _showMapView ? Icons.view_list_outlined : Icons.map_outlined,
-                color: Colors.white70),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: () {
               setState(() => _showMapView = !_showMapView);
               if (_showMapView) _loadWeather();
@@ -1083,24 +1083,24 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.explore_outlined,
-              color: Color(0xFF38BDF8), size: 44),
+          Icon(Icons.explore_outlined,
+              color: Theme.of(context).colorScheme.primary, size: 44),
           const SizedBox(height: 16),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             child: Text(
               _loadStage,
               key: ValueKey(_loadStage),
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16),
             ),
           ),
           const SizedBox(height: 14),
-          const SizedBox(
+          SizedBox(
             width: 220,
             child: LinearProgressIndicator(
               minHeight: 3,
-              backgroundColor: Color(0xFF1E293B),
-              color: Color(0xFF38BDF8),
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 28),
@@ -1112,7 +1112,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 width: 260,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: Theme.of(context).colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -1155,7 +1155,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   builder: (context, clusterMarkers) => Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.accent,
+                      color: Theme.of(context).colorScheme.primary,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
                     child: Center(
@@ -1186,7 +1186,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           top: _weatherChip != null ? 52 : 12,
           child: _MapChip(
             label: '$liveCount live · ${visible.length} shown',
-            color: liveCount > 0 ? AppColors.success : null,
+            color: liveCount > 0 ? Theme.of(context).colorScheme.tertiary : null,
           ),
         ),
         if (_locationDebug.isNotEmpty)
@@ -1198,19 +1198,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               onTap: () => showDialog<void>(
                 context: context,
                 builder: (dialogContext) => AlertDialog(
-                  backgroundColor: const Color(0xFF1E293B),
-                  title: const Text('Location diagnostics',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                  title: Text('Location diagnostics',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
                   content: SingleChildScrollView(
                     child: Text(_locationDebug,
-                        style: const TextStyle(
-                            color: Color(0xFF94A3B8), fontSize: 12)),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('Close',
-                          style: TextStyle(color: Color(0xFF38BDF8))),
+                      child: Text('Close',
+                          style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                     ),
                   ],
                 ),
@@ -1263,7 +1263,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(_loadError!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textMuted)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
       );
     }
@@ -1272,7 +1272,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.event_busy, size: 48, color: AppColors.textDim),
+            Icon(Icons.event_busy, size: 48, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 14),
             Text(
               _showAllTime
@@ -1280,11 +1280,11 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   : 'No meetings in the next 7 days.\nOpen filters to show every meeting.',
               textAlign: TextAlign.center,
               style:
-                  const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
             ),
             const SizedBox(height: 12),
             Text('Tap the tune icon above to adjust filters',
-                style: TextStyle(color: AppColors.textDim, fontSize: 12)),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
           ],
         ),
       );
@@ -1312,7 +1312,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
               final label = MeetingFinderService.upcomingLabel(meeting, now);
               final color = _pinColor(meeting);
               return Material(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
                 child: ListTile(
                   shape: RoundedRectangleBorder(
@@ -1330,9 +1330,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         size: live ? 14 : 24,
                       ),
                       if (live)
-                        const Text('LIVE',
+                        Text('LIVE',
                             style: TextStyle(
-                                color: AppColors.success,
+                                color: Theme.of(context).colorScheme.tertiary,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold)),
                     ],
@@ -1340,8 +1340,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   title: Text(meeting.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
                   subtitle: Text(
@@ -1349,12 +1349,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                           height: 1.35)),
                   isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right,
-                      color: Colors.white38),
+                  trailing: Icon(Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                   onTap: () => _showMeetingDetails(meeting),
                 ),
               );
@@ -1375,7 +1375,7 @@ Future<void> _launchExternal(BuildContext context, String url, String label) asy
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text('Could not open $label'),
       ),
     );
@@ -1402,14 +1402,14 @@ class _MapChip extends StatelessWidget {
       constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width - 120),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color ?? AppColors.border),
+        border: Border.all(color: color ?? Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Text(label,
           maxLines: onTap != null ? 2 : 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 11)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11)),
     );
     if (onTap == null) return chip;
     return InkWell(
@@ -1431,7 +1431,7 @@ class _MapButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -1440,7 +1440,7 @@ class _MapButton extends StatelessWidget {
           message: tooltip,
           child: Padding(
             padding: const EdgeInsets.all(10),
-            child: Icon(icon, size: 20, color: AppColors.accent),
+            child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           ),
         ),
       ),

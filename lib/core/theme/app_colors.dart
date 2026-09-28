@@ -120,6 +120,12 @@ class AppColors {
 
   static const Color starfield = Color(0xFF0B1120);
 
+  static const Color pinOnline = Color(0xFFA78BFA);
+  static const Color pinSoon = Color(0xFFFBBF24);
+
+  static const Color housingMaternal = Color(0xFFA78BFA);
+  static const Color housingDefault = Color(0xFFFBBF24);
+
   static Color scrim([double opacity = 0.72]) => bgDeep.withValues(alpha: opacity);
 
   static const AppPalette midnightSlate = AppPalette(

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 
+import '../core/theme/app_colors.dart';
+
 class SoberHouse {
   final String name;
   final String address;
@@ -227,7 +229,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
     final processedList = _getProcessedHouses();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Recovery & Sober Housing', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
@@ -241,24 +243,24 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: (val) => setState(() => _searchQuery = val),
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'Search houses by name or city...',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+                prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 filled: true,
-                fillColor: const Color(0xFF1E293B),
+                fillColor: Theme.of(context).colorScheme.surfaceContainer,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                 ),
               ),
             ),
@@ -297,14 +299,14 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
               children: [
                 Text(
                   '${processedList.length} housing locations found',
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 if (widget.userPosition != null)
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.my_location, color: Color(0xFF34D399), size: 14),
+                      Icon(Icons.my_location, color: Theme.of(context).colorScheme.tertiary, size: 14),
                       SizedBox(width: 6),
-                      Text('Sorted by distance', style: TextStyle(color: Color(0xFF34D399), fontSize: 12)),
+                      Text('Sorted by distance', style: TextStyle(color: Theme.of(context).colorScheme.tertiary, fontSize: 12)),
                     ],
                   ),
               ],
@@ -349,16 +351,16 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: DropdownButton<String>(
         value: currentValue,
-        dropdownColor: const Color(0xFF1E293B),
+        dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
         underline: const SizedBox(),
-        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF94A3B8)),
-        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+        icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13, fontWeight: FontWeight.w500),
         onChanged: onChanged,
         items: options.map<DropdownMenuItem<String>>((String value) {
           return DropdownMenuItem<String>(
@@ -375,9 +377,9 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.home_work_outlined, color: Color(0xFF475569), size: 64),
+          const Icon(Icons.home_work_outlined, color: AppColors.textHint, size: 64),
           const SizedBox(height: 16),
-          const Text('No housing options match your filters.', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('No housing options match your filters.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           TextButton(
             onPressed: () {
@@ -388,7 +390,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
                 _searchController.clear();
               });
             },
-            child: const Text('Reset All Filters', style: TextStyle(color: Color(0xFF38BDF8))),
+            child: Text('Reset All Filters', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -399,25 +401,25 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
     Color labelColor;
     switch (house.targetDemographic) {
       case "Men's":
-        labelColor = const Color(0xFF38BDF8);
+        labelColor = Theme.of(context).colorScheme.primary;
         break;
       case "Women's":
-        labelColor = const Color(0xFFF472B6);
+        labelColor = AppColors.pink;
         break;
       case "Maternal / Women & Children":
-        labelColor = const Color(0xFFA78BFA);
+        labelColor = AppColors.housingMaternal;
         break;
       default:
-        labelColor = const Color(0xFFFBBF24);
+        labelColor = AppColors.housingDefault;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF334155)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,12 +434,12 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
                   children: [
                     Text(
                       house.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${house.address}, ${house.city}, ${house.state} ${house.zip}',
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                     ),
                   ],
                 ),
@@ -446,7 +448,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
               if (distance != null)
                 Text(
                   '${distance.toStringAsFixed(1)} mi',
-                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Theme.of(context).colorScheme.tertiary, fontSize: 14, fontWeight: FontWeight.bold),
                 ),
             ],
           ),
@@ -469,30 +471,30 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   house.structureType,
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text('Primary Guidelines:', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text('Primary Guidelines:', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           ...house.rules.map((rule) => Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_circle_outline, color: Color(0xFF34D399), size: 14),
+                    Icon(Icons.check_circle_outline, color: Theme.of(context).colorScheme.tertiary, size: 14),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         rule,
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                       ),
                     ),
                   ],
@@ -507,8 +509,8 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
                     // Call house trigger
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF334155),
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.phone_outlined, size: 16),
@@ -522,8 +524,8 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
                     // Map directions trigger
                   },
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF38BDF8),
-                    side: const BorderSide(color: Color(0xFF38BDF8)),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    side: BorderSide(color: Theme.of(context).colorScheme.primary),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.navigation_outlined, size: 16),
@@ -533,16 +535,16 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Color(0xFF334155), height: 1),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 4,
             children: [
-              const Text('Directories:', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+              Text('Directories:', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
               ...house.directoriesIndex.map((dir) => Text(
                     dir,
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontStyle: FontStyle.italic),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11, fontStyle: FontStyle.italic),
                   )),
             ],
           ),
