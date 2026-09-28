@@ -565,7 +565,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
               const SizedBox(height: 10),
               Builder(builder: (context) {
-                final current = ref.watch(themeProvider);
+                final current = ref.watch(themeProvider).palette;
                 Widget chip(AppTheme t, String label, Color preview) => ChoiceChip(
                       label: Text(label, style: TextStyle(color: current == t ? Colors.white : const Color(0xFF94A3B8), fontSize: 13)),
                       selected: current == t,
@@ -573,7 +573,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       backgroundColor: const Color(0xFF1E293B),
                       avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: preview, shape: BoxShape.circle, border: Border.all(color: Colors.white24))),
                       onSelected: (sel) {
-                        if (sel) ref.read(themeProvider.notifier).setTheme(t);
+                        if (sel) {
+                          ref.read(themeProvider.notifier).setPalette(t);
+                        }
                       },
                     );
                 return Wrap(spacing: 8, runSpacing: 8, children: [

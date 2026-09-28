@@ -102,26 +102,38 @@ final hasCompletedOnboardingProvider = Provider.autoDispose<bool>((ref) {
   );
 });
 
-class ThemeNotifier extends Notifier<AppTheme> {
-  static const _key = 'theme_preference_v1';
+class ThemeNotifier extends Notifier<ThemePreference> {
+  static const _paletteKey = 'theme_preference_v1';
   @override
-  AppTheme build() {
-    Future.microtask(() async {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_key);
-      if (raw != null) {
-        final found = AppTheme.values.where((e) => e.name == raw);
-        if (found.isNotEmpty) state = found.first;
-      }
-    });
-    return AppTheme.midnightSlate;
+  ThemePreference build() {
+    _restore();
+    return const ThemePreference();
   }
 
-  Future<void> setTheme(AppTheme theme) async {
-    state = theme;
+  Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, theme.name);
+    if (!ref.mounted) return;
+    final restored = ThemePreference.fromJson({
+      'palette': prefs.getString(_paletteKey) ?? '',
+      'mode': prefs.getString(ThemePreference.modeKey) ?? '',
+    });
+    if (restored.palette != state.palette || restored.mode != state.mode) {
+      state = restored;
+    }
+  }
+
+  Future<void> setPalette(AppTheme palette) async {
+    state = ThemePreference(palette: palette, mode: state.mode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_paletteKey, palette.name);
+  }
+
+  Future<void> setMode(AppThemeMode mode) async {
+    state = ThemePreference(palette: state.palette, mode: mode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(ThemePreference.modeKey, mode.name);
   }
 }
 
-final themeProvider = NotifierProvider<ThemeNotifier, AppTheme>(ThemeNotifier.new);
+final themeProvider =
+    NotifierProvider<ThemeNotifier, ThemePreference>(ThemeNotifier.new);

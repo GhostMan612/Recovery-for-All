@@ -98,12 +98,18 @@ class RecoveryCompanionApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appTheme = ref.watch(themeProvider);
+    final pref = ref.watch(themeProvider);
+    final platform = MediaQuery.platformBrightnessOf(context);
+    final brightness = pref.resolve(platform);
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       title: 'Private Recovery Coach',
       debugShowCheckedModeBanner: false,
-      theme: AppColors.themeDataFor(appTheme),
+      theme: AppColors.themeDataFor(pref, Brightness.light),
+      darkTheme: AppColors.themeDataFor(pref, Brightness.dark),
+      themeMode: pref.mode == AppThemeMode.system
+          ? ThemeMode.system
+          : (brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
       home: SplashScreen(database: database),
     );
   }

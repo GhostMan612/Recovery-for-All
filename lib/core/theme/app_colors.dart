@@ -190,19 +190,117 @@ class AppColors {
     );
   }
 
-  static ThemeData themeDataFor(AppTheme theme) {
-    final p = paletteFor(theme);
+  static ThemeData themeDataFor(ThemePreference pref, Brightness brightness) {
+    final p = paletteFor(pref.palette);
+    final scheme = schemeFor(p, brightness);
     return ThemeData(
-      scaffoldBackgroundColor: p.bgDeep,
-      primaryColor: p.accent,
-      colorScheme: ColorScheme.fromSeed(seedColor: p.accent, brightness: Brightness.dark),
-      appBarTheme: AppBarTheme(backgroundColor: p.bgCard, foregroundColor: p.textPrimary, elevation: 0),
-      cardColor: p.bgCard,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
+      primaryColor: scheme.primary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: scheme.surfaceContainer,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        iconTheme: IconThemeData(color: scheme.onSurface),
+      ),
+      cardTheme: CardThemeData(
+        color: scheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.xl),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.xl),
+          ),
+        ),
+      ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: p.bgCard,
-        contentTextStyle: TextStyle(color: p.textPrimary, fontSize: 14, height: 1.4),
+        backgroundColor: scheme.surfaceContainer,
+        contentTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: AppType.body,
+          height: AppType.heightBody,
+        ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        indicatorColor: scheme.primary.withValues(alpha: 0.2),
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(color: scheme.onSurfaceVariant, fontSize: AppType.micro),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        selectedColor: scheme.primary,
+        labelStyle: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary
+              : scheme.outline,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary.withValues(alpha: 0.4)
+              : scheme.surfaceContainerHighest,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary
+              : null,
+        ),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary
+              : null,
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
+      listTileTheme: ListTileThemeData(
+        tileColor: scheme.surface,
+        textColor: scheme.onSurface,
+        iconColor: scheme.onSurfaceVariant,
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant,
+        thickness: 1,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainer,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
+        ),
       ),
     );
   }
