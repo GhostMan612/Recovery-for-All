@@ -7,7 +7,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
@@ -167,7 +166,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: AppColors.bgCard,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       ),
     );
   }
@@ -207,8 +206,8 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                     ),
                     Text(
                       '${_pet.sparks}✦',
-                      style: const TextStyle(
-                        color: AppColors.accent,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -228,15 +227,15 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
               const SizedBox(height: 4),
               Text(
                 'Bond ${_pet.bond}% · ${_pet.mood.label}',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 8),
               TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                indicatorColor: AppColors.accent,
-                labelColor: AppColors.accent,
-                unselectedLabelColor: AppColors.textMuted,
+                indicatorColor: Theme.of(context).colorScheme.primary,
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
                 tabs: _categories
                     .map((c) => Tab(text: c.label))
                     .toList(),
@@ -254,14 +253,14 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                           label: const Text('All'),
                           selected: _subFilter == null,
                           onSelected: (_) => setState(() => _subFilter = null),
-                          selectedColor: AppColors.accent.withValues(alpha: 0.3),
+                          selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                           labelStyle: TextStyle(
                             color: _subFilter == null
                                 ? Colors.white
-                                : AppColors.textMuted,
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
-                          backgroundColor: AppColors.bgCard,
+                          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         ),
                       ),
                       ...subs.map((s) {
@@ -275,14 +274,14 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                               () => _subFilter = selected ? null : s,
                             ),
                             selectedColor:
-                                AppColors.accent.withValues(alpha: 0.3),
+                                Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                             labelStyle: TextStyle(
                               color: selected
                                   ? Colors.white
-                                  : AppColors.textMuted,
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
-                            backgroundColor: AppColors.bgCard,
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                           ),
                         );
                       }),
@@ -325,12 +324,12 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: AppColors.bgCard.withValues(alpha: 0.95),
+                              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.95),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
                                 color: equipped
-                                    ? AppColors.accent
-                                    : AppColors.border,
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.outlineVariant,
                                 width: equipped ? 2 : 1,
                               ),
                             ),
@@ -365,8 +364,8 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                                               : '${item.cost}✦'),
                                   style: TextStyle(
                                     color: equipped
-                                        ? AppColors.accent
-                                        : AppColors.textMuted,
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 10,
                                   ),
                                 ),
@@ -386,7 +385,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.pop(context, _pet),

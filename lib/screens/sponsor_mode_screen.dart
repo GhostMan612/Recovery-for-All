@@ -9,7 +9,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/sponsor_link_service.dart';
 
 /// Sponsor Mode — for mentors who use the app and sign off their sponsees'
@@ -67,7 +66,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                 fillColor: Theme.of(context).colorScheme.surface,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
               ),
             ),
@@ -80,7 +79,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                 Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Review', style: TextStyle(color: Colors.white)),
@@ -126,10 +125,10 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.accent)),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.tertiary),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Sign it', style: TextStyle(color: Colors.white)),
           ),
@@ -146,8 +145,8 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
       if (!mounted) return;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.success,
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
           content: Text(
               'Signed confirmation copied — send it back to your sponsee.'),
         ),
@@ -174,7 +173,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor:
-            ok ? AppColors.success : AppColors.danger,
+            ok ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
         content: Text(ok
             ? 'Signed and sent back to sponsee.'
             : 'Signing failed — try again.'),
@@ -194,42 +193,42 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
             style: TextStyle(color: Colors.white)),
       ),
       body: !_loaded
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.bgCard,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.35)),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Your Pairing Code',
+                      Text('Your Pairing Code',
                           style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 12)),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                       const SizedBox(height: 6),
                       SelectableText(
                         identity?.pairingCode ?? '———',
                         style: TextStyle(
-                          color: AppColors.accent,
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Sponsees enter this code under '
                         'Settings → My Sponsor. Then they share step-work '
                         'bundles with you here for signing.',
                         style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             height: 1.4),
                       ),
@@ -255,7 +254,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success,
+                      backgroundColor: Theme.of(context).colorScheme.tertiary,
                       foregroundColor: Colors.white,
                     ),
                     icon: const Icon(Icons.fact_check_outlined),
@@ -276,9 +275,9 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   builder: (context, snap) {
                     final items = snap.data ?? [];
                     if (items.isEmpty) {
-                      return const Text('No pending bundles.',
+                      return Text('No pending bundles.',
                           style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 12));
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12));
                     }
                     return Column(
                       children: [
@@ -287,7 +286,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppColors.bgCard,
+                              color: Theme.of(context).colorScheme.surfaceContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
@@ -304,7 +303,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.success,
+                                      backgroundColor: Theme.of(context).colorScheme.tertiary,
                                       foregroundColor: Colors.white,
                                     ),
                                     child: const Text('Sign & Send',
@@ -323,7 +322,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     'How it works: your sponsee finishes a step worksheet, '
@@ -333,7 +332,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                     'and marks the step sponsor-confirmed. Everything runs '
                     'on-device — no server, no accounts.',
                     style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         height: 1.5),
                   ),

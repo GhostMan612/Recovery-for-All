@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 
@@ -175,7 +174,7 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
             child: Row(
               children: [
                 Container(
@@ -259,7 +258,7 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
           bottom: 24,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
             child: Row(
               children: [
                 Container(

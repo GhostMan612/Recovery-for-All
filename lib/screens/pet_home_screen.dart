@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
@@ -151,7 +150,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share: $e'), backgroundColor: AppColors.bgCard),
+          SnackBar(content: Text('Failed to share: $e'), backgroundColor: Theme.of(context).colorScheme.surfaceContainer),
         );
       }
     } finally {
@@ -201,7 +200,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             Text('${(fraction * 100).round()}',
                 style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
           ],
@@ -212,7 +211,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
           child: LinearProgressIndicator(
             value: fraction.clamp(0.0, 1.0),
             minHeight: 6,
-            backgroundColor: AppColors.border,
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             color: color,
           ),
         ),
@@ -248,7 +247,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
         ],
       ),
       body: pet == null
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -267,7 +266,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                         pet.isResting
                             ? 'Resting · here when you are'
                             : '${pet.mood.emoji} ${pet.mood.label}',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                       ),
                     ],
                   ),
@@ -276,24 +275,24 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.bgCard,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     children: [
-                      _statBar('Energy', pet.energy / 100.0, AppColors.success),
+                      _statBar('Energy', pet.energy / 100.0, Theme.of(context).colorScheme.tertiary),
                       const SizedBox(height: 10),
-                      _statBar('Bond', pet.bond / 100.0, AppColors.accent),
+                      _statBar('Bond', pet.bond / 100.0, Theme.of(context).colorScheme.primary),
                       const SizedBox(height: 14),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.auto_awesome,
-                              size: 18, color: AppColors.accent),
+                          Icon(Icons.auto_awesome,
+                              size: 18, color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 6),
                           Text('${pet.sparks} Sparks',
-                              style: const TextStyle(
-                                  color: AppColors.accent,
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold)),
                         ],
@@ -307,7 +306,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   height: 46,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: _openDresser,
@@ -322,9 +321,9 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   height: 46,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.bgCard,
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.4)),
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
                     ),
                     icon: const Icon(Icons.shield_outlined),
                     label: const Text('Trials of the Path',
@@ -347,10 +346,10 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.bgCard.withValues(alpha: 0.7),
+                        color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.25)),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)),
                       ),
                       child: Row(
                         children: [
@@ -359,8 +358,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                 ? Icons.check_circle_outline
                                 : Icons.wb_twilight_outlined,
                             color: quest.done
-                                ? AppColors.success
-                                : AppColors.accent,
+                                ? Theme.of(context).colorScheme.tertiary
+                                : Theme.of(context).colorScheme.primary,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -373,7 +372,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                       : quest.title,
                                   style: TextStyle(
                                       color: quest.done
-                                          ? AppColors.textMuted
+                                          ? Theme.of(context).colorScheme.onSurfaceVariant
                                           : Colors.white,
                                       fontSize: 13,
                                       decoration: quest.done
@@ -387,8 +386,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                       : 'Today\'s gentle invitation · +10 Sparks',
                                   style: TextStyle(
                                       color: quest.done
-                                          ? AppColors.textMuted
-                                          : AppColors.accent,
+                                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                                          : Theme.of(context).colorScheme.primary,
                                       fontSize: 11),
                                 ),
                               ],
@@ -411,7 +410,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Adopting a new style keeps every stat, spark, and memory.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
@@ -437,10 +436,10 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                           width: 132,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.bgCard,
+                            color: Theme.of(context).colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: active ? AppColors.accent : AppColors.border,
+                              color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
                               width: active ? 2 : 1,
                             ),
                           ),
@@ -472,10 +471,10 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                                 : '${species.unlockSparks}✦ needed',
                                 style: TextStyle(
                                   color: active
-                                      ? AppColors.accent
+                                      ? Theme.of(context).colorScheme.primary
                                       : affordable
-                                          ? AppColors.success
-                                          : AppColors.textDim,
+                                          ? Theme.of(context).colorScheme.tertiary
+                                          : Theme.of(context).colorScheme.outline,
                                   fontSize: 11,
                                 ),
                               ),
@@ -510,13 +509,13 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.bgCard.withValues(alpha: 0.7),
+                              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                             ),
                             child: Text('${item.emoji ?? '✦'} ${item.label}',
-                                style: const TextStyle(
-                                    color: AppColors.textPrimary, fontSize: 12)),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
                           );
                         }),
                   ],
@@ -543,14 +542,14 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.bgCard.withValues(alpha: 0.7),
+                          color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Check in, journal, ground, or take a walk — '
                           'memories will gather here.',
                           style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 13),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                         ),
                       );
                     }
@@ -562,7 +561,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: AppColors.bgCard.withValues(alpha: 0.7),
+                              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -575,8 +574,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                 ),
                                 if (event.sparksDelta > 0)
                                   Text('+${event.sparksDelta} ✦',
-                                      style: const TextStyle(
-                                          color: AppColors.accent,
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.primary,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold)),
                               ],

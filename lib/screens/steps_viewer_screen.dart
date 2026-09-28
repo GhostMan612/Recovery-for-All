@@ -12,7 +12,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/sponsor_link_service.dart';
@@ -273,7 +272,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
             child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Verify', style: TextStyle(color: Colors.white)),
           ),
@@ -342,22 +341,22 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
           final signed = _signoffs.contains(step.number);
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.bgCard,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: signed
-                    ? AppColors.success.withValues(alpha: 0.6)
+                    ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.6)
                     : done
-                        ? AppColors.success.withValues(alpha: 0.35)
-                        : AppColors.border,
+                        ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.35)
+                        : Theme.of(context).colorScheme.outlineVariant,
               ),
             ),
             child: Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                iconColor: AppColors.accent,
-                collapsedIconColor: AppColors.textMuted,
+                iconColor: Theme.of(context).colorScheme.primary,
+                collapsedIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
                 title: Row(
                   children: [
                     Container(
@@ -367,15 +366,15 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: signed
-                            ? AppColors.success
+                            ? Theme.of(context).colorScheme.tertiary
                             : done
-                                ? AppColors.success.withValues(alpha: 0.5)
-                                : AppColors.accent.withValues(alpha: 0.15),
+                                ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5)
+                                : Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                       ),
                       child: Text(
                         '${step.number}',
                         style: TextStyle(
-                          color: done || signed ? Colors.white : AppColors.accent,
+                          color: done || signed ? Colors.white : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -386,7 +385,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                           style: const TextStyle(color: Colors.white, fontSize: 16)),
                     ),
                     if (signed)
-                      const Icon(Icons.verified, size: 18, color: AppColors.success),
+                      Icon(Icons.verified, size: 18, color: Theme.of(context).colorScheme.tertiary),
                   ],
                 ),
                 children: [
@@ -394,17 +393,17 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                     child: Text(step.text,
                         style: TextStyle(
-                            color: AppColors.textPrimary, fontSize: 15, height: 1.5)),
+                            color: Theme.of(context).colorScheme.onSurface, fontSize: 15, height: 1.5)),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Divider(color: AppColors.border),
-                        const Text('Worksheet',
+                        Divider(color: Theme.of(context).colorScheme.outlineVariant),
+                        Text('Worksheet',
                             style: TextStyle(
-                                color: AppColors.accent,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
@@ -414,11 +413,11 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                           loadAnswers: _worksheetFor,
                           onSave: (answers) => _saveWorksheet(step.number, answers),
                         ),
-                        const Divider(color: AppColors.border),
+                        Divider(color: Theme.of(context).colorScheme.outlineVariant),
                         Row(
                           children: [
-                            const Icon(Icons.menu_book,
-                                size: 15, color: AppColors.textMuted),
+                            Icon(Icons.menu_book,
+                                size: 15, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             const SizedBox(width: 6),
                             Expanded(
                               child: InkWell(
@@ -426,10 +425,10 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                                   Uri.parse('https://www.aa.org/the-twelve-steps'),
                                   mode: LaunchMode.externalApplication,
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Literature: aa.org — the Twelve Steps',
                                   style: TextStyle(
-                                      color: AppColors.accent,
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontSize: 12,
                                       decoration: TextDecoration.underline),
                                 ),
@@ -446,23 +445,23 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                                 icon: Icon(
                                     done ? Icons.check_box : Icons.check_box_outline_blank,
                                     size: 18,
-                                    color: done ? AppColors.success : AppColors.accent),
+                                    color: done ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary),
                                 label: Text(done ? 'Worked' : 'Mark worked',
                                     style: TextStyle(
                                         color: done
-                                            ? AppColors.success
-                                            : AppColors.accent,
+                                            ? Theme.of(context).colorScheme.tertiary
+                                            : Theme.of(context).colorScheme.primary,
                                         fontSize: 13)),
                               ),
                             ),
                             Expanded(
                               child: TextButton.icon(
                                 onPressed: () => _copyForSponsor(step.number),
-                                icon: const Icon(Icons.copy_all_outlined,
-                                    size: 16, color: AppColors.textMuted),
-                                label: const Text('Copy bundle',
+                                icon: Icon(Icons.copy_all_outlined,
+                                    size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                label: Text('Copy bundle',
                                     style: TextStyle(
-                                        color: AppColors.textMuted, fontSize: 12)),
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                               ),
                             ),
                           ],
@@ -476,7 +475,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                               icon: Icon(
                                 signed ? Icons.verified : Icons.verified_outlined,
                                 size: 18,
-                                color: signed ? AppColors.success : AppColors.textMuted,
+                                color: signed ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               label: Text(
                                   signed
@@ -484,8 +483,8 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                                       : 'Redeem sign-off',
                                   style: TextStyle(
                                       color: signed
-                                          ? AppColors.success
-                                          : AppColors.textMuted,
+                                          ? Theme.of(context).colorScheme.tertiary
+                                          : Theme.of(context).colorScheme.onSurfaceVariant,
                                       fontSize: 13)),
                             ),
                           ),
@@ -565,8 +564,8 @@ class _WorksheetFieldsState extends State<_WorksheetFields> {
       children: [
         for (var i = 0; i < widget.prompts.length; i++) ...[
           Text(widget.prompts[i],
-              style: const TextStyle(
-                  color: AppColors.textPrimary,
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 12,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -579,11 +578,11 @@ class _WorksheetFieldsState extends State<_WorksheetFields> {
               fillColor: Theme.of(context).colorScheme.surface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.accent),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
               ),
             ),
           ),
@@ -594,10 +593,10 @@ class _WorksheetFieldsState extends State<_WorksheetFields> {
           child: TextButton.icon(
             onPressed: () => widget
                 .onSave(_controllers.map((c) => c.text.trim()).toList()),
-            icon: const Icon(Icons.save_outlined,
-                size: 16, color: AppColors.accent),
-            label: const Text('Save worksheet',
-                style: TextStyle(color: AppColors.accent, fontSize: 13)),
+            icon: Icon(Icons.save_outlined,
+                size: 16, color: Theme.of(context).colorScheme.primary),
+            label: Text('Save worksheet',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13)),
           ),
         ),
       ],

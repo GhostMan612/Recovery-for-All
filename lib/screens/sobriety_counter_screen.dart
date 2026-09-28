@@ -146,7 +146,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
               child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
               child: const Text('Start', style: TextStyle(color: Colors.white)),
             ),
@@ -213,7 +213,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep going', style: TextStyle(color: AppColors.accent)),
+            child: Text('Keep going', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
@@ -251,15 +251,15 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               Text('Began: ${start.toLocal().toString().split(' ').first}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
               Text('Now: ${_formatElapsed(start)}',
-                  style: TextStyle(color: AppColors.accent, fontSize: 14)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14)),
               if (counter.dailyCost > 0) ...[
                 const SizedBox(height: 4),
                 Text(
                     'Saved: \$${(elapsed.inDays * counter.dailyCost).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        color: AppColors.success,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.tertiary,
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
               ],
@@ -279,7 +279,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                       Icon(
                         reached ? Icons.check_circle : Icons.radio_button_off,
                         size: 14,
-                        color: reached ? AppColors.success : AppColors.textDim,
+                        color: reached ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.outline,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -287,8 +287,8 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                           '${milestone.$1}d — ${milestone.$2}',
                           style: TextStyle(
                             color: reached
-                                ? AppColors.textPrimary
-                                : AppColors.textDim,
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).colorScheme.outline,
                             fontSize: 12,
                           ),
                         ),
@@ -331,7 +331,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addCounter,
-        backgroundColor: AppColors.accent,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('New Counter', style: TextStyle(color: Colors.white)),
       ),
@@ -346,7 +346,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.timelapse, size: 56, color: AppColors.textDim),
+                  Icon(Icons.timelapse, size: 56, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
                   const Text(
                     'No counters yet.',
@@ -374,7 +374,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
               final start = DateTime.fromMillisecondsSinceEpoch(counter.startDateTime);
               final elapsed = DateTime.now().difference(start);
               return Material(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   onTap: () => _showDetails(counter),
@@ -393,13 +393,13 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                                       fontSize: 17,
                                       fontWeight: FontWeight.w600)),
                             ),
-                            Icon(Icons.chevron_right, color: AppColors.textDim),
+                            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Text(_formatElapsed(start),
                             style: TextStyle(
-                                color: AppColors.accent,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 fontFeatures: const [FontFeature.tabularFigures()])),
@@ -413,28 +413,28 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: elapsed >= chip.at
-                                      ? AppColors.success.withValues(alpha: 0.18)
+                                      ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.18)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: elapsed >= chip.at
-                                        ? AppColors.success
-                                        : AppColors.border,
+                                        ? Theme.of(context).colorScheme.tertiary
+                                        : Theme.of(context).colorScheme.outlineVariant,
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (elapsed >= chip.at) ...[
-                                      const Icon(Icons.verified,
-                                          size: 12, color: AppColors.success),
+                                      Icon(Icons.verified,
+                                          size: 12, color: Theme.of(context).colorScheme.tertiary),
                                       const SizedBox(width: 4),
                                     ],
                                     Text(chip.label,
                                         style: TextStyle(
                                             color: elapsed >= chip.at
-                                                ? AppColors.success
-                                                : AppColors.textDim,
+                                                ? Theme.of(context).colorScheme.tertiary
+                                                : Theme.of(context).colorScheme.outline,
                                             fontSize: 10)),
                                   ],
                                 ),

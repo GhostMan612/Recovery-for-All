@@ -159,10 +159,17 @@ void main() {
     });
   });
 
-  test('dangerSoft is a lighter sibling of danger, not a duplicate', () {
-    expect(AppColors.dangerSoft, isNot(AppColors.danger));
-    expect(AppColors.dangerSoft.computeLuminance(),
-        greaterThan(AppColors.danger.computeLuminance()));
+  test('dangerSoft is a lighter sibling of the scheme error, not a duplicate',
+      () {
+    final scheme = AppColors.schemeFor(
+      AppColors.midnightSlate,
+      Brightness.dark,
+    );
+    expect(AppColors.dangerSoft, isNot(scheme.error));
+    expect(
+      AppColors.dangerSoft.computeLuminance(),
+      greaterThan(scheme.error.computeLuminance()),
+    );
   });
 
   test('palette preview swatches resolve per palette', () {

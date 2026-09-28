@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/theme/app_colors.dart';
 
 class _Circle {
   final String name;
@@ -77,16 +76,16 @@ class WellbrietyCirclesScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.08),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
               border:
-                  Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+                  Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)),
             ),
-            child: const Text(
+            child: Text(
               'Recurring Wellbriety gatherings curated by White Bison. '
               'Tap any circle to open its official flyer with the current '
               'schedule and meeting link.',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 13,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13,
                   height: 1.45),
             ),
           ),
@@ -95,7 +94,7 @@ class WellbrietyCirclesScreen extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(bottom: 10),
               child: Material(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
                 child: ListTile(
                   shape: RoundedRectangleBorder(
@@ -104,7 +103,7 @@ class WellbrietyCirclesScreen extends StatelessWidget {
                     circle.location == 'Virtual'
                         ? Icons.videocam_outlined
                         : Icons.location_on_outlined,
-                    color: AppColors.accent,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                   title: Text(circle.name,
                       style: const TextStyle(
@@ -113,7 +112,7 @@ class WellbrietyCirclesScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600)),
                   subtitle: Text(circle.location,
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 12)),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   trailing: const Icon(Icons.open_in_new,
                       size: 18, color: Colors.white38),
                   onTap: () => _open(circle.flyerUrl),
@@ -122,13 +121,13 @@ class WellbrietyCirclesScreen extends StatelessWidget {
             ),
           const SizedBox(height: 10),
           Material(
-            color: AppColors.bgCard.withValues(alpha: 0.7),
+            color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(14),
             child: Column(
               children: [
                 ListTile(
                   leading:
-                      const Icon(Icons.explore_outlined, color: AppColors.accent),
+                      Icon(Icons.explore_outlined, color: Theme.of(context).colorScheme.primary),
                   title: const Text('All Meeting Flyers — whitebison.org',
                       style: TextStyle(color: Colors.white, fontSize: 14)),
                   trailing: const Icon(Icons.chevron_right, size: 18),
@@ -136,30 +135,30 @@ class WellbrietyCirclesScreen extends StatelessWidget {
                 ),
                 ListTile(
                   leading:
-                      const Icon(Icons.groups_3, color: AppColors.accent),
+                      Icon(Icons.groups_3, color: Theme.of(context).colorScheme.primary),
                   title: const Text('24/7 Online Rooms — InTheRooms.com',
                       style: TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: const Text(
+                  subtitle: Text(
                       'Includes Wellbriety and other fellowship rooms',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () => _open(_inTheRoomsUrl),
                 ),
                 ListTile(
                   leading:
-                      const Icon(Icons.self_improvement, color: AppColors.accent),
+                      Icon(Icons.self_improvement, color: Theme.of(context).colorScheme.primary),
                   title: const Text('About Wellbriety Circles',
                       style: TextStyle(color: Colors.white, fontSize: 14)),
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () => _open(_circleMeetingsUrl),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.wb_twilight_outlined,
-                      color: AppColors.accent),
+                  leading: Icon(Icons.wb_twilight_outlined,
+                      color: Theme.of(context).colorScheme.primary),
                   title: const Text("Elder's Meditation of the Day",
                       style: TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: const Text('Daily teaching · Coyhis Publishing',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  subtitle: Text('Daily teaching · Coyhis Publishing',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   trailing: const Icon(Icons.chevron_right, size: 18),
                   onTap: () => _open(_meditationUrl),
                 ),

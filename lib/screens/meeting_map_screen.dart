@@ -564,7 +564,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'One takeaway from today… (optional)',
-                  hintStyle: const TextStyle(color: AppColors.textHint),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                   filled: true,
                   fillColor: Theme.of(context).colorScheme.surfaceContainer,
                   enabledBorder: OutlineInputBorder(

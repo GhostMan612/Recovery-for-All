@@ -162,9 +162,9 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
           autofocus: true,
           maxLength: 32,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'e.g. The Return, North Star, Second Chances',
-            hintStyle: TextStyle(color: AppColors.textDim),
+            hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
           ),
         ),
         actions: [
@@ -315,9 +315,9 @@ ${nodes.length} stars over $spanDays nights
                 autofocus: true,
                 maxLength: 40,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'e.g. 90 meetings, Made amends, Sponsored someone',
-                  hintStyle: TextStyle(color: AppColors.textDim),
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                 ),
               ),
               const SizedBox(height: 8),

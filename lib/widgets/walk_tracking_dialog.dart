@@ -82,14 +82,14 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
             ),
             child: Column(
               children: [
                 Text(
                   '$_steps',
                   style: TextStyle(
-                    color: _verified ? AppColors.success : Colors.white,
+                    color: _verified ? Theme.of(context).colorScheme.tertiary : Colors.white,
                     fontSize: 48,
                     fontWeight: FontWeight.bold,
                   ),
@@ -97,22 +97,22 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
                 const SizedBox(height: 4),
                 Text(
                   'of ${StepCounterService.minStepsForWalk} steps',
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
                 // Progress bar
                 LinearProgressIndicator(
                   value: progress,
                   minHeight: 8,
-                  backgroundColor: AppColors.border,
-                  color: _verified ? AppColors.success : AppColors.accent,
+                  backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                  color: _verified ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _verified ? 'Walk verified! ✓' : 'Keep walking...',
                   style: TextStyle(
-                    color: _verified ? AppColors.success : AppColors.textMuted,
+                    color: _verified ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -127,12 +127,12 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.timer_outlined, color: AppColors.accent, size: 20),
+                Icon(Icons.timer_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'Time: ${_formatDuration(_elapsed)}',
@@ -146,7 +146,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
           Text(
             'Walk at least ${StepCounterService.minStepsForWalk} steps (≈5 min) to earn Sparks. '
             'Your companion trusts you — no guilt if you stop early.',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, height: 1.4),
             textAlign: TextAlign.center,
           ),
         ],
@@ -172,7 +172,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
             }
             if (context.mounted) Navigator.pop(context, false);
           },
-          child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
         ElevatedButton(
           onPressed: _verified
@@ -182,10 +182,10 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
                 }
               : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.black,
-            disabledBackgroundColor: AppColors.border,
-            disabledForegroundColor: AppColors.textDim,
+            disabledBackgroundColor: Theme.of(context).colorScheme.outlineVariant,
+            disabledForegroundColor: Theme.of(context).colorScheme.outline,
           ),
           child: const Text('Finish Walk'),
         ),

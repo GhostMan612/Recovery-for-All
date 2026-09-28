@@ -11,7 +11,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/tutorial_chatbot_service.dart';
 import '../widgets/avatar_visual_layer.dart';
@@ -165,9 +164,9 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                     compact: true,
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Guide is typing...',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13, fontStyle: FontStyle.italic),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, fontStyle: FontStyle.italic),
                   ),
                   const SizedBox(width: 8),
                   SizedBox(
@@ -175,7 +174,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.accent,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ],
@@ -202,7 +201,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.accent),
+                  icon: Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
                   onPressed: _sendMessage,
                 ),
               ],
@@ -241,12 +240,12 @@ class _ChatBubble extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 300),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: message.isUser ? AppColors.accent : Theme.of(context).colorScheme.surfaceContainer,
+            color: message.isUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(16).copyWith(
               bottomLeft: message.isUser ? const Radius.circular(16) : const Radius.circular(4),
               bottomRight: message.isUser ? const Radius.circular(4) : const Radius.circular(16),
             ),
-            border: message.isUser ? null : Border.all(color: AppColors.border),
+            border: message.isUser ? null : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +262,7 @@ class _ChatBubble extends StatelessWidget {
               Text(
                 '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                 style: TextStyle(
-                  color: message.isUser ? Colors.black54 : AppColors.textDim,
+                  color: message.isUser ? Colors.black54 : Theme.of(context).colorScheme.outline,
                   fontSize: 10,
                 ),
               ),

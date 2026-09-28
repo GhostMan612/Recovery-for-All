@@ -100,18 +100,20 @@ class AppPalette {
   });
 }
 
+/// Theme-neutral token holders only.
+///
+/// The former top-level dark-pinned constants (bgDeep, bgCard, border, accent,
+/// success, danger, textPrimary, textMuted, textDim, textHint) were retired in
+/// Phase 5: they were fixed dark values, so every reference silently pinned its
+/// screen to dark mode. Use the scheme slots instead —
+/// `Theme.of(context).colorScheme.{surface, surfaceContainer, outlineVariant,
+/// primary, tertiary, error, onSurface, onSurfaceVariant, outline}`.
+///
+/// What remains here is deliberately brightness-INDEPENDENT: domain meaning
+/// (moods, raid outcomes, star categories, fellowship tags, pin states, brand
+/// colors) must not shift meaning when the user switches theme.
 class AppColors {
-  static const Color bgDeep = Color(0xFF0F172A);
-  static const Color bgCard = Color(0xFF1E293B);
-  static const Color border = Color(0xFF334155);
-  static const Color accent = Color(0xFF38BDF8);
-  static const Color success = Color(0xFF34D399);
-  static const Color danger = Color(0xFFDC2626);
   static const Color dangerSoft = Color(0xFFF87171);
-  static const Color textPrimary = Colors.white;
-  static const Color textMuted = Color(0xFF94A3B8);
-  static const Color textDim = Color(0xFF64748B);
-  static const Color textHint = Color(0xFF475569);
 
   static const Color pink = Color(0xFFF472B6);
 
@@ -160,7 +162,10 @@ class AppColors {
   static const Color starMindfulness = Color(0xFFA78BFA);
   static const Color starSpiritual = Color(0xFF34D399);
 
-  static Color scrim([double opacity = 0.72]) => bgDeep.withValues(alpha: opacity);
+  /// Dim overlay helper. Takes the base surface from the active scheme so it
+  /// tracks brightness instead of assuming a dark backdrop.
+  static Color scrim(BuildContext context, [double opacity = 0.72]) =>
+      Theme.of(context).colorScheme.surface.withValues(alpha: opacity);
 
   static const AppPalette midnightSlate = AppPalette(
     bgDeep: Color(0xFF0F172A),

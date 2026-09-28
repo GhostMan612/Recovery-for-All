@@ -479,7 +479,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       labelText: label,
       hintText: hint,
       labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-      hintStyle: const TextStyle(color: AppColors.textHint),
+      hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
       filled: true,
       fillColor: Theme.of(context).colorScheme.surfaceContainer,
       border: OutlineInputBorder(
@@ -488,7 +488,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

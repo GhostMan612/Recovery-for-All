@@ -60,7 +60,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
             child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () {
               final title = titleController.text.trim();
               final target = int.tryParse(targetController.text) ?? 1;
@@ -97,10 +97,10 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.accent)),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('New Week', style: TextStyle(color: Colors.white)),
           ),
@@ -130,7 +130,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addGoal,
-        backgroundColor: AppColors.accent,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Goal', style: TextStyle(color: Colors.white)),
       ),
@@ -143,7 +143,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.flag_outlined, size: 56, color: AppColors.textDim),
+                  Icon(Icons.flag_outlined, size: 56, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
                   const Text('No goals for this week yet.',
                       style: TextStyle(color: Colors.white, fontSize: 18)),
@@ -179,7 +179,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                 onDismissed: (_) =>
                     widget.database.deleteWeeklyGoal(goal.id),
                 child: Material(
-                  color: AppColors.bgCard,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(14),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -198,10 +198,10 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                                 child: LinearProgressIndicator(
                                   value: progress.clamp(0.0, 1.0),
                                   minHeight: 6,
-                                  backgroundColor: AppColors.border,
+                                  backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                                   color: goal.isCompleted
-                                      ? AppColors.success
-                                      : AppColors.accent,
+                                      ? Theme.of(context).colorScheme.tertiary
+                                      : Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -211,8 +211,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                         Text('${goal.currentCount}/${goal.targetCount}',
                             style: TextStyle(
                                 color: goal.isCompleted
-                                    ? AppColors.success
-                                    : AppColors.textMuted,
+                                    ? Theme.of(context).colorScheme.tertiary
+                                    : Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
@@ -220,8 +220,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                           tooltip: 'Log one',
                           icon: Icon(Icons.check_circle_outline,
                               color: goal.isCompleted
-                                  ? AppColors.success
-                                  : AppColors.accent),
+                                  ? Theme.of(context).colorScheme.tertiary
+                                  : Theme.of(context).colorScheme.primary),
                           onPressed: () async {
                             final wasComplete = goal.isCompleted;
                             await widget.database

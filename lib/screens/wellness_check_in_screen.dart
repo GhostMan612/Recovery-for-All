@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/xp_engine_service.dart';
@@ -78,7 +77,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Check-in saved · your wheel is balanced by honesty, not perfection'),
-        backgroundColor: AppColors.bgCard,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       ),
     );
     Navigator.pop(context);
@@ -114,7 +113,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
           const SizedBox(height: 4),
           Text(
             'Slide honestly from 1 to 10. Low numbers are information, not failure.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
           ),
           const SizedBox(height: 12),
           for (final d in _dimensions)
@@ -122,12 +121,12 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
-                  Icon(d.icon, color: AppColors.accent, size: 22),
+                  Icon(d.icon, color: Theme.of(context).colorScheme.primary, size: 22),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -141,17 +140,17 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
                                     color: Colors.white, fontSize: 14)),
                             Text(_scores[d.key]!.round().toString(),
                                 style: TextStyle(
-                                    color: AppColors.accent,
+                                    color: Theme.of(context).colorScheme.primary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold)),
                           ],
                         ),
                         SliderTheme(
                           data: SliderThemeData(
-                            activeTrackColor: AppColors.accent,
-                            inactiveTrackColor: AppColors.border,
+                            activeTrackColor: Theme.of(context).colorScheme.primary,
+                            inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
                             thumbColor: Colors.white,
-                            overlayColor: AppColors.accent.withValues(alpha: 0.15),
+                            overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                             trackHeight: 3,
                           ),
                           child: Slider(
@@ -174,7 +173,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
             height: 48,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
               ),
               onPressed: _saving ? null : _save,
@@ -196,7 +195,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
             Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           else if (_history!.isEmpty)
             Text('Your history will appear here after your first check-in.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 13))
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13))
           else
             ..._history!.map((row) {
               final date =
@@ -205,16 +204,16 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.bgCard.withValues(alpha: 0.7),
+                  color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
                     Text('${date.month}/${date.day}',
-                        style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                     const Spacer(),
                     Text('avg ${_averageOf(row)} / 10',
-                        style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
                   ],
                 ),
               );

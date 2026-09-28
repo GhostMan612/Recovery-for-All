@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme/app_colors.dart';
 import '../data/worksheets_registry.dart';
 import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
@@ -77,8 +76,8 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
         title: Text(entry?.title ?? 'Worksheets'),
       ),
       body: !_loaded
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : entry == null
               ? _buildList()
               : _buildEditor(entry),
@@ -89,29 +88,29 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
+        Text(
           'Guided worksheets — written while calm, read when it matters. '
           'Saved on-device only.',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 13,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13,
               height: 1.45),
         ),
         const SizedBox(height: 12),
         Material(
-          color: AppColors.accent.withValues(alpha: 0.1),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           child: ListTile(
             dense: true,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: const Icon(Icons.menu_book_outlined,
-                color: AppColors.accent, size: 20),
+            leading: Icon(Icons.menu_book_outlined,
+                color: Theme.of(context).colorScheme.primary, size: 20),
             title: const Text('Literature Library',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w600)),
-            subtitle: const Text(
+            subtitle: Text(
                 'Free recovery texts from official sources',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
             trailing: const Icon(Icons.chevron_right,
                 size: 16, color: Colors.white38),
             onTap: () => Navigator.push(
@@ -126,7 +125,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             child: Material(
-              color: AppColors.bgCard,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(14),
               child: ListTile(
                 shape: RoundedRectangleBorder(
@@ -136,8 +135,8 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
                       ? Icons.task_alt
                       : Icons.edit_note_outlined,
                   color: _saved.containsKey(entry.id)
-                      ? AppColors.success
-                      : AppColors.accent,
+                      ? Theme.of(context).colorScheme.tertiary
+                      : Theme.of(context).colorScheme.primary,
                 ),
                 title: Text(entry.title,
                     style: const TextStyle(
@@ -146,7 +145,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
                         fontWeight: FontWeight.w600)),
                 subtitle: Text(
                   '${entry.tool} · ${entry.description}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 trailing: const Icon(Icons.chevron_right,
                     size: 18, color: Colors.white38),
@@ -175,12 +174,12 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
       children: [
         Text(entry.description,
             style: TextStyle(
-                color: AppColors.textMuted, fontSize: 13, height: 1.45)),
+                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.45)),
         const SizedBox(height: 16),
         for (var i = 0; i < entry.prompts.length; i++) ...[
           Text(entry.prompts[i],
-              style: const TextStyle(
-                  color: AppColors.textPrimary,
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 13,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -190,14 +189,14 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
             style: const TextStyle(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
               filled: true,
-              fillColor: AppColors.bgCard,
+              fillColor: Theme.of(context).colorScheme.surfaceContainer,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.accent),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
               ),
             ),
           ),
@@ -209,7 +208,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
           height: 46,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
             ),
             onPressed: () {

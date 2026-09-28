@@ -13,7 +13,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme/app_colors.dart';
 
 /// On-device, user-imported workbooks (Option B).
 /// Files stay on this device (app documents dir) and are never committed.
@@ -100,13 +99,13 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
       if (mounted) setState(() => _workbooks = updated);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported $destName'), backgroundColor: AppColors.bgCard),
+          SnackBar(content: Text('Imported $destName'), backgroundColor: Theme.of(context).colorScheme.surfaceContainer),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e'), backgroundColor: AppColors.bgCard),
+          SnackBar(content: Text('Import failed: $e'), backgroundColor: Theme.of(context).colorScheme.surfaceContainer),
         );
       }
     }
@@ -146,40 +145,40 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
         ],
       ),
       body: !_loaded
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: AppColors.bgCard.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                  child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [Icon(Icons.privacy_tip_outlined, color: AppColors.accent, size: 18), SizedBox(width: 8), Text('On-device only', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))]),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary, size: 18), SizedBox(width: 8), Text('On-device only', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))]),
                     SizedBox(height: 8),
-                    Text('Files you import stay on this device and are never uploaded. Only import files you own or have permission to use. Fellowship-approved NA literature (Basic Text, Step Working Guide) is copyrighted — please purchase via NAWS catalog or link to na.org.', style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.5)),
+                    Text('Files you import stay on this device and are never uploaded. Only import files you own or have permission to use. Fellowship-approved NA literature (Basic Text, Step Working Guide) is copyrighted — please purchase via NAWS catalog or link to na.org.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, height: 1.5)),
                   ]),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(width: double.infinity, height: 46, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white), onPressed: _import, icon: const Icon(Icons.file_open_outlined), label: const Text('Import Workbook (PDF)', style: TextStyle(fontWeight: FontWeight.bold)))),
+                SizedBox(width: double.infinity, height: 46, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white), onPressed: _import, icon: const Icon(Icons.file_open_outlined), label: const Text('Import Workbook (PDF)', style: TextStyle(fontWeight: FontWeight.bold)))),
                 const SizedBox(height: 20),
                 if (_workbooks.isEmpty)
                   Container(
                     width: double.infinity, padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppColors.bgCard.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12)),
-                    child: const Text('No workbooks yet — tap Import to pick a PDF from your device. Your counselor’s custom packet (like the 12-page guide) will appear here.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12)),
+                    child: Text('No workbooks yet — tap Import to pick a PDF from your device. Your counselor’s custom packet (like the 12-page guide) will appear here.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                   )
                 else
                   for (final entry in _workbooks)
                     Container(
                       margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(color: AppColors.bgCard.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
                       child: Row(children: [
-                        const Icon(Icons.picture_as_pdf_outlined, color: AppColors.accent),
+                        Icon(Icons.picture_as_pdf_outlined, color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(entry['name']?.toString() ?? 'Workbook', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
-                          Text('${((entry['size'] as int? ?? 0) / 1024).round()} KB • ${DateTime.fromMillisecondsSinceEpoch(entry['importedAt'] as int? ?? 0).toLocal().toString().substring(0, 10)}', style: const TextStyle(color: AppColors.textDim, fontSize: 11)),
+                          Text('${((entry['size'] as int? ?? 0) / 1024).round()} KB • ${DateTime.fromMillisecondsSinceEpoch(entry['importedAt'] as int? ?? 0).toLocal().toString().substring(0, 10)}', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
                         ])),
                         IconButton(tooltip: 'Open', icon: const Icon(Icons.open_in_new, color: Colors.white70), onPressed: () => _open(entry)),
                         IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline, color: Colors.white38), onPressed: () => _delete(entry)),
@@ -250,7 +249,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF error: $error')));
           },
         ),
-        if (!_ready) const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        if (!_ready) Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
         if (_ready && _pages > 0)
           Positioned(bottom: 12, left: 0, right: 0, child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(20)), child: Text('${_currentPage + 1} / $_pages', style: const TextStyle(color: Colors.white, fontSize: 12))))),
       ]),

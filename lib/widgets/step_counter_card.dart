@@ -9,7 +9,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/step_counter_service.dart';
 
 class StepCounterCard extends StatefulWidget {
@@ -59,7 +58,7 @@ class _StepCounterCardState extends State<StepCounterCard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not request permission: $e'),
-            backgroundColor: AppColors.bgCard,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           ),
         );
       }
@@ -70,16 +69,16 @@ class _StepCounterCardState extends State<StepCounterCard> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Card(
-        color: AppColors.bgCard,
-        child: const Padding(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        child: Padding(
           padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+          child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
         ),
       );
     }
 
     return Card(
-      color: AppColors.bgCard,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       child: InkWell(
         onTap: widget.onTap,
         borderRadius: BorderRadius.circular(16),
@@ -93,10 +92,10 @@ class _StepCounterCardState extends State<StepCounterCard> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.15),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.directions_walk, color: AppColors.accent, size: 24),
+                    child: Icon(Icons.directions_walk, color: Theme.of(context).colorScheme.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -109,7 +108,7 @@ class _StepCounterCardState extends State<StepCounterCard> {
                         ),
                         Text(
                           'Track your movement',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                         ),
                       ],
                     ),
@@ -120,15 +119,15 @@ class _StepCounterCardState extends State<StepCounterCard> {
                       icon: const Icon(Icons.add_circle_outline, size: 18),
                       label: const Text('Enable'),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColors.accent,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       ),
                     )
                   else
                     Text(
                       _formatSteps(_dailySteps),
-                      style: const TextStyle(
-                        color: AppColors.accent,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
@@ -140,18 +139,18 @@ class _StepCounterCardState extends State<StepCounterCard> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.1),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: AppColors.accent, size: 20),
+                      Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Enable step tracking to verify walks and earn Sparks automatically.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                         ),
                       ),
                     ],
@@ -161,8 +160,8 @@ class _StepCounterCardState extends State<StepCounterCard> {
                 LinearProgressIndicator(
                   value: (_dailySteps / 10000).clamp(0.0, 1.0),
                   minHeight: 6,
-                  backgroundColor: AppColors.border,
-                  color: AppColors.accent,
+                  backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(3),
                 ),
             ],

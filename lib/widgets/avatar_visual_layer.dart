@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:lottie/lottie.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/hardware_tier_service.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
@@ -310,7 +309,7 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
     return _CelebrationOverlay(
       size: size,
       progress: _celebrationController.value,
-      color: AppColors.accent,
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 }

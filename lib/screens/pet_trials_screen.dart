@@ -152,7 +152,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.auto_stories, color: AppColors.accent, size: 36),
+          Icon(Icons.auto_stories, color: Theme.of(context).colorScheme.primary, size: 36),
           const SizedBox(height: 12),
           const Text('How Trials work',
               style: TextStyle(
@@ -160,7 +160,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                   fontSize: 18,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Focus is your inner steadiness. You start each battle with 2 Focus '
             'and gain +1 every turn (max 5). Every coping skill costs Focus — '
             'plan your moves.\n\n'
@@ -170,14 +170,14 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             'Gratitude Heal restores Resolve.\n\n'
             'Win or lose, your companion learns. Nothing here can hurt your '
             'real progress.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.45),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.45),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context),
               child: const Text('Begin'),
@@ -282,18 +282,18 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     if (ability.focusCost == 0) {
       battle.focus = math.min(5, battle.focus + 2);
       battle.addLog('You breathe and center — Focus restored (+2).');
-      _spawnPop('+2 Focus', AppColors.accent);
+      _spawnPop('+2 Focus', Theme.of(context).colorScheme.primary);
       await FeedbackService.battleShield();
     } else if (ability.heals) {
       battle.resolve = math.min(battle.maxResolve, battle.resolve + 15);
       battle.addLog('15 Resolve restored by ${ability.name}.');
-      _spawnPop('+15', AppColors.success);
+      _spawnPop('+15', Theme.of(context).colorScheme.tertiary);
       await FeedbackService.battleHeal();
       battle.focus = math.max(0, battle.focus - ability.focusCost);
     } else if (ability.shields) {
       battle.shieldActive = true;
       battle.addLog('Grounding Shield raised.');
-      _spawnPop('Shield', AppColors.success);
+      _spawnPop('Shield', Theme.of(context).colorScheme.tertiary);
       await FeedbackService.battleShield();
       battle.focus = math.max(0, battle.focus - ability.focusCost);
     } else {
@@ -303,7 +303,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
       battle.addLog('${ability.name} deals $dmg damage!');
       _doLunge();
       _doFlash();
-      _spawnPop('-$dmg', AppColors.accent);
+      _spawnPop('-$dmg', Theme.of(context).colorScheme.primary);
       await FeedbackService.battleHit();
       battle.focus = math.max(0, battle.focus - ability.focusCost);
     }
@@ -339,7 +339,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
         dmg = (dmg * 0.3).round();
         battle.shieldActive = false;
         battle.addLog('Grounding Shield absorbed most of the hit!');
-        _spawnPop('-$dmg blocked', AppColors.success);
+        _spawnPop('-$dmg blocked', Theme.of(context).colorScheme.tertiary);
       } else {
         battle.addLog('${battle.monster.name} deals $dmg damage.');
         _spawnPop('-$dmg', Theme.of(context).colorScheme.error);
@@ -381,8 +381,8 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
         ],
       ),
       body: pet == null
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : battle == null
               ? _buildLobby(pet)
               : _buildBattle(battle),
@@ -401,8 +401,8 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.shield_outlined,
-                    size: 56, color: AppColors.accent),
+                Icon(Icons.shield_outlined,
+                    size: 56, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 20),
                 const Text('Trials of the Path',
                     style: TextStyle(
@@ -417,8 +417,8 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       : 'You have faced enough for today.\n'
                           'Rest — your companion is proud.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: AppColors.textMuted,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       height: 1.5),
                 ),
@@ -427,9 +427,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.bgCard,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     children: [
@@ -457,15 +457,15 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       LinearProgressIndicator(
                         value: (pet.pathXp % 100) / 100.0,
                         minHeight: 6,
-                        backgroundColor: AppColors.border,
-                        color: AppColors.accent,
+                        backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(3),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'XP to next level: ${100 - (pet.pathXp % 100)}',
                         style: TextStyle(
-                            color: AppColors.textMuted, fontSize: 11),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                       ),
                     ],
                   ),
@@ -483,7 +483,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     height: 50,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.shield_outlined),
@@ -512,7 +512,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
                 border:
                     Border.all(color: monsterColor.withValues(alpha: 0.4)),
@@ -530,14 +530,14 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     child: LinearProgressIndicator(
                       value: battle.enemyHp / battle.monster.maxHp,
                       minHeight: 8,
-                      backgroundColor: AppColors.border,
+                      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                       color: monsterColor,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text('${battle.enemyHp} / ${battle.monster.maxHp} HP',
-                      style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 11)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                 ],
               ),
             ),
@@ -552,7 +552,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 child: ListView.builder(
                   itemCount: battle.log.length,
@@ -563,7 +563,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       style: TextStyle(
                           color: index == 0
                               ? Colors.white
-                              : AppColors.textMuted,
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13),
                     ),
                   ),
@@ -574,7 +574,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -582,12 +582,12 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Resolve',
+                      Text('Resolve',
                           style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 12)),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                       Text('${battle.resolve} / ${battle.maxResolve}',
-                          style: const TextStyle(
-                              color: AppColors.success,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.tertiary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold)),
                     ],
@@ -598,16 +598,16 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     child: LinearProgressIndicator(
                       value: battle.resolve / battle.maxResolve,
                       minHeight: 8,
-                      backgroundColor: AppColors.border,
-                      color: AppColors.success,
+                      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                      color: Theme.of(context).colorScheme.tertiary,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Text('Focus',
+                      Text('Focus',
                           style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 11)),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                       const SizedBox(width: 8),
                       for (var i = 0; i < 5; i++)
                         Container(
@@ -617,16 +617,16 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: i < battle.focus
-                                ? AppColors.accent
+                                ? Theme.of(context).colorScheme.primary
                                 : Colors.transparent,
                             border: Border.all(
                                 color: i < battle.focus
-                                    ? AppColors.accent
-                                    : AppColors.border),
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.outlineVariant),
                             boxShadow: i < battle.focus
                                 ? [
                                     BoxShadow(
-                                        color: AppColors.accent
+                                        color: Theme.of(context).colorScheme.primary
                                             .withValues(alpha: 0.5),
                                         blurRadius: 4)
                                   ]
@@ -636,7 +636,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       const Spacer(),
                       Text('+1 / turn',
                           style: TextStyle(
-                              color: AppColors.textMuted
+                              color: Theme.of(context).colorScheme.onSurfaceVariant
                                   .withValues(alpha: 0.7),
                               fontSize: 10)),
                       if (battle.shieldActive) ...[
@@ -645,19 +645,19 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.15),
+                            color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.success),
+                            border: Border.all(color: Theme.of(context).colorScheme.tertiary),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.shield,
-                                  size: 12, color: AppColors.success),
+                                  size: 12, color: Theme.of(context).colorScheme.tertiary),
                               SizedBox(width: 4),
                               Text('Shield',
                                   style: TextStyle(
-                                      color: AppColors.success, fontSize: 10)),
+                                      color: Theme.of(context).colorScheme.tertiary, fontSize: 10)),
                             ],
                           ),
                         ),
@@ -689,11 +689,11 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: battle.phase == _BattlePhase.victory
-                        ? AppColors.success
-                        : AppColors.bgCard,
+                        ? Theme.of(context).colorScheme.tertiary
+                        : Theme.of(context).colorScheme.surfaceContainer,
                     foregroundColor: battle.phase == _BattlePhase.victory
                         ? Colors.white
-                        : AppColors.textMuted,
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () => setState(() => _battle = null),
                   child: Text(
@@ -782,12 +782,12 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: AppColors.success.withValues(alpha: 0.5),
+                            color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5),
                             width: 2),
                         boxShadow: [
                           BoxShadow(
                               color:
-                                  AppColors.success.withValues(alpha: 0.18),
+                                  Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.18),
                               blurRadius: 18,
                               spreadRadius: 4),
                         ],
@@ -821,11 +821,11 @@ class _AbilityButton extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: enabled
-              ? AppColors.bgCard
-              : AppColors.bgCard.withValues(alpha: 0.4),
+              ? Theme.of(context).colorScheme.surfaceContainer
+              : Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: enabled ? AppColors.accent : AppColors.border,
+            color: enabled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
         child: Column(
@@ -835,7 +835,7 @@ class _AbilityButton extends StatelessWidget {
               children: [
                 Text(ability.name,
                     style: TextStyle(
-                        color: enabled ? Colors.white : AppColors.textDim,
+                        color: enabled ? Colors.white : Theme.of(context).colorScheme.outline,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(width: 6),
@@ -844,18 +844,18 @@ class _AbilityButton extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: enabled
-                        ? AppColors.accent.withValues(alpha: 0.18)
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                         color: enabled
-                            ? AppColors.accent.withValues(alpha: 0.5)
-                            : AppColors.border),
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                            : Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: Text('${ability.focusCost}●',
                       style: TextStyle(
                           color:
-                              enabled ? AppColors.accent : AppColors.textDim,
+                              enabled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
                           fontSize: 10,
                           fontWeight: FontWeight.bold)),
                 ),
@@ -869,7 +869,7 @@ class _AbilityButton extends StatelessWidget {
                         ? 'Restore 15 Resolve'
                         : '${ability.minDamage}–${ability.maxDamage} dmg',
                 style: TextStyle(
-                    color: enabled ? AppColors.textMuted : AppColors.textDim,
+                    color: enabled ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.outline,
                     fontSize: 10)),
           ],
         ),
@@ -895,7 +895,7 @@ class _GearStat extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: AppColors.accent, size: 24),
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
         const SizedBox(height: 4),
         Text(
           value,
@@ -909,7 +909,7 @@ class _GearStat extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.textMuted,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 11,
           ),
         ),

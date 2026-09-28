@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-4 are **complete and verified**. Phases 5-16 are **not started**.
+Phases 0-6 are **complete and verified**. Phases 7-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -43,19 +43,35 @@ Phases 0-4 are **complete and verified**. Phases 5-16 are **not started**.
 | 2 — M3 theme engine | COMPLETE | 6-scheme matrix, `themeMode` wired, persistence, centralized component themes |
 | 3 — Color & styling migration | COMPLETE | 875 -> 0 raw literals outside allowlist; `tools/verify_no_hardcoded_colors.py` green |
 | 4 — Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
-| 5-16 | NOT STARTED | no code, no gates run |
+| 5 — Brightness drain | COMPLETE | 390 dark-pinned refs -> 0, constants deleted, gate extended |
+| 7-17 | NOT STARTED | no code, no gates run |
 
 Gates at the close of Phase 3: `flutter analyze --no-pub` -> No issues found;
 `flutter test` -> all passing; `verify_no_hardcoded_colors.py` -> exit 0.
 
-**Open risk carried into later phases:** 398 references to the dark-pinned top-level
-`AppColors` statics (`accent` 149, `textMuted` 72, `bgCard` 50, `success` 45, `border` 39,
-`textDim` 25, `textPrimary` 11) remain across 32 files. The Phase 3 gate only matches
-`Color(0x...)`, so these pass it while still pinning those screens to dark. Light mode is
-therefore only partially real today. Phases 5-9 should drain these as they touch each
-screen, and the gate should be extended to fail on `AppColors.<dark-pinned>`.
+**Resolved:** the 398 dark-pinned `AppColors` statics were the Phase 5 blocker and
+are now gone. Remaining known gaps are tracked per phase below.
 
-**Next phase is Phase 5 (Dashboard State Decomposition).**
+**Next phase is Phase 7 (Dashboard State Decomposition).** Phase 6
+(Empty/Loading/Error/Offline) was moved ahead of it by the Sep 28 re-sequencing
+because the Phase 4 primitives now make those states mechanical to apply.
+
+## Re-Sequencing Rationale (Sep 28)
+
+The original phase order had two dependency defects, found while executing:
+
+1. **The dark-pinned `AppColors` statics were never scheduled for retirement.**
+   Phase 3 banned `Color(0x...)` literals, but the old top-level constants
+   (`AppColors.accent`, `.textMuted`, `.bgCard`, ...) are semantically the same
+   thing — fixed dark values. 398 references across 32 files survived the gate.
+   Light mode is therefore only partially real. This is cross-cutting: every
+   later phase edits those files, so draining first means touching them once.
+2. **Empty/loading/error states (old Phase 13) were scheduled after dashboard
+   decomposition (old Phases 5-6).** That is backwards: the decomposition moves
+   those states, and Phase 4 now supplies shared primitives for them. Doing
+   states first makes the dashboard move mechanical instead of creative.
+
+Corrected order below. Each phase keeps its original intent and gate.
 
 ---
 
@@ -277,9 +293,62 @@ Use only where repetition justifies abstraction:
 
 **Repeated UI patterns have a consistent visual language and component behavior, with no unnecessary abstraction layer.**
 
+# Phase 5 — Brightness Drain: Retire the Dark-Pinned Statics
+
+**Status: COMPLETE** — all 390 references to the dark-pinned top-level constants across 31 files were drained to scheme slots (`accent -> primary`, `textMuted -> onSurfaceVariant`, `bgCard -> surfaceContainer`, `success -> tertiary`, `border -> outlineVariant`, `textDim/textHint -> outline`, `textPrimary -> onSurface`, `bgDeep -> surface`, `danger -> error`), then the constants were **deleted** from `AppColors` so the mistake cannot recur. `AppColors.scrim()` was re-signatured to take the surface from the active scheme instead of assuming a dark backdrop. 113 `const` keywords invalidated by theme injection were removed and 19 now-unused `app_colors.dart` imports dropped. The domain-scoped tokens (`mood*`, `raid*`, `star*`, `fellow*`, `pin*`, `housing*`, `starfield`, `brandZoom`, `monsterHound`, `accentSky`, `dangerSoft`, `pink`) were deliberately **kept** — they encode meaning that must not shift with brightness. `tools/verify_no_hardcoded_colors.py` now also fails on any reference to a retired name (verified against a synthetic regression), and an independent sweep confirms zero leftover references and zero re-introduced dark literals. **Light mode is now real across every touched screen, not partially real.**
+
+### Objective
+Make light mode real. Phase 3 removed raw literals; this removes the semantic
+equivalent that the literal gate cannot see.
+
+### Tasks
+1. Map each dark-pinned top-level constant to its scheme slot:
+   `accent -> primary`, `success -> tertiary`, `danger -> error`,
+   `bgDeep -> surface`, `bgCard -> surfaceContainer`, `border -> outlineVariant`,
+   `textPrimary -> onSurface`, `textMuted -> onSurfaceVariant`,
+   `textDim -> outline`, `textHint -> outline`.
+2. Replace all 398 references across 32 files, in dependency order: leaf widgets
+   and services first, then screens, then the dashboard.
+3. Keep genuinely domain-scoped constants (`star*`, `mood*`, `fellow*`, `pin*`,
+   `housing*`, `raid*`, `brandZoom`, `monsterHound`, `starfield`) as tokens —
+   they are brightness-independent by design and must NOT be drained.
+4. Delete the drained top-level constants from `AppColors` so the mistake cannot
+   recur, and leave a short comment pointing at the scheme slots.
+5. Extend `tools/verify_no_hardcoded_colors.py` to also fail on any reference to a
+   drained constant, with the domain allowlist enumerated.
+
+### Gate 5
+**No file outside `app_colors.dart` references a dark-pinned constant; the
+extended color gate is green; light and dark both render for every touched
+screen.**
+
 ---
 
-# Phase 5 — Dashboard State Decomposition
+---
+
+# Phase 6 — Empty, Loading, Error & Offline UX
+
+### Objective
+Eliminate unfinished-feeling states throughout the primary product surfaces.
+
+Major screens should intentionally define:
+
+- loading
+- empty
+- error
+- ready
+- refreshing
+- unavailable/offline where relevant
+
+Do not fabricate offline functionality; distinguish unavailable network data from locally available state.
+
+### Gate 13 (now 6)
+
+**Primary screens no longer expose accidental blank/error/loading states.**
+
+---
+
+# Phase 7 — Dashboard State Decomposition
 
 ### Objective
 Separate dashboard state from the 1,600-line presentation monolith before extracting major views.
@@ -301,13 +370,13 @@ Separate dashboard state from the 1,600-line presentation monolith before extrac
 
 Do not merely split the 1,600-line file into multiple files while leaving all meaningful state coupled to one giant controller.
 
-### Gate 5
+### Gate 5 (now 7)
 
 **Dashboard behavior is equivalent to baseline, while state ownership is explicit and independently testable.**
 
 ---
 
-# Phase 6 — Dashboard View Reconstruction
+# Phase 8 — Dashboard View Reconstruction
 
 ### Objective
 Turn the dashboard into composable product surfaces after state has been decoupled.
@@ -345,13 +414,13 @@ The exact content must be derived from the current application. Do not invent ne
 5. Implement loading/empty/error states deliberately.
 6. Ensure dashboard works at large text sizes and small screens.
 
-### Gate 6
+### Gate 6 (now 8)
 
 **Dashboard is modular, visually coherent, responsive, and behaviorally equivalent to baseline.**
 
 ---
 
-# Phase 7 — Navigation Architecture
+# Phase 9 — Navigation Architecture
 
 ### Objective
 Move toward a four-destination product architecture without losing existing routes or state.
@@ -376,13 +445,13 @@ Move toward a four-destination product architecture without losing existing rout
 9. Verify deep-link/route entry points where they already exist.
 10. Verify safe-area and keyboard behavior.
 
-### Gate 7
+### Gate 7 (now 9)
 
 **Four-destination navigation works without route duplication, lost state, broken back behavior, or inaccessible destinations.**
 
 ---
 
-# Phase 8 — Global SOS Experience
+# Phase 10 — Global SOS Experience
 
 ### Objective
 Make SOS immediately discoverable and consistent across the application.
@@ -410,13 +479,13 @@ Make SOS immediately discoverable and consistent across the application.
 - accidental activation
 - screen-reader semantics
 
-### Gate 8
+### Gate 8 (now 10)
 
 **SOS is globally discoverable, accessible, and behaviorally equivalent to the existing implementation.**
 
 ---
 
-# Phase 9 — Profile / Settings Modernization
+# Phase 11 — Profile / Settings Modernization
 
 ### Objective
 Turn Settings into a coherent control center.
@@ -442,13 +511,13 @@ Provide independent controls for:
 - Theme Mode: System / Light / Dark
 - Color Palette: Midnight Slate / Deep Forest / OLED Pitch
 
-### Gate 9
+### Gate 9 (now 11)
 
 **All existing settings remain accessible, persistence remains correct, and the screen has a coherent information hierarchy.**
 
 ---
 
-# Phase 10 — Accessibility Engineering
+# Phase 12 — Accessibility Engineering
 
 ### Objective
 Turn accessibility into measurable acceptance criteria.
@@ -475,13 +544,13 @@ Audit and test:
 
 At minimum validate normal, enlarged, and maximum practical accessibility text sizes supported by the app/device.
 
-### Gate 10
+### Gate 10 (now 12)
 
 **No major accessibility regressions remain, and high-risk screens have explicit widget/accessibility coverage.**
 
 ---
 
-# Phase 11 — Responsive & Device Hardening
+# Phase 13 — Responsive & Device Hardening
 
 ### Objective
 Prevent the polished design from only working at one phone size.
@@ -509,13 +578,13 @@ Audit for:
 - excessive whitespace
 - inaccessible controls
 
-### Gate 11
+### Gate 11 (now 13)
 
 **Primary user journeys remain usable across supported form factors and accessibility settings.**
 
 ---
 
-# Phase 12 — Motion & Microinteraction System
+# Phase 14 — Motion & Microinteraction System
 
 ### Objective
 Add restrained, meaningful motion that makes the product feel finished without becoming distracting.
@@ -538,35 +607,13 @@ Add restrained, meaningful motion that makes the product feel finished without b
 - Respect accessibility/reduced-motion expectations where applicable.
 - Do not introduce animation dependencies unless existing dependencies cannot reasonably support the behavior.
 
-### Gate 12
+### Gate 12 (now 14)
 
 **Motion is consistent, performant, purposeful, and does not impair accessibility or existing behavior.**
 
 ---
 
-# Phase 13 — Empty, Loading, Error & Offline UX
-
-### Objective
-Eliminate unfinished-feeling states throughout the primary product surfaces.
-
-Major screens should intentionally define:
-
-- loading
-- empty
-- error
-- ready
-- refreshing
-- unavailable/offline where relevant
-
-Do not fabricate offline functionality; distinguish unavailable network data from locally available state.
-
-### Gate 13
-
-**Primary screens no longer expose accidental blank/error/loading states.**
-
----
-
-# Phase 14 — Visual Regression & Theme Matrix
+# Phase 15 — Visual Regression & Theme Matrix
 
 ### Objective
 Lock the visual system after it stabilizes.
@@ -602,13 +649,13 @@ Capture/test:
 
 Use golden tests where stable visual regression provides real value; do not create brittle golden coverage for inherently dynamic content.
 
-### Gate 14
+### Gate 14 (now 15)
 
 **Approved visual baselines are stable across the supported theme matrix with no unexplained changes.**
 
 ---
 
-# Phase 15 — Final Architecture & Repository Hardening
+# Phase 16 — Final Architecture & Repository Hardening
 
 ### Objective
 Remove migration debris and verify the final architecture.
@@ -638,13 +685,13 @@ Review remaining instances of:
 5. Verify dashboard state ownership is obvious.
 6. Verify navigation ownership is obvious.
 
-### Gate 15
+### Gate 15 (now 16)
 
 **The finished architecture is simpler to maintain than the starting architecture, not merely different.**
 
 ---
 
-# Phase 16 — Final Verification & Beta Gate
+# Phase 17 — Final Verification & Beta Gate
 
 ### Required verification
 

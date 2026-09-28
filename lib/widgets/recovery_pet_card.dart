@@ -7,7 +7,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 import 'avatar_visual_layer.dart';
 
@@ -45,12 +44,12 @@ class RecoveryPetCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.bgCard.withValues(alpha: 0.92),
+            color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.12),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -69,8 +68,8 @@ class RecoveryPetCard extends StatelessWidget {
                       children: [
                         Text(
                           pet.name,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -78,8 +77,8 @@ class RecoveryPetCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           statusLine,
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -89,13 +88,13 @@ class RecoveryPetCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.15),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '✦ ${pet.sparks}',
-                      style: const TextStyle(
-                        color: AppColors.accent,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -104,9 +103,9 @@ class RecoveryPetCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _StatBar(label: 'Energy', value: pet.energy / 100.0, color: AppColors.success),
+              _StatBar(label: 'Energy', value: pet.energy / 100.0, color: Theme.of(context).colorScheme.tertiary),
               const SizedBox(height: 8),
-              _StatBar(label: 'Bond', value: pet.bond / 100.0, color: AppColors.accent),
+              _StatBar(label: 'Bond', value: pet.bond / 100.0, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -114,8 +113,8 @@ class RecoveryPetCard extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: onCheckIn,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.accent,
-                        side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                       ),
                       child: const Text('Check in'),
                     ),
@@ -125,7 +124,7 @@ class RecoveryPetCard extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onWalk,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                       ),
                       child: const Text('Walk'),
@@ -160,10 +159,10 @@ class _StatBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             Text(
               '${(value * 100).round()}%',
-              style: const TextStyle(color: AppColors.textDim, fontSize: 12),
+              style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12),
             ),
           ],
         ),
@@ -173,7 +172,7 @@ class _StatBar extends StatelessWidget {
           child: LinearProgressIndicator(
             value: value.clamp(0.0, 1.0),
             minHeight: 6,
-            backgroundColor: AppColors.border,
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             color: color,
           ),
         ),

@@ -88,7 +88,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
       case 'WELLBRIETY':
         return AppColors.fellowWellbriety;
       default:
-        return AppColors.textMuted;
+        return Theme.of(context).colorScheme.onSurfaceVariant;
     }
   }
 

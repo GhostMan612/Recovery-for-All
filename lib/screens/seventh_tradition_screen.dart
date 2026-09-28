@@ -183,7 +183,7 @@ class SeventhTraditionScreen extends StatelessWidget {
           _SectionCard(
             title: 'What Is the 7th Tradition?',
             icon: Icons.info_outline_rounded,
-            iconColor: AppColors.accent,
+            iconColor: Theme.of(context).colorScheme.primary,
             child: Text(
               'Every fellowship is self-supporting through its own contributions. '
               'The 7th Tradition ensures no outside affiliations, no dues or fees, '
@@ -198,7 +198,7 @@ class SeventhTraditionScreen extends StatelessWidget {
             title: 'Fellowship 7th Tradition',
             subtitle: 'Direct links to official contribution portals',
             icon: Icons.volunteer_activism_outlined,
-            iconColor: AppColors.success,
+            iconColor: Theme.of(context).colorScheme.tertiary,
             child: Column(
               children: [
                 for (final link in _fellowshipLinks)
@@ -293,7 +293,7 @@ class SeventhTraditionScreen extends StatelessWidget {
             child: Text(
               'All links open in your browser. Recovery for All does not process payments '
               'or collect financial information.',
-              style: TextStyle(color: AppColors.textDim, fontSize: 11, height: 1.3),
+              style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11, height: 1.3),
               textAlign: TextAlign.center,
             ),
           ),
@@ -340,7 +340,7 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,14 +408,14 @@ class _SupportListTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.15),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
                     link.fellowship!.code.substring(0, 2).toUpperCase(),
                     style: TextStyle(
-                      color: AppColors.accent,
+                      color: Theme.of(context).colorScheme.primary,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),

@@ -9,7 +9,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/meeting_finder_service.dart';
 
 class NextMeetingCard extends StatelessWidget {
@@ -66,30 +65,30 @@ class NextMeetingCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.bgCard,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         ),
         child: Row(
           children: [
-            const Icon(Icons.groups_outlined, color: AppColors.accent, size: 28),
+            Icon(Icons.groups_outlined, color: Theme.of(context).colorScheme.primary, size: 28),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('No meetings in the next 6 hours',
-                      style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 14)),
                   SizedBox(height: 2),
                   Text('Find a meeting near you — rooms are open daily.',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ],
               ),
             ),
             const SizedBox(width: 8),
             FilledButton(
               onPressed: onFindMeetings,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
               child: const Text('Find'),
             ),
           ],
@@ -105,7 +104,7 @@ class NextMeetingCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: chipColor.withValues(alpha: 0.35)),
       ),
@@ -129,26 +128,26 @@ class NextMeetingCard extends StatelessWidget {
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
-                child: Text(fellowship, style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(20), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+                child: Text(fellowship, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(m.name, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
-          Text('${m.type} · ${m.time}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text('${m.type} · ${m.time}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           if (tierLabel != null) ...[
             const SizedBox(height: 4),
-            Text(tierLabel!, style: const TextStyle(color: AppColors.textMuted, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(tierLabel!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
           if (m.address.isNotEmpty) ...[
             const SizedBox(height: 2),
             Row(
               children: [
-                const Icon(Icons.place_outlined, size: 14, color: AppColors.textMuted),
+                Icon(Icons.place_outlined, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Expanded(child: Text(m.address, style: const TextStyle(color: AppColors.textMuted, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(m.address, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis)),
               ],
             ),
           ],
@@ -159,7 +158,7 @@ class NextMeetingCard extends StatelessWidget {
               onPressed: onOpenMap,
               icon: const Icon(Icons.map_outlined, size: 18),
               label: Text(isLive ? 'View on Map — Join now' : 'View on Map'),
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: chipColor.withValues(alpha: 0.6))),
+              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: chipColor.withValues(alpha: 0.6))),
             ),
           ),
         ],

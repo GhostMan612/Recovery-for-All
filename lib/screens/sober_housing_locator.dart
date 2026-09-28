@@ -377,7 +377,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.home_work_outlined, color: AppColors.textHint, size: 64),
+          Icon(Icons.home_work_outlined, color: Theme.of(context).colorScheme.outline, size: 64),
           const SizedBox(height: 16),
           Text('No housing options match your filters.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),

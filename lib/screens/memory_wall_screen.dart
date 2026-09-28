@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/icon_registry.dart';
-import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/app_primitives.dart';
@@ -110,16 +109,16 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
   }
 
   Color _colorForEvent(String eventType) {
-    if (eventType.startsWith('milestone_')) return AppColors.accent;
+    if (eventType.startsWith('milestone_')) return Theme.of(context).colorScheme.primary;
     if (eventType.startsWith('signoff_')) return Colors.amber;
     if (eventType.startsWith('worksheet_')) return Colors.blueAccent;
     switch (eventType) {
       case 'battle_win':
-        return AppColors.success;
+        return Theme.of(context).colorScheme.tertiary;
       case 'battle_learned':
         return Colors.orangeAccent;
       case 'goal_complete':
-        return AppColors.accent;
+        return Theme.of(context).colorScheme.primary;
       case 'star':
         return Colors.yellowAccent;
       case 'meeting':
@@ -137,7 +136,7 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
       case 'grounding':
         return Colors.greenAccent;
       default:
-        return AppColors.textMuted;
+        return Theme.of(context).colorScheme.onSurfaceVariant;
     }
   }
 
@@ -153,8 +152,8 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
         stream: _eventStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.accent),
+            return Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
             );
           }
 
@@ -225,7 +224,7 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
       alignment: Alignment.center,
       child: Text(
         'Showing $_pageSize of $totalCount memories',
-        style: TextStyle(color: AppColors.textDim, fontSize: 12),
+        style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12),
       ),
     );
   }

@@ -11,7 +11,6 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 import 'avatar_visual_layer.dart';
 
@@ -74,9 +73,9 @@ class _ChronicleShareCardState extends State<ChronicleShareCard> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.bgCard,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.accent, width: 1),
+              border: Border.all(color: Theme.of(context).colorScheme.primary, width: 1),
             ),
             child: Column(
               children: [
@@ -95,7 +94,7 @@ class _ChronicleShareCardState extends State<ChronicleShareCard> {
                 const SizedBox(height: 20),
                 Text(
                   widget.chronicleText,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 14, height: 1.5),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
                 ),
               ],
             ),
@@ -108,7 +107,7 @@ class _ChronicleShareCardState extends State<ChronicleShareCard> {
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.ios_share, color: Colors.white),
           label: Text(_isSharing ? 'Capturing...' : 'Share Chronicle', style: const TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
         ),
       ],
     );

@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/theme/app_colors.dart';
 
 /// Daily motivation feed: one reflection per page, swipeable, with local
 /// favorites. Slogans are community property; stoic lines are public domain.
@@ -131,7 +130,7 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.star_border, size: 56, color: AppColors.textDim),
+                  Icon(Icons.star_border, size: 56, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
                   const Text('No favorites yet.',
                       style: TextStyle(color: Colors.white, fontSize: 18)),
@@ -161,8 +160,8 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.format_quote,
-                                  color: AppColors.accent, size: 40),
+                              Icon(Icons.format_quote,
+                                  color: Theme.of(context).colorScheme.primary, size: 40),
                               const SizedBox(height: 24),
                               Text(
                                 quote.text,
@@ -177,8 +176,8 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                               const SizedBox(height: 20),
                               Text(
                                 '— ${quote.source}',
-                                style: const TextStyle(
-                                    color: AppColors.accent, fontSize: 14),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary, fontSize: 14),
                               ),
                               const SizedBox(height: 40),
                               IconButton(

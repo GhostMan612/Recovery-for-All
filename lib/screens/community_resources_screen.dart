@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/theme/app_colors.dart';
 import '../data/recovery_resources.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/resource_link_health.dart';
@@ -120,7 +119,7 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Icon(section.icon, color: AppColors.accent, size: 18),
+          Icon(section.icon, color: Theme.of(context).colorScheme.primary, size: 18),
           const SizedBox(width: 8),
           Text(section.name,
               style: const TextStyle(
@@ -135,14 +134,14 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               child: Material(
-                color: AppColors.bgCard,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(14),
                 child: ListTile(
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   leading: Icon(link.icon,
                       color:
-                          dead ? Colors.white24 : AppColors.accent),
+                          dead ? Colors.white24 : Theme.of(context).colorScheme.primary),
                   title: Text(link.title,
                       style: TextStyle(
                           color: dead ? Colors.white38 : Colors.white,
@@ -150,7 +149,7 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                           fontWeight: FontWeight.w600)),
                   subtitle: Text(link.subtitle,
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 12)),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   trailing: dead
                       ? const Icon(Icons.link_off,
                           size: 18, color: Colors.white24)
@@ -187,30 +186,30 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
             tooltip: _showAll ? 'Showing everything' : 'Tailored to your paths',
             icon: Icon(
               _showAll ? Icons.visibility : Icons.tune,
-              color: _showAll ? AppColors.accent : Colors.white38,
+              color: _showAll ? Theme.of(context).colorScheme.primary : Colors.white38,
             ),
             onPressed: () => _toggleShowAll(!_showAll),
           ),
         ],
       ),
       body: !_loaded
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent))
+          ? Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.08),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.25)),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Trusted organizations outside this app. Links open in '
                     'your browser so content is always current.',
-                    style: TextStyle(color: AppColors.textPrimary,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 13, height: 1.45),
                   ),
                 ),
@@ -221,13 +220,13 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                     Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       child: Material(
-                        color: AppColors.bgCard,
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(14),
                         child: ListTile(
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),
-                          leading: const Icon(Icons.spa_outlined,
-                              color: AppColors.accent),
+                          leading: Icon(Icons.spa_outlined,
+                              color: Theme.of(context).colorScheme.primary),
                           title: const Text('Native Recovery Centers (in-app)',
                               style: TextStyle(
                                   color: Colors.white,
@@ -236,7 +235,7 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                           subtitle: Text(
                               'Culturally specific programs across Minnesota',
                               style: TextStyle(
-                                  color: AppColors.textMuted, fontSize: 12)),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                           trailing: const Icon(Icons.chevron_right,
                               size: 18, color: Colors.white38),
                           onTap: () => _openNative(context),

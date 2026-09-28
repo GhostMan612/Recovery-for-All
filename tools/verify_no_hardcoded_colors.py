@@ -27,6 +27,30 @@ ALLOWLIST = {
 
 LITERAL = re.compile(r"Color\(0x[0-9A-Fa-f]+\)")
 
+# Phase 5: the dark-pinned top-level AppColors constants are gone from the
+# token file. Any reference to them outside it is a regression that would pin
+# a screen to dark mode, so the gate now fails on the *name* as well as the
+# literal. Kept here (rather than only deleting the constants) so the failure
+# mode is explicit when someone re-adds one.
+RETIRED = re.compile(
+    r"AppColors\.(bgDeep|bgCard|border|accent|success|danger|"
+    r"textPrimary|textMuted|textDim|textHint)\b"
+)
+
+# Domain-scoped tokens that are intentionally brightness-independent and may be
+# referenced from anywhere. Listed for documentation; the gate only checks that
+# the retired names above stay unused.
+DOMAIN_TOKENS = (
+    "dangerSoft", "pink", "brandZoom", "accentSky", "monsterHound",
+    "raidVictory", "raidVictorySoft", "raidVictoryDeep", "raidActiveDeep",
+    "moodGood", "moodStruggling", "moodNeedHelp", "moodScale",
+    "starfield", "pinOnline", "pinSoon", "housingMaternal", "housingDefault",
+    "fellowAA", "fellowNA", "fellowSMART", "fellowWellbriety",
+    "starMilestone", "starStepWork", "starCommunity", "starService",
+    "starMindfulness", "starSpiritual",
+)
+
+
 
 def main() -> int:
     failures = []
@@ -34,7 +58,16 @@ def main() -> int:
         rel = path.relative_to(LIB).as_posix()
         if rel.endswith(".g.dart"):
             continue
-        hits = LITERAL.findall(path.read_text(encoding="utf-8", errors="ignore"))
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        hits = LITERAL.findall(text)
+
+        retired = sorted({m for m in RETIRED.findall(text)})
+        if retired and rel != "core/theme/app_colors.dart":
+            failures.append(
+                f"{rel}: references retired dark-pinned constant(s) "
+                f"{', '.join('AppColors.' + r for r in retired)}"
+            )
+
         if rel in ALLOWLIST:
             cap = ALLOWLIST[rel]
             if cap is not None and len(hits) > cap:
@@ -49,12 +82,14 @@ def main() -> int:
             )
 
     if failures:
-        print("FAIL: raw color literals outside the token contract")
+        print("FAIL: color contract violated")
         for f in failures:
             print(f"  {f}")
         print(
-            "\nUse Theme.of(context).colorScheme, AppColors.* tokens, or add a "
-            "named token in app_colors.dart (Phase 3 classification rules)."
+            "\nUse Theme.of(context).colorScheme slots, or a named domain token "
+            "in app_colors.dart (Phase 3 classification rules). Retired dark-pinned "
+            "constants must not return (Phase 5); domain tokens such as "
+            f"{', '.join(DOMAIN_TOKENS[:6])}, ... are allowed."
         )
         return 1
     print("PASS: no hardcoded color literals outside allowlist")

@@ -87,7 +87,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 shapeJson != null
                     ? 'Your constellation shape rides along — day counts stay private.'
                     : 'Alias only · no location · no numbers required',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -101,15 +101,15 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   hintText: 'How is your path going?',
                   hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                   filled: true,
-                  fillColor: AppColors.bgCard,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainer,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide:
-                        const BorderSide(color: AppColors.accent),
+                        BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
@@ -119,7 +119,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 height: 46,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: controller.text.trim().isEmpty
@@ -192,7 +192,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               Text(
                 "What you wrote tells us tonight is heavy. The circle can't "
                 'hold this one — humans can. Please reach out now.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 13,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13,
                     height: 1.45),
               ),
               const SizedBox(height: 16),
@@ -210,8 +210,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const SizedBox(height: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.accent,
-                  side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                   minimumSize: const Size.fromHeight(46),
                 ),
                 icon: const Icon(Icons.person_pin_circle),
@@ -247,13 +247,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: AppColors.accent),
+            Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 4),
             Text('$count',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
             const SizedBox(width: 2),
             Text(label,
-                style: const TextStyle(color: AppColors.textDim, fontSize: 11)),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
           ],
         ),
       ),
@@ -283,7 +283,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'feed_compose',
-        backgroundColor: AppColors.accent,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         icon: const Icon(Icons.edit_outlined, color: Colors.white),
         label: const Text('Share', style: TextStyle(color: Colors.white)),
         onPressed: () => _openComposer(),
@@ -330,8 +330,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.forum_outlined,
-                                size: 54, color: AppColors.textDim),
+                            Icon(Icons.forum_outlined,
+                                size: 54, color: Theme.of(context).colorScheme.outline),
                             const SizedBox(height: 16),
                             const Text('The circle is quiet right now.',
                                 style: TextStyle(
@@ -371,11 +371,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Widget _postTile(FeedPost post) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.bgCard.withValues(alpha: 0.94),
+        color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: post.needsSupport
-            ? Border.all(color: AppColors.accent.withValues(alpha: 0.35))
-            : Border.all(color: AppColors.border),
+            ? Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35))
+            : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       child: Column(
@@ -385,12 +385,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                 child: Text(post.authorAlias.isNotEmpty
                     ? post.authorAlias[0].toUpperCase()
                     : '?',
-                    style: const TextStyle(
-                        color: AppColors.accent,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 13,
                         fontWeight: FontWeight.bold)),
               ),
@@ -407,7 +407,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               ),
               Text(_relativeTime(post.createdAt),
                   style:
-                      const TextStyle(color: AppColors.textDim, fontSize: 11)),
+                      TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
               IconButton(
                 tooltip: 'Flag for moderators',
                 icon: const Icon(Icons.flag_outlined,
@@ -431,19 +431,19 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.1),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.favorite_outline,
-                      size: 15, color: AppColors.accent),
+                      size: 15, color: Theme.of(context).colorScheme.primary),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'This path has hard miles. Need support? '
                       '988 is always there — tap the banner above.',
-                      style: TextStyle(color: AppColors.textPrimary,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 12, height: 1.35),
                     ),
                   ),
@@ -451,7 +451,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               ),
             ),
           ],
-          const Divider(color: AppColors.border, height: 18),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 18),
           Row(
             children: [
               _reactionButton(Icons.volunteer_activism_outlined, 'strength',
@@ -546,9 +546,9 @@ class _ModerationQueueDialog extends StatelessWidget {
                 builder: (context, snapshot) {
                   final items = snapshot.data ?? const <FeedPost>[];
                   if (items.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text('Queue is clear.',
-                          style: TextStyle(color: AppColors.textMuted)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     );
                   }
                   return ListView.separated(
@@ -560,7 +560,7 @@ class _ModerationQueueDialog extends StatelessWidget {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.bgCard,
+                          color: Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
@@ -568,8 +568,8 @@ class _ModerationQueueDialog extends StatelessWidget {
                           children: [
                             Text('${post.authorAlias} · ${post.status}'
                                 ' · flags ${post.flagCount}',
-                                style: const TextStyle(
-                                    color: AppColors.textDim, fontSize: 11)),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.outline, fontSize: 11)),
                             const SizedBox(height: 4),
                             Text(post.body,
                                 maxLines: 4,
@@ -587,9 +587,9 @@ class _ModerationQueueDialog extends StatelessWidget {
                                       service.hide(post.id),
                                 ),
                                 TextButton(
-                                  child: const Text('Keep visible',
+                                  child: Text('Keep visible',
                                       style: TextStyle(
-                                          color: AppColors.accent)),
+                                          color: Theme.of(context).colorScheme.primary)),
                                   onPressed: () =>
                                       service.approve(post.id),
                                 ),

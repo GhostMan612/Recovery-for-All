@@ -588,7 +588,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
               return IconButton(
                 icon: Icon(icon, size: 28),
-                color: isSelected ? color : AppColors.textHint,
+                color: isSelected ? color : Theme.of(context).colorScheme.outline,
                 onPressed: () {
                   setState(() {
                     _selectedMood = rating;
@@ -605,9 +605,9 @@ class _JournalScreenState extends State<JournalScreen> {
                   controller: _contentController,
                   maxLines: null,
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Enter your thoughts, triggers, or victories...',
-                    hintStyle: TextStyle(color: AppColors.textHint),
+                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                     border: InputBorder.none,
                   ),
                 ),
