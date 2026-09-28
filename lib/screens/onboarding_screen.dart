@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
+import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart';
 import '../widgets/avatar_visual_layer.dart';
@@ -136,9 +137,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _nextStep() {
     if (_currentStep == _valuesStepIndex && _selectedCoreValues.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Pick at least 3 values that guide you.'),
-          backgroundColor: Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         ),
       );
       return;
@@ -254,20 +255,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         if (_currentStep > 0)
                           TextButton(
                             onPressed: _isFinalizing ? null : _previousStep,
-                            child: const Text('Back', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
+                            child: Text('Back', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16)),
                           )
                         else
                           const SizedBox(width: 64),
                         ElevatedButton(
                           onPressed: _isFinalizing ? null : _nextStep,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF38BDF8),
+                            backgroundColor: Theme.of(context).colorScheme.primary,
                             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           ),
                           child: Text(
                             _currentStep < _lastStepIndex ? 'Next' : 'Initialize Platform',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                         ),
                       ],
@@ -277,21 +278,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               if (_isFinalizing)
                 Container(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-                  child: const Center(
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                  child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: Color(0xFF38BDF8)),
+                        CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
                         SizedBox(height: 24),
                         Text(
                           'Constructing Your Path...',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 8),
                         Text(
                           'Encrypting databases & hatching companion',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                         ),
                       ],
                     ),
@@ -310,35 +311,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.terrain, size: 80, color: Color(0xFF38BDF8)),
+          Icon(Icons.terrain, size: 80, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'The Path You Build.',
-            style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, height: 1.2),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.w900, height: 1.2),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Recovery is deeply personal. No single program holds the monopoly on healing. This space is yours to build the exact combination of practices, teachings, and supports that keep you well.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16, height: 1.5),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16, height: 1.5),
           ),
           const SizedBox(height: 48),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+              color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.3)),
+              border: Border.all(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.lock_outline, color: Color(0xFF34D399)),
+                Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.tertiary),
                 SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     'Zero-Knowledge Environment. Your data stays securely encrypted on this device.',
-                    style: TextStyle(color: Color(0xFF34D399), fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.tertiary, fontSize: 13),
                   ),
                 ),
               ],
@@ -349,11 +350,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFF472B6),
-                side: const BorderSide(color: Color(0xFFF472B6), width: 1.2),
+                foregroundColor: AppColors.pink,
+                side: BorderSide(color: AppColors.pink, width: 1.2),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                backgroundColor: const Color(0xFFF472B6).withValues(alpha: 0.08),
+                backgroundColor: AppColors.pink.withValues(alpha: 0.08),
               ),
               icon: const Icon(Icons.emergency_outlined, size: 20),
               label: const Text(
@@ -371,7 +372,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _showRule25Sheet() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
         child: Padding(
@@ -384,16 +385,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFFF472B6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.health_and_safety_outlined, color: Color(0xFFF472B6)),
+                    decoration: BoxDecoration(color: AppColors.pink.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(Icons.health_and_safety_outlined, color: AppColors.pink),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Rule 25 & Treatment Access', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('Minnesota — immediate, confidential', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                        Text('Rule 25 & Treatment Access', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Minnesota — immediate, confidential', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -402,10 +403,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF334155))),
-                child: const Text(
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
+                child: Text(
                   'Rule 25 is Minnesota’s chemical-use assessment that connects you to the right level of care — no wrong door.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13, height: 1.4),
                 ),
               ),
               const SizedBox(height: 16),
@@ -433,7 +434,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.pop(sheetContext),
-                  child: const Text('Close', style: TextStyle(color: Color(0xFF94A3B8))),
+                  child: Text('Close', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ),
               ),
             ],
@@ -449,11 +450,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Focus Areas', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('Focus Areas', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
-          const Text('What are we overcoming?', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text('What are we overcoming?', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const Text('Select all that apply. Your counters will be built based on these.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
+          Text('Select all that apply. Your counters will be built based on these.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16)),
           const SizedBox(height: 32),
           Expanded(
             child: SingleChildScrollView(
@@ -475,10 +476,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         }
                       });
                     },
-                    selectedColor: const Color(0xFF38BDF8),
-                    checkmarkColor: Colors.white,
-                    labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-                    backgroundColor: const Color(0xFF1E293B),
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    checkmarkColor: Theme.of(context).colorScheme.onSurface,
+                    labelStyle: TextStyle(color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   );
                 }).toList(),
@@ -496,11 +497,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Communities', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('Communities', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
-          const Text('Select Your Pathways', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text('Select Your Pathways', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const Text('Mix and match. We will use these to find meetings and filter literature.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
+          Text('Mix and match. We will use these to find meetings and filter literature.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16)),
           const SizedBox(height: 24),
           Expanded(
             child: ListView.separated(
@@ -525,10 +526,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF38BDF8).withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                      color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15) : Theme.of(context).colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -538,13 +539,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(path, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text(path, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              Text(desc, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                              Text(desc, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                             ],
                           ),
                         ),
-                        if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF38BDF8)),
+                        if (isSelected) Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
                       ],
                     ),
                   ),
@@ -563,11 +564,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('The Toolbox', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('The Toolbox', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
-          const Text('Assemble Your Dashboard', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text('Assemble Your Dashboard', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const Text('Toggle the specific tools you want readily available on your home screen.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
+          Text('Toggle the specific tools you want readily available on your home screen.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16)),
           const SizedBox(height: 24),
           Expanded(
             child: Builder(builder: (context) {
@@ -581,7 +582,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 physics: const BouncingScrollPhysics(),
                 itemCount: pool.length,
                 separatorBuilder: (_, _) =>
-                    const Divider(color: Color(0xFF334155)),
+                    Divider(color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (context, index) {
                   final tool = pool[index];
                   final desc = _toolsPool[tool] ??
@@ -591,18 +592,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           !_dismissedSuggestions.contains(tool));
                   return SwitchListTile(
                     title: Text(tool,
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       suggested.contains(tool)
                           ? '$desc · suggested by your pathways'
                           : desc,
-                      style: const TextStyle(
-                          color: Color(0xFF94A3B8), fontSize: 12),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                     ),
                     value: isSelected,
-                    activeThumbColor: const Color(0xFF38BDF8),
+                    activeThumbColor: Theme.of(context).colorScheme.primary,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (bool value) {
                       setState(() {
@@ -633,9 +634,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Your Compass', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('Your Compass', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
-          const Text('What Guides You?', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text('What Guides You?', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Text(
             'Choose 3 to 10 core values. These shape how your coach speaks and what your path celebrates.',
@@ -644,7 +645,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 16),
           Text(
             '${_selectedCoreValues.length} of 10 selected · minimum 3',
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13),
           ),
           const SizedBox(height: 24),
           Expanded(
@@ -668,10 +669,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         }
                       });
                     },
-                    selectedColor: const Color(0xFF38BDF8),
-                    checkmarkColor: Colors.white,
-                    labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF94A3B8), fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-                    backgroundColor: const Color(0xFF1E293B),
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    checkmarkColor: Theme.of(context).colorScheme.onSurface,
+                    labelStyle: TextStyle(color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   );
                 }).toList(),
@@ -690,50 +691,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Safety & Identity', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            Text('Safety & Identity', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             const SizedBox(height: 8),
-            const Text('Personal Dynamics', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+            Text('Personal Dynamics', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
             const SizedBox(height: 32),
-            const Text('Anonymous Alias (Optional)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Anonymous Alias (Optional)', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _usernameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'What should your companion call you?',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
                 filled: true,
-                fillColor: const Color(0xFF1E293B),
+                fillColor: Theme.of(context).colorScheme.surfaceContainer,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Sponsor / Lifeline Phone (Optional)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Sponsor / Lifeline Phone (Optional)', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _sponsorPhoneController,
               keyboardType: TextInputType.phone,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'For the immediate SOS dialer.',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                prefixIcon: const Icon(Icons.phone, color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+                prefixIcon: Icon(Icons.phone, color: Theme.of(context).colorScheme.outline),
                 filled: true,
-                fillColor: const Color(0xFF1E293B),
+                fillColor: Theme.of(context).colorScheme.surfaceContainer,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 32),
-            const Text('Base Stress Response', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Base Stress Response', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('How do you typically react under immense pressure?', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+            Text('How do you typically react under immense pressure?', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 16),
             SliderTheme(
               data: SliderThemeData(
-                activeTrackColor: const Color(0xFF38BDF8),
-                inactiveTrackColor: const Color(0xFF334155),
-                thumbColor: Colors.white,
-                overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
+                thumbColor: Theme.of(context).colorScheme.onSurface,
+                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
               ),
               child: Slider(
                 value: _stressResponse,
@@ -742,22 +743,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('Isolate / Withdraw', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                Text('Reactive / Impulsive', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+              children: [
+                Text('Isolate / Withdraw', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                Text('Reactive / Impulsive', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 32),
-            const Text('Coach Tone', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Coach Tone', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('How direct should your coach be when things get hard?', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+            Text('How direct should your coach be when things get hard?', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 16),
             SliderTheme(
               data: SliderThemeData(
-                activeTrackColor: const Color(0xFF38BDF8),
-                inactiveTrackColor: const Color(0xFF334155),
-                thumbColor: Colors.white,
-                overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
+                thumbColor: Theme.of(context).colorScheme.onSurface,
+                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
               ),
               child: Slider(
                 value: _coachTone,
@@ -766,22 +767,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('Gentle & Soft', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                Text('Direct & Grounded', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+              children: [
+                Text('Gentle & Soft', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                Text('Direct & Grounded', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 32),
-            const Text('Spiritual Openness', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Spiritual Openness', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text('How much spiritual framing feels right for you?', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+            Text('How much spiritual framing feels right for you?', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
             const SizedBox(height: 16),
             SliderTheme(
               data: SliderThemeData(
-                activeTrackColor: const Color(0xFF38BDF8),
-                inactiveTrackColor: const Color(0xFF334155),
-                thumbColor: Colors.white,
-                overlayColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                activeTrackColor: Theme.of(context).colorScheme.primary,
+                inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
+                thumbColor: Theme.of(context).colorScheme.onSurface,
+                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
               ),
               child: Slider(
                 value: _spiritualOpenness,
@@ -790,9 +791,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('Secular / Practical', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                Text('Deeply Spiritual', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+              children: [
+                Text('Secular / Practical', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                Text('Deeply Spiritual', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
               ],
             ),
           ],
@@ -828,25 +829,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('The Guide', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text('The Guide', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
           const SizedBox(height: 8),
-          const Text('Your Companion', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text('Your Companion', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 28, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Pick a starter look. You can earn sparks to unlock everything else later.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+          Text('Pick a starter look. You can earn sparks to unlock everything else later.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
           const SizedBox(height: 24),
           if (_draftPet != null)
             Center(child: AvatarVisualLayer(pet: _draftPet!, size: 140))
           else
-            const Center(child: SizedBox(height: 140, child: Icon(Icons.auto_awesome, size: 64, color: Color(0xFF334155)))),
+            Center(child: SizedBox(height: 140, child: Icon(Icons.auto_awesome, size: 64, color: Theme.of(context).colorScheme.outlineVariant))),
           const SizedBox(height: 12),
           if (_draftPet != null)
             Center(
               child: TextButton.icon(
                 onPressed: openDresser,
-                icon: const Icon(Icons.checkroom_outlined,
-                    size: 18, color: Color(0xFF38BDF8)),
-                label: const Text('Fine-tune every detail',
-                    style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13)),
+                icon: Icon(Icons.checkroom_outlined,
+                    size: 18, color: Theme.of(context).colorScheme.primary),
+                label: Text('Fine-tune every detail',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13)),
               ),
             ),
           const SizedBox(height: 12),
@@ -873,10 +874,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: selected ? const Color(0xFF38BDF8).withValues(alpha: 0.1) : const Color(0xFF1E293B),
+                      color: selected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: selected ? const Color(0xFF38BDF8) : Colors.transparent,
+                        color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -890,14 +891,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             children: [
                               Text(
                                 id[0].toUpperCase() + id.substring(1),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 4),
-                              Text(reaction, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                              Text(reaction, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             ],
                           ),
                         ),
-                        if (selected) const Icon(Icons.check_circle, color: Color(0xFF38BDF8)),
+                        if (selected) Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
                       ],
                     ),
                   ),
@@ -920,28 +921,28 @@ class _Rule25Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0F172A),
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF334155))),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFFF472B6), size: 22),
+              Icon(icon, color: AppColors.pink, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text(subtitle, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   ],
                 ),
               ),
-              const Icon(Icons.open_in_new, color: Color(0xFF64748B), size: 16),
+              Icon(Icons.open_in_new, color: Theme.of(context).colorScheme.outline, size: 16),
             ],
           ),
         ),

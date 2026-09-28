@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 import '../database/recovery_database.dart';
+import '../core/theme/app_colors.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/narrative_export_service.dart';
 import '../services/constellation_service.dart';
@@ -198,8 +199,8 @@ class _JournalScreenState extends State<JournalScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+      builder: (c) => Center(
+        child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
       ),
     );
 
@@ -225,7 +226,7 @@ class _JournalScreenState extends State<JournalScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -244,9 +245,9 @@ class _JournalScreenState extends State<JournalScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     'Weekly Reflection',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   ChronicleShareCard(chronicleText: text, pet: pet),
@@ -255,15 +256,15 @@ class _JournalScreenState extends State<JournalScreen> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF38BDF8),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       icon: isSaving
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
-                          : const Icon(Icons.bookmark, color: Color(0xFF0F172A)),
+                          ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.surface))
+                          : Icon(Icons.bookmark, color: Theme.of(context).colorScheme.surface),
                       label: Text(
                         isSaving ? 'Saving...' : 'Save to Journal',
-                        style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Theme.of(context).colorScheme.surface, fontWeight: FontWeight.bold),
                       ),
                       onPressed: isSaving
                           ? null
@@ -320,7 +321,7 @@ class _JournalScreenState extends State<JournalScreen> {
       };
 
       return Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
@@ -330,12 +331,12 @@ class _JournalScreenState extends State<JournalScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     shape: BoxShape.circle,
                     border: Border.all(
                         color: _pinError
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF334155)),
+                            ? AppColors.moodNeedHelp
+                            : Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: Icon(
                     _gate == _JournalGate.setupPin ||
@@ -343,16 +344,16 @@ class _JournalScreenState extends State<JournalScreen> {
                         ? Icons.key
                         : Icons.lock_outline,
                     color: _pinError
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF38BDF8),
+                        ? AppColors.moodNeedHelp
+                        : Theme.of(context).colorScheme.primary,
                     size: 48,
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   title,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
@@ -360,8 +361,8 @@ class _JournalScreenState extends State<JournalScreen> {
                 Text(
                   hint,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFF94A3B8), fontSize: 13),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 if (_gate != _JournalGate.loading)
@@ -374,18 +375,18 @@ class _JournalScreenState extends State<JournalScreen> {
                       maxLength: kPinDigits,
                       autofocus: true,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 20,
                           letterSpacing: 8),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         counterText: "",
                         enabledBorder: UnderlineInputBorder(
                             borderSide:
-                                BorderSide(color: Color(0xFF334155))),
+                                BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
                         focusedBorder: UnderlineInputBorder(
                             borderSide:
-                                BorderSide(color: Color(0xFF38BDF8))),
+                                BorderSide(color: Theme.of(context).colorScheme.primary)),
                       ),
                       onSubmitted: _submitPin,
                     ),
@@ -397,12 +398,12 @@ class _JournalScreenState extends State<JournalScreen> {
                   ElevatedButton(
                     onPressed: () => _submitPin(_pinController.text),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E293B),
-                      foregroundColor: const Color(0xFF38BDF8),
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                         side:
-                            const BorderSide(color: Color(0xFF334155)),
+                            BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                       ),
                     ),
                     child: Text(buttonLabel),
@@ -412,8 +413,8 @@ class _JournalScreenState extends State<JournalScreen> {
                     onPressed: _resettingBiometric ? null : _forgotPin,
                     child: Text(
                       _resettingBiometric ? 'Checking…' : 'Forgot PIN?',
-                      style: const TextStyle(
-                          color: Color(0xFF38BDF8), fontSize: 13),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary, fontSize: 13),
                     ),
                   ),
               ],
@@ -424,19 +425,19 @@ class _JournalScreenState extends State<JournalScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('My Private Sanctuary'),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8)),
+            icon: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary),
             tooltip: 'Generate Weekly Chronicle',
             onPressed: () => _showChronicleGenerator(context),
           ),
           IconButton(
-            icon: const Icon(Icons.lock, color: Color(0xFFEF4444)),
+            icon: const Icon(Icons.lock, color: AppColors.moodNeedHelp),
             tooltip: 'Lock Journal',
             onPressed: _relock,
           ),
@@ -449,16 +450,16 @@ class _JournalScreenState extends State<JournalScreen> {
               stream: widget.database.watchRecentJournals(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)));
+                  return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
                 }
 
                 final List<JournalEntry> entries = snapshot.data ?? [];
 
                 if (entries.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
                       'No reflections logged yet. Speak your mind freely.',
-                      style: TextStyle(color: Color(0xFF64748B)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
                     ),
                   );
                 }
@@ -472,10 +473,10 @@ class _JournalScreenState extends State<JournalScreen> {
                     final formattedDate = DateFormat('MMMM d, yyyy - h:mm a').format(date);
 
                     return Card(
-                      color: const Color(0xFF1E293B),
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFF334155)),
+                        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                       ),
                       margin: const EdgeInsets.only(bottom: 12),
                       child: Padding(
@@ -488,7 +489,7 @@ class _JournalScreenState extends State<JournalScreen> {
                               children: [
                                 Text(
                                   formattedDate,
-                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11),
                                 ),
                                 _buildMoodBadge(entry.moodRating),
                               ],
@@ -515,24 +516,24 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Widget _buildMoodBadge(int rating) {
     String label = 'Okay';
-    Color color = const Color(0xFF94A3B8);
+    Color color = Theme.of(context).colorScheme.onSurfaceVariant;
 
     switch (rating) {
       case 5:
         label = 'Great';
-        color = const Color(0xFF34D399);
+        color = Theme.of(context).colorScheme.tertiary;
         break;
       case 4:
         label = 'Good';
-        color = const Color(0xFF60A5FA);
+        color = AppColors.moodGood;
         break;
       case 2:
         label = 'Struggling';
-        color = const Color(0xFFFBBF24);
+        color = AppColors.moodStruggling;
         break;
       case 1:
         label = 'Need Help';
-        color = const Color(0xFFEF4444);
+        color = AppColors.moodNeedHelp;
         break;
     }
 
@@ -553,9 +554,9 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget _buildWritePane() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E293B),
-        border: Border(top: BorderSide(color: Color(0xFF334155))),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -565,29 +566,29 @@ class _JournalScreenState extends State<JournalScreen> {
             children: List.generate(5, (index) {
               final rating = index + 1;
               final bool isSelected = _selectedMood == rating;
-              Color color = const Color(0xFF94A3B8);
+              Color color = Theme.of(context).colorScheme.onSurfaceVariant;
               IconData icon = Icons.sentiment_neutral;
 
               if (rating == 5) {
-                color = const Color(0xFF34D399);
+                color = Theme.of(context).colorScheme.tertiary;
                 icon = Icons.sentiment_very_satisfied;
               } else if (rating == 4) {
-                color = const Color(0xFF60A5FA);
+                color = AppColors.moodGood;
                 icon = Icons.sentiment_satisfied;
               } else if (rating == 3) {
-                color = const Color(0xFF94A3B8);
+                color = Theme.of(context).colorScheme.onSurfaceVariant;
                 icon = Icons.sentiment_neutral;
               } else if (rating == 2) {
-                color = const Color(0xFFFBBF24);
+                color = AppColors.moodStruggling;
                 icon = Icons.sentiment_dissatisfied;
               } else if (rating == 1) {
-                color = const Color(0xFFEF4444);
+                color = AppColors.moodNeedHelp;
                 icon = Icons.sentiment_very_dissatisfied;
               }
 
               return IconButton(
                 icon: Icon(icon, size: 28),
-                color: isSelected ? color : const Color(0xFF475569),
+                color: isSelected ? color : AppColors.textHint,
                 onPressed: () {
                   setState(() {
                     _selectedMood = rating;
@@ -603,17 +604,17 @@ class _JournalScreenState extends State<JournalScreen> {
                 child: TextField(
                   controller: _contentController,
                   maxLines: null,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                   decoration: const InputDecoration(
                     hintText: 'Enter your thoughts, triggers, or victories...',
-                    hintStyle: TextStyle(color: Color(0xFF475569)),
+                    hintStyle: TextStyle(color: AppColors.textHint),
                     border: InputBorder.none,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.send_rounded, color: Color(0xFF38BDF8)),
+                icon: Icon(Icons.send_rounded, color: Theme.of(context).colorScheme.primary),
                 onPressed: _saveEntry,
               ),
             ],
@@ -635,20 +636,20 @@ class _EntryText extends StatelessWidget {
       future: future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
+          return Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
             child: SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Color(0xFF334155)),
+                  strokeWidth: 2, color: Theme.of(context).colorScheme.outlineVariant),
             ),
           );
         }
         return Text(
           snapshot.data ?? '[Encrypted entry could not be opened]',
           style:
-              const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+              TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14, height: 1.4),
         );
       },
     );

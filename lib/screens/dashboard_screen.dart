@@ -285,25 +285,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final progress = xpInto / 100;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF38BDF8)),
+              Icon(Icons.auto_awesome, size: 14, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 6),
-              Text('Level $level • $xpInto/100 XP', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              Text('Level $level • $xpInto/100 XP', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
               const Spacer(),
-              Text('Tap for Skill Tree', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+              Text('Tap for Skill Tree', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
               const SizedBox(width: 4),
-              const Icon(Icons.account_tree_outlined, size: 14, color: Color(0xFFF472B6)),
+              const Icon(Icons.account_tree_outlined, size: 14, color: AppColors.pink),
             ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: const Color(0xFF0F172A), valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8))),
+            child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: Theme.of(context).colorScheme.surface, valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -317,7 +317,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<String?> showPetCheckInSheet(BuildContext context) async {
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -327,8 +327,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('How are you feeling?',
-                  style: TextStyle(color: Colors.white, fontSize: 20)),
+              Text('How are you feeling?',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20)),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -353,7 +353,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icon(icon, color: color, size: 40),
           onPressed: () => Navigator.pop(context, label),
         ),
-        Text(label, style: const TextStyle(color: Colors.white70)),
+        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
       ],
     );
   }
@@ -383,7 +383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ? 'Checked in · +$sparksDelta Sparks'
                   : 'Checked in',
         ),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       ),
     );
     if (moodLabel == 'Struggling') {
@@ -398,7 +398,7 @@ Future<void> _handleWalk() async {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           content: const Text(
             'Activity recognition permission is required to track walks. Please enable it in settings.',
           ),
@@ -425,14 +425,14 @@ Future<void> _handleWalk() async {
             if (!context.mounted) return false;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: const Color(0xFF1E293B),
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                 content: const Text(
                   'Walk not verified — need at least 500 steps in 30 minutes. '
                   'Your companion understands, no Sparks this time.',
                 ),
                 action: SnackBarAction(
                   label: 'Override',
-                  textColor: const Color(0xFF38BDF8),
+                  textColor: Theme.of(context).colorScheme.primary,
                   onPressed: () async {
                     await StepCounterService.instance.manuallyVerifyWalk();
                     await _completeWalk();
@@ -465,7 +465,7 @@ Future<void> _handleWalk() async {
     final after = _pet?.sparks ?? before;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
           after > before
               ? 'Walk verified · +${after - before} Sparks'
@@ -503,7 +503,7 @@ Future<void> _handleWalk() async {
         borderRadius: BorderRadius.circular(18),
         child: Container(
           height: 150,
-          color: const Color(0xFF0B1120),
+          color: AppColors.starfield,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -516,13 +516,13 @@ Future<void> _handleWalk() async {
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.auto_awesome,
-                            size: 30, color: AppColors.accent),
+                            size: 30, color: Theme.of(context).colorScheme.primary),
                         SizedBox(height: 8),
                         Text('Plant your first star — name your sky',
                             style: TextStyle(
-                                color: AppColors.textMuted, fontSize: 12)),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -535,24 +535,24 @@ Future<void> _handleWalk() async {
                   children: [
                     Text(
                       _skyName ?? 'Your Constellation',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     if (nodes != null && nodes.isNotEmpty)
                       Text('${nodes.length} stars',
-                          style: const TextStyle(
-                              color: AppColors.textMuted, fontSize: 11)),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                   ],
                 ),
               ),
-              const Positioned(
+              Positioned(
                 right: 10,
                 top: 8,
                 child: Icon(Icons.expand_outlined,
-                    size: 18, color: Colors.white24),
+                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
               ),
             ],
           ),
@@ -577,18 +577,18 @@ Future<void> _handleWalk() async {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.12),
+          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+          border: Border.all(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.check_circle_outline,
-                color: AppColors.success, size: 20),
+                color: Theme.of(context).colorScheme.tertiary, size: 20),
             SizedBox(width: 10),
             Expanded(
               child: Text('Pledge confirmed. Today is yours.',
-                  style: TextStyle(color: Colors.white, fontSize: 13)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
             ),
           ],
         ),
@@ -597,24 +597,24 @@ Future<void> _handleWalk() async {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
-          const Icon(Icons.wb_sunny_outlined,
-              color: AppColors.accent, size: 20),
+          Icon(Icons.wb_sunny_outlined,
+              color: Theme.of(context).colorScheme.primary, size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text('Today I pledge to stay the course.',
-                style: TextStyle(color: Colors.white, fontSize: 13)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
           ),
           TextButton(
             onPressed: _confirmPledge,
-            child: const Text('I pledge',
+            child: Text('I pledge',
                 style: TextStyle(
-                    color: AppColors.accent,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: 13)),
           ),
@@ -684,7 +684,7 @@ Future<void> _handleWalk() async {
       onTap: () {
         showModalBottomSheet<void>(
           context: context,
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           isScrollControlled: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -696,14 +696,14 @@ Future<void> _handleWalk() async {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Daily Steps',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Track movement. Verify walks. Earn Sparks.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                   ),
                   const SizedBox(height: 16),
                   StepCounterCard(),
@@ -848,7 +848,7 @@ Future<void> _handleWalk() async {
     unawaited(SosNotificationService.ensureNotificationPermission());
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -866,13 +866,13 @@ Future<void> _handleWalk() async {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'You are not alone.',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       tooltip: 'My Support Circle',
-                      icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                      icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                       onPressed: () {
                         Navigator.pop(sheetContext);
                         _push(SettingsScreen(database: widget.database));
@@ -883,7 +883,7 @@ Future<void> _handleWalk() async {
                 const SizedBox(height: 4),
                 Text(
                   'Immediate support, one tap away.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 // Row 1: 988 + Sponsor
@@ -892,7 +892,7 @@ Future<void> _handleWalk() async {
                     Expanded(
                       child: _SosTile(
                         icon: Icons.phone_in_talk,
-                        color: const Color(0xFFDC2626),
+                        color: Theme.of(context).colorScheme.error,
                         title: 'Call 988',
                         subtitle: 'Suicide & Crisis Lifeline · 24/7',
                         onTap: () {
@@ -906,7 +906,7 @@ Future<void> _handleWalk() async {
                     Expanded(
                       child: _SosTile(
                         icon: Icons.person_pin_circle,
-                        color: AppColors.accent,
+                        color: Theme.of(context).colorScheme.primary,
                         title: sponsorPhone == null ? 'Call Sponsor' : 'Call Sponsor',
                         subtitle: sponsorPhone ?? 'Add in Settings',
                         enabled: sponsorPhone != null,
@@ -925,7 +925,7 @@ Future<void> _handleWalk() async {
                     Expanded(
                       child: _SosTile(
                         icon: Icons.groups_2,
-                        color: AppColors.accent,
+                        color: Theme.of(context).colorScheme.primary,
                         title: 'Nearest Meetings',
                         subtitle: 'Three rooms close to you',
                         onTap: () async {
@@ -948,7 +948,7 @@ Future<void> _handleWalk() async {
                     Expanded(
                       child: _SosTile(
                         icon: Icons.open_in_new,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         title: 'Crisis Resources',
                         subtitle: '988lifeline.org',
                         onTap: () {
@@ -993,45 +993,45 @@ Future<void> _handleWalk() async {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0F172A),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8))),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text('Welcome, $_username', style: const TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text('Welcome, $_username', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Tutorial Guide',
-            icon: const Icon(Icons.help_outline, color: Colors.white70),
+            icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: _openTutorialChatbot,
           ),
           IconButton(
             tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+            icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: () => _push(SettingsScreen(database: widget.database)),
           ),
         ],
       ),
       body: _selectedIndex == 0 ? _buildPathTab() : _buildLibraryTab(),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: const Color(0xFF1E293B),
-        indicatorColor: AppColors.accent.withValues(alpha: 0.22),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: Colors.white70),
-              selectedIcon: Icon(Icons.home, color: Colors.white),
+              icon: Icon(Icons.home_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+              selectedIcon: Icon(Icons.home, color: Theme.of(context).colorScheme.onSurface),
               label: 'Path'),
           NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined, color: Colors.white70),
-              selectedIcon: Icon(Icons.menu_book, color: Colors.white),
+              icon: Icon(Icons.menu_book_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+              selectedIcon: Icon(Icons.menu_book, color: Theme.of(context).colorScheme.onSurface),
               label: 'Library'),
         ],
       ),
@@ -1043,11 +1043,11 @@ Future<void> _handleWalk() async {
               _writeCareAlert();
               _showSosSheet();
             },
-            backgroundColor: const Color(0xFFDC2626),
-            icon: const Icon(Icons.sos, color: Colors.white),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            icon: Icon(Icons.sos, color: Theme.of(context).colorScheme.onSurface),
             label: Text(
               isSmallScreen ? 'SOS' : 'SOS Help',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
             ),
             extendedPadding: EdgeInsets.symmetric(
               horizontal: isSmallScreen ? 16 : 24,
@@ -1082,12 +1082,12 @@ Future<void> _handleWalk() async {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.15),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
                       ),
                       child: Text(path,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
                     ),
                 ],
               ),
@@ -1145,10 +1145,10 @@ Future<void> _handleWalk() async {
                     setState(() => _enforceRadius = next);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        backgroundColor: const Color(0xFF1E293B),
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         content: Text(
                           'Meeting radius filtering: ${next ? 'ON' : 'OFF'}',
-                          style: const TextStyle(color: Color(0xFF38BDF8)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                     );
@@ -1190,24 +1190,24 @@ Future<void> _handleWalk() async {
                     if (updated != null && updated.currentHp <= 0) {
                       await _refreshPet();
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Color(0xFF1E293B), content: Text('Boss defeated! +200 XP • Community triumph!')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('Boss defeated! +200 XP • Community triumph!')));
                     } else if (updated != null) {
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: const Color(0xFF1E293B), content: Text('Strike! -${RaidService.strikeDamage} HP • You: ${updated.userContribution} DMG')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Theme.of(context).colorScheme.surfaceContainer, content: Text('Strike! -${RaidService.strikeDamage} HP • You: ${updated.userContribution} DMG')));
                     }
                   },
                 ),
               ),
             Row(
               children: [
-                const Text('Your Toolbox',
+                Text('Your Toolbox',
                     style: TextStyle(
-                        color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                        color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                   tooltip: _editingPath ? 'Done' : 'Edit layout',
                   icon: Icon(_editingPath ? Icons.check : Icons.edit_outlined,
-                      color: AppColors.accent, size: 18),
+                      color: Theme.of(context).colorScheme.primary, size: 18),
                   onPressed: () => setState(() => _editingPath = !_editingPath),
                 ),
               ],
@@ -1216,7 +1216,7 @@ Future<void> _handleWalk() async {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.bgCard.withValues(alpha: 0.5),
+                  color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Wrap(
@@ -1251,33 +1251,33 @@ Future<void> _handleWalk() async {
             ),
             const SizedBox(height: 20),
             Material(
-              color: const Color(0xFF1E293B),
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FellowshipSyncScreen(database: widget.database))),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35))),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35))),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: const Color(0xFF38BDF8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.qr_code_scanner, color: Color(0xFF38BDF8), size: 22),
+                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.qr_code_scanner, color: Theme.of(context).colorScheme.primary, size: 22),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Fellowship Handshake', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('Fellowship Handshake', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14)),
                             SizedBox(height: 2),
-                            Text('QR connect • +50 XP • offline, private', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                            Text('QR connect • +50 XP • offline, private', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                      Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                     ],
                   ),
                 ),
@@ -1285,33 +1285,33 @@ Future<void> _handleWalk() async {
             ),
             const SizedBox(height: 12),
             Material(
-              color: const Color(0xFF1E293B),
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(16),
               child: InkWell(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SeventhTraditionScreen())),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFF472B6).withValues(alpha: 0.25))),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.pink.withValues(alpha: 0.25))),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: const Color(0xFFF472B6).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.volunteer_activism_outlined, color: Color(0xFFF472B6), size: 22),
+                        decoration: BoxDecoration(color: AppColors.pink.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.volunteer_activism_outlined, color: AppColors.pink, size: 22),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('7th Tradition', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('7th Tradition', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14)),
                             SizedBox(height: 2),
-                            Text('Voluntary support — keeps Recovery for All free', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                            Text('Voluntary support — keeps Recovery for All free', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                      Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                     ],
                   ),
                 ),
@@ -1334,26 +1334,26 @@ Future<void> _handleWalk() async {
           children: [
             Row(
               children: [
-                const Text('Library',
+                Text('Library',
                     style: TextStyle(
-                        color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                        color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                   tooltip: _editingLibrary ? 'Done' : 'Edit layout',
                   icon: Icon(_editingLibrary ? Icons.check : Icons.edit_outlined,
-                      color: AppColors.accent, size: 18),
+                      color: Theme.of(context).colorScheme.primary, size: 18),
                   onPressed: () => setState(() => _editingLibrary = !_editingLibrary),
                 ),
               ],
             ),
-            const Text('Literature, housing, and community — always one tap away.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            Text('Literature, housing, and community — always one tap away.',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             if (_editingLibrary && _hiddenLibrary.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.bgCard.withValues(alpha: 0.5),
+                  color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Wrap(
@@ -1433,7 +1433,7 @@ Future<void> _handleWalk() async {
                 duration: const Duration(milliseconds: 150),
                 decoration: isTarget
                     ? BoxDecoration(
-                        border: Border.all(color: AppColors.accent, width: 2),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
                         borderRadius: BorderRadius.circular(16),
                       )
                     : null,
@@ -1464,10 +1464,10 @@ Future<void> _handleWalk() async {
                     ),
                   ),
                 ),
-              const Positioned(
+              Positioned(
                 bottom: 6,
                 right: 6,
-                child: Icon(Icons.drag_handle, size: 16, color: Colors.white38),
+                child: Icon(Icons.drag_handle, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
               ),
             ],
           ),
@@ -1526,7 +1526,7 @@ class _ToolCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.bgCard,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -1537,14 +1537,14 @@ class _ToolCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: AppColors.accent, size: 28),
+              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
               const SizedBox(height: 10),
               Text(
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1555,7 +1555,7 @@ class _ToolCard extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                 ),
               ],
             ],
@@ -1588,17 +1588,17 @@ class _SosTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Material(
-        color: enabled ? AppColors.bgCard : AppColors.bgCard.withValues(alpha: 0.4),
+        color: enabled ? Theme.of(context).colorScheme.surfaceContainer : Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(12),
           child: ListTile(
             leading: Icon(icon, color: color),
-            title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 15)),
+            title: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
             subtitle: subtitle == null
                 ? null
-                : Text(subtitle!, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                : Text(subtitle!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           ),
         ),
       ),

@@ -112,6 +112,14 @@ class AppColors {
   static const Color textDim = Color(0xFF64748B);
   static const Color textHint = Color(0xFF475569);
 
+  static const Color pink = Color(0xFFF472B6);
+
+  static const Color moodGood = Color(0xFF60A5FA);
+  static const Color moodStruggling = Color(0xFFFBBF24);
+  static const Color moodNeedHelp = Color(0xFFEF4444);
+
+  static const Color starfield = Color(0xFF0B1120);
+
   static Color scrim([double opacity = 0.72]) => bgDeep.withValues(alpha: opacity);
 
   static const AppPalette midnightSlate = AppPalette(

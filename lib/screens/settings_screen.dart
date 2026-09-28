@@ -170,7 +170,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _reminderEnabled = granted ? value : false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(granted
             ? (value
                 ? 'Daily invitation set for ${GentleReminderService.formatMinutes(_reminderMinutes)}'
@@ -194,7 +194,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text('Invitation set for ${GentleReminderService.formatMinutes(minutes)}'),
       ),
     );
@@ -272,14 +272,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _changeJournalPin() async {
+    final scheme = Theme.of(context).colorScheme;
     final current = await _promptPinText('Enter your current journal PIN');
     if (current == null || !mounted) return;
     final ok = await JournalCryptoService.verifyPin(current);
     if (!ok) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('That PIN did not match — nothing changed'),
-          backgroundColor: Color(0xFFEF4444)));
+          backgroundColor: scheme.error));
       return;
     }
     if (!mounted) return;
@@ -290,9 +291,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await _promptPinText('Confirm the new PIN');
     if (confirm == null || !mounted) return;
     if (confirm != next) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('The two new PINs did not match — nothing changed'),
-          backgroundColor: Color(0xFFEF4444)));
+          backgroundColor: scheme.error));
       return;
     }
     try {
@@ -302,9 +303,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SnackBar(content: Text('Journal PIN updated')));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('PIN must be exactly 6 digits'),
-          backgroundColor: Color(0xFFEF4444)));
+          backgroundColor: scheme.error));
     }
   }
 
@@ -313,9 +314,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title: Text(title,
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -323,21 +324,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           keyboardType: TextInputType.number,
           maxLength: JournalCryptoService.pinLength,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 20, letterSpacing: 8),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface, fontSize: 20, letterSpacing: 8),
           decoration: const InputDecoration(counterText: ''),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child:
-                const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+                Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Continue',
-                style: TextStyle(color: Color(0xFF38BDF8))),
+            child: Text('Continue',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -360,7 +361,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _registeredSponsor = identity);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text('Linked to ${identity.alias} — sign-offs are now verifiable.'),
       ),
     );
@@ -404,7 +405,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _refreshingMeetings = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
           failed
               ? 'Refresh failed — the cached directory still works offline.'
@@ -420,28 +421,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final url = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Add Meeting Feed', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text('Add Meeting Feed', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.url,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          decoration: InputDecoration(
             hintText: 'https://yourarea.org/meetings.json',
-            hintStyle: TextStyle(color: Color(0xFF64748B)),
+            hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38BDF8)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Add', style: TextStyle(color: Colors.white)),
+            child: Text('Add', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ),
         ],
       ),
@@ -476,21 +477,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
-      hintStyle: const TextStyle(color: Color(0xFF475569)),
+      labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      hintStyle: const TextStyle(color: AppColors.textHint),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: Theme.of(context).colorScheme.surfaceContainer,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF334155)),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -502,13 +503,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) {
     return TextFormField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       keyboardType: TextInputType.phone,
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-() ]')),
       ],
       decoration: _fieldDecoration(label: label, hint: hint).copyWith(
-        prefixIcon: const Icon(Icons.phone, color: Color(0xFF64748B)),
+        prefixIcon: Icon(Icons.phone, color: Theme.of(context).colorScheme.outline),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) return null;
@@ -522,17 +523,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0F172A),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8))),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
       );
     }
-    
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E293B),
+        title: Text('Settings', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -542,36 +543,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('System Permissions', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('System Permissions', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               ListTile(
-                title: const Text('Battery Optimization', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Disable for reliable background SOS', style: TextStyle(color: Color(0xFF94A3B8))),
-                trailing: const Icon(Icons.open_in_new, color: Color(0xFF38BDF8)),
+                title: Text('Battery Optimization', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text('Disable for reliable background SOS', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                trailing: Icon(Icons.open_in_new, color: Theme.of(context).colorScheme.primary),
                 onTap: () async {
                   await AppSettings.openAppSettings(type: AppSettingsType.batteryOptimization);
                 },
               ),
               ListTile(
-                title: const Text('General App Settings', style: TextStyle(color: Colors.white)),
-                trailing: const Icon(Icons.settings, color: Color(0xFF38BDF8)),
+                title: Text('General App Settings', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                trailing: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
                 onTap: () async {
                   await AppSettings.openAppSettings();
                 },
               ),
               const SizedBox(height: 24),
-              const Text('Appearance', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Appearance', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const SizedBox(height: 10),
               Builder(builder: (context) {
                 final current = ref.watch(themeProvider).palette;
                 Widget chip(AppTheme t, String label, Color preview) => ChoiceChip(
-                      label: Text(label, style: TextStyle(color: current == t ? Colors.white : const Color(0xFF94A3B8), fontSize: 13)),
+                      label: Text(label, style: TextStyle(color: current == t ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                       selected: current == t,
-                      selectedColor: const Color(0xFF38BDF8),
-                      backgroundColor: const Color(0xFF1E293B),
-                      avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: preview, shape: BoxShape.circle, border: Border.all(color: Colors.white24))),
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                      avatar: Container(width: 14, height: 14, decoration: BoxDecoration(color: preview, shape: BoxShape.circle, border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)))),
                       onSelected: (sel) {
                         if (sel) {
                           ref.read(themeProvider.notifier).setPalette(t);
@@ -586,113 +587,113 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }),
               const SizedBox(height: 24),
               SwitchListTile(
-                title: const Text('Community moderator mode',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                title: Text('Community moderator mode',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Review flagged circle posts before they return to the feed',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 value: _isModerator,
-                activeThumbColor: const Color(0xFF38BDF8),
+                activeThumbColor: Theme.of(context).colorScheme.primary,
                 onChanged: (value) async {
                   await CommunityFeedService.setModerator(value);
                   setState(() => _isModerator = value);
                 },
               ),
               const SizedBox(height: 24),
-              const Text('Gentle Reminder', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Gentle Reminder', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'One invitational nudge a day. No streaks, no guilt — '
                 'just an open door at a time you choose.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               SwitchListTile(
-                title: const Text('Daily invitation',
-                    style: TextStyle(color: Colors.white)),
+                title: Text('Daily invitation',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 subtitle: Text(GentleReminderService.formatMinutes(_reminderMinutes),
-                    style: const TextStyle(color: Color(0xFF94A3B8))),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 value: _reminderEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
+                activeThumbColor: Theme.of(context).colorScheme.primary,
                 onChanged: _toggleReminder,
               ),
               ListTile(
                 enabled: _reminderEnabled,
                 leading:
-                    const Icon(Icons.schedule, color: Color(0xFF38BDF8)),
-                title: const Text('Invitation time',
-                    style: TextStyle(color: Colors.white)),
+                    Icon(Icons.schedule, color: Theme.of(context).colorScheme.primary),
+                title: Text('Invitation time',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 trailing: Text(
                   GentleReminderService.formatMinutes(_reminderMinutes),
-                  style: const TextStyle(color: Color(0xFF94A3B8)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 onTap: _reminderEnabled ? _pickReminderTime : null,
               ),
               const SizedBox(height: 24),
               SwitchListTile(
-                title: const Text('Biometric app lock',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                title: Text('Biometric app lock',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Require fingerprint/face when opening the app',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 value: _biometricEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
+                activeThumbColor: Theme.of(context).colorScheme.primary,
                 onChanged: _toggleBiometric,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.key, color: Color(0xFF38BDF8)),
+                leading: Icon(Icons.key, color: Theme.of(context).colorScheme.primary),
                 title:
-                    const Text('Journal PIN',
-                        style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                    Text('Journal PIN',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Change the privacy wall on your private journal',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 onTap: _changeJournalPin,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.fact_check_outlined,
-                    color: Color(0xFF38BDF8)),
-                title: const Text('Verify resource links now',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                leading: Icon(Icons.fact_check_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                title: Text('Verify resource links now',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Check every literature & community link for link rot',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 onTap: _verifyResourceLinks,
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.dashboard_customize_outlined,
-                    color: Color(0xFF38BDF8)),
-                title: const Text('Reset dashboard layout',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                leading: Icon(Icons.dashboard_customize_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                title: Text('Reset dashboard layout',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Restore tile order and show hidden tiles',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 onTap: _resetDashboardLayout,
               ),
               const SizedBox(height: 24),
-              const Text('My Sponsor', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('My Sponsor', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               if (_registeredSponsor != null) ...[
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.verified_outlined,
-                      color: Color(0xFF34D399)),
+                  leading: Icon(Icons.verified_outlined,
+                      color: Theme.of(context).colorScheme.tertiary),
                   title: Text(_registeredSponsor!.alias,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                   subtitle: Text('Pairing ${_registeredSponsor!.pairingCode}',
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF38BDF8),
-                          side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                         ),
                         icon: const Icon(Icons.workspace_premium_outlined, size: 18),
                         label: const Text('Sponsor Mode'),
@@ -722,22 +723,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ] else ...[
-                const Text(
+                Text(
                   'Enter the pairing code from your sponsor\'s app '
                   '(Sponsor Mode). Enables verified 12-step sign-offs.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _sponsorAliasController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                   decoration: _fieldDecoration(label: 'Sponsor alias', hint: 'e.g. Mike D.'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _sponsorCodeController,
                   textCapitalization: TextCapitalization.characters,
-                  style: const TextStyle(color: Colors.white, letterSpacing: 1.5),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, letterSpacing: 1.5),
                   decoration: _fieldDecoration(label: 'Pairing code', hint: 'ABCD12EF-QX'),
                 ),
                 const SizedBox(height: 8),
@@ -746,8 +747,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF38BDF8),
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onSurface,
                         ),
                         icon: const Icon(Icons.link, size: 18),
                         label: const Text('Link sponsor'),
@@ -758,8 +759,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF34D399),
-                          side: BorderSide(color: const Color(0xFF34D399).withValues(alpha: 0.5)),
+                          foregroundColor: Theme.of(context).colorScheme.tertiary,
+                          side: BorderSide(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5)),
                         ),
                         icon: const Icon(Icons.workspace_premium_outlined, size: 18),
                         label: const Text('I am a sponsor'),
@@ -774,28 +775,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
               const SizedBox(height: 24),
-              const Text('Feedback', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Feedback', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               SwitchListTile(
-                title: const Text('Sound effects',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                title: Text('Sound effects',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Reward chimes for Sparks, milestones, and stars',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 value: _soundEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
+                activeThumbColor: Theme.of(context).colorScheme.primary,
                 onChanged: (value) async {
                   await FeedbackService.setSound(value);
                   setState(() => _soundEnabled = value);
                 },
               ),
               SwitchListTile(
-                title: const Text('Haptics',
-                    style: TextStyle(color: Colors.white)),
-                subtitle: const Text(
+                title: Text('Haptics',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                     'Vibration feedback on rewards and key actions',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 value: _hapticsEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
+                activeThumbColor: Theme.of(context).colorScheme.primary,
                 onChanged: (value) async {
                   await FeedbackService.setHaptics(value);
                   setState(() => _hapticsEnabled = value);
@@ -804,23 +805,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               if (_ggufSupported) ...[
-                const Text('Deeper Chat (Optional)',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Deeper Chat (Optional)',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Download a small AI model for richer coach replies. '
                   'Runs entirely on your device. Your scripted coach remains '
                   'the default and safety features never change.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Enable deeper chat',
-                      style: TextStyle(color: Colors.white)),
+                  title: Text('Enable deeper chat',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                   value: _ggufEnabled,
-                  activeThumbColor: const Color(0xFF38BDF8),
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
                   onChanged: _toggleGguf,
                 ),
                 if (_ggufEnabled)
@@ -834,17 +835,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ? Icons.check_circle
                               : Icons.download_outlined,
                           color: _ggufDownloaded.contains(model.id)
-                              ? const Color(0xFF34D399)
-                              : const Color(0xFF38BDF8),
+                              ? Theme.of(context).colorScheme.tertiary
+                              : Theme.of(context).colorScheme.primary,
                           size: 22,
                         ),
                         title: Text(model.name,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 14)),
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface, fontSize: 14)),
                         subtitle: Text(
                             '${model.description}\n${model.fileSizeMb} · ${model.quantization}',
-                            style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 11,
                                 height: 1.3)),
                         trailing: _ggufDownloading && _ggufSelectedModel == model.id
@@ -865,8 +866,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     },
                                   )
                                 : IconButton(
-                                    icon: const Icon(Icons.download,
-                                        color: Color(0xFF38BDF8), size: 20),
+                                    icon: Icon(Icons.download,
+                                        color: Theme.of(context).colorScheme.primary, size: 20),
                                     onPressed: () => _downloadGgufModel(model),
                                   ),
                         onTap: () {
@@ -882,17 +883,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: LinearProgressIndicator(
                       value: _ggufProgress,
                       backgroundColor: const Color(0xFF334155),
-                      color: const Color(0xFF38BDF8),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 const SizedBox(height: 24),
               ],
               const SizedBox(height: 24),
-              const Text('Export Data', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Export Data', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Share your recovery data with a therapist, counselor, or healthcare provider.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 8),
               Row(
@@ -900,8 +901,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF38BDF8),
-                        side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                       ),
                       icon: const Icon(Icons.table_view, size: 18),
                       label: const Text('Export CSV'),
@@ -920,8 +921,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF38BDF8),
-                        side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                       ),
                       icon: const Icon(Icons.description_outlined, size: 18),
                       label: const Text('Summary'),
@@ -939,7 +940,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              const Text('SOS Contacts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('SOS Contacts', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               _buildPhoneField(
                 controller: _sponsorController,
@@ -954,33 +955,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E293B),
-                  foregroundColor: const Color(0xFF38BDF8),
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                 ),
                 icon: const Icon(Icons.phone_in_talk),
                 label: const Text('Test Call Sponsor'),
               ),
               const SizedBox(height: 24),
-              const Text('Meeting Directory', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Meeting Directory', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Open feeds following the Meeting Guide spec (AA intergroups, BMLT for NA). '
                 'Downloaded meetings are cached and work fully offline.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 8),
               if (_lastMeetingRefresh != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('Last refreshed: $_lastMeetingRefresh',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
                 ),
               ..._meetingSources.map(
                 (url) => ListTile(
                   dense: true,
-                  leading: const Icon(Icons.rss_feed, color: Color(0xFF38BDF8), size: 20),
+                  leading: Icon(Icons.rss_feed, color: Theme.of(context).colorScheme.primary, size: 20),
                   title: Text(_shortenUrl(url),
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
                   trailing: IconButton(
                     tooltip: 'Remove feed',
                     icon: const Icon(Icons.delete_outline,
@@ -994,8 +995,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF38BDF8),
-                        side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                       ),
                       icon: const Icon(Icons.add_link, size: 18),
                       label: const Text('Add Feed'),
@@ -1006,15 +1007,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF38BDF8),
-                        foregroundColor: Colors.white,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onSurface,
                       ),
                       icon: _refreshingMeetings
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                  strokeWidth: 2, color: Theme.of(context).colorScheme.onSurface))
                           : const Icon(Icons.refresh, size: 18),
                       label: const Text('Refresh'),
                       onPressed:
@@ -1030,20 +1031,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Uri.parse('https://github.com/code4recovery/spec'),
                   mode: LaunchMode.externalApplication,
                 ),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   child: Row(
                     children: [
                       Icon(Icons.menu_book_outlined,
-                          size: 16, color: Color(0xFF64748B)),
+                          size: 16, color: Theme.of(context).colorScheme.outline),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Feed format spec (Code for Recovery) — works with AA intergroups and BMLT',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11),
                         ),
                       ),
-                      Icon(Icons.open_in_new, size: 14, color: Color(0xFF64748B)),
+                      Icon(Icons.open_in_new, size: 14, color: Theme.of(context).colorScheme.outline),
                     ],
                   ),
                 ),
@@ -1051,13 +1052,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 24),
 
               // 7th Tradition & Support
-              const Text('7th Tradition & Support',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('7th Tradition & Support',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Every fellowship is self-supporting. Links open in your browser — '
                 'Recovery for All does not process payments or collect financial data.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 8),
               ListTile(
@@ -1071,12 +1072,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: const Icon(Icons.volunteer_activism_outlined,
                       color: Color(0xFFF472B6), size: 22),
                 ),
-                title: const Text('7th Tradition & Support',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: const Text(
+                title: Text('7th Tradition & Support',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text(
                   'Fellowship donations, literature stores, and app upkeep',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1084,47 +1085,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Legal',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Legal',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF38BDF8)),
-                title: const Text('Privacy Policy',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Offline-first, no analytics, no tracking',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                leading: Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Privacy Policy',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text('Offline-first, no analytics, no tracking',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => launchUrl(Uri.parse('https://github.com/GhostMan612/Recovery-for-All/blob/main/PRIVACY_POLICY.md'), mode: LaunchMode.externalApplication),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.description_outlined, color: Color(0xFF38BDF8)),
-                title: const Text('Terms of Service',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: const Text('EULA — not medical advice',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                leading: Icon(Icons.description_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Terms of Service',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text('EULA — not medical advice',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => launchUrl(Uri.parse('https://github.com/GhostMan612/Recovery-for-All/blob/main/TERMS.md'), mode: LaunchMode.externalApplication),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.article_outlined, color: Color(0xFF38BDF8)),
-                title: const Text('Open Source Licenses',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Flutter, Drift, SQLCipher, llama.cpp, etc.',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                leading: Icon(Icons.article_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Open Source Licenses',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text('Flutter, Drift, SQLCipher, llama.cpp, etc.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => showLicensePage(context: context, applicationName: 'Recovery for All', applicationVersion: '1.0.0+1', applicationLegalese: '© 2024–2026 Recovery for All — Proprietary. Third-party licenses as listed.'),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.security_outlined, color: Color(0xFF38BDF8)),
-                title: const Text('Security Policy',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Report vulnerabilities privately',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                leading: Icon(Icons.security_outlined, color: Theme.of(context).colorScheme.primary),
+                title: Text('Security Policy',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: Text('Report vulnerabilities privately',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
                 onTap: () => launchUrl(Uri.parse('https://github.com/GhostMan612/Recovery-for-All/blob/main/SECURITY.md'), mode: LaunchMode.externalApplication),
               ),
             ],
