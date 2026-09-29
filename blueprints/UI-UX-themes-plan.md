@@ -48,13 +48,49 @@ Phases 0-7 are **complete and verified**. Phases 8-17 are **not started**.
 | 7 — Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
 | 8-17 | NOT STARTED | no code, no gates run |
 
-Gates at the close of Phase 6: `flutter analyze --no-pub` -> No issues found;
-`flutter test` -> 201 passing; `verify_no_hardcoded_colors.py` -> exit 0.
+Gates at the close of Phase 7: `flutter analyze --no-pub` -> No issues found;
+`flutter test` -> 219 passing; `verify_no_hardcoded_colors.py` -> exit 0.
 
 **Resolved:** the dark-pinned `AppColors` statics were the Phase 5 blocker and
 are now gone. (The audit counted ~398 references across 32 files; by the time
 the drain ran, earlier phases had already removed some, leaving 390 across
 31 files — all drained.) Remaining known gaps are tracked per phase below.
+
+## Resume Here (Sep 28, end of session)
+
+**Start Phase 8.** State ownership is explicit, so the view split can no longer
+leave a giant coupled controller behind — the Phase 8 prohibited-shortcut risk
+is now retired.
+
+**Before touching code, re-run the standing gates** (all three must be green;
+if any is not, the tree is not where this document thinks it is):
+
+```text
+flutter analyze --no-pub
+flutter test
+python tools/verify_no_hardcoded_colors.py
+```
+
+**Invariants a new session must not break:**
+
+1. `AppColors` now holds ONLY brightness-independent domain tokens (`mood*`,
+   `raid*`, `star*`, `fellow*`, `pin*`, `housing*`, `starfield`, `brandZoom`,
+   `monsterHound`, `accentSky`, `dangerSoft`, `pink`). Never re-add a
+   brightness-dependent constant; the gate fails on the retired names.
+2. `lib/core/dashboard_providers.dart` owns dashboard state. New dashboard state
+   goes in a notifier, not back into `_DashboardScreenState`.
+3. `main.dart` overrides `databaseProvider` with the single `RecoveryDatabase`.
+   Removing that override re-opens a second SQLCipher connection to the same
+   encrypted file — that was a real latent bug.
+4. Shared UI comes from `lib/widgets/app_primitives.dart`; prefer it over new
+   one-off containers.
+5. Both `SharedPreferences` key families are load-bearing for real users
+   (`dashboard_*_v1`, `theme_*`, `last_known_location_*`). Do not rename.
+
+**Highest-risk remaining work, in order:** Phase 8 (split the 1449-line
+dashboard into view files), Phase 9 (4-tab navigation), Phase 10 (SOS surface).
+All three touch the safety-critical path; do them one at a time with the gates
+between, never in a single sweeping change.
 
 **Next phase is Phase 8 (Dashboard View Reconstruction)** — safe now that state ownership
 is explicit; the split cannot leave a giant coupled controller behind.

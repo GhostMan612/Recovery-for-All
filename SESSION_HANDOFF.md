@@ -32,9 +32,38 @@ resume without losing progress. Update it at every session end.
   drift 2.34 blocked by design until sqlite3 3.x migration path.
 - **Cosmetics only / pet tone laws**: Sparks never gate safety; pet never
   dies, never guilts (pet-store-rules.md).
+- **One database instance** (`main.dart`): `ProviderScope` overrides
+  `databaseProvider` with the single `RecoveryDatabase`. Removing that override
+  silently opens a SECOND SQLCipher connection to the same encrypted file.
+- **Never round-trip source through PowerShell.** For bulk edits, write a
+  `.py` to the temp dir and run it with explicit `encoding="utf-8"` +
+  `newline="\n"`. Do NOT write `python -c "..."` through PowerShell — the
+  quoting gets mangled and corrupts the file.
+- **Do not use bare regex renames on a state class.** Twice this session a
+  field-rename regex clobbered the enclosing class declaration
+  (`_Profile? _profile;` -> garbage). Always `Select-String` the call sites
+  first and hand-edit assignment sites; a regex cannot distinguish reads from
+  writes.
 
 ## 3 · Where things stand
 
+- **UI/UX modernization program: Phases 0-7 COMPLETE, 8-17 not started.** The
+  full phase-by-phase record, per-phase evidence, and a "Resume Here" block are
+  in `blueprints/UI-UX-themes-plan.md` — read that file before starting Phase 8.
+  Short version of what changed:
+  - Color system is real: 875 raw literals and 390 dark-pinned `AppColors`
+    statics are both gone. The retired top-level constants were **deleted**, so
+    a screen can no longer pin itself to dark mode.
+  - `tools/verify_no_hardcoded_colors.py` is a standing gate: it fails on raw
+    `Color(0x…)` outside the token file **and** on any reference to a retired
+    constant name. It must exit 0.
+  - `lib/widgets/app_primitives.dart` holds 7 shared primitives (`AppCard`,
+    `AppSectionHeader`, `AppLoadingState`, `AppEmptyState`, `AppErrorState`,
+    `AppOfflineState`, `AppActionTile`). Reuse before adding new containers.
+  - `lib/core/dashboard_providers.dart` owns dashboard state (layout/radius/
+    pledge/sky-name/data notifiers). `_DashboardScreenState` went 22 mutable
+    fields -> 3.
+  - Suite is at **219 tests**, analyze clean.
 - **Roadmap complete through R19**: Tier 1–2, R9 RPG, R11 GGUF, plus the
   Aug 25 marathon — R12 self-verifying resources (registries +
   verify_resources.py build gate + runtime link-health with 30-day TTL),
@@ -109,6 +138,15 @@ resume without losing progress. Update it at every session end.
 **Phase 7 (dashboard state) COMPLETE:** `lib/core/dashboard_providers.dart` now holds 5 notifiers — `DashboardLayoutNotifier` (order + hidden sets, owns the `_ordered` merge), `MeetingRadiusNotifier`, `DailyPledgeNotifier`, `SkyNameNotifier`, and `DashboardDataNotifier` (profile + pet + raid with explicit load order). `_DashboardScreenState` went from 22 mutable fields to **3** (`_editingPath`, `_editingLibrary` ephemeral; `_selectedIndex` nav) + `_skyNodes` (pure view model). File 1551 → 1449 lines. `DashboardScreen` is `ConsumerStatefulWidget`. 18 tests.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
 **Next: Phase 8 (Dashboard View Reconstruction).** Phases 8-17 not started.
+Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
+
+### Session-boundary state (Sep 28)
+- Working tree **clean**; gates green (analyze 0, test 219, color gate exit 0).
+- **13 commits ahead of `origin/main` and NOT pushed** (Phases 0-7 + doc fixes).
+  `origin/main` is still at `74b55da` (pre-Phase-0). The tree is clean, so the
+  repo's "push manually once the repo is clean" precondition is now met — push
+  is the one outstanding risk of ending the session, because the whole UI/UX
+  program plus the database-instance fix currently exists only on this machine.
 **R15 Self-Healing Tutorial System COMPLETE** (companion_guide_service.dart, overlay, validator).
 **R16 Expanded Meeting Directories COMPLETE** (LifeRing/WFS/CR TSML + SMART/InTheRooms curated).
 **R17 Full-App Tutorial Chatbot COMPLETE** (keyword, covers every feature).
@@ -153,7 +191,13 @@ off). Recommendation: SAA+SA curated MN (R16-pattern) + deep links; never ship
 Gemini doc to compare (feeds? formal SOA? MN counts? SA dial-in inventory?).
 
 1. Rebuild and smoke: Path tab **Next-Meeting Card** + Chatbot **download card** (≥3GB no .gguf → "Enable Offline AI Companion — 253MB" persist dismiss `gguf_download_dismissed_v1`); **Dismiss persists across restart** (Settings download/toggle clears); test notification copy (pet sad→grounding, resting→"Kin resting", 29-day counter→milestone eve); test R26 chronicle generation (offline fallback → 3 paragraphs) + share card (C2 no numbers/location); verify link-health footers, help icon, Walk dialog, Esri tiles, SOS; test **Memory Wall** (Pet Home → auto_awesome_outlined → Kin Remembers); test **Trials** — enter battle, burn to 1 Focus, verify `Take a Breath` appears, +2 Focus, then Strike; verify **drift** — earn Sparks, kill app mid-reward, relaunch → Sparks+event consistent.
-2. Fix what surfaces; then **DotLottie Migration & RAM** (2 Lotties → .lottie) or **R23 Feed sync** deferred. Tool: `tools/build_llama_android.sh` (ASK-2 LTO+strip) + tok/s on Moto G.
+2. **NEW since Phases 0-7 — the light/dark work has never been seen on a device.**
+   Smoke both brightness modes across the top surfaces: dashboard, journal,
+   constellation, meeting map, settings, SOS sheet. The 6-scheme matrix
+   (3 palettes x light/dark) is proven by unit tests only. Pay attention to the
+   avatar painter, the Lottie aura underlays on a light background, and any
+   SnackBar that still reads as a dark slab.
+3. Fix what surfaces; then **DotLottie Migration & RAM** (2 Lotties → .lottie) or **R23 Feed sync** deferred. Tool: `tools/build_llama_android.sh` (ASK-2 LTO+strip) + tok/s on Moto G.
 
 ## 8 · End-of-session checklist (every session)
 
