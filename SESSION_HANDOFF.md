@@ -137,7 +137,13 @@ resume without losing progress. Update it at every session end.
 **Phase 6 (states) COMPLETE:** `app_primitives.dart` now has 7 primitives — added `AppErrorState` (retryable, non-blaming copy) and `AppOfflineState` (distinct from error: cached data is still on screen, copy says so). Adopted in `journal_screen` (empty), `constellation_screen` (empty + loading), `meeting_map_screen` (load failure → `AppErrorState` with real retry). `MeetingFinderService.isCacheStale()` added (missing or >24h `cacheTtl`) so stale network data can surface as an offline affordance instead of looking fresh. 3 new tests.
 **Phase 7 (dashboard state) COMPLETE:** `lib/core/dashboard_providers.dart` now holds 5 notifiers — `DashboardLayoutNotifier` (order + hidden sets, owns the `_ordered` merge), `MeetingRadiusNotifier`, `DailyPledgeNotifier`, `SkyNameNotifier`, and `DashboardDataNotifier` (profile + pet + raid with explicit load order). `_DashboardScreenState` went from 22 mutable fields to **3** (`_editingPath`, `_editingLibrary` ephemeral; `_selectedIndex` nav) + `_skyNodes` (pure view model). File 1551 → 1449 lines. `DashboardScreen` is `ConsumerStatefulWidget`. 18 tests.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 8 (Dashboard View Reconstruction).** Phases 8-17 not started.
+**Next: Phase 8 slice 2 (Dashboard View Reconstruction).** Slice 1
+shipped: `PledgeCard` + `ToolCard` extracted to
+`lib/widgets/dashboard_cards.dart`; `dashboard_screen.dart` is
+1512 -> 1409 lines; 6 new tests, 225 passing, all gates green. Remaining:
+`_SosTile`, the Fellowship Handshake / 7th Tradition rows,
+`AppSectionHeader` adoption, deliberate empty/error states, and a
+large-text check on the tool grid. Phases 9-17 not started.
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
 ### Session-boundary state (Sep 28)

@@ -56,11 +56,23 @@ are now gone. (The audit counted ~398 references across 32 files; by the time
 the drain ran, earlier phases had already removed some, leaving 390 across
 31 files — all drained.) Remaining known gaps are tracked per phase below.
 
-## Resume Here (Sep 28, end of session)
+## Resume Here (Phase 8 in progress)
 
-**Start Phase 8.** State ownership is explicit, so the view split can no longer
-leave a giant coupled controller behind — the Phase 8 prohibited-shortcut risk
-is now retired.
+**Phase 8 slice 1 is DONE.** `PledgeCard` and `ToolCard` now live in
+`lib/widgets/dashboard_cards.dart` (145 lines) instead of
+inline in the screen; `dashboard_screen.dart` is 1512 -> 1409
+lines. 6 new tests; 225 passing.
+
+**Start Phase 8 slice 2.** Remaining in Phase 8: extract `_SosTile` (keep it
+next to `ToolCard` so the SOS sheet keeps exactly one
+implementation), then the Fellowship Handshake + 7th Tradition rows, then
+`AppSectionHeader` for 'Your Toolbox' / 'Library', then the
+deliberate empty/error states. Watch the tool grid `childAspectRatio:
+1.35` for large-text overflow.
+
+State ownership is explicit, so the view split can no longer leave a giant
+coupled controller behind — the Phase 8 prohibited-shortcut risk is now
+retired.
 
 **Before touching code, re-run the standing gates** (all three must be green;
 if any is not, the tree is not where this document thinks it is):

@@ -62,6 +62,7 @@ import '../widgets/walk_tracking_dialog.dart';
 import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
 import '../widgets/next_meeting_card.dart';
+import '../widgets/dashboard_cards.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
@@ -107,8 +108,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  List<_ToolCard> _ordered(
-      List<_ToolCard> cards, List<String> order, Set<String> hidden) {
+  List<ToolCard> _ordered(
+      List<ToolCard> cards, List<String> order, Set<String> hidden) {
     return _layout.ordered(cards, (c) => c.label, order, hidden);
   }
 
@@ -467,62 +468,11 @@ Future<void> _handleWalk() async {
     await FeedbackService.selection();
   }
 
-  Widget _buildPledgeCard() {
-    if (ref.watch(dailyPledgeProvider)) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_outline,
-                color: Theme.of(context).colorScheme.tertiary, size: 20),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text('Pledge confirmed. Today is yours.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.wb_sunny_outlined,
-              color: Theme.of(context).colorScheme.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('Today I pledge to stay the course.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
-          ),
-          TextButton(
-            onPressed: _confirmPledge,
-            child: Text('I pledge',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13)),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ------------------------------------------------------------------
   // Toolbox
   // ------------------------------------------------------------------
 
-  List<_ToolCard> _buildToolCards() {
+  List<ToolCard> _buildToolCards() {
     Widget screenFor(String tool) {
       switch (tool) {
         case 'Encrypted Journal':
@@ -543,36 +493,36 @@ Future<void> _handleWalk() async {
       }
     }
 
-    final cards = <_ToolCard>[];
+    final cards = <ToolCard>[];
 
     // Universal tools (blueprint §2.3): Journal, Gratitude, Counters,
     // Meeting Finder, SOS.
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Private Journal',
       subtitle: 'PIN-protected reflections',
       icon: Icons.lock_outline,
       onTap: () => _push(JournalScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Gratitude',
       subtitle: 'Three good things',
       icon: Icons.volunteer_activism_outlined,
       onTap: () => _push(GratitudeEntryScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Counters',
       subtitle: 'Your Day One clock',
       icon: Icons.timelapse,
       onTap: () => _push(SobrietyCounterScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Meeting Finder',
       subtitle: 'Rooms near and virtual',
       icon: Icons.map_outlined,
       onTap: _openMeetings,
     ));
     // Step counter — shows daily steps, requests pedometer permission
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Step Counter',
       subtitle: 'Track daily movement',
       icon: Icons.directions_walk,
@@ -612,7 +562,7 @@ Future<void> _handleWalk() async {
 
     for (final tool in ref.watch(dashboardDataProvider).tools) {
       if (tool == 'Encrypted Journal' || tool == 'Meeting Finder' || tool == 'Wellness Check-In') continue;
-      cards.add(_ToolCard(
+      cards.add(ToolCard(
         label: tool,
         subtitle: '',
         icon: IconRegistry.toolIcon(tool),
@@ -622,7 +572,7 @@ Future<void> _handleWalk() async {
 
     // Culturally specific pathway content, shown when selected onboarding.
     if (ref.watch(dashboardDataProvider).paths.contains('Wellbriety')) {
-      cards.add(_ToolCard(
+      cards.add(ToolCard(
         label: 'Wellbriety Circles',
         subtitle: 'White Bison gatherings',
         icon: Icons.circle_outlined,
@@ -630,43 +580,43 @@ Future<void> _handleWalk() async {
       ));
     }
 
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Wellness Check-In',
       subtitle: 'Six-dimension wheel',
       icon: Icons.donut_large_outlined,
       onTap: () => _push(WellnessCheckInScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Weekly Goals',
       subtitle: 'Small promises kept',
       icon: Icons.flag_outlined,
       onTap: () => _push(WeeklyGoalsScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'The Twelve Steps',
       subtitle: 'A reader, any path',
       icon: Icons.menu_book_outlined,
       onTap: () => _push(StepsViewerScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Daily Motivation',
       subtitle: 'One reflection at a time',
       icon: Icons.wb_twilight_outlined,
       onTap: () => _push(const DailyMotivationScreen()),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Companion Home',
       subtitle: 'Stats, outfits, care log',
       icon: Icons.pets_outlined,
       onTap: () => _push(PetHomeScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Recovery Circle',
       subtitle: 'Share shapes, not numbers',
       icon: Icons.forum_outlined,
       onTap: () => _push(CommunityFeedScreen(database: widget.database)),
     ));
-    cards.add(_ToolCard(
+    cards.add(ToolCard(
       label: 'Recovery Coach',
       subtitle: 'Offline guidance, always here',
       icon: Icons.support_agent,
@@ -966,7 +916,10 @@ Future<void> _handleWalk() async {
           children: [
             _buildSkyCrown(),
             const SizedBox(height: 12),
-            _buildPledgeCard(),
+            PledgeCard(
+              pledged: ref.watch(dailyPledgeProvider),
+              onPledge: _confirmPledge,
+            ),
             const SizedBox(height: 16),
             if (ref.watch(dashboardDataProvider).paths.isNotEmpty) ...[
               Wrap(
@@ -1296,7 +1249,7 @@ Future<void> _handleWalk() async {
   }
 
   /// Resource cards live in Library, never in the Path toolbox.
-  Widget _buildDraggableToolCard(List<_ToolCard> ordered, int index,
+  Widget _buildDraggableToolCard(List<ToolCard> ordered, int index,
       {required bool isLibrary}) {
     final card = ordered[index];
     final editing = isLibrary ? _editingLibrary : _editingPath;
@@ -1309,7 +1262,7 @@ Future<void> _handleWalk() async {
       onAcceptWithDetails: (details) {
         final from = ordered.indexWhere((c) => c.label == details.data);
         if (from == -1) return;
-        final reordered = List<_ToolCard>.from(ordered);
+        final reordered = List<ToolCard>.from(ordered);
         final moved = reordered.removeAt(from);
         reordered.insert(index, moved);
         final labels = reordered.map((c) => c.label).toList();
@@ -1381,94 +1334,38 @@ Future<void> _handleWalk() async {
     );
   }
 
-  List<_ToolCard> _buildLibraryCards() => [
-        _ToolCard(
+  List<ToolCard> _buildLibraryCards() => [
+        ToolCard(
           label: 'Literature Library',
           subtitle: 'Books and pamphlets, free',
           icon: Icons.menu_book_outlined,
           onTap: () => _push(const LiteratureLibraryScreen()),
         ),
-        _ToolCard(
+        ToolCard(
           label: 'Community Support',
           subtitle: 'RCOs and online rooms',
           icon: Icons.volunteer_activism,
           onTap: () => _push(const CommunityResourcesScreen()),
         ),
-        _ToolCard(
+        ToolCard(
           label: 'Native Resources',
           subtitle: 'MN culturally specific care',
           icon: Icons.spa_outlined,
           onTap: () => _push(const NativeResourcesScreen()),
         ),
-        _ToolCard(
+        ToolCard(
           label: 'Sober Housing',
           subtitle: 'Structured homes directory',
           icon: Icons.home_work_outlined,
           onTap: () => _push(const SoberHousingLocatorScreen()),
         ),
-        _ToolCard(
+        ToolCard(
           label: 'Crisis Lines',
           subtitle: '988, SAMHSA, Trevor — 24/7',
           icon: Icons.emergency_outlined,
           onTap: _showSosSheet,
         ),
       ];
-}
-
-class _ToolCard extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ToolCard({
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _SosTile extends StatelessWidget {
