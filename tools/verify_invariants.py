@@ -91,15 +91,53 @@ elif len(sos_decls) > 1:
         "the other." % (len(sos_decls), where)
     )
 
-# The SOS entry point must remain reachable from the dashboard shell. Check
-# the DEFINITION, not the name: renaming only the method body would otherwise
-# leave every call site matching.
-dash = read(LIB / "screens" / "dashboard_screen.dart")
-if not re.search(r"void _showSosSheet\s*\(", dash):
+# The SOS entry point must remain exactly once, anywhere under lib/.
+#
+# Deliberately NOT pinned to dashboard_screen.dart: Phase 9 moves the shell,
+# and a check that demands the function stay in one file would fail the gate
+# on a correct refactor. What actually matters is that the definition exists
+# exactly once and that the shell still exposes it, so assert both.
+sos_defs = []
+for path in sorted(LIB.rglob("*.dart")):
+    for m in re.finditer(r"void (_showSosSheet)\s*\(", read(path)):
+        sos_defs.append(path.relative_to(ROOT).as_posix())
+
+if len(sos_defs) == 0:
     failures.append(
-        "lib/screens/dashboard_screen.dart: the _showSosSheet definition is "
-        "gone. SOS must remain globally reachable; Phase 9 must not remove "
-        "the entry point."
+        "The _showSosSheet definition is gone from lib/. SOS must remain "
+        "globally reachable from every destination (Phase 9/10)."
+    )
+elif len(sos_defs) > 1:
+    failures.append(
+        "SOS entry point DUPLICATED: _showSosSheet is defined in %s. Two "
+        "definitions means two code paths on a safety-critical surface; keep "
+        "one and route both callers to it." % ", ".join(sos_defs)
+    )
+
+# The shell that hosts the FAB must still be able to reach SOS. This is the
+# check that would actually catch a Phase 9 regression, as opposed to a
+# refactor that only moves the code.
+#
+# A CALL SITE is any reference that is not the definition itself. Checking for
+# the bare name is not enough: the definition lives in the shell file, so a
+# name-only check is satisfied by the definition even after every call site is
+# deleted -- which would leave an SOS FAB wired to nothing.
+CALL_SITE = re.compile(r"(?<!void )_showSosSheet\s*(?!\()")
+
+shell_candidates = [
+    p for p in sorted((LIB / "screens").glob("*.dart"))
+    if "NavigationBar" in read(p)
+]
+if not shell_candidates:
+    failures.append(
+        "No shell screen found: expected a lib/screens/*.dart file that owns "
+        "a NavigationBar. The app lost its primary navigation host."
+    )
+elif not any(CALL_SITE.search(read(p)) for p in shell_candidates):
+    failures.append(
+        "A navigation shell owns a NavigationBar but never CALLS "
+        "_showSosSheet. The SOS FAB must be wired from the shell so it works "
+        "on every destination; a dead definition is not a reachable SOS."
     )
 
 # ---------------------------------------------------------------------------

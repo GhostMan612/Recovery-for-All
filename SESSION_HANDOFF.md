@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Program Phases 0-8 COMPLETE — Phase 8 rebuilt the dashboard view layer in four committed slices (screen 1512 -> 1157 lines, 28 new tests, 3 real defects found and fixed); analyze 0, test 247)
+**Last updated:** September 28, 2026 (UI/UX Phases 0-8 COMPLETE; Phase 9 IN PROGRESS - slice A shipped the four-destination shell enum, `IndexedStack`, and `PopScope` back handling; analyze 0, test 254, all four gates green)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -85,7 +85,7 @@ resume without losing progress. Update it at every session end.
     3. Hiding every toolbox tool collapsed the grid with no explanation and
        no way back. `ToolGrid` now explains that hiding is not deleting
        and offers "Restore all".
-  - Suite is at **247 tests**, analyze clean.
+  - Suite is at **254 tests**, analyze clean.
 - **Four gates, and the fourth is new:** `python tools/verify_invariants.py`
   enforces the rules that used to be only prose in this file. It fails on a
   missing `databaseProvider` override, a second `SosTile` or a removed
@@ -197,33 +197,34 @@ all are renderable in tests without a provider scope. 28 new tests.
 **⚠ Deliberately NOT done in Phase 8:** the two-tab Path/Library IA. Moving
 to four destinations is Phase 9's job; Phase 8 added and moved nothing.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 9 (Navigation Architecture).** Phase 8 is complete and
-committed. Four destinations - Companion, Path, Library, Profile - without
-duplicating pet state, duplicating settings, losing tab state, or breaking
-Android back behavior. Do it in slices with the gates between, the same way
-Phase 8 was done. Phase 9 is the next safety-critical surface: the SOS FAB
-must keep working from every destination, and `SosTile` must remain the
-only SOS tile implementation (Phase 10 forbids a second one).
+**Next: Phase 9 slice B (Profile), then slice C (Companion).** Slice A is
+committed: `DashboardDestination` enum, `IndexedStack` body, `PopScope` back
+handling, and `SettingsScreen` promoted to the Profile destination. 254 tests.
 
-**Do not regress these while doing Phase 9:**
+**Slice B must fix the initState trap first.** `SettingsScreen` loads nine
+fields once in `initState` (`settings_screen.dart:50-64`). It is now a
+persistent tab, so those fields never re-read and `_biometricEnabled` can
+drift from what `splash_screen.dart:91-96` actually enforces. Nothing in
+`flutter analyze` will catch a tab that silently stops saving.
 
-- `ToolCard` `FittedBox` (grid overflow fix).
-- The single `databaseProvider` override in `main.dart`.
-- SharedPreferences key families `dashboard_*_v1`, `theme_*`, `last_known_location_*`.
-- In tests, `AsyncSnapshot` requires `withData(state, data)` and
-  `withError(state, err, stack)`. The named ctors `.data()` and `.error()` do NOT exist in
-  this Flutter version - they fail to compile.
-- `RecoveryPet` lives in `lib/services/recovery_pet_service.dart`, not the
-  database file. `RecoveryPet` requires 11 constructor args including
-  `PetMoodX.happy` and an `equippedSlots` map.
+**Slice C must unify pet state.** `pet_home_screen.dart:66` and
+`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`
+independently. Harmless while the card pushes a fresh screen; a live duplicate
+the moment Companion becomes a tab. Make the tab consume `dashboardDataProvider`
+and keep the pet-events `StreamBuilder` as the only events subscription.
+
+**Also in scope:** `_push`'s 600 ms debounce (`dashboard_screen.dart:539`)
+guarded the Settings gear and Companion card. As tab switches it must not
+swallow legitimate taps.
 
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
-### Session-boundary state (Sep 28, after Phase 8)
-- Working tree clean; all gates green (analyze 0, test 247, color gate
-  exit 0, invariants gate exit 0).
+### Session-boundary state (Sep 28, after Phase 9 slice A)
+- Working tree clean; all four gates green (analyze 0, test 254, color
+  gate exit 0, invariants exit 0).
 - Everything committed on `main` and pushed; `origin/main` is in sync.
-- UI/UX Phases 0-8 complete. Phases 9-17 not started.
+- UI/UX Phases 0-8 complete. Phase 9 in progress (slice A done). Phases
+  10-17 not started.
 - **Still unverified on any device.** Phases 0-8 are proven by unit
   tests only. Light mode has never been rendered on hardware, and the
   Phase 8 empty/error states have never been seen by a human. The

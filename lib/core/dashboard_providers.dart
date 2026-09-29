@@ -17,6 +17,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,11 +36,28 @@ class MeetingRadiusKeys {
   static const String enforce = MeetingRadiusPrefs.enforceKey;
 }
 
-/// Which dashboard tab is showing. Kept separate from domain state so
-/// navigation can change without re-running a data loader.
-class DashboardTab {
-  static const int path = 0;
-  static const int library = 1;
+/// The shell's primary destinations.
+///
+/// Phase 9 promotes the app from a 2-tab shell to four. This enum is the
+/// single source of truth for both the destination list and the selected
+/// index, so the `NavigationBar` and any back handling cannot disagree about
+/// what "index 2" means.
+enum DashboardDestination {
+  companion('Companion', Icons.pets_outlined, Icons.pets),
+  path('Path', Icons.home_outlined, Icons.home),
+  library('Library', Icons.menu_book_outlined, Icons.menu_book),
+  profile('Profile', Icons.person_outline, Icons.person);
+
+  const DashboardDestination(this.label, this.icon, this.selectedIcon);
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+
+  /// The destination Android back should return to when it is invoked from
+  /// anywhere else. Deliberately [path]: it is the recovery journey, and it
+  /// is the first thing a returning user should land on.
+  static const DashboardDestination backTarget = DashboardDestination.path;
 }
 
 /// Ordering + visibility of the dashboard's tool and library cards.

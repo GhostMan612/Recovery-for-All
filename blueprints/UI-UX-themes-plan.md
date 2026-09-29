@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-8 are **complete and verified**. Phases 9-17 are **not started**.
+Phases 0-8 are **complete and verified**. Phase 9 is **in progress** (slice A committed). Phases 10-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -47,10 +47,12 @@ Phases 0-8 are **complete and verified**. Phases 9-17 are **not started**.
 | 6 - Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
 | 7 - Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
 | 8 - Dashboard view reconstruction | COMPLETE | 4 slices, screen 1512 -> 1157 lines, 28 new tests, 3 real bugs fixed |
-| 9-17 | NOT STARTED | no code, no gates run |
+| 9 - Navigation architecture | IN PROGRESS | slice A: 4-destination enum, `IndexedStack`, `PopScope`, Profile body, 7 tests |
+| 10-17 | NOT STARTED | no code, no gates run |
 
-Gates at the close of Phase 8: `flutter analyze --no-pub` -> No issues found;
-`flutter test` -> 247 passing; `verify_no_hardcoded_colors.py` -> exit 0.
+Gates at the close of Phase 9 slice A: `flutter analyze --no-pub` -> No issues
+found; `flutter test` -> 254 passing; `verify_no_hardcoded_colors.py` -> exit 0;
+`verify_invariants.py` -> exit 0.
 
 ### Phase 8 breakdown (all four slices committed)
 
@@ -86,10 +88,63 @@ reason the phase was worth doing incrementally:
 **Not changed, deliberately:** the two-tab Path/Library information
 architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-## Resume Here (Phase 8 COMPLETE, ready for Phase 9)
+## Resume Here (Phase 9 slice A done)
 
-**Phase 8 is done.** All four slices are committed, 247 tests pass, and all
-four gates are green. Do not start Phase 9 without reading this first.
+**Phase 8 COMPLETE. Phase 9 in progress - slice A (foundation) is committed.**
+247 -> 254 tests; all four gates green.
+
+### What the recon changed about this phase
+
+The Phase 9 plan says "preserve tab state" and "verify Android back
+behavior." **Neither existed.** There is no `IndexedStack`, no `PopScope`, no
+`navigatorObservers`, no `PageView` in the shell. The body was a ternary, so the
+off-screen tab was destroyed and rebuilt on every switch and back at the root
+exited the app. Phase 9 is therefore net-new work, not a migration - and an
+`IndexedStack` swap would have silently changed back from "exit app" to
+"nothing happens" if `PopScope` had not landed in the same slice.
+
+### Slice A shipped
+
+- `DashboardDestination` enum in `dashboard_providers.dart`, four values:
+  Companion | Path | Library | Profile. It is the single source of truth for
+  the destination list AND the back target, so the bar and the back handler
+  cannot disagree about what an index means. Replaces the dead `DashboardTab`
+  class, which was declared and never referenced.
+- `IndexedStack` body: destinations stay alive, so scroll offset and per-tab
+  edit mode survive a switch.
+- `PopScope` back handling: from any destination returns to Path; AT Path it
+  calls `SystemNavigator.pop()` so Android exits exactly as it does today.
+- `SettingsScreen` is now the Profile destination body. It already used
+  `themeProvider`, so relocating it duplicates no state.
+- Companion shows an honest placeholder rather than a blank region.
+
+### Known trade-off, recorded not hidden
+
+A live `IndexedStack` keeps off-screen animations ticking, notably the Lottie
+aura on Pet Home. Children are lazy so the tree is not built twice and nothing
+is re-fetched, but this is a real cost. Revisit in Phase 14 (motion).
+
+### Invariants for slices B and C
+
+1. **Pet state is ALREADY duplicated, and Phase 9 makes it dangerous.**
+   `pet_home_screen.dart:66` and `dashboard_providers.dart:293` each call
+   `RecoveryPetService.ensureHatched()` independently. Today that is harmless
+   because the card pushes a fresh screen. As a persistent tab, a check-in on
+   one tab will NOT update the other. Slice C must make the Companion tab
+   consume `dashboardDataProvider`, keeping the pet-events `StreamBuilder` as
+   the only events subscription.
+2. **`SettingsScreen` loads nine fields once in `initState`**
+   (`settings_screen.dart:50-64`). Now that it is a persistent tab those fields
+   never re-read, and `_biometricEnabled` can drift from what
+   `splash_screen.dart:91-96` actually enforces. Slice B must fix this or the
+   tab will silently stop saving what the user toggled.
+3. **`_push` has a 600 ms debounce** (`dashboard_screen.dart:539`) that guarded
+   the Settings gear and the Companion card. As tabs they become `setState`
+   switches, so the debounce must not swallow legitimate tab taps.
+4. `test/companion_guide_validator_test.dart` asserts route ids "pet" and
+   "settings" by STRING. Renaming either class breaks it.
+5. `companion_guide_overlay.dart` and `companion_guide_service.dart` are DEAD
+   CODE with zero importers. Do not mistake them for Companion infrastructure.
 
 **Standing gates - re-run all four before touching anything:**
 

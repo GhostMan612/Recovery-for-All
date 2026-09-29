@@ -13,6 +13,7 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import '../core/icon_registry.dart';
 import '../core/dashboard_providers.dart';
@@ -714,10 +715,19 @@ Future<void> _handleWalk() async {
   }
 
   // ------------------------------------------------------------------
-// Build — two-tab IA (dashboard-ia.md): Path | Library
-// ------------------------------------------------------------------
+  // Build — shell IA (dashboard-ia.md), four destinations
+  // ------------------------------------------------------------------
 
-  int _selectedIndex = 0;
+  /// Selected destination. Phase 9 slice A: still only Path and Library have
+  /// bodies; the enum carries all four so the bar and back handling are
+  /// complete now and each destination lands as an independent slice.
+  DashboardDestination _selected =
+      DashboardDestination.backTarget;
+
+  /// Kept for the ordering calls that index into [_layout] lists; the shell
+  /// itself no longer uses an int.
+  int get _selectedIndex => _selected.index;
+
   late final TutorialChatbotService _tutorialChatbot;
 
   void _openTutorialChatbot() {
@@ -760,21 +770,53 @@ Future<void> _handleWalk() async {
           ),
         ],
       ),
-      body: _selectedIndex == 0 ? _buildPathTab() : _buildLibraryTab(),
+      // Slice A: an IndexedStack keeps every destination ALIVE, so a tab
+      // switch no longer destroys and rebuilds the off-screen body. That is
+      // what preserves scroll offset and per-tab edit mode, and it is the
+      // precondition for parking a stateful screen (Settings) on a tab.
+      //
+      // Trade-off, recorded deliberately: a live Lottie aura or animated
+      // painter keeps ticking while off-screen. The tree is not built twice
+      // (children are lazy) and no state is re-fetched, which is the cost we
+      // are paying instead.
+      body: PopScope(
+        // At the back target there is nothing to pop, so let Android exit the
+        // app as it does today rather than swallowing the gesture.
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (_selected != DashboardDestination.backTarget) {
+            setState(() => _selected = DashboardDestination.backTarget);
+          } else {
+            // Back at the default destination: hand the gesture back to the
+            // platform so Android exits, matching the pre-Phase-9 behavior.
+            SystemNavigator.pop();
+          }
+        },
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            for (final destination in DashboardDestination.values)
+              _bodyFor(destination),
+          ],
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        onDestinationSelected: (i) => setState(
+            () => _selected = DashboardDestination.values[i]),
         destinations: [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-              selectedIcon: Icon(Icons.home, color: Theme.of(context).colorScheme.onSurface),
-              label: 'Path'),
-          NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-              selectedIcon: Icon(Icons.menu_book, color: Theme.of(context).colorScheme.onSurface),
-              label: 'Library'),
+          for (final destination in DashboardDestination.values)
+            NavigationDestination(
+              icon: Icon(destination.icon,
+                  color: Theme.of(context).colorScheme.onSurface
+                      .withValues(alpha: 0.7)),
+              selectedIcon: Icon(destination.selectedIcon,
+                  color: Theme.of(context).colorScheme.onSurface),
+              label: destination.label,
+            ),
         ],
       ),
       floatingActionButton: LayoutBuilder(
@@ -799,6 +841,26 @@ Future<void> _handleWalk() async {
         },
       ),
     );
+  }
+
+  /// Maps a destination to its body. Slices B and C fill in Profile and
+  /// Companion; until then those show an honest placeholder rather than a
+  /// blank region, so a shipped build never looks broken.
+  Widget _bodyFor(DashboardDestination destination) {
+    switch (destination) {
+      case DashboardDestination.path:
+        return _buildPathTab();
+      case DashboardDestination.library:
+        return _buildLibraryTab();
+      case DashboardDestination.profile:
+        return SettingsScreen(database: widget.database);
+      case DashboardDestination.companion:
+        return const _DestinationPlaceholder(
+          icon: Icons.pets,
+          title: 'Companion',
+          message: 'Your companion is moving here next.',
+        );
+    }
   }
 
   Widget _buildPathTab() {
@@ -1152,6 +1214,55 @@ Future<void> _handleWalk() async {
           onTap: _showSosSheet,
         ),
       ];
+}
+
+/// Visible, explained placeholder for a destination that has not landed yet.
+///
+/// A blank `SizedBox` would read as a broken tab. This states plainly what is
+/// coming so a half-finished navigation shell is never mistaken for a bug.
+class _DestinationPlaceholder extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+
+  const _DestinationPlaceholder({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 40, color: scheme.primary),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 
