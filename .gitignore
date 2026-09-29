@@ -93,15 +93,15 @@ media/*.PDF
 assets/pdfs/
 *.pdf
 
-# --- Proprietary & internal docs (gitignored before any public mirror) ---
-# These files contain product reasoning, roadmap, and competitive IP.
-# They stay local-only. Remove this block if you intentionally publish docs.
-blueprints/
-docs/
-AGENTS.md
-CLAUDE.md
-RULES.md
-SESSION_HANDOFF.md
+# --- Docs are versioned (was: fully ignored before any public mirror) ---
+# The invariant rules, phase plan, and handoff are load-bearing across
+# sessions, so an un-versioned copy silently drifts from the code. They are
+# committed now. If this repo is ever made PUBLIC and the product reasoning
+# is not meant to ship, revert this block instead of assuming.
+#
+# The one exception: recovery_all_code.md is a 1.5 MB generated dump of
+# lib/, rebuilt by tools/generate_code_package.py. It is never committed.
+blueprints/recovery_all_code.md
 
 # GitHub meta — uncomment to hide workflows from public mirror
 # .github/
