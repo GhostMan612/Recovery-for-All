@@ -121,6 +121,128 @@ void main() {
       expect(find.text('Crisis Lines'), findsOneWidget);
     });
   });
+
+  group('SosTile', () {
+    testWidgets('renders title/subtitle and taps once when enabled',
+        (tester) async {
+      var pressed = 0;
+      for (final b in Brightness.values) {
+        await tester.pumpWidget(_host(
+          SosTile(
+            icon: Icons.phone_in_talk,
+            color: Colors.red,
+            title: 'Call 988',
+            subtitle: 'Suicide & Crisis Lifeline · 24/7',
+            onTap: () => pressed++,
+          ),
+          brightness: b,
+        ));
+        expect(find.text('Call 988'), findsOneWidget);
+        expect(find.text('Suicide & Crisis Lifeline · 24/7'), findsOneWidget);
+      }
+      await tester.tap(find.byType(SosTile));
+      expect(pressed, 1);
+    });
+
+    // SAFETY: a disabled tile must stay visible (the user has to see that
+    // "Call Sponsor" exists) but must not accept a tap.
+    testWidgets('disabled tile still renders but does not tap', (tester) async {
+      var pressed = 0;
+      for (final b in Brightness.values) {
+        await tester.pumpWidget(_host(
+          SosTile(
+            icon: Icons.person_pin_circle,
+            color: Colors.blue,
+            title: 'Call Sponsor',
+            subtitle: 'Add in Settings',
+            enabled: false,
+            onTap: () => pressed++,
+          ),
+          brightness: b,
+        ));
+        expect(find.text('Call Sponsor'), findsOneWidget);
+        expect(find.text('Add in Settings'), findsOneWidget);
+      }
+      await tester.tap(find.byType(SosTile));
+      await tester.pump();
+      expect(pressed, 0);
+    });
+  });
+
+  group('SupportLinkRow', () {
+    testWidgets('renders copy and invokes onTap once', (tester) async {
+      var pressed = 0;
+      for (final b in Brightness.values) {
+        await tester.pumpWidget(_host(
+          SupportLinkRow(
+            icon: Icons.qr_code_scanner,
+            title: 'Fellowship Handshake',
+            subtitle: 'QR connect · offline, private',
+            onTap: () => pressed++,
+          ),
+          brightness: b,
+        ));
+        expect(find.text('Fellowship Handshake'), findsOneWidget);
+        expect(find.text('QR connect · offline, private'), findsOneWidget);
+        expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+      }
+      await tester.tap(find.byType(SupportLinkRow));
+      expect(pressed, 1);
+    });
+
+    testWidgets('honours an explicit tint for the branded row',
+        (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(_host(
+        SupportLinkRow(
+          key: key,
+          icon: Icons.volunteer_activism_outlined,
+          title: '7th Tradition',
+          subtitle: 'Voluntary support',
+          tint: const Color(0xFFD81B60),
+          onTap: _noop,
+        ),
+        brightness: Brightness.light,
+      ));
+      final icon = tester.widget<Icon>(find.byIcon(Icons.volunteer_activism_outlined));
+      expect(icon.color, const Color(0xFFD81B60));
+    });
+  });
+
+  // Phase 8 task 6: the toolbox grid uses a fixed childAspectRatio, so a
+  // large accessibility text scale is the overflow suspect. Verify ToolCard
+  // itself stays inside a fixed-height cell at 1.0x and 2.0x.
+  group('ToolCard at fixed grid cell height', () {
+    for (final scale in [1.0, 1.5, 2.0]) {
+      testWidgets('no overflow at textScale $scale inside a 1.35-ratio cell',
+          (tester) async {
+        // 160dp wide cell => 1.35 ratio => ~118dp tall, matching the grid.
+        await tester.pumpWidget(MaterialApp(
+          theme: AppColors.themeDataFor(
+              const ThemePreference(), Brightness.light),
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 160,
+                  height: 118,
+                  child: const ToolCard(
+                    label: 'Sobriety Counter',
+                    subtitle: 'Days, milestones, and streaks',
+                    icon: Icons.timeline_outlined,
+                    onTap: _noop,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ));
+        expect(tester.takeException(), isNull);
+        expect(find.text('Sobriety Counter'), findsOneWidget);
+      });
+    }
+  });
 }
 
 void _noop() {}

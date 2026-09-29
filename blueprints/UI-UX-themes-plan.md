@@ -56,23 +56,27 @@ are now gone. (The audit counted ~398 references across 32 files; by the time
 the drain ran, earlier phases had already removed some, leaving 390 across
 31 files — all drained.) Remaining known gaps are tracked per phase below.
 
-## Resume Here (Phase 8 in progress)
+## Resume Here (Phase 8 slice 2 done)
 
-**Phase 8 slice 1 is DONE.** `PledgeCard` and `ToolCard` now live in
-`lib/widgets/dashboard_cards.dart` (145 lines) instead of
-inline in the screen; `dashboard_screen.dart` is 1512 -> 1409
-lines. 6 new tests; 225 passing.
+**Phase 8 slices 1 AND 2 are DONE and committed.**
 
-**Start Phase 8 slice 2.** Remaining in Phase 8: extract `_SosTile` (keep it
-next to `ToolCard` so the SOS sheet keeps exactly one
-implementation), then the Fellowship Handshake + 7th Tradition rows, then
-`AppSectionHeader` for 'Your Toolbox' / 'Library', then the
-deliberate empty/error states. Watch the tool grid `childAspectRatio:
-1.35` for large-text overflow.
+- Slice 1: `PledgeCard` + `ToolCard` extracted.
+- Slice 2: `SosTile` extracted (still the ONLY SOS tile
+  implementation — Phase 10 forbids a second one), `SupportLinkRow`
+  collapsing the duplicated Fellowship Handshake / 7th Tradition rows, and
+  `AppSectionHeader` adopted for 'Your Toolbox' / 'Library'.
+- `dashboard_screen.dart` is now 1512 -> 1329 lines.
+- 232 tests passing; all three gates green.
 
-State ownership is explicit, so the view split can no longer leave a giant
-coupled controller behind — the Phase 8 prohibited-shortcut risk is now
-retired.
+**ToolCard large-text fix (real bug, found by test):** inside the grid's
+fixed 1.35-ratio cell the copy overflowed by 6px at scale 1.0, 34px at 1.5,
+61px at 2.0. Fixed with `Flexible` + `FittedBox(scaleDown)` around
+the label/subtitle block — a no-op at 1.0, graceful shrink above it. Do not
+remove it; the overflow tests in `test/dashboard_cards_test.dart` guard it.
+
+**Start Phase 8 slice 3.** Remaining: the Path/Library section bodies
+(sky crown, pledge, pet card, next-meeting, raid) into section widgets;
+then deliberate empty/error states for the meeting card and tool grids.
 
 **Before touching code, re-run the standing gates** (all three must be green;
 if any is not, the tree is not where this document thinks it is):

@@ -63,6 +63,7 @@ import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
 import '../widgets/next_meeting_card.dart';
 import '../widgets/dashboard_cards.dart';
+import '../widgets/app_primitives.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
@@ -735,7 +736,7 @@ Future<void> _handleWalk() async {
                 Row(
                   children: [
                     Expanded(
-                      child: _SosTile(
+                      child: SosTile(
                         icon: Icons.phone_in_talk,
                         color: Theme.of(context).colorScheme.error,
                         title: 'Call 988',
@@ -749,7 +750,7 @@ Future<void> _handleWalk() async {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _SosTile(
+                      child: SosTile(
                         icon: Icons.person_pin_circle,
                         color: Theme.of(context).colorScheme.primary,
                         title: sponsorPhone == null ? 'Call Sponsor' : 'Call Sponsor',
@@ -768,7 +769,7 @@ Future<void> _handleWalk() async {
                 Row(
                   children: [
                     Expanded(
-                      child: _SosTile(
+                      child: SosTile(
                         icon: Icons.groups_2,
                         color: Theme.of(context).colorScheme.primary,
                         title: 'Nearest Meetings',
@@ -791,7 +792,7 @@ Future<void> _handleWalk() async {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _SosTile(
+                      child: SosTile(
                         icon: Icons.open_in_new,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         title: 'Crisis Resources',
@@ -1044,19 +1045,14 @@ Future<void> _handleWalk() async {
                   },
                 ),
               ),
-            Row(
-              children: [
-                Text('Your Toolbox',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  tooltip: _editingPath ? 'Done' : 'Edit layout',
-                  icon: Icon(_editingPath ? Icons.check : Icons.edit_outlined,
-                      color: Theme.of(context).colorScheme.primary, size: 18),
-                  onPressed: () => setState(() => _editingPath = !_editingPath),
-                ),
-              ],
+            AppSectionHeader(
+              title: 'Your Toolbox',
+              trailing: IconButton(
+                tooltip: _editingPath ? 'Done' : 'Edit layout',
+                icon: Icon(_editingPath ? Icons.check : Icons.edit_outlined,
+                    color: Theme.of(context).colorScheme.primary, size: 18),
+                onPressed: () => setState(() => _editingPath = !_editingPath),
+              ),
             ),
             if (_editingPath && hiddenCount > 0) ...[
               Container(
@@ -1101,70 +1097,28 @@ Future<void> _handleWalk() async {
               ],
             ),
             const SizedBox(height: 20),
-            Material(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FellowshipSyncScreen(database: widget.database))),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35))),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                        child: Icon(Icons.qr_code_scanner, color: Theme.of(context).colorScheme.primary, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Fellowship Handshake', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14)),
-                            SizedBox(height: 2),
-                            Text('QR connect • +50 XP • offline, private', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
-                    ],
-                  ),
+            SupportLinkRow(
+              icon: Icons.qr_code_scanner,
+              title: 'Fellowship Handshake',
+              subtitle: 'QR connect • +50 XP • offline, private',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      FellowshipSyncScreen(database: widget.database),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            Material(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SeventhTraditionScreen())),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.pink.withValues(alpha: 0.25))),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: AppColors.pink.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.volunteer_activism_outlined, color: AppColors.pink, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('7th Tradition', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14)),
-                            SizedBox(height: 2),
-                            Text('Voluntary support — keeps Recovery for All free', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
-                    ],
-                  ),
+            SupportLinkRow(
+              icon: Icons.volunteer_activism_outlined,
+              title: '7th Tradition',
+              subtitle: 'Voluntary support — keeps Recovery for All free',
+              tint: AppColors.pink,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SeventhTraditionScreen(),
                 ),
               ),
             ),
@@ -1183,22 +1137,16 @@ Future<void> _handleWalk() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text('Library',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  tooltip: _editingLibrary ? 'Done' : 'Edit layout',
-                  icon: Icon(_editingLibrary ? Icons.check : Icons.edit_outlined,
-                      color: Theme.of(context).colorScheme.primary, size: 18),
-                  onPressed: () => setState(() => _editingLibrary = !_editingLibrary),
-                ),
-              ],
+            AppSectionHeader(
+              title: 'Library',
+              subtitle: 'Literature, housing, and community — always one tap away.',
+              trailing: IconButton(
+                tooltip: _editingLibrary ? 'Done' : 'Edit layout',
+                icon: Icon(_editingLibrary ? Icons.check : Icons.edit_outlined,
+                    color: Theme.of(context).colorScheme.primary, size: 18),
+                onPressed: () => setState(() => _editingLibrary = !_editingLibrary),
+              ),
             ),
-            Text('Literature, housing, and community — always one tap away.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
             if (_editingLibrary && _layout.hiddenLibrary.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
@@ -1368,42 +1316,4 @@ Future<void> _handleWalk() async {
       ];
 }
 
-class _SosTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String? subtitle;
-  final bool enabled;
-  final VoidCallback? onTap;
 
-  const _SosTile({
-    required this.icon,
-    required this.color,
-    required this.title,
-    this.subtitle,
-    this.enabled = true,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Material(
-        color: enabled ? Theme.of(context).colorScheme.surfaceContainer : Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(12),
-          child: ListTile(
-            leading: Icon(icon, color: color),
-            title: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
-            subtitle: subtitle == null
-                ? null
-                : Text(subtitle!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-          ),
-        ),
-      ),
-    );
-  }
-}
