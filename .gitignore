@@ -93,14 +93,50 @@ media/*.PDF
 assets/pdfs/
 *.pdf
 
-# --- Docs are versioned (was: fully ignored before any public mirror) ---
-# The invariant rules, phase plan, and handoff are load-bearing across
-# sessions, so an un-versioned copy silently drifts from the code. They are
-# committed now. If this repo is ever made PUBLIC and the product reasoning
-# is not meant to ship, revert this block instead of assuming.
-#
-# The one exception: recovery_all_code.md is a 1.5 MB generated dump of
-# lib/, rebuilt by tools/generate_code_package.py. It is never committed.
+# --- Docs: split by sensitivity (was: all ignored before any public mirror) ---
+# TRACKED on purpose — these encode rules and state that silently drift from
+# the code when un-versioned, which has already happened with the invariant
+# list. Deliberately committed:
+#   AGENTS.md, RULES.md, SESSION_HANDOFF.md,
+#   blueprints/UI-UX-themes-plan.md, dashboard-ia.md, lessons-learned.md
+# If this repo is ever made PUBLIC, re-evaluate that list before pushing.
+
+# --- Docs: still local-only (product strategy, IP, and research) ---
+# Deliberately NOT committed: competitive analysis, master plan, architecture
+# volumes, brainstorm notes, the Gemini response, and roadmap-v2. These carry
+# positioning and competitive detail that should not ship publicly. Add a file
+# here the moment it is needed across machines.
+blueprints/Blueprint.txt
+blueprints/Gemini_Diagnosis_Response.md
+blueprints/RECOVERY_FOR_ALL_MASTER_PLAN.md
+blueprints/SPRINT_PLAN.md
+blueprints/Technical_Architecture_Whitepaper.md
+blueprints/Volume_*.md
+blueprints/architecture-blueprint.md
+blueprints/avatar-art-spec.md
+blueprints/chatgpt brainstormed ideas.txt
+blueprints/competitive-analysis.md
+blueprints/firebase-setup.md
+blueprints/gguf-feasibility.md
+blueprints/gui-backgrounds-animation-checklist.md
+blueprints/onboarding-blueprint.md
+blueprints/pathways-v3.md
+blueprints/pet-expansion-spec.md
+blueprints/pet-rpg-design.md
+blueprints/pet-store-rules.md
+blueprints/recovery-coach-checklist.md
+blueprints/recovery-pet-checklist.md
+blueprints/resource-system.md
+blueprints/roadmap-v2.md
+blueprints/soa-fellowship-research.md
+blueprints/tacmap-extraction.md
+blueprints/tflite-quantization-notes.md
+blueprints/theme-engine-spec.md
+blueprints/ui-phase0-baseline.md
+blueprints/Side-quest debrief*.txt
+CLAUDE.md
+docs/
+# 1.5 MB generated dump of lib/; rebuilt by tools/generate_code_package.py.
 blueprints/recovery_all_code.md
 
 # GitHub meta — uncomment to hide workflows from public mirror
