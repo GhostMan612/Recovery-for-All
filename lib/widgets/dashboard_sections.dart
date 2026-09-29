@@ -22,7 +22,11 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../services/meeting_finder_service.dart';
+import '../services/recovery_pet_service.dart';
 import 'app_primitives.dart';
+import '../screens/constellation_canvas_3d.dart';
+import 'recovery_pet_card.dart';
+import 'themed_background.dart';
 import 'next_meeting_card.dart';
 
 /// The user's chosen recovery paths, as tappable-looking chips.
@@ -104,7 +108,7 @@ class MeetingSpotlight extends StatelessWidget {
           title: 'Could not load meetings',
           message:
               'The local meeting cache could not be read. Your other tools '
-              'still work \u2014 try again or find a room below.',
+              'still work — try again or find a room below.',
           onRetry: onRetry,
         ),
       );
@@ -209,7 +213,7 @@ class ToolGrid extends StatelessWidget {
               message: hidden.isEmpty
                   ? 'Nothing is available in this section right now.'
                   : 'All ${hidden.length} tools are hidden. Restore one below to '
-                      'get started \u2014 hiding something is not the same as '
+                      'get started — hiding something is not the same as '
                       'deleting it.',
               action: hidden.isEmpty
                   ? null
@@ -240,6 +244,194 @@ class ToolGrid extends StatelessWidget {
             children: children,
           ),
       ],
+    );
+  }
+}
+
+/// The constellation as a compact, tappable crown.
+///
+/// Takes the already-sorted node list (the screen owns loading) plus the
+/// user-chosen sky name, so this stays a pure view.
+class SkyCrown extends StatelessWidget {
+  final List<ConstellationNode3D> nodes;
+  final String skyName;
+  final VoidCallback onTap;
+
+  const SkyCrown({
+    super.key,
+    required this.nodes,
+    required this.skyName,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasStars = nodes.isNotEmpty;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 150,
+          color: AppColors.starfield,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasStars)
+                RecoveryConstellation3DWidget(nodes: nodes.take(24).toList())
+              else
+                ThemedBackground(
+                  enableKenBurns: false,
+                  scrimOpacity: 0.55,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 30, color: scheme.primary),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Plant your first star — name your sky',
+                          style: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 12,
+                bottom: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      skyName,
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (hasStars)
+                      Text(
+                        '${nodes.length} stars',
+                        style: TextStyle(
+                            color: scheme.onSurfaceVariant, fontSize: 11),
+                      ),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 10,
+                top: 8,
+                child: Icon(
+                  Icons.expand_outlined,
+                  size: 18,
+                  color: scheme.onSurface.withValues(alpha: 0.24),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Companion surface: the pet card plus its XP progress bar.
+///
+/// The whole block is one tap target that opens the skill tree, which is
+/// what the original GestureDetector wrapped. [RecoveryPet] is passed in
+/// already loaded by the caller.
+class CompanionSection extends StatelessWidget {
+  final RecoveryPet pet;
+  final VoidCallback onTap;
+  final VoidCallback onCheckIn;
+  final VoidCallback onWalk;
+  final VoidCallback onOpen;
+
+  const CompanionSection({
+    super.key,
+    required this.pet,
+    required this.onTap,
+    required this.onCheckIn,
+    required this.onWalk,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final evaluated = RecoveryPetService.evaluateLevel(pet);
+    final xpInto = evaluated.pathXp % 100;
+    final progress = xpInto / 100;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RecoveryPetCard(
+            pet: pet,
+            onCheckIn: onCheckIn,
+            onWalk: onWalk,
+            onOpen: onOpen,
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 14, color: scheme.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Level ${evaluated.pathLevel} • $xpInto/100 XP',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tap for Skill Tree',
+                      style:
+                          TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.account_tree_outlined,
+                        size: 14, color: AppColors.pink),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                    backgroundColor: scheme.surface,
+                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

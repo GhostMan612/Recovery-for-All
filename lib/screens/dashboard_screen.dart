@@ -28,7 +28,6 @@ import '../services/sponsor_link_service.dart';
 import '../services/sos_notification_service.dart';
 import '../services/step_counter_service.dart';
 import '../services/tutorial_chatbot_service.dart';
-import '../widgets/themed_background.dart';
 import 'avatar_dresser_screen.dart';
 import 'chatbot_screen.dart';
 import 'community_resources_screen.dart';
@@ -57,7 +56,6 @@ import 'daily_motivation_screen.dart';
 import 'wellbriety_circles_screen.dart';
 import 'weekly_goals_screen.dart';
 import 'wellness_check_in_screen.dart';
-import '../widgets/recovery_pet_card.dart';
 import '../widgets/walk_tracking_dialog.dart';
 import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
@@ -175,38 +173,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _refreshPet() async {
     await ref.read(dashboardDataProvider.notifier).refreshPet();
-  }
-
-  Widget _buildXpBar(RecoveryPet pet) {
-    final evaluated = RecoveryPetService.evaluateLevel(pet);
-    final level = evaluated.pathLevel;
-    final xpInto = evaluated.pathXp % 100;
-    final progress = xpInto / 100;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.auto_awesome, size: 14, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 6),
-              Text('Level $level • $xpInto/100 XP', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text('Tap for Skill Tree', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
-              const SizedBox(width: 4),
-              const Icon(Icons.account_tree_outlined, size: 14, color: AppColors.pink),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: Theme.of(context).colorScheme.surface, valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)),
-          ),
-        ],
-      ),
-    );
   }
 
   // ------------------------------------------------------------------
@@ -385,76 +351,6 @@ Future<void> _handleWalk() async {
           onChanged: (updated) {
             unawaited(ref.read(dashboardDataProvider.notifier).setPet(updated));
           },
-        ),
-      ),
-    );
-  }
-
-  /// The constellation as a compact, tappable crown above the toolbox.
-  Widget _buildSkyCrown() {
-    final nodes = _skyNodes;
-    return GestureDetector(
-      onTap: () {
-        _push(ConstellationScreen(database: widget.database));
-        _loadSky();
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 150,
-          color: AppColors.starfield,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (nodes != null && nodes.isNotEmpty)
-                RecoveryConstellation3DWidget(nodes: nodes.take(24).toList())
-              else
-                ThemedBackground(
-                  enableKenBurns: false,
-                  scrimOpacity: 0.55,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.auto_awesome,
-                            size: 30, color: Theme.of(context).colorScheme.primary),
-                        SizedBox(height: 8),
-                        Text('Plant your first star — name your sky',
-                            style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ),
-              Positioned(
-                left: 12,
-                bottom: 10,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ref.watch(skyNameProvider) ?? 'Your Constellation',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (nodes != null && nodes.isNotEmpty)
-                      Text('${nodes.length} stars',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: 10,
-                top: 8,
-                child: Icon(Icons.expand_outlined,
-                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -914,7 +810,14 @@ Future<void> _handleWalk() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildSkyCrown(),
+            SkyCrown(
+              nodes: _skyNodes ?? const [],
+              skyName: ref.watch(skyNameProvider) ?? 'Your Constellation',
+              onTap: () {
+                _push(ConstellationScreen(database: widget.database));
+                _loadSky();
+              },
+            ),
             const SizedBox(height: 12),
             PledgeCard(
               pledged: ref.watch(dailyPledgeProvider),
@@ -926,21 +829,16 @@ Future<void> _handleWalk() async {
               const SizedBox(height: 16),
             ],
             if (pet != null)
-              GestureDetector(
-                onTap: () => showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (_) => SkillTreeModal(database: widget.database)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    RecoveryPetCard(
-                      pet: pet,
-                      onCheckIn: _handleCheckIn,
-                      onWalk: _handleWalk,
-                      onOpen: _openDresser,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildXpBar(pet),
-                  ],
+              CompanionSection(
+                pet: pet,
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => SkillTreeModal(database: widget.database),
                 ),
+                onCheckIn: _handleCheckIn,
+                onWalk: _handleWalk,
+                onOpen: _openDresser,
               ),
             const SizedBox(height: 16),
             // R27: Predictive Next-Meeting Widget — live or next today from cache.

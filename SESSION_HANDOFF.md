@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Program Phases 0-7 COMPLETE — Phase 7 fully decomposed dashboard state (22 fields → 3) + fixed a duplicate-SQLCipher-connection bug; analyze 0, test 219)
+**Last updated:** September 28, 2026 (UI/UX Program Phases 0-8 COMPLETE — Phase 8 rebuilt the dashboard view layer in four committed slices (screen 1512 -> 1157 lines, 28 new tests, 3 real defects found and fixed); analyze 0, test 247)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -12,7 +12,10 @@ resume without losing progress. Update it at every session end.
 2. `CLAUDE.md` §1–§5 — token conservation + build boundary details
 3. `RULES.md` — technical laws learned the hard way
 4. **This file** — current state, environment facts, next moves
-5. `blueprints/roadmap-v2.md` — feature status source of truth
+5. `blueprints/UI-UX-themes-plan.md` — the active 17-phase UI/UX program
+   (Phases 0-8 done). Its "Resume Here" block is the authoritative
+   next-step pointer for this workstream.
+6. `blueprints/roadmap-v2.md` — feature status source of truth
 
 ## 2 · Hard rules (never violate)
 
@@ -63,7 +66,26 @@ resume without losing progress. Update it at every session end.
   - `lib/core/dashboard_providers.dart` owns dashboard state (layout/radius/
     pledge/sky-name/data notifiers). `_DashboardScreenState` went 22 mutable
     fields -> 3.
-  - Suite is at **219 tests**, analyze clean.
+  - **Phase 8 is complete.** The dashboard view layer was extracted in four
+    committed slices; `dashboard_screen.dart` is 1512 -> 1157 lines and is now
+    almost entirely callbacks, navigation, and two tab bodies.
+    - `lib/widgets/dashboard_cards.dart` (`PledgeCard`, `ToolCard`, `SosTile`, `SupportLinkRow`)
+    - `lib/widgets/dashboard_sections.dart` (`PathChips`, `MeetingSpotlight`, `ToolGrid`, `SkyCrown`, `CompanionSection`)
+    - Every extracted widget is presentational: plain values in, callbacks
+      out. No widget reads Riverpod or a database, so all of them are
+      renderable in tests without providers.
+  - **Three real defects were found by tests during Phase 8**, not by review:
+    1. `ToolCard` overflowed its grid cell at EVERY text scale (6px at
+       1.0, 34px at 1.5, 61px at 2.0) because the toolbox grid pins a fixed
+       `childAspectRatio: 1.35`. Fixed with `Flexible` + `FittedBox(scaleDown)`; do not revert.
+    2. The meeting card showed "No meetings in the next 6 hours" while the
+       cache was still loading, because the `FutureBuilder` used
+       `snapshot.data ?? const []`. `MeetingSpotlight` now separates waiting / error /
+       empty. This closed the last open Phase 6 gap.
+    3. Hiding every toolbox tool collapsed the grid with no explanation and
+       no way back. `ToolGrid` now explains that hiding is not deleting
+       and offers "Restore all".
+  - Suite is at **247 tests**, analyze clean.
 - **Roadmap complete through R19**: Tier 1–2, R9 RPG, R11 GGUF, plus the
   Aug 25 marathon — R12 self-verifying resources (registries +
   verify_resources.py build gate + runtime link-health with 30-day TTL),
@@ -136,83 +158,65 @@ resume without losing progress. Update it at every session end.
 **PLAN RE-SEQUENCED (Sep 28):** two dependency bugs fixed. The statics drain became a new Phase 5 (cross-cutting — draining last meant touching 31 files twice), and Empty/Loading/Error moved to Phase 6 (ahead of dashboard decomposition) because Phase 4 primitives now make those states mechanical. Current order: 5 drain → 6 states → 7 dashboard state → 8 dashboard views → 9 nav → 10 SOS → 11 profile → 12 a11y → 13 responsive → 14 motion → 15 visual → 16 hardening → 17 final. Rationale recorded in the plan.
 **Phase 6 (states) COMPLETE:** `app_primitives.dart` now has 7 primitives — added `AppErrorState` (retryable, non-blaming copy) and `AppOfflineState` (distinct from error: cached data is still on screen, copy says so). Adopted in `journal_screen` (empty), `constellation_screen` (empty + loading), `meeting_map_screen` (load failure → `AppErrorState` with real retry). `MeetingFinderService.isCacheStale()` added (missing or >24h `cacheTtl`) so stale network data can surface as an offline affordance instead of looking fresh. 3 new tests.
 **Phase 7 (dashboard state) COMPLETE:** `lib/core/dashboard_providers.dart` now holds 5 notifiers — `DashboardLayoutNotifier` (order + hidden sets, owns the `_ordered` merge), `MeetingRadiusNotifier`, `DailyPledgeNotifier`, `SkyNameNotifier`, and `DashboardDataNotifier` (profile + pet + raid with explicit load order). `_DashboardScreenState` went from 22 mutable fields to **3** (`_editingPath`, `_editingLibrary` ephemeral; `_selectedIndex` nav) + `_skyNodes` (pure view model). File 1551 → 1449 lines. `DashboardScreen` is `ConsumerStatefulWidget`. 18 tests.
+**Phase 8 (dashboard views) COMPLETE — four committed slices.** The view
+vocabulary was extracted out of `dashboard_screen.dart` while state stayed in
+`dashboard_providers.dart`. File 1512 → 1157 lines; it is now almost entirely
+callbacks, navigation, and two tab bodies. New files: `lib/widgets/dashboard_cards.dart`
+(`PledgeCard`, `ToolCard`, `SosTile`, `SupportLinkRow`) and
+`lib/widgets/dashboard_sections.dart` (`PathChips`, `MeetingSpotlight`,
+`ToolGrid`, `SkyCrown`, `CompanionSection`). Every one of them is
+presentational — plain values in, callbacks out, no Riverpod or DB reads — so
+all are renderable in tests without a provider scope. 28 new tests.
+**🐛 THREE REAL DEFECTS, all found by tests rather than review:**
+1. `ToolCard` overflowed its grid cell at EVERY text scale — 6px at 1.0, 34px
+   at 1.5, 61px at 2.0 — because the toolbox `GridView` pins a fixed
+   `childAspectRatio: 1.35`. Fixed with `Flexible` + `FittedBox(scaleDown)`
+   around the copy block, a no-op at 1.0. Guarded by tests at all three
+   scales. Do not revert.
+2. The meeting card LIED while loading: the `FutureBuilder` used
+   `snapshot.data ?? const []`, so a still-reading cache rendered "No
+   meetings in the next 6 hours" — telling a user in a meeting-dense area
+   that nothing was happening. `MeetingSpotlight` now separates waiting /
+   error / genuinely-empty. This closed the last open Phase 6 gap.
+3. Hiding every toolbox tool collapsed the grid to zero height with no
+   explanation and no way back. `ToolGrid` now says that hiding is not
+   deleting and offers "Restore all".
+**⚠ Deliberately NOT done in Phase 8:** the two-tab Path/Library IA. Moving
+to four destinations is Phase 9's job; Phase 8 added and moved nothing.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 8 slice 4 (Dashboard View Reconstruction), then Phase 9.**
-Slices 1-3 done and committed. `dashboard_cards.dart` holds `PledgeCard`,
-`ToolCard`, `SosTile`, `SupportLinkRow`; `dashboard_sections.dart` holds
-`PathChips`, `MeetingSpotlight`, `ToolGrid`. `dashboard_screen.dart` is 1512 ->
-1259 lines; 244 tests passing; all gates green.
+**Next: Phase 9 (Navigation Architecture).** Phase 8 is complete and
+committed. Four destinations - Companion, Path, Library, Profile - without
+duplicating pet state, duplicating settings, losing tab state, or breaking
+Android back behavior. Do it in slices with the gates between, the same way
+Phase 8 was done. Phase 9 is the next safety-critical surface: the SOS FAB
+must keep working from every destination, and `SosTile` must remain the
+only SOS tile implementation (Phase 10 forbids a second one).
 
-**Two real bugs fixed in slice 3, both test-found:** the meeting card used
-to say "No meetings in the next 6 hours" while the cache was still loading
-(waiting/error/empty are now distinct), and hiding every tool collapsed the
-grid with no explanation and no way back (now has a Restore all empty state).
+**Do not regress these while doing Phase 9:**
 
-**Three do-not-regress notes:** the `ToolCard` `FittedBox` (grid cell
-overflowed 6/34/61px at 1.0/1.5/2.0 before it); `SosTile` as the only SOS tile
-implementation (Phase 10 forbids a second); and `AsyncSnapshot` in tests must use
-`withData/withError`, not `.data()/.error()`, which do not exist in this Flutter version.
+- `ToolCard` `FittedBox` (grid overflow fix).
+- The single `databaseProvider` override in `main.dart`.
+- SharedPreferences key families `dashboard_*_v1`, `theme_*`, `last_known_location_*`.
+- In tests, `AsyncSnapshot` requires `withData(state, data)` and
+  `withError(state, err, stack)`. The named ctors `.data()` and `.error()` do NOT exist in
+  this Flutter version - they fail to compile.
+- `RecoveryPet` lives in `lib/services/recovery_pet_service.dart`, not the
+  database file. `RecoveryPet` requires 11 constructor args including
+  `PetMoodX.happy` and an `equippedSlots` map.
 
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
-### Session-boundary state (Sep 28)
-- Working tree **clean**; gates green (analyze 0, test 219, color gate exit 0).
-- **13 commits ahead of `origin/main` and NOT pushed** (Phases 0-7 + doc fixes).
-  `origin/main` is still at `74b55da` (pre-Phase-0). The tree is clean, so the
-  repo's "push manually once the repo is clean" precondition is now met — push
-  is the one outstanding risk of ending the session, because the whole UI/UX
-  program plus the database-instance fix currently exists only on this machine.
-**R15 Self-Healing Tutorial System COMPLETE** (companion_guide_service.dart, overlay, validator).
-**R16 Expanded Meeting Directories COMPLETE** (LifeRing/WFS/CR TSML + SMART/InTheRooms curated).
-**R17 Full-App Tutorial Chatbot COMPLETE** (keyword, covers every feature).
-**R18 Step-Counter Verified Walks COMPLETE** (pedometer 500/30m).
-**R19 Pet Gear & Path System COMPLETE** (gearScore/pathLevel/abilitySlots).
-**R20 Pet-Card Share COMPLETE** (share_plus, C1–C5).
-**R21 Step-Counter QA COMPLETE** (plan in docs/qa/step_counter_qa.md).
-**R22 GGUF QA COMPLETE** (plan in docs/qa/gguf_qa.md).
-**SOS Layout Fix COMPLETE** (LayoutBuilder).
-**R25 Recovery-Aware Notifications COMPLETE** (`gentle_reminder_service.dart` evaluatePayload + 11 tests) — Struggling→breathwork, Resting→"Kin resting", Milestone eve→reflection, Default→open-door; T1–T4 zero shame.
-**R27 Predictive Next-Meeting Widget COMPLETE** (`next_meeting_card.dart` pickNext Live/Today/Empty, emerald/sky chips, View on Map) — integrated Path tab `dashboard_screen.dart:1032`.
-**R24 Adaptive Model Router COMPLETE** (`gguf_model_service.dart` suggested/ensure/needsDownload + persistent `gguf_download_dismissed_v1` `chatbot_screen.dart:43`/`settings_screen.dart:119`; `chatbot_screen.dart` 300MB card; `ollama_service.dart` Sovereign `192.168.4.144:8000` fallback; `gguf_inference_service.dart` yield every 15 + 30s).
-**R26 Narrative Export P1+P2 COMPLETE** (`narrative_export_service.dart` McAdams 7-day Agency/Communion/Redemption → Ollama → scripted fallback; `chronicle_share_card.dart` RepaintBoundary 3.0 `share_plus` C2) — 6 tests pass (window, averages, eventType case `battle_win` vs `battleWin`).
-**Memory Wall UI COMPLETE** (`lib/screens/memory_wall_screen.dart` + `test/memory_wall_test.dart`) — "Kin Remembers" view with StreamBuilder over `watchPetEvents`, icons/colors per eventType, timestamps, Spark deltas, empty state, paginated 50; wired into PetHomeScreen AppBar.
-**RPG Soft-Lock Fix COMPLETE** (`pet_trials_screen.dart:88` `Take a Breath` 0-cost +2 Focus + tutorial).
-**MainActivity NPE Fix COMPLETE** (`MainActivity.kt:20` → `configureFlutterEngine`).
-**R28 Pet Drift Migration COMPLETE** (`recovery_database.dart:9` v9 + `recovery_pet_service.dart` atomic txn + Drift-backed economy tests).
-**R4 Constellation Auto-Stars COMPLETE (Sep 27)** (`constellation_service.dart` P0 pipeline: milestone/journal/meeting/goal/walk/battle-win stars wired into 5 screens + `logBattleWin`; P2 StreamBuilder live updates + P3 `_CategoryLegend` in `constellation_screen.dart`; P1 `constellation_canvas.dart` deleted, zero refs). NOTE: a follow-up commit (`313ce6e`) gutted the service file + P2/P3 + trials hook leaving 5 analyze errors; repaired by restoring the R4 files from `eb88f4a`, gates re-green. Lesson: never empty a file its callers still import.
-
-Everything below is in the build you will test next: GPS cascade + chip
-dialog, Trials monsters + juice + focus pips + tutorial + battle sounds,
-two-tab dashboard with draggable/hideable tiles (+ Reset Layout in Settings),
-**Trials breathe** + **Drift atomic** + **MainActivity launch**.
-
-**iOS / Apple Store — 🔒 BOXED (Sep 9, 2026):** no Mac + $99/yr Apple fee;
-full shelf state + unbox checklist in `blueprints/roadmap-v2.md` → "Boxed /
-deferred". Play opt-in links NEVER work on iPhone (that's normal; iPhone =
-Apple-only installs). NOT a bug in the app.
-
-**NEXT UP — new fellowship (user research doc incoming):** Gemini deep-research
-on community-requested fellowship(s); spec upload pending. When it lands:
-meeting directories + curated MN meetings + TSML parsing + pathway tags +
-onboarding/coach/literature tailors (see roadmap-v2 "Incoming").
-**Agent independent research DONE (Sep 10):** `blueprints/soa-fellowship-research.md`
-— headline: no "Sex Offenders Anonymous" fellowship exists (treatment is
-clinical/corrections, not 12-step); real STAR is SAA/SA/SLAA/SCA (+S-Anon/COSA
-for affected others). NO live JSON/TSML feed found for any S-fellowship (5
-endpoint probes 404; SAA=Drupal, SA=WP map, SLAA=Teamup, SCA=TSML-UI w/ REST
-off). Recommendation: SAA+SA curated MN (R16-pattern) + deep links; never ship
-"SOA" label; no minors/S-Ateen; curate facilities never people; feed unchanged
-(C1 alias-only, no fellowship badges); no offender-specific features. Awaiting
-Gemini doc to compare (feeds? formal SOA? MN counts? SA dial-in inventory?).
-
-1. Rebuild and smoke: Path tab **Next-Meeting Card** + Chatbot **download card** (≥3GB no .gguf → "Enable Offline AI Companion — 253MB" persist dismiss `gguf_download_dismissed_v1`); **Dismiss persists across restart** (Settings download/toggle clears); test notification copy (pet sad→grounding, resting→"Kin resting", 29-day counter→milestone eve); test R26 chronicle generation (offline fallback → 3 paragraphs) + share card (C2 no numbers/location); verify link-health footers, help icon, Walk dialog, Esri tiles, SOS; test **Memory Wall** (Pet Home → auto_awesome_outlined → Kin Remembers); test **Trials** — enter battle, burn to 1 Focus, verify `Take a Breath` appears, +2 Focus, then Strike; verify **drift** — earn Sparks, kill app mid-reward, relaunch → Sparks+event consistent.
-2. **NEW since Phases 0-7 — the light/dark work has never been seen on a device.**
-   Smoke both brightness modes across the top surfaces: dashboard, journal,
-   constellation, meeting map, settings, SOS sheet. The 6-scheme matrix
-   (3 palettes x light/dark) is proven by unit tests only. Pay attention to the
-   avatar painter, the Lottie aura underlays on a light background, and any
-   SnackBar that still reads as a dark slab.
-3. Fix what surfaces; then **DotLottie Migration & RAM** (2 Lotties → .lottie) or **R23 Feed sync** deferred. Tool: `tools/build_llama_android.sh` (ASK-2 LTO+strip) + tok/s on Moto G.
+### Session-boundary state (Sep 28, after Phase 8)
+- Working tree clean; all gates green (analyze 0, test 247, color gate
+  exit 0).
+- Everything committed on `main` and pushed; `origin/main` is in sync.
+- UI/UX Phases 0-8 complete. Phases 9-17 not started.
+- **Still unverified on any device.** Phases 0-8 are proven by unit
+  tests only. Light mode has never been rendered on hardware, and the
+  Phase 8 empty/error states have never been seen by a human. The
+  on-device smoke list in §7 is the first chance to catch that.
+- The `+9` AAB in `build/` predates the entire UI/UX program and is stale.
+  Do not upload it; rebuild once Phases 9-17 are done.
 
 ## 8 · End-of-session checklist (every session)
 

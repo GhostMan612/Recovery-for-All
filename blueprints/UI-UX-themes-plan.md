@@ -34,61 +34,98 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-7 are **complete and verified**. Phases 8-17 are **not started**.
+Phases 0-8 are **complete and verified**. Phases 9-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
-| 0 — Baseline & recon | COMPLETE | analyze clean, suite 167 -> 179 |
-| 1 — Semantic design system | COMPLETE | spacing/radii/type/state tokens + 3 palettes x 2 brightness |
-| 2 — M3 theme engine | COMPLETE | 6-scheme matrix, `themeMode` wired, persistence, centralized component themes |
-| 3 — Color & styling migration | COMPLETE | 875 -> 0 raw literals outside allowlist; `tools/verify_no_hardcoded_colors.py` green |
-| 4 — Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
-| 5 — Brightness drain | COMPLETE | 390 dark-pinned refs -> 0, constants deleted, gate extended |
-| 6 — Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
-| 7 — Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
-| 8-17 | NOT STARTED | no code, no gates run |
+| 0 - Baseline & recon | COMPLETE | analyze clean, suite 167 -> 179 |
+| 1 - Semantic design system | COMPLETE | spacing/radii/type/state tokens + 3 palettes x 2 brightness |
+| 2 - M3 theme engine | COMPLETE | 6-scheme matrix, `themeMode` wired, persistence, centralized component themes |
+| 3 - Color & styling migration | COMPLETE | 875 -> 0 raw literals outside allowlist; `tools/verify_no_hardcoded_colors.py` green |
+| 4 - Reusable UI components | COMPLETE | 5 primitives + 11 headers + memory-wall adoption, 9 new tests |
+| 5 - Brightness drain | COMPLETE | 390 dark-pinned refs -> 0, constants deleted, gate extended |
+| 6 - Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
+| 7 - Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
+| 8 - Dashboard view reconstruction | COMPLETE | 4 slices, screen 1512 -> 1157 lines, 28 new tests, 3 real bugs fixed |
+| 9-17 | NOT STARTED | no code, no gates run |
 
-Gates at the close of Phase 7: `flutter analyze --no-pub` -> No issues found;
-`flutter test` -> 219 passing; `verify_no_hardcoded_colors.py` -> exit 0.
+Gates at the close of Phase 8: `flutter analyze --no-pub` -> No issues found;
+`flutter test` -> 247 passing; `verify_no_hardcoded_colors.py` -> exit 0.
 
-**Resolved:** the dark-pinned `AppColors` statics were the Phase 5 blocker and
-are now gone. (The audit counted ~398 references across 32 files; by the time
-the drain ran, earlier phases had already removed some, leaving 390 across
-31 files — all drained.) Remaining known gaps are tracked per phase below.
+### Phase 8 breakdown (all four slices committed)
 
-## Resume Here (Phase 8 slice 3 done)
+The dashboard screen went from 1512 lines to 1157 by extracting its view
+vocabulary, without changing behavior. State ownership stayed in
+`dashboard_providers.dart` throughout; every extracted widget is
+presentational and takes plain values plus callbacks.
 
-**Phase 8 slices 1-3 are DONE and committed.**
+| Slice | Extracted to | Notes |
+|---|---|---|
+| 1 | `widgets/dashboard_cards.dart` | `PledgeCard`, `ToolCard` |
+| 2 | `widgets/dashboard_cards.dart` | `SosTile`, `SupportLinkRow`, `AppSectionHeader` adoption |
+| 3 | `widgets/dashboard_sections.dart` | `PathChips`, `MeetingSpotlight`, `ToolGrid` |
+| 4 | `widgets/dashboard_sections.dart` | `SkyCrown`, `CompanionSection` (pet + XP) |
 
-- Slice 1: `PledgeCard`, `ToolCard`.
-- Slice 2: `SosTile` (still the ONLY SOS tile), `SupportLinkRow`,
-  `AppSectionHeader` adoption, ToolCard large-text fix.
-- Slice 3: `PathChips`, `MeetingSpotlight`, `ToolGrid` in
-  `lib/widgets/dashboard_sections.dart`. 244 tests; all gates green.
+**Three real defects were found by tests, not by review.** These are the
+reason the phase was worth doing incrementally:
 
-**Two real user-facing bugs fixed in slice 3 (both found by tests):**
+1. **ToolCard overflowed its grid cell at every text scale.** The toolbox
+   `GridView` uses a fixed `childAspectRatio: 1.35`, so the card's copy
+   overflowed by 6px at scale 1.0, 34px at 1.5, and 61px at 2.0. Fixed with
+   `Flexible` + `FittedBox(scaleDown)` around the label/subtitle block, which
+   is a no-op at 1.0. Guarded by tests at all three scales.
+2. **The meeting card lied while loading.** The `FutureBuilder` used
+   `snapshot.data ?? const []`, so a still-reading cache rendered "No
+   meetings in the next 6 hours" - telling a user in a meeting-dense area
+   that nothing was happening. `MeetingSpotlight` now separates waiting,
+   error, and genuinely-empty. This closed the last open Phase 6 gap.
+3. **Hiding every tool was a dead end.** The grid collapsed to zero height
+   with no explanation and no way back. `ToolGrid` now explains that hiding
+   is not deleting and offers "Restore all".
 
-1. `MeetingSpotlight` no longer claims "No meetings in the next 6
-   hours" while the cache is still being read. Waiting, error and empty are
-   now three distinct presentations. Closing a Phase 6 gap.
-2. `ToolGrid` has a real empty state. Hiding every tool used to
-   collapse the grid to nothing with no explanation and no way back; it now
-   says so and offers Restore all.
+**Not changed, deliberately:** the two-tab Path/Library information
+architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-**Do not regress:**
+## Resume Here (Phase 8 COMPLETE, ready for Phase 9)
 
-- `ToolCard` `FittedBox` — the 1.35-ratio grid cell overflowed by
-  6/34/61px at scale 1.0/1.5/2.0 before the fix.
-- `SosTile` is the only SOS tile implementation (Phase 10).
-- Both `AsyncSnapshot` state tests in
-  `test/dashboard_sections_test.dart` use `withData/withError` — the bare
-  `.data()/.error()` named ctors do not exist in this Flutter version.
+**Phase 8 is done.** All four slices are committed, 247 tests pass, and all
+three gates are green. Do not start Phase 9 without reading this first.
 
-**Next: Phase 8 slice 4 (final slice).** Remaining: the sky crown and the
-pet/XP section into widgets, then a read-through for the Phase 8 gate
-(modular, coherent, responsive, behaviorally equivalent). After that,
-mark Phase 8 COMPLETE in the status table and move to Phase 9 (four-tab
-navigation), which is the next safety-critical surface.
+**Standing gates - re-run all three before touching anything:**
+
+```text
+flutter analyze --no-pub
+flutter test
+python tools/verify_no_hardcoded_colors.py
+```
+
+**Where the dashboard view code lives now:**
+
+- `lib/widgets/dashboard_cards.dart` - `PledgeCard`, `ToolCard`, `SosTile`, `SupportLinkRow`
+- `lib/widgets/dashboard_sections.dart` - `PathChips`, `MeetingSpotlight`, `ToolGrid`, `SkyCrown`, `CompanionSection`
+- `lib/screens/dashboard_screen.dart` - 1157 lines, now almost entirely
+  callbacks, navigation, and the two tab bodies
+
+**Invariants that must survive Phase 9 (navigation is the risk):**
+
+1. `SosTile` is the ONLY SOS tile implementation and `_showSosSheet`
+   is the only SOS entry point. Phase 10 forbids a second surface. When
+   adding a destination, the SOS FAB must keep working from every tab.
+2. `ToolCard` `FittedBox` is load-bearing: the 1.35-ratio grid cell
+   overflowed by 6/34/61px at text scale 1.0/1.5/2.0 before the fix.
+3. `main.dart` overrides `databaseProvider` with the single
+   `RecoveryDatabase`. Removing it opens a second SQLCipher connection.
+4. Both SharedPreferences key families are live user data: `dashboard_*_v1`
+   and `theme_*`, `last_known_location_*`. Do not rename.
+5. `AsyncSnapshot` in tests needs `withData(state, data)` /
+   `withError(state, err, stack)`. The bare `.data()` and `.error()` named ctors do not
+   exist in this Flutter version.
+
+**Next: Phase 9 (Navigation Architecture).** Four destinations - Companion,
+Path, Library, Profile - without duplicating pet state, duplicating
+settings, losing tab state, or breaking Android back behavior. The current
+two-tab IA plus Settings/SOS buttons is the baseline. Do this in slices
+with the gates between, exactly as Phase 8 was done.
 
 **Before touching code, re-run the standing gates** (all three must be green;
 if any is not, the tree is not where this document thinks it is):

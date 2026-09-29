@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:recovery_for_all/core/theme/app_colors.dart';
+import 'package:recovery_for_all/services/recovery_pet_service.dart';
 import 'package:recovery_for_all/services/meeting_finder_service.dart';
 import 'package:recovery_for_all/widgets/dashboard_sections.dart';
 
@@ -274,6 +275,102 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('SkyCrown', () {
+    testWidgets('named sky with no stars invites the first star',
+        (tester) async {
+      var taps = 0;
+      for (final b in Brightness.values) {
+        await tester.pumpWidget(_host(
+          SkyCrown(
+            nodes: const [],
+            skyName: 'Recovery for All',
+            onTap: () => taps++,
+          ),
+          brightness: b,
+        ));
+        expect(find.text('Recovery for All'), findsOneWidget);
+        expect(find.textContaining('Plant your first star'), findsOneWidget);
+        // No star count when there is nothing to count.
+        expect(find.textContaining('stars'), findsNothing);
+      }
+      await tester.tap(find.byType(SkyCrown));
+      expect(taps, 1);
+    });
+  });
+
+  group('CompanionSection', () {
+    testWidgets('XP bar and skill-tree affordance render and tap through',
+        (tester) async {
+      var taps = 0;
+      for (final b in Brightness.values) {
+        await tester.pumpWidget(_host(
+          CompanionSection(
+            pet: _pet(),
+            onTap: () => taps++,
+            onCheckIn: _noop,
+            onWalk: _noop,
+            onOpen: _noop,
+          ),
+          brightness: b,
+        ));
+        expect(find.text('Level 3 • 45/100 XP'), findsOneWidget);
+        expect(find.text('Tap for Skill Tree'), findsOneWidget);
+      }
+      await tester.tap(find.text('Tap for Skill Tree'));
+      expect(taps, 1);
+    });
+
+    testWidgets('XP progress reflects pathXp modulo 100', (tester) async {
+      await tester.pumpWidget(_host(
+        CompanionSection(
+          pet: _pet(pathXp: 145),
+          onTap: _noop,
+          onCheckIn: _noop,
+          onWalk: _noop,
+          onOpen: _noop,
+        ),
+        brightness: Brightness.light,
+      ));
+      expect(find.text('Level 3 • 45/100 XP'), findsOneWidget);
+      // RecoveryPetCard renders more than one bar of its own, so type alone
+      // cannot identify the XP bar. The XP bar is unambiguously the one
+      // carrying pathXp/100, and it is the one painted after the pet card
+      // inside this widget's own subtree.
+      final bars = tester
+          .widgetList<LinearProgressIndicator>(
+              find.descendant(
+                of: find.byType(CompanionSection),
+                matching: find.byType(LinearProgressIndicator),
+              ),
+          )
+          .toList();
+      final xpBar = bars.lastWhere(
+        (b) => b.value != null && (b.value! - 0.45).abs() < 0.001,
+        orElse: () => fail(
+            'no bar with value 0.45 among ${bars.map((b) => b.value).toList()}'),
+      );
+      expect(xpBar.value, closeTo(0.45, 0.001));
+    });
+  });
+}
+RecoveryPet _pet({int pathXp = 145, int pathLevel = 3}) {
+  final now = DateTime.now().millisecondsSinceEpoch;
+  return RecoveryPet(
+    id: 'p1',
+    name: 'Kin',
+    energy: 80,
+    bond: 20,
+    mood: PetMoodX.happy,
+    sparks: 10,
+    unlockedItems: const ['starter_glow'],
+    equippedOutfit: 'starter_glow',
+    equippedSlots: const {},
+    lastFedAt: now,
+    createdAt: now,
+    pathLevel: pathLevel,
+    pathXp: pathXp,
+  );
 }
 
 void _noop() {}
