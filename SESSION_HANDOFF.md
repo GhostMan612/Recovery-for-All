@@ -86,6 +86,19 @@ resume without losing progress. Update it at every session end.
        no way back. `ToolGrid` now explains that hiding is not deleting
        and offers "Restore all".
   - Suite is at **247 tests**, analyze clean.
+- **Four gates, and the fourth is new:** `python tools/verify_invariants.py`
+  enforces the rules that used to be only prose in this file. It fails on a
+  missing `databaseProvider` override, a second `SosTile` or a removed
+  `_showSosSheet`, any load-bearing SharedPreferences key going missing OR
+  drifting out of its owning file, a deleted Phase 8 view file, and any retired
+  `AppColors` constant. The partial-rename case is the valuable one: the key
+  still exists in the reader while the writer moved on, which loses real users'
+  settings with no error anywhere.
+- **Repo tooling** in `.opencode/`: two auditor subagents (`text-scale-auditor`,
+  `a11y-auditor`) that report findings with `file:line` and never edit, plus a
+  `/verify` command that runs all four gates. Use them for the Phase 12/13
+  audits; do NOT fan out parallel agents over Phase 9 (navigation touching SOS
+  is single-threaded by nature).
 - **Roadmap complete through R19**: Tier 1–2, R9 RPG, R11 GGUF, plus the
   Aug 25 marathon — R12 self-verifying resources (registries +
   verify_resources.py build gate + runtime link-health with 30-day TTL),
@@ -208,7 +221,7 @@ Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md`
 
 ### Session-boundary state (Sep 28, after Phase 8)
 - Working tree clean; all gates green (analyze 0, test 247, color gate
-  exit 0).
+  exit 0, invariants gate exit 0).
 - Everything committed on `main` and pushed; `origin/main` is in sync.
 - UI/UX Phases 0-8 complete. Phases 9-17 not started.
 - **Still unverified on any device.** Phases 0-8 are proven by unit

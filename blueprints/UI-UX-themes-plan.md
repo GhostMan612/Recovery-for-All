@@ -89,14 +89,15 @@ architecture is Phase 9's job. Phase 8 did not add or move a destination.
 ## Resume Here (Phase 8 COMPLETE, ready for Phase 9)
 
 **Phase 8 is done.** All four slices are committed, 247 tests pass, and all
-three gates are green. Do not start Phase 9 without reading this first.
+four gates are green. Do not start Phase 9 without reading this first.
 
-**Standing gates - re-run all three before touching anything:**
+**Standing gates - re-run all four before touching anything:**
 
 ```text
 flutter analyze --no-pub
 flutter test
 python tools/verify_no_hardcoded_colors.py
+python tools/verify_invariants.py
 ```
 
 **Where the dashboard view code lives now:**
@@ -120,6 +121,12 @@ python tools/verify_no_hardcoded_colors.py
 5. `AsyncSnapshot` in tests needs `withData(state, data)` /
    `withError(state, err, stack)`. The bare `.data()` and `.error()` named ctors do not
    exist in this Flutter version.
+
+**These five are now enforced by `tools/verify_invariants.py`, not just
+documented.** If you change one on purpose, update the gate and `AGENTS.md` in the
+same commit. The gate also catches a *partial* prefs-key rename, which is the dangerous
+kind: the key still exists in the reader while the writer moved on, and real users lose their saved
+settings with no error anywhere.
 
 **Next: Phase 9 (Navigation Architecture).** Four destinations - Companion,
 Path, Library, Profile - without duplicating pet state, duplicating
