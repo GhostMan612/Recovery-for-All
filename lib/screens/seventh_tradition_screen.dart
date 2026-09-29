@@ -171,9 +171,9 @@ class SeventhTraditionScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('7th Tradition & Support',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('7th Tradition & Support',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
         elevation: 0,
       ),
       body: ListView(
@@ -244,9 +244,9 @@ class SeventhTraditionScreen extends StatelessWidget {
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Your support helps cover:',
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
                 ...[
@@ -363,8 +363,8 @@ class _SectionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
                       if (subtitle != null)
@@ -433,8 +433,8 @@ class _SupportListTile extends StatelessWidget {
                 children: [
                   Text(
                     link.label,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface, fontSize: 14, fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

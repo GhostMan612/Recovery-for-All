@@ -49,7 +49,7 @@ class RaidBossCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(raid.bossName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(raid.bossName, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
                     Text(isDefeated ? 'Defeated • +${RaidService.victoryXp} XP awarded' : 'Ends in ~$hoursLeft h • Community Raid', style: TextStyle(color: isDefeated ? AppColors.raidVictorySoft : Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                   ],
                 ),
@@ -57,7 +57,7 @@ class RaidBossCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-                child: Text('${raid.currentHp}/${raid.maxHp} HP', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                child: Text('${raid.currentHp}/${raid.maxHp} HP', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -78,7 +78,7 @@ class RaidBossCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text('Your contribution: ${raid.userContribution} DMG', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const Spacer(),
-              Text('${(progress * 100).round()}% HP', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('${(progress * 100).round()}% HP', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 12),

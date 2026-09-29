@@ -154,9 +154,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.auto_stories, color: Theme.of(context).colorScheme.primary, size: 36),
           const SizedBox(height: 12),
-          const Text('How Trials work',
+          Text('How Trials work',
               style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -370,12 +370,12 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Trials of the Path',
-            style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Trials of the Path',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.white70),
+            icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: _maybeShowTutorial,
           ),
         ],
@@ -404,9 +404,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                 Icon(Icons.shield_outlined,
                     size: 56, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 20),
-                const Text('Trials of the Path',
+                Text('Trials of the Path',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
@@ -761,9 +761,9 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                               color: pop.color,
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
-                              shadows: const [
+                              shadows: [
                                 Shadow(
-                                    color: Colors.black54,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                                     blurRadius: 6,
                                     offset: Offset(0, 1))
                               ])),
@@ -899,8 +899,8 @@ class _GearStat extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

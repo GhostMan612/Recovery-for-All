@@ -138,10 +138,10 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('My Workbooks', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('My Workbooks', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
-          IconButton(tooltip: 'Import PDF', icon: const Icon(Icons.file_upload_outlined, color: Colors.white70), onPressed: _import),
+          IconButton(tooltip: 'Import PDF', icon: Icon(Icons.file_upload_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), onPressed: _import),
         ],
       ),
       body: !_loaded
@@ -153,7 +153,7 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary, size: 18), SizedBox(width: 8), Text('On-device only', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))]),
+                    Row(children: [Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary, size: 18), SizedBox(width: 8), Text('On-device only', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.w600))]),
                     SizedBox(height: 8),
                     Text('Files you import stay on this device and are never uploaded. Only import files you own or have permission to use. Fellowship-approved NA literature (Basic Text, Step Working Guide) is copyrighted — please purchase via NAWS catalog or link to na.org.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, height: 1.5)),
                   ]),
@@ -176,12 +176,12 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
                         Icon(Icons.picture_as_pdf_outlined, color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(entry['name']?.toString() ?? 'Workbook', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(entry['name']?.toString() ?? 'Workbook', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
                           Text('${((entry['size'] as int? ?? 0) / 1024).round()} KB • ${DateTime.fromMillisecondsSinceEpoch(entry['importedAt'] as int? ?? 0).toLocal().toString().substring(0, 10)}', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
                         ])),
-                        IconButton(tooltip: 'Open', icon: const Icon(Icons.open_in_new, color: Colors.white70), onPressed: () => _open(entry)),
-                        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline, color: Colors.white38), onPressed: () => _delete(entry)),
+                        IconButton(tooltip: 'Open', icon: Icon(Icons.open_in_new, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), onPressed: () => _open(entry)),
+                        IconButton(tooltip: 'Delete', icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)), onPressed: () => _delete(entry)),
                       ]),
                     ),
                 if (_workbooks.isNotEmpty) const SizedBox(height: 12),
@@ -232,8 +232,8 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text(widget.title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
       ),
       body: Stack(children: [
         PDFView(
@@ -251,7 +251,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
         ),
         if (!_ready) Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
         if (_ready && _pages > 0)
-          Positioned(bottom: 12, left: 0, right: 0, child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(20)), child: Text('${_currentPage + 1} / $_pages', style: const TextStyle(color: Colors.white, fontSize: 12))))),
+          Positioned(bottom: 12, left: 0, right: 0, child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(20)), child: Text('${_currentPage + 1} / $_pages', style: TextStyle(color: Theme.of(context).colorScheme.surface, fontSize: 12))))),
       ]),
     );
   }

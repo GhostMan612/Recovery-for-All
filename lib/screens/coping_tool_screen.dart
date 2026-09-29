@@ -63,9 +63,9 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
-        title: const Text('Urge Coping Tools', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text('Urge Coping Tools', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -81,7 +81,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Choose a coping strategy for managing urges', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Choose a coping strategy for managing urges', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('Different tools work for different situations. Try several to find what resonates with you.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
           const SizedBox(height: 24),
@@ -109,7 +109,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tool['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
                             Text(tool['description'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             const SizedBox(height: 4),
@@ -142,7 +142,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                 child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary, size: 24),
               ),
               const SizedBox(width: 12),
-              Text(tool['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
@@ -164,7 +164,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Step-by-Step Guide', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Step-by-Step Guide', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           ...(tool['steps'] as List<String>).asMap().entries.map((entry) {
             return Padding(
@@ -176,13 +176,13 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(50)),
-                    child: Center(child: Text('${entry.key + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                    child: Center(child: Text('${entry.key + 1}', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold))),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(entry.value, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5)),
+                      child: Text(entry.value, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14, height: 1.5)),
                     ),
                   ),
                 ],

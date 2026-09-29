@@ -118,12 +118,12 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Daily Reflections',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -133,10 +133,10 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'How are you feeling today?',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -177,8 +177,8 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                             if (isSelected)
                               Text(
                                 _moodLabels[index],
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -191,10 +191,10 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 'Choose today\'s reflection',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -233,10 +233,10 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Your Reflection',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -245,7 +245,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
               TextField(
                 controller: _reflectionController,
                 maxLines: 8,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Write your thoughts and feelings...',
                   hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
@@ -280,10 +280,10 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 'Recent Reflections',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),

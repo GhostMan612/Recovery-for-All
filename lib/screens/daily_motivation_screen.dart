@@ -111,9 +111,9 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         title: Text(_showFavoritesOnly ? 'Favorites' : 'Daily Motivation',
-            style: const TextStyle(color: Colors.white)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           IconButton(
             tooltip: _showFavoritesOnly ? 'Show all' : 'Show favorites',
@@ -132,8 +132,8 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                 children: [
                   Icon(Icons.star_border, size: 56, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
-                  const Text('No favorites yet.',
-                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                  Text('No favorites yet.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18)),
                   const SizedBox(height: 8),
                   Text(
                     'Tap the star on any quote to keep it close.',
@@ -166,8 +166,8 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                               Text(
                                 quote.text,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                   fontSize: 26,
                                   height: 1.4,
                                   fontWeight: FontWeight.w500,
@@ -206,9 +206,9 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                                 duration: const Duration(milliseconds: 250),
                                 curve: Curves.easeOut)
                             : null,
-                        icon: const Icon(Icons.chevron_left, color: Colors.white70),
+                        icon: Icon(Icons.chevron_left, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                         label:
-                            const Text('Prev', style: TextStyle(color: Colors.white70)),
+                            Text('Prev', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                       ),
                       Text('${_page + 1} / ${quotes.length}',
                           style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13)),
@@ -219,8 +219,8 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                                 curve: Curves.easeOut)
                             : null,
                         label:
-                            const Text('Next', style: TextStyle(color: Colors.white70)),
-                        icon: const Icon(Icons.chevron_right, color: Colors.white70),
+                            Text('Next', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+                        icon: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                       ),
                     ],
                   ),

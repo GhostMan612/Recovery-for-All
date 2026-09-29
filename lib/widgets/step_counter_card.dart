@@ -102,9 +102,9 @@ class _StepCounterCardState extends State<StepCounterCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Daily Steps',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         Text(
                           'Track your movement',

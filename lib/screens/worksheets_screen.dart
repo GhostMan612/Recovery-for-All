@@ -103,16 +103,16 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: Icon(Icons.menu_book_outlined,
                 color: Theme.of(context).colorScheme.primary, size: 20),
-            title: const Text('Literature Library',
+            title: Text('Literature Library',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600)),
             subtitle: Text(
                 'Free recovery texts from official sources',
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
-            trailing: const Icon(Icons.chevron_right,
-                size: 16, color: Colors.white38),
+            trailing: Icon(Icons.chevron_right,
+                size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -139,16 +139,16 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
                       : Theme.of(context).colorScheme.primary,
                 ),
                 title: Text(entry.title,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w600)),
                 subtitle: Text(
                   '${entry.tool} · ${entry.description}',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
-                trailing: const Icon(Icons.chevron_right,
-                    size: 18, color: Colors.white38),
+                trailing: Icon(Icons.chevron_right,
+                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -186,7 +186,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
           TextField(
             controller: controllers[i],
             maxLines: 4,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
             decoration: InputDecoration(
               filled: true,
               fillColor: Theme.of(context).colorScheme.surfaceContainer,

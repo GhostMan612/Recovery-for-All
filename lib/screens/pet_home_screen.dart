@@ -226,12 +226,12 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Companion', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Companion', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           IconButton(
             tooltip: 'View Memory Wall',
-            icon: const Icon(Icons.auto_awesome_outlined, color: Colors.white70),
+            icon: Icon(Icons.auto_awesome_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -241,7 +241,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
           ),
           IconButton(
             tooltip: 'Share Pet Card',
-            icon: const Icon(Icons.share_outlined, color: Colors.white70),
+            icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: pet == null ? null : () => _sharePetCard(pet),
           ),
         ],
@@ -257,8 +257,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                       AvatarVisualLayer(pet: pet, size: 160, showAura: true),
                       const SizedBox(height: 12),
                       Text(pet.name,
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 24,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
@@ -399,11 +399,11 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Species',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -453,8 +453,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                   textAlign: TextAlign.center,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Colors.white,
+                                  style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
@@ -486,11 +486,11 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Wearing Today',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -521,11 +521,11 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Kin remembers',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -568,8 +568,8 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                               children: [
                                 Expanded(
                                   child: Text(_memoryLine(event),
-                                      style: const TextStyle(
-                                          color: Colors.white,
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           fontSize: 13)),
                                 ),
                                 if (event.sparksDelta > 0)

@@ -176,10 +176,10 @@ class _SplashScreenState extends State<SplashScreen>
               Icon(Icons.lock_outline,
                   size: 56, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'This space stays yours.',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w600),
               ),
@@ -242,10 +242,10 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 'Recovery for All',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -274,8 +274,8 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                     child: SelectableText(
                       '$_bootError',
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 12, height: 1.4),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface, fontSize: 12, height: 1.4),
                     ),
                   ),
                 ),

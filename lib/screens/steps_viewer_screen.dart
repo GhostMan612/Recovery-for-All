@@ -250,7 +250,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('Redeem sign-off', style: TextStyle(color: Colors.white)),
+        title: Text('Redeem sign-off', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -262,7 +262,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
               controller: controller,
               maxLines: 4,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 11),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11),
             ),
           ],
         ),
@@ -274,7 +274,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Verify', style: TextStyle(color: Colors.white)),
+            child: Text('Verify', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -328,8 +328,8 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('The Twelve Steps', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('The Twelve Steps', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -382,7 +382,7 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(step.title,
-                          style: const TextStyle(color: Colors.white, fontSize: 16)),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
                     ),
                     if (signed)
                       Icon(Icons.verified, size: 18, color: Theme.of(context).colorScheme.tertiary),
@@ -572,7 +572,7 @@ class _WorksheetFieldsState extends State<_WorksheetFields> {
           TextField(
             controller: _controllers[i],
             maxLines: 3,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
             decoration: InputDecoration(
               filled: true,
               fillColor: Theme.of(context).colorScheme.surface,

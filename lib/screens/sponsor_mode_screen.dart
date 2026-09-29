@@ -46,7 +46,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         title:
-            const Text('Review step work', style: TextStyle(color: Colors.white)),
+            Text('Review step work', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -60,7 +60,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
               controller: controller,
               maxLines: 6,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 11),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
@@ -82,7 +82,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Review', style: TextStyle(color: Colors.white)),
+            child: Text('Review', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -114,7 +114,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('Sign & confirm', style: TextStyle(color: Colors.white)),
+        title: Text('Sign & confirm', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Sign off Step $stepNumber — "$stepTitle"?\n\n'
           'This produces a signed confirmation your sponsee pastes back '
@@ -130,7 +130,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.tertiary),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sign it', style: TextStyle(color: Colors.white)),
+            child: Text('Sign it', style: TextStyle(color: Theme.of(context).colorScheme.onTertiary)),
           ),
         ],
       ),
@@ -188,9 +188,9 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Sponsor Mode',
-            style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Sponsor Mode',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: !_loaded
           ? Center(
@@ -264,9 +264,9 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Pending Sign-Offs (Live)',
+                Text('Pending Sign-Offs (Live)',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -294,8 +294,8 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                               children: [
                                 Text(
                                     '${item['sponseeAlias'] ?? 'Sponsee'} · Step ${item['step']}',
-                                    style: const TextStyle(
-                                        color: Colors.white,
+                                    style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 8),

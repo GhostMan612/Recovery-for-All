@@ -122,8 +122,8 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
           Icon(section.icon, color: Theme.of(context).colorScheme.primary, size: 18),
           const SizedBox(width: 8),
           Text(section.name,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w600)),
         ]),
@@ -151,10 +151,10 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                   trailing: dead
-                      ? const Icon(Icons.link_off,
-                          size: 18, color: Colors.white24)
-                      : const Icon(Icons.open_in_new,
-                          size: 18, color: Colors.white38),
+                      ? Icon(Icons.link_off,
+                          size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24))
+                      : Icon(Icons.open_in_new,
+                          size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                   onTap: () {
                     _open(link.url);
                     if (dead) {
@@ -227,17 +227,17 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                               borderRadius: BorderRadius.circular(14)),
                           leading: Icon(Icons.spa_outlined,
                               color: Theme.of(context).colorScheme.primary),
-                          title: const Text('Native Recovery Centers (in-app)',
+                          title: Text('Native Recovery Centers (in-app)',
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600)),
                           subtitle: Text(
                               'Culturally specific programs across Minnesota',
                               style: TextStyle(
                                   color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                          trailing: const Icon(Icons.chevron_right,
-                              size: 18, color: Colors.white38),
+                          trailing: Icon(Icons.chevron_right,
+                              size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                           onTap: () => _openNative(context),
                         ),
                       ),
@@ -250,7 +250,7 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                     child: Text(
                       'Links verified ${_formatDay(_lastVerifiedAt!)}',
                       style:
-                          const TextStyle(color: Colors.white24, fontSize: 11),
+                          TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24), fontSize: 11),
                     ),
                   ),
                 const SizedBox(height: 24),

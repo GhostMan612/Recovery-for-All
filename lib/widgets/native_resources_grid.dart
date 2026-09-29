@@ -82,8 +82,8 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
               children: [
                 Text(
                   resource.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -109,8 +109,8 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                       ),
                       child: Text(
                         program,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                           fontSize: 10,
                         ),
                       ),

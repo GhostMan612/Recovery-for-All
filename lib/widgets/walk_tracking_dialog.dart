@@ -69,9 +69,9 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
     return AlertDialog(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text(
+      title: Text(
         'Tracking Walk',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -136,7 +136,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
                 const SizedBox(width: 8),
                 Text(
                   'Time: ${_formatDuration(_elapsed)}',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ],
             ),

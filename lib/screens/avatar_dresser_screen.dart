@@ -93,7 +93,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
               child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary, size: 20),
             ),
             const SizedBox(width: 10),
-            const Expanded(child: Text('Unlock Item?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
+            Expanded(child: Text('Unlock Item?', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 16, fontWeight: FontWeight.bold))),
           ],
         ),
         content: Text('Unlock ${item.label} for ${item.cost} Sparks?', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
@@ -131,7 +131,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
               children: [
                 Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.celebration, color: Theme.of(context).colorScheme.primary, size: 18)),
                 const SizedBox(width: 10),
-                Expanded(child: Text('${item.label} unlocked! Equipped.', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+                Expanded(child: Text('${item.label} unlocked! Equipped.', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.w600))),
               ],
             ),
             behavior: SnackBarBehavior.floating,
@@ -189,7 +189,7 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                   children: [
                     IconButton(
                       tooltip: 'Close dresser',
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
                       onPressed: () => Navigator.pop(context, _pet),
                     ),
                     Expanded(
@@ -197,8 +197,8 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                         widget.onboardingMode
                             ? 'Shape your avatar'
                             : 'Avatar dresser',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -218,8 +218,8 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
               AvatarVisualLayer(pet: _pet, size: 150),
               Text(
                 _pet.name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -344,8 +344,8 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -389,10 +389,10 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.pop(context, _pet),
-                      child: const Text(
+                      child: Text(
                         'Looks good',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

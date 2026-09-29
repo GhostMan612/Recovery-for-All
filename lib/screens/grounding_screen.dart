@@ -161,9 +161,9 @@ class _GroundingScreenState extends State<GroundingScreen>
           ),
         ),
         const Spacer(),
-        const Text('Choose your breathing pattern',
+        Text('Choose your breathing pattern',
             style: TextStyle(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 20,
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 32),
@@ -222,8 +222,8 @@ class _GroundingScreenState extends State<GroundingScreen>
               : isExtended
                   ? '$_phase ${_phaseSecondsLeft > 0 ? "($_phaseSecondsLeft s)" : ""}'
                   : _phase,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
@@ -326,8 +326,8 @@ class _ModeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 17,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
@@ -338,7 +338,7 @@ class _ModeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white38),
+              Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
             ],
           ),
         ),

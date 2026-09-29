@@ -1,10 +1,32 @@
 #!/usr/bin/env python3
-"""Gate: no new raw color literals outside the token file.
+"""Gate: no bare Colors.white / Colors.black pinning a widget to one mode.
 
-Fails when any lib/ file other than the theme token file introduces
-Color(0x...) literals, or when the allowlisted illustration files grow.
-Usage: python tools/verify_no_hardcoded_colors.py
-Exit code 0 = pass, 1 = fail.
+Phase 9 follow-up. The existing color gate catches raw `Color(0x...)` literals
+and the retired dark-pinned `AppColors` statics, but it did NOT catch
+`Colors.white` used as a Text/Icon color. That is the single most common way a
+screen looks fine in dark mode and becomes unreadable in light mode, and every
+one of those instances passed all four gates.
+
+CONTEXT MATTERS, so this gate is not a blanket ban:
+
+  ALLOWED  a bare white/black that is a foreground ON A KNOWN FILL, because
+           that pairing is correct in both brightness modes:
+             foregroundColor:, checkmarkColor:, thumbColor:
+             Color.lerp(...) toward white for a hit flash
+             _spawnPop('Victory!', Colors.white)  (floats over the arena)
+           ALLOWED  a bare white/black in a Canvas/Paint file. Those are art
+           direction, not theme text.
+           ALLOWED  app_colors.dart, which defines the AppPalette record.
+
+  BANNED   Colors.white/black as a `color:` on a Text, Icon, IconTheme, or
+           AppBar title/style. Those sit on whatever surface the theme gives
+           them, so white text in light mode is white-on-near-white.
+
+Use the theme instead: `colorScheme.onSurface`, `.onSurfaceVariant`,
+`.primary`, or the appropriate `on*` counterpart of the surface behind it.
+
+Usage: python tools/verify_no_hardcoded_colors.py [--report]
+Exit code 0 = pass, 1 = fail. --report lists every hit without failing.
 """
 import re
 import sys
@@ -50,10 +72,40 @@ DOMAIN_TOKENS = (
     "starMindfulness", "starSpiritual",
 )
 
+# ---------------------------------------------------------------------------
+# Phase 9: bare Colors.white / Colors.black as a theme-agnostic text color.
+# ---------------------------------------------------------------------------
+
+BASE = r"(white|black|white70|white60|white54|white38|white30|white24|white12" \
+       r"|black54|black45|black38|black26|black12)\b"
+
+# A `color:` argument anywhere on the line. Combined with the token above this
+# catches TextStyle(color:), Icon(color:), IconThemeData(color:),
+# AppBar title styles, and progress indicators.
+MODE_PINNED = re.compile(r"\bcolor\s*:\s*(?:const\s+)?Colors\.%s" % BASE)
+
+# Foregrounds that are legitimately white because the thing behind them is a
+# known solid fill. These are correct in BOTH brightness modes.
+FILL_FOREGROUND = re.compile(
+    r"foregroundColor\s*:|checkmarkColor\s*:|thumbColor\s*:|Color\.lerp"
+    r"|_spawnPop"
+)
+
+# Files that draw with Canvas/Paint. White and black there are art direction.
+PAINTER_FILES = {
+    "widgets/avatar_painter.dart",
+    "widgets/trial_monster_painter.dart",
+    "screens/constellation_canvas_3d.dart",
+    "widgets/companion_guide_overlay.dart",
+    "widgets/chronicle_share_card.dart",
+}
 
 
 def main() -> int:
     failures = []
+    mode_pinned = []
+    report_only = "--report" in sys.argv
+
     for path in sorted(LIB.rglob("*.dart")):
         rel = path.relative_to(LIB).as_posix()
         if rel.endswith(".g.dart"):
@@ -64,35 +116,58 @@ def main() -> int:
         retired = sorted({m for m in RETIRED.findall(text)})
         if retired and rel != "core/theme/app_colors.dart":
             failures.append(
-                f"{rel}: references retired dark-pinned constant(s) "
-                f"{', '.join('AppColors.' + r for r in retired)}"
+                "%s: references retired dark-pinned constant(s) "
+                "%s" % (rel, ", ".join("AppColors." + r for r in retired))
             )
 
         if rel in ALLOWLIST:
             cap = ALLOWLIST[rel]
             if cap is not None and len(hits) > cap:
                 failures.append(
-                    f"{rel}: {len(hits)} literals exceeds cap {cap}"
+                    "%s: %d literals exceeds cap %d" % (rel, len(hits), cap)
                 )
             continue
         if hits:
-            offenders = sorted({h for h in hits})
+            offenders = sorted({f for f in hits})
             failures.append(
-                f"{rel}: {len(hits)} raw literals -> {', '.join(offenders[:4])}"
+                "%s: %d raw color literal(s): %s"
+                % (rel, len(hits), ", ".join(offenders[:6]))
             )
 
+        # --- mode-pinned text colors -------------------------------------
+        if rel in PAINTER_FILES or rel == "core/theme/app_colors.dart":
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if not MODE_PINNED.search(line):
+                continue
+            if FILL_FOREGROUND.search(line):
+                continue
+            mode_pinned.append((rel, lineno, line.strip()))
+
+    if mode_pinned:
+        for rel, lineno, line in mode_pinned:
+            msg = "%s:%d: mode-pinned text color -> %s" % (
+                rel, lineno, line[:88])
+            if report_only:
+                print(msg)
+            else:
+                failures.append(msg)
+
+    if report_only:
+        print("\n%d mode-pinned text color(s)." % len(mode_pinned))
+        return 0
+
     if failures:
-        print("FAIL: color contract violated")
         for f in failures:
-            print(f"  {f}")
+            print("FAIL: %s" % f)
         print(
-            "\nUse Theme.of(context).colorScheme slots, or a named domain token "
-            "in app_colors.dart (Phase 3 classification rules). Retired dark-pinned "
-            "constants must not return (Phase 5); domain tokens such as "
-            f"{', '.join(DOMAIN_TOKENS[:6])}, ... are allowed."
+            "\nSee AGENTS.md and blueprints/lessons-learned.md L14. A white "
+            "text color on a theme surface is unreadable in light mode and "
+            "passes every other gate."
         )
         return 1
-    print("PASS: no hardcoded color literals outside allowlist")
+
+    print("PASS: no hardcoded color literals and no mode-pinned text colors")
     return 0
 
 

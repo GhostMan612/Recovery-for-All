@@ -101,20 +101,20 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
               compact: true,
             ),
             const SizedBox(width: 10),
-            const Text('Tutorial Guide', style: TextStyle(color: Colors.white)),
+            Text('Tutorial Guide', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.clear_all, color: Colors.white70),
+            icon: Icon(Icons.clear_all, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             tooltip: 'Clear chat',
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                  title: const Text('Clear chat?', style: TextStyle(color: Colors.white)),
-                  content: const Text('This will delete all chat history.', style: TextStyle(color: Colors.white70)),
+                  title: Text('Clear chat?', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                  content: Text('This will delete all chat history.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -133,7 +133,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: () => widget.onClose?.call(),
           ),
         ],
@@ -188,7 +188,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                   child: TextField(
                     controller: _inputController,
                     focusNode: _inputFocus,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: 'Ask about meetings, journal, pet, constellations...',
                       hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),

@@ -100,15 +100,15 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Wellness Check-In', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Wellness Check-In', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
+          Text(
             'How full is each spoke today?',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
@@ -136,8 +136,8 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(d.label,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 14)),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 14)),
                             Text(_scores[d.key]!.round().toString(),
                                 style: TextStyle(
                                     color: Theme.of(context).colorScheme.primary,
@@ -178,18 +178,18 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
               ),
               onPressed: _saving ? null : _save,
               child: _saving
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onSurface))
                   : const Text('Save Check-In',
                       style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Recent Check-Ins',
+          Text('Recent Check-Ins',
               style: TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           if (_history == null)
             Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))

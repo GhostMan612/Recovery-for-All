@@ -29,14 +29,14 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('New Weekly Goal', style: TextStyle(color: Colors.white)),
+        title: Text('New Weekly Goal', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: titleController,
               autofocus: true,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'e.g. Attend 3 meetings',
                 hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
@@ -46,7 +46,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
             TextField(
               controller: targetController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'Times this week',
                 hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
@@ -67,7 +67,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
               if (title.isEmpty || target < 1) return;
               Navigator.pop(dialogContext, (title, target));
             },
-            child: const Text('Add', style: TextStyle(color: Colors.white)),
+            child: Text('Add', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           ),
         ],
       ),
@@ -89,7 +89,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('Start a new week?', style: TextStyle(color: Colors.white)),
+        title: Text('Start a new week?', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'All goal progress resets to zero. Your goals stay.',
           style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -102,7 +102,7 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('New Week', style: TextStyle(color: Colors.white)),
+            child: Text('New Week', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -118,12 +118,12 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Weekly Goals', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Weekly Goals', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           IconButton(
             tooltip: 'Start new week',
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: Icon(Icons.refresh, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: _startNewWeek,
           ),
         ],
@@ -131,8 +131,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addGoal,
         backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Goal', style: TextStyle(color: Colors.white)),
+        icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary),
+        label: Text('Add Goal', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
       ),
       body: StreamBuilder<List<WeeklyGoal>>(
         stream: widget.database.watchAllWeeklyGoals(),
@@ -145,8 +145,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                 children: [
                   Icon(Icons.flag_outlined, size: 56, color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 16),
-                  const Text('No goals for this week yet.',
-                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                  Text('No goals for this week yet.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18)),
                   const SizedBox(height: 8),
                   Text(
                     'Small promises kept build trust in yourself.',
@@ -190,8 +190,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(goal.title,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 15)),
+                                  style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
                               const SizedBox(height: 8),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(4),

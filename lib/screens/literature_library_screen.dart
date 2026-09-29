@@ -116,7 +116,7 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
         actions: [
           IconButton(
             tooltip: 'My Workbooks (on-device PDFs)',
-            icon: const Icon(Icons.menu_book_outlined, color: Colors.white70),
+            icon: Icon(Icons.menu_book_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomWorkbookScreen())),
           ),
           IconButton(
@@ -140,8 +140,8 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                     Icon(category.icon, color: Theme.of(context).colorScheme.primary, size: 18),
                     const SizedBox(width: 8),
                     Text(category.name,
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   ]),
@@ -169,10 +169,10 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 12)),
                             trailing: dead
-                                ? const Icon(Icons.link_off,
-                                    size: 18, color: Colors.white24)
-                                : const Icon(Icons.open_in_new,
-                                    size: 18, color: Colors.white38),
+                                ? Icon(Icons.link_off,
+                                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24))
+                                : Icon(Icons.open_in_new,
+                                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                             onTap: () {
                               _open(link.url);
                               if (dead) {
@@ -196,7 +196,7 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                     child: Text(
                       'Links verified ${_formatDay(_lastVerifiedAt!)}',
                       style:
-                          const TextStyle(color: Colors.white24, fontSize: 11),
+                          TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24), fontSize: 11),
                     ),
                   ),
               ],

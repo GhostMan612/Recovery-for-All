@@ -1163,10 +1163,10 @@ Future<void> _handleWalk() async {
                     },
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                          color: Colors.black54, shape: BoxShape.circle),
-                      child: const Icon(Icons.visibility_off,
-                          size: 14, color: Colors.white),
+                      decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), shape: BoxShape.circle),
+                      child: Icon(Icons.visibility_off,
+                          size: 14, color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                 ),

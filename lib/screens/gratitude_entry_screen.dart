@@ -113,8 +113,8 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: const Text('Daily Gratitude', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text('Daily Gratitude', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         elevation: 0,
       ),
       body: SafeArea(
@@ -123,9 +123,9 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'How are you feeling today?',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               Row(
@@ -198,7 +198,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                     ),
                   ),
                   child: _isSaving
-                      ? const CircularProgressIndicator(color: Colors.white)
+                      ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSurface)
                       : const Text(
                           'Save to Private Vault',
                           style: TextStyle(
@@ -235,7 +235,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
         TextField(
           controller: controller,
           maxLines: 3,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 13),

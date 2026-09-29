@@ -134,7 +134,7 @@ class NextMeetingCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(m.name, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(m.name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
           Text('${m.type} · ${m.time}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           if (tierLabel != null) ...[

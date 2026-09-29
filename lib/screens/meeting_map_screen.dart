@@ -995,8 +995,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
           ),
-          child: const Icon(Icons.person_pin_circle,
-              size: 14, color: Colors.white),
+          child: Icon(Icons.person_pin_circle,
+              size: 14, color: Theme.of(context).colorScheme.onPrimary),
         ),
       ));
     }
@@ -1022,7 +1022,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             child: Icon(
                 m.type.contains('Online') ? Icons.videocam : Icons.groups_2,
                 size: 15,
-                color: Colors.white),
+                color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
       ));
@@ -1157,12 +1157,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Theme.of(context).colorScheme.primary,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(color: Theme.of(context).colorScheme.onPrimary, width: 2),
                     ),
                     child: Center(
                       child: Text('${clusterMarkers.length}',
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 13)),
                     ),

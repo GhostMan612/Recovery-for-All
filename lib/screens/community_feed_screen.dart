@@ -78,8 +78,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Sharing as $_alias',
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 17,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
@@ -95,7 +95,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 maxLines: 5,
                 maxLength: CommunityFeedService.maxPostLength,
                 autofocus: presetBody == null,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                 onChanged: (_) => setSheetState(() {}),
                 decoration: InputDecoration(
                   hintText: 'How is your path going?',
@@ -183,9 +183,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('You matter more than any post.',
+              Text('You matter more than any post.',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 19,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
@@ -266,9 +266,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Recovery Circle',
-            style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text('Recovery Circle',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           if (_isModerator)
             IconButton(
@@ -284,8 +284,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'feed_compose',
         backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: const Icon(Icons.edit_outlined, color: Colors.white),
-        label: const Text('Share', style: TextStyle(color: Colors.white)),
+        icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.onPrimary),
+        label: Text('Share', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
         onPressed: () => _openComposer(),
       ),
       body: ThemedBackground(
@@ -304,18 +304,18 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _showCrisisDoor,
-                    child: const ListTile(
+                    child: ListTile(
                       dense: true,
                       leading: Icon(Icons.support, color: AppColors.dangerSoft),
                       title: Text(
                         'Need help now? 988 · your people · one tap away',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w600),
                       ),
                       trailing: Icon(Icons.chevron_right,
-                          size: 18, color: Colors.white38),
+                          size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                     ),
                   ),
                 ),
@@ -333,9 +333,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                             Icon(Icons.forum_outlined,
                                 size: 54, color: Theme.of(context).colorScheme.outline),
                             const SizedBox(height: 16),
-                            const Text('The circle is quiet right now.',
+                            Text('The circle is quiet right now.',
                                 style: TextStyle(
-                                    color: Colors.white, fontSize: 17)),
+                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 17)),
                             const SizedBox(height: 8),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -398,8 +398,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               Expanded(
                 child: Text(
                   '${post.authorAlias}${post.kind == 'shape' ? '  ·  constellation shape' : ''}',
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
@@ -410,16 +410,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                       TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
               IconButton(
                 tooltip: 'Flag for moderators',
-                icon: const Icon(Icons.flag_outlined,
-                    size: 16, color: Colors.white24),
+                icon: Icon(Icons.flag_outlined,
+                    size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
                 onPressed: () => _feed.flag(post.id),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(post.body,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 14, height: 1.45)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface, fontSize: 14, height: 1.45)),
           if (post.shapeJson != null) ...[
             const SizedBox(height: 8),
             _ShapeBadge(shapeJson: post.shapeJson!),
@@ -467,8 +467,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               if (post.isMine)
                 IconButton(
                   tooltip: 'Delete',
-                  icon: const Icon(Icons.delete_outline,
-                      size: 16, color: Colors.white24),
+                  icon: Icon(Icons.delete_outline,
+                      size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
                   onPressed: () => widget.database.deleteFeedPost(post.id),
                 ),
             ],
@@ -526,15 +526,15 @@ class _ModerationQueueDialog extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text('Moderation queue',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 17,
                             fontWeight: FontWeight.bold)),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -574,8 +574,8 @@ class _ModerationQueueDialog extends StatelessWidget {
                             Text(post.body,
                                 maxLines: 4,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 13)),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
