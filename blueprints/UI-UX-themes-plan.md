@@ -56,27 +56,39 @@ are now gone. (The audit counted ~398 references across 32 files; by the time
 the drain ran, earlier phases had already removed some, leaving 390 across
 31 files — all drained.) Remaining known gaps are tracked per phase below.
 
-## Resume Here (Phase 8 slice 2 done)
+## Resume Here (Phase 8 slice 3 done)
 
-**Phase 8 slices 1 AND 2 are DONE and committed.**
+**Phase 8 slices 1-3 are DONE and committed.**
 
-- Slice 1: `PledgeCard` + `ToolCard` extracted.
-- Slice 2: `SosTile` extracted (still the ONLY SOS tile
-  implementation — Phase 10 forbids a second one), `SupportLinkRow`
-  collapsing the duplicated Fellowship Handshake / 7th Tradition rows, and
-  `AppSectionHeader` adopted for 'Your Toolbox' / 'Library'.
-- `dashboard_screen.dart` is now 1512 -> 1329 lines.
-- 232 tests passing; all three gates green.
+- Slice 1: `PledgeCard`, `ToolCard`.
+- Slice 2: `SosTile` (still the ONLY SOS tile), `SupportLinkRow`,
+  `AppSectionHeader` adoption, ToolCard large-text fix.
+- Slice 3: `PathChips`, `MeetingSpotlight`, `ToolGrid` in
+  `lib/widgets/dashboard_sections.dart`. 244 tests; all gates green.
 
-**ToolCard large-text fix (real bug, found by test):** inside the grid's
-fixed 1.35-ratio cell the copy overflowed by 6px at scale 1.0, 34px at 1.5,
-61px at 2.0. Fixed with `Flexible` + `FittedBox(scaleDown)` around
-the label/subtitle block — a no-op at 1.0, graceful shrink above it. Do not
-remove it; the overflow tests in `test/dashboard_cards_test.dart` guard it.
+**Two real user-facing bugs fixed in slice 3 (both found by tests):**
 
-**Start Phase 8 slice 3.** Remaining: the Path/Library section bodies
-(sky crown, pledge, pet card, next-meeting, raid) into section widgets;
-then deliberate empty/error states for the meeting card and tool grids.
+1. `MeetingSpotlight` no longer claims "No meetings in the next 6
+   hours" while the cache is still being read. Waiting, error and empty are
+   now three distinct presentations. Closing a Phase 6 gap.
+2. `ToolGrid` has a real empty state. Hiding every tool used to
+   collapse the grid to nothing with no explanation and no way back; it now
+   says so and offers Restore all.
+
+**Do not regress:**
+
+- `ToolCard` `FittedBox` — the 1.35-ratio grid cell overflowed by
+  6/34/61px at scale 1.0/1.5/2.0 before the fix.
+- `SosTile` is the only SOS tile implementation (Phase 10).
+- Both `AsyncSnapshot` state tests in
+  `test/dashboard_sections_test.dart` use `withData/withError` — the bare
+  `.data()/.error()` named ctors do not exist in this Flutter version.
+
+**Next: Phase 8 slice 4 (final slice).** Remaining: the sky crown and the
+pet/XP section into widgets, then a read-through for the Phase 8 gate
+(modular, coherent, responsive, behaviorally equivalent). After that,
+mark Phase 8 COMPLETE in the status table and move to Phase 9 (four-tab
+navigation), which is the next safety-critical surface.
 
 **Before touching code, re-run the standing gates** (all three must be green;
 if any is not, the tree is not where this document thinks it is):

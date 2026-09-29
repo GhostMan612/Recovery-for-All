@@ -63,7 +63,7 @@ import '../widgets/tutorial_chatbot_dialog.dart';
 import '../widgets/step_counter_card.dart';
 import '../widgets/next_meeting_card.dart';
 import '../widgets/dashboard_cards.dart';
-import '../widgets/app_primitives.dart';
+import '../widgets/dashboard_sections.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
@@ -908,7 +908,6 @@ Future<void> _handleWalk() async {
   Widget _buildPathTab() {
     final pet = ref.watch(dashboardDataProvider).pet;
     final ordered = _ordered(_buildToolCards(), _layout.toolOrder, _layout.hiddenTools);
-    final hiddenCount = _layout.hiddenTools.length;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -923,23 +922,7 @@ Future<void> _handleWalk() async {
             ),
             const SizedBox(height: 16),
             if (ref.watch(dashboardDataProvider).paths.isNotEmpty) ...[
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final path in ref.watch(dashboardDataProvider).paths)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
-                      ),
-                      child: Text(path,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
-                    ),
-                ],
-              ),
+              PathChips(paths: ref.watch(dashboardDataProvider).paths),
               const SizedBox(height: 16),
             ],
             if (pet != null)
@@ -960,7 +943,9 @@ Future<void> _handleWalk() async {
                 ),
               ),
             const SizedBox(height: 16),
-            // R27: Predictive Next-Meeting Widget — live or next today from cache
+            // R27: Predictive Next-Meeting Widget — live or next today from cache.
+            // Slice 3: the waiting/error/empty presentation now lives in
+            // MeetingSpotlight instead of collapsing into a bare card.
             FutureBuilder<List<RecoveryMeeting>>(
               future: _meetingFinder.cachedMeetings(),
               builder: (context, snapshot) {
@@ -968,7 +953,9 @@ Future<void> _handleWalk() async {
                 var filtered = meetings;
                 final allowed = _allowedFellowships();
                 if (allowed != null && allowed.isNotEmpty && meetings.isNotEmpty) {
-                  final tail = meetings.where((m) => allowed.contains(m.fellowship)).toList();
+                  final tail = meetings
+                      .where((m) => allowed.contains(m.fellowship))
+                      .toList();
                   if (tail.isNotEmpty) filtered = tail;
                 }
                 var display = filtered;
@@ -983,43 +970,19 @@ Future<void> _handleWalk() async {
                   display = sortMeetings(tiered.meetings, userLoc, DateTime.now());
                   tierLabel = tiered.tierLabel;
                 }
-                final pick = display.isEmpty ? null : NextMeetingCard.pickNext(display, DateTime.now());
+                final pick = display.isEmpty
+                    ? null
+                    : NextMeetingCard.pickNext(display, DateTime.now());
                 return GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onLongPress: () async {
-                    final next = !ref.read(meetingRadiusProvider).enforce;
-                    await ref.read(meetingRadiusProvider.notifier).setEnforce(next);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                        content: Text(
-                          'Meeting radius filtering: ${next ? 'ON' : 'OFF'}',
-                          style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                        ),
-                      ),
-                    );
-                  },
-                  child: NextMeetingCard(
-                    meeting: pick?.meeting,
-                    isLive: pick?.isLive ?? false,
+                  onLongPress: () => _toggleRadiusFilter(),
+                  child: MeetingSpotlight(
+                    snapshot: snapshot,
+                    pick: pick,
                     tierLabel: tierLabel,
-                    onOpenMap: pick == null
-                        ? null
-                        : () async {
-                            final (lat, lng) = await _resolveLocation();
-                            var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
-                            if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
-                            if (!context.mounted) return;
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
-                          },
-                    onFindMeetings: () async {
-                      final (lat, lng) = await _resolveLocation();
-                      var all = await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
-                      if (all.isEmpty) all = await _meetingFinder.findNearbyMeetings(lat, lng);
-                      if (!context.mounted) return;
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingMapScreen(initialMeetings: all, database: widget.database)));
-                    },
+                    onOpenMap: pick == null ? null : _openMeetingMap,
+                    onFindMeetings: _openMeetingMap,
+                    onRetry: () => setState(() {}),
                   ),
                 );
               },
@@ -1045,52 +1008,13 @@ Future<void> _handleWalk() async {
                   },
                 ),
               ),
-            AppSectionHeader(
+            ToolGrid(
               title: 'Your Toolbox',
-              trailing: IconButton(
-                tooltip: _editingPath ? 'Done' : 'Edit layout',
-                icon: Icon(_editingPath ? Icons.check : Icons.edit_outlined,
-                    color: Theme.of(context).colorScheme.primary, size: 18),
-                onPressed: () => setState(() => _editingPath = !_editingPath),
-              ),
-            ),
-            if (_editingPath && hiddenCount > 0) ...[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final id in _layout.hiddenTools)
-                      ActionChip(
-                        label: Text(id, style: const TextStyle(fontSize: 11)),
-                        avatar: const Icon(Icons.visibility_off, size: 14),
-                        onPressed: () {
-                          final l = _layout;
-                          ref
-                              .read(dashboardLayoutProvider.notifier)
-                              .saveToolOrder(
-                                l.toolOrder,
-                                Set<String>.from(l.hiddenTools)..remove(id),
-                              );
-                        },
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: 4),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.35,
+              editing: _editingPath,
+              hidden: _layout.hiddenTools,
+              onToggleEditing: () =>
+                  setState(() => _editingPath = !_editingPath),
+              onRestore: _restoreHiddenTool,
               children: [
                 for (var i = 0; i < ordered.length; i++)
                   _buildDraggableToolCard(ordered, i, isLibrary: false),
@@ -1137,53 +1061,15 @@ Future<void> _handleWalk() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppSectionHeader(
+            ToolGrid(
               title: 'Library',
-              subtitle: 'Literature, housing, and community — always one tap away.',
-              trailing: IconButton(
-                tooltip: _editingLibrary ? 'Done' : 'Edit layout',
-                icon: Icon(_editingLibrary ? Icons.check : Icons.edit_outlined,
-                    color: Theme.of(context).colorScheme.primary, size: 18),
-                onPressed: () => setState(() => _editingLibrary = !_editingLibrary),
-              ),
-            ),
-            if (_editingLibrary && _layout.hiddenLibrary.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final id in _layout.hiddenLibrary)
-                      ActionChip(
-                        label: Text(id, style: const TextStyle(fontSize: 11)),
-                        avatar: const Icon(Icons.visibility_off, size: 14),
-                        onPressed: () {
-                          final l = _layout;
-                          ref
-                              .read(dashboardLayoutProvider.notifier)
-                              .saveLibraryOrder(
-                                l.libraryOrder,
-                                Set<String>.from(l.hiddenLibrary)..remove(id),
-                              );
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.35,
+              subtitle:
+                  'Literature, housing, and community \u2014 always one tap away.',
+              editing: _editingLibrary,
+              hidden: _layout.hiddenLibrary,
+              onToggleEditing: () =>
+                  setState(() => _editingLibrary = !_editingLibrary),
+              onRestore: _restoreHiddenLibraryItem,
               children: [
                 for (var i = 0; i < ordered.length; i++)
                   _buildDraggableToolCard(ordered, i, isLibrary: true),
@@ -1192,6 +1078,60 @@ Future<void> _handleWalk() async {
             const SizedBox(height: 90),
           ],
         ),
+      ),
+    );
+  }
+
+  void _restoreHiddenTool(String id) {
+    final l = _layout;
+    ref
+        .read(dashboardLayoutProvider.notifier)
+        .saveToolOrder(
+          l.toolOrder,
+          Set<String>.from(l.hiddenTools)..remove(id),
+        );
+  }
+
+  void _restoreHiddenLibraryItem(String id) {
+    final l = _layout;
+    ref
+        .read(dashboardLayoutProvider.notifier)
+        .saveLibraryOrder(
+          l.libraryOrder,
+          Set<String>.from(l.hiddenLibrary)..remove(id),
+        );
+  }
+
+  /// Long-press on the meeting card toggles radius filtering and confirms it,
+  /// so the toggle is never silent.
+  Future<void> _toggleRadiusFilter() async {
+    final next = !ref.read(meetingRadiusProvider).enforce;
+    await ref.read(meetingRadiusProvider.notifier).setEnforce(next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        content: Text(
+          'Meeting radius filtering: ${next ? 'ON' : 'OFF'}',
+          style: TextStyle(color: Theme.of(context).colorScheme.primary),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMeetingMap() async {
+    final (lat, lng) = await _resolveLocation();
+    var all =
+        await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
+    if (all.isEmpty) {
+      all = await _meetingFinder.findNearbyMeetings(lat, lng);
+    }
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MeetingMapScreen(
+            initialMeetings: all, database: widget.database),
       ),
     );
   }

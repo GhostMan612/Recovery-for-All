@@ -137,19 +137,21 @@ resume without losing progress. Update it at every session end.
 **Phase 6 (states) COMPLETE:** `app_primitives.dart` now has 7 primitives — added `AppErrorState` (retryable, non-blaming copy) and `AppOfflineState` (distinct from error: cached data is still on screen, copy says so). Adopted in `journal_screen` (empty), `constellation_screen` (empty + loading), `meeting_map_screen` (load failure → `AppErrorState` with real retry). `MeetingFinderService.isCacheStale()` added (missing or >24h `cacheTtl`) so stale network data can surface as an offline affordance instead of looking fresh. 3 new tests.
 **Phase 7 (dashboard state) COMPLETE:** `lib/core/dashboard_providers.dart` now holds 5 notifiers — `DashboardLayoutNotifier` (order + hidden sets, owns the `_ordered` merge), `MeetingRadiusNotifier`, `DailyPledgeNotifier`, `SkyNameNotifier`, and `DashboardDataNotifier` (profile + pet + raid with explicit load order). `_DashboardScreenState` went from 22 mutable fields to **3** (`_editingPath`, `_editingLibrary` ephemeral; `_selectedIndex` nav) + `_skyNodes` (pure view model). File 1551 → 1449 lines. `DashboardScreen` is `ConsumerStatefulWidget`. 18 tests.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 8 slice 3 (Dashboard View Reconstruction).** Slices 1-2 done
-and committed: `PledgeCard`, `ToolCard`, `SosTile`, and
-`SupportLinkRow` now live in `lib/widgets/dashboard_cards.dart`; the
-`AppSectionHeader` primitive is adopted. `dashboard_screen.dart` is
-1512 -> 1329 lines; 232 tests passing; all gates green.
+**Next: Phase 8 slice 4 (Dashboard View Reconstruction), then Phase 9.**
+Slices 1-3 done and committed. `dashboard_cards.dart` holds `PledgeCard`,
+`ToolCard`, `SosTile`, `SupportLinkRow`; `dashboard_sections.dart` holds
+`PathChips`, `MeetingSpotlight`, `ToolGrid`. `dashboard_screen.dart` is 1512 ->
+1259 lines; 244 tests passing; all gates green.
 
-**Do not undo the ToolCard `FittedBox`:** the toolbox grid's
-fixed aspect ratio overflowed at every text scale tested (6px/34px/61px at
-1.0/1.5/2.0). The fix is `Flexible` + `FittedBox(scaleDown)`, and
-`test/dashboard_cards_test.dart` guards it.
+**Two real bugs fixed in slice 3, both test-found:** the meeting card used
+to say "No meetings in the next 6 hours" while the cache was still loading
+(waiting/error/empty are now distinct), and hiding every tool collapsed the
+grid with no explanation and no way back (now has a Restore all empty state).
 
-`SosTile` is the only SOS tile implementation — Phase 10 forbids a second
-SOS surface, so reuse this class rather than re-declaring one locally.
+**Three do-not-regress notes:** the `ToolCard` `FittedBox` (grid cell
+overflowed 6/34/61px at 1.0/1.5/2.0 before it); `SosTile` as the only SOS tile
+implementation (Phase 10 forbids a second); and `AsyncSnapshot` in tests must use
+`withData/withError`, not `.data()/.error()`, which do not exist in this Flutter version.
 
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
