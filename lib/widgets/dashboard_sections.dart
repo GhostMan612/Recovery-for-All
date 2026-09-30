@@ -273,6 +273,12 @@ class SkyCrown extends StatelessWidget {
       button: true,
       label: 'Open your constellation, $skyName'
           '${hasStars ? ', ${nodes.length} stars' : ', no stars yet'}',
+      // Phase 12: the Stack paints the sky name and the "plant your first
+      // star" prompt as Text, so the curated label was being concatenated
+      // with them and the whole thing was read twice. `onTap` is repeated
+      // because excluding the GestureDetector also drops its action.
+      excludeSemantics: true,
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
@@ -381,6 +387,15 @@ class CompanionSection extends StatelessWidget {
       button: true,
       label: 'Open Skill Tree. '
           '${pet.name}, level ${evaluated.pathLevel}, $xpInto of 100 XP.',
+      // Phase 12: `excludeSemantics` is DELIBERATELY not used here, unlike on
+      // SkyCrown and the dashboard cards. RecoveryPetCard renders an InkWell
+      // and two real buttons (check in, walk) inside this subtree, and
+      // excluding their semantics would leave a screen-reader user with no
+      // way to reach ANY of them. The cost is that the level and XP text is
+      // announced both from the curated label above and from the Text below.
+      // A duplicated announcement is a far smaller problem than an
+      // unreachable daily-care action, so the trade goes this way on purpose.
+      onTap: onTap,
       child: GestureDetector(
         onTap: onTap,
         child: Column(
@@ -410,6 +425,8 @@ class CompanionSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Level ${evaluated.pathLevel} • $xpInto/100 XP',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontSize: 12,
@@ -418,11 +435,24 @@ class CompanionSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      'Tap for Skill Tree',
-                      style:
-                          TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
-                    ),
+                    // Phase 13: this hint is a NON-flexible child, so it was
+                    // laid out at its intrinsic width before the Expanded
+                    // level text got any space. At 2.0x on a 320dp screen the
+                    // row needed ~450dp in 292dp and overflowed.
+                    // The essential information is the level and XP, which is
+                    // the Expanded child; the "tap for skill tree" cue is
+                    // reinforcement, and the Semantics label above already
+                    // announces "Open Skill Tree". So the visible hint steps
+                    // aside once the user's text is large enough for it to
+                    // collide, rather than truncating the level instead.
+                    if (MediaQuery.textScalerOf(context).scale(1) <= 1.3) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tap for Skill Tree',
+                        style:
+                            TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+                      ),
+                    ],
                     const SizedBox(width: 4),
                     const Icon(Icons.account_tree_outlined,
                         size: 14, color: AppColors.pink),

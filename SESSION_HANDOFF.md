@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Phases 0-9 COMPLETE - Phase 9 shipped four destinations with no duplicated Settings or pet state; a full a11y + text-scale audit landed 6 FUNCTIONAL bug fixes plus the high-severity accessibility set; analyze 0, test 254, all four gates green)
+**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. Late phases were consolidation and found three more real defects: an a11y double-announcement, an onboarding that never said which step you were on, and a `CompanionSection` row that overflowed at 2.0x on a 320dp screen. Final close: analyze 0, **test 292 passing**, all five gates green — the closing run also caught a 12-test harness bug that a stale "13/13 passed" note had been hiding. See L20.)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -12,9 +12,9 @@ resume without losing progress. Update it at every session end.
 2. `CLAUDE.md` §1–§5 — token conservation + build boundary details
 3. `RULES.md` — technical laws learned the hard way
 4. **This file** — current state, environment facts, next moves
-5. `blueprints/UI-UX-themes-plan.md` — the active 17-phase UI/UX program
-   (Phases 0-8 done). Its "Resume Here" block is the authoritative
-   next-step pointer for this workstream.
+5. `blueprints/UI-UX-themes-plan.md` — the UI/UX program, **all 17 phases
+   complete**. Its "Resume Here" block records the final verification state
+   and the one caveat about the last test run.
 6. `blueprints/roadmap-v2.md` — feature status source of truth
 
 ## 2 · Hard rules (never violate)
@@ -22,6 +22,18 @@ resume without losing progress. Update it at every session end.
 - **Build boundary**: NEVER `flutter build apk|appbundle|run`. The human
   builds in Android Studio. Agent gates: `flutter pub get` →
   `flutter analyze` (**must be "No issues found"**) → `flutter test`.
+- **⛔ NO SHELL UNTIL THE ENTIRE TASK IS COMPLETE.** This overrides the gate
+  list above, which still describes *what* to run, not *when*. The user has
+  directed this repeatedly and unambiguously: while working through a plan, do
+  not call the shell **at all** — not `flutter analyze`, not `flutter test`, not
+  the Python gates, not git, not a scratch `.py`. Use `read`, `edit`, `write`,
+  `grep` and subagents; those are the tools for working. Run verification
+  **once, at the end, when the whole plan is done**, or when explicitly asked.
+  If unsure whether a file compiles, **read it again** instead of shelling out.
+  Rationale: the analyzer is the wrong oracle for this work — a colour-slot
+  typo compiles cleanly and looks wrong on a device — and repeated analyzer
+  runs were repeatedly spent re-checking hand-balanced parens instead of
+  reading the enclosing block first.
 - **Commits by explicit path only** (never `git add .`/`-A`). Commit
   messages report analyze/test status ONLY — never claim build success.
 - **Safety pipeline order untouchable** (`chatbot_screen.dart:72`):
@@ -50,10 +62,10 @@ resume without losing progress. Update it at every session end.
 
 ## 3 · Where things stand
 
-- **UI/UX modernization program: Phases 0-7 COMPLETE, 8-17 not started.** The
-  full phase-by-phase record, per-phase evidence, and a "Resume Here" block are
-  in `blueprints/UI-UX-themes-plan.md` — read that file before starting Phase 8.
-  Short version of what changed:
+- **UI/UX modernization program: ALL 17 PHASES COMPLETE.** The
+   phase-by-phase record, per-phase evidence, the three late-phase defects, and
+   the final verification state are in `blueprints/UI-UX-themes-plan.md` —
+   read that file before starting new work. Short version:
   - Color system is real: 875 raw literals and 390 dark-pinned `AppColors`
     statics are both gone. The retired top-level constants were **deleted**, so
     a screen can no longer pin itself to dark mode.
@@ -85,20 +97,69 @@ resume without losing progress. Update it at every session end.
     3. Hiding every toolbox tool collapsed the grid with no explanation and
        no way back. `ToolGrid` now explains that hiding is not deleting
        and offers "Restore all".
-  - Suite is at **254 tests**, analyze clean.
-- **Four gates, and the fourth is new:** `python tools/verify_invariants.py`
+  - Suite is at **292 tests** (was 254 before the final three test files), analyze clean.
+  - **Phases 10-16 shipped after that.** Phase 10 (SOS) was an audit: added a
+    dismiss control, moved the sponsor care-alert off sheet *open* onto real
+    activation, and fixed a header overflow. Phase 11 found that the theme
+    engine has supported System/Light/Dark since Phase 2 and
+    `ThemeNotifier.setMode` persisted to `theme_mode_v1`, but **no UI ever
+    called it** — the key was written at install and never again; the control
+    now exists. Phase 12/13 added an onboarding step indicator and fixed three
+    overflow sites. Phase 14 consolidated the reduce-motion decision into
+    `lib/core/motion/app_motion.dart`. Phase 15 ran the 3x2 theme matrix.
+    Phase 16's audit came back clean and added invariant 6.
+  - **🐛 THREE MORE REAL DEFECTS found in Phases 12-15, by running the matrix
+    rather than reading the code:**
+    1. **Screen readers announced every SOS destination and every tool card
+       TWICE.** `Semantics(label: ...)` without `excludeSemantics: true`
+       concatenates the child's own text onto the curated label, so a tree dump
+       showed the node label as
+       `"Meeting Finder. Live and upcoming\nMeeting Finder\nLive and upcoming"`.
+       Fixed with `excludeSemantics: true` on `SosTile`, `ToolCard`,
+       `SupportLinkRow` and `SkyCrown` — each had to repeat `onTap`, because
+       excluding the child also drops its tap action, and a button with a role
+       but no action is unreachable. **`CompanionSection` must NOT use it**:
+       `RecoveryPetCard` holds an `InkWell` plus two real buttons, so
+       excluding them would make check-in and walk unreachable. That trade (a
+       duplicated announcement vs. an unreachable care action) is deliberate
+       and is pinned by a test.
+    2. **Onboarding never said which step you were on.** Seven steps behind a
+       non-scrollable `PageView` with no indicator anywhere; a screen-reader
+       user could not even discover the flow had more pages. Now announced
+       via a `liveRegion`.
+    3. **`CompanionSection` overflowed at 2.0x on a 320dp screen** — the "Tap
+       for Skill Tree" hint is a NON-flexible `Row` child, so it was laid out
+       at intrinsic width before the `Expanded` level text got any space
+       (~450dp needed in 292dp). The hint now steps aside above 1.3x; the
+       essential level/XP stays.
+  - **🎨 KNOWN PALETTE LIMITATION (found by the Phase 15 matrix):**
+    `midnightSlate` and `oledPitch` share the accent `0xFF38BDF8`, and light
+    mode is generated from the seed accent — so **those two palettes are
+    indistinguishable while light**. Dark is unaffected (each copies its own
+    `bgDeep` into `surface`). This is a property of the palettes as designed,
+    not a regression, and it is asserted in `test/theme_matrix_test.dart` so it
+    cannot change silently. Changing the palettes is out of scope.
+- **Five gates now, and the fifth is new:** `python tools/verify_invariants.py`
   enforces the rules that used to be only prose in this file. It fails on a
   missing `databaseProvider` override, a second `SosTile` or a removed
   `_showSosSheet`, any load-bearing SharedPreferences key going missing OR
-  drifting out of its owning file, a deleted Phase 8 view file, and any retired
-  `AppColors` constant. The partial-rename case is the valuable one: the key
-  still exists in the reader while the writer moved on, which loses real users'
-  settings with no error anywhere.
+  drifting out of its owning file, a deleted Phase 8 view file, any retired
+  `AppColors` constant, and — added in Phase 16 — the system animation setting
+  being **read anywhere except `lib/core/motion/app_motion.dart`**. The last
+  one exists because that decision had quietly been made in five places, which
+  is how onboarding ended up animating for users who disabled animations. The
+  partial-rename case is the valuable one for keys: the key still exists in the
+  reader while the writer moved on, which loses real users' settings with no
+  error anywhere.
 - **Repo tooling** in `.opencode/`: two auditor subagents (`text-scale-auditor`,
   `a11y-auditor`) that report findings with `file:line` and never edit, plus a
-  `/verify` command that runs all four gates. Use them for the Phase 12/13
-  audits; do NOT fan out parallel agents over Phase 9 (navigation touching SOS
-  is single-threaded by nature).
+  `/verify` command that runs all five gates. Both auditors earned their keep:
+  the two-agent a11y/text-scale sweep found 117 issues, and only the
+  *rendered* matrix found the Phase 13 overflow, which no amount of reading
+  the code would have. Still the right first stop for a UI change, but treat
+  their output as a review, not a gate — they do not run. Do NOT fan out
+  parallel agents over navigation work touching SOS; that is single-threaded
+  by nature.
 - **A11Y + TEXT-SCALE AUDIT (Sep 28) — landed, device-unverified.** A
   two-agent audit of all 96 `lib/` files found 117 issues. Six were genuine
   FUNCTIONAL bugs, not accessibility polish, and all are fixed:
@@ -220,7 +281,10 @@ all are renderable in tests without a provider scope. 28 new tests.
 **⚠ Deliberately NOT done in Phase 8:** the two-tab Path/Library IA. Moving
 to four destinations is Phase 9's job; Phase 8 added and moved nothing.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 10 (Global SOS Experience).** Phases 0-9 complete.
+**Next: the UI/UX program is DONE. Nothing in Phases 0-17 is outstanding.**
+Read the **"Resume Here"** block at the top of
+`blueprints/UI-UX-themes-plan.md` — it carries the final gate results, the one
+caveat about the last test run, and the API notes worth keeping.
 
 Phase 10 is mostly an AUDIT, not a rewrite. SOS is already the strongest
 surface in the app: `SosTile` is the only tile implementation, `_showSosSheet`
@@ -229,23 +293,31 @@ of either. Audit FAB placement, labels, contrast, dismissal, accidental
 activation, and screen-reader semantics. **Do not build a second SOS surface** -
 the gate will fail and Phase 10 forbids it.
 
-Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
-
-### Session-boundary state (Sep 28, after Phase 9)
-- Working tree clean; all four gates green (analyze 0, test 254, color gate
-  exit 0, invariants exit 0).
-- `main` and `origin/main` in sync.
-- UI/UX Phases 0-9 complete. Phases 10-17 not started.
-- **Two duplicates closed in Phase 9, both were live bugs waiting to happen:**
-  Settings' nine `initState`-only fields (a persistent tab never re-reads them,
-  so `_biometricEnabled` could contradict what splash enforces), and pet state
-  (loaded independently by `pet_home_screen` and `dashboard_providers`, which
-  would have gone stale the moment Companion became a tab).
-- **THE BIGGEST REMAINING RISK: nothing in Phases 0-9 has run on hardware.**
-  ~200 color substitutions and a large a11y batch are verified only by the
-  compiler and unit tests. The audit found entire screens invisible in light
-  mode - exactly what tests cannot catch. A plugged-in Blu View 5 would also
-  exercise the `isLowEnd` Lottie branch, never yet run on a real device.
+### Session-boundary state (Sep 30, after Phase 17)
+- UI/UX Phases **0-17 complete**. No phase outstanding.
+- Final gates: `flutter analyze --no-pub` -> No issues found; `flutter test` ->
+  292 passing; `verify_no_hardcoded_colors.py` -> exit 0;
+  `verify_invariants.py` -> exit 0 (now 6 invariants).
+- **Honest caveat, now RESOLVED:** the final gate run caught a real defect that
+  the earlier "13/13 passed" claim had hidden. All 12 tree-walking assertions in
+  `test/accessibility_contracts_test.dart` were reading the semantics tree off
+  the **wrong `PipelineOwner`**, so they threw on a null owner while the widgets
+  and labels were perfectly correct. Both obvious accessors are wrong:
+  `binding.rootPipelineOwner.semanticsOwner` is **null** in a widget test (each
+  `View` hangs its own `PipelineOwner` off the root, and that is the one holding
+  the `SemanticsOwner`), and `binding.pipelineOwner` is a *separate legacy
+  instance*, not an alias — it merely happens to work. Correct expression, from
+  `flutter_test/lib/src/finders.dart`:
+  `tester.binding.renderViews`' `owner!.semanticsOwner!.rootSemanticsNode!`.
+  Fixed, and the full suite now runs **292 passing, analyze clean**. Lesson
+  recorded as L20 — and the meta-lesson is that "the file passed 13/13" was
+  never independently re-verified after the accessor was changed.
+- **THE BIGGEST REMAINING RISK: nothing in Phases 0-17 has run on hardware.**
+  ~200 colour substitutions, a large a11y batch, and every overflow fix are
+  verified only by the compiler and widget tests. The audit found entire
+  screens invisible in light mode — exactly what tests cannot catch. A
+  plugged-in Blu View 5 would also exercise the `isLowEnd` Lottie branch, never
+  yet run on a real device.
 - The `+9` AAB in `build/` predates all of this and is stale. Do not upload it.
 
 
@@ -254,6 +326,7 @@ Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md`
 1. Update §3 "Where things stand" + §7 "Next moves" + the date line up top
 2. Tick affected checklist boxes (roadmap-v2, pet/coach checklists)
 3. If ANY lib/ file changed: `python tools/generate_code_package.py`
-4. Run gates: `flutter analyze` (zero) + `flutter test`
+4. **Once the whole plan is done** (and not before — see the shell rule in §2):
+   `flutter analyze` (zero) + `flutter test` + both Python gates
 5. Commit by explicit path, message = gates status only
 6. Leave the tree clean — no uncommitted work overnight

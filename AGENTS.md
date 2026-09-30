@@ -28,13 +28,28 @@ python tools/verify_no_hardcoded_colors.py                 # standing UI gate (m
 python tools/verify_invariants.py                           # architecture invariants (must exit 0)
 ```
 
-- **Verification cadence (Sep 28, user directive).** Do NOT run `flutter
-  analyze` or `flutter test` mid-phase. They cost 15s and 85s respectively and
-  neither catches what actually breaks during a refactor. Run them ONCE when a
-  phase is complete — and even then, only if you are unsure or it is genuinely
-  necessary. The two Python gates are seconds, so keep running those freely.
-  Rationale: a color-slot typo compiles cleanly and looks wrong on a device,
-  so the analyzer is the wrong oracle for UI work anyway.
+- **VERIFICATION CADENCE — BINDING USER DIRECTIVE (restated 4×; violated
+  again on Sep 30).** Treat it as absolute, with no exceptions for "just to
+  confirm" or "one quick check":
+  - **NO `flutter analyze`. NO `flutter test`. NO Bash/`Shell` tool calls at
+    all** while working through a phase. Not after one edit, not after a batch
+    of edits, not "just to confirm", not to sanity-check a paren balance, and
+    not to run a helper `.py` script for a bulk doc edit. Use `edit` for that.
+  - Run verification **ONCE, at the very end, when the entire plan is complete**
+    — or when the user explicitly asks.
+  - The user's words: "ONLY SHELL AT THE VERY END OF TASK" and "STOP USING
+    SHELLS! USE THE EDIT TOOL".
+  - `read`, `edit`, `write`, and `grep` are fine. Those are the tools for
+    working. `Shell` is not a "quick check" tool; it is an end-of-task tool.
+  - If you are unsure whether a file compiles, **read it again** rather than
+    shelling out. The Bash tool is for git, builds, and the gates at the very
+    end — nothing else.
+  - Rationale beyond the user's preference: the analyzer is the wrong oracle
+    for this work. A color-slot typo compiles cleanly and looks wrong on a
+    device, and repeated analyzer runs were repeatedly spent re-checking
+    hand-balanced parens instead of reading the enclosing block first.
+  - Corollary: if a phase is finished and the plan is finished, THEN verify.
+    "One more small edit" is not a reason to re-run.
 
 ## Hard-won gotchas
 
@@ -44,6 +59,42 @@ python tools/verify_invariants.py                           # architecture invar
   box must be tested at more than one `textScaler` — reading the code is not
   enough. Same for futures: a `?? []` fallback turns loading, error, and
   empty into one lie. See `blueprints/lessons-learned.md` L14.
+- **A non-flexible `Row` child is laid out at intrinsic width BEFORE the
+  `Expanded` child gets any space.** That is the Phase 13 bug in
+  `CompanionSection`: the "Tap for Skill Tree" hint needed ~450dp in 292dp at
+  2.0x on a 320dp screen, and the `Expanded` level text could not save it
+  because it is laid out second. `Expanded` only protects the *flex* child.
+- **`Semantics(label: ...)` CONCATENATES the child's text onto the label
+  unless you pass `excludeSemantics: true`.** A tree dump showed `ToolCard`'s
+  node label as `"Meeting Finder. Live and upcoming\nMeeting Finder\nLive and
+  upcoming"` — screen readers announced every card twice. When you do set
+  `excludeSemantics: true`, you must **repeat `onTap` on the `Semantics`**, or
+  you drop the child's tap action and leave a button that cannot be activated.
+  Do NOT use it on a subtree containing nested interactive controls
+  (`CompanionSection` holds a pet card with two real buttons; excluding them
+  would make check-in and walk unreachable).
+- **`find.bySemanticsLabel` reads `element.renderObject.debugSemantics`, not
+  the semantics tree** — it reports ZERO matches for a label that genuinely
+  exists in the tree. To assert on semantics, walk
+  `tester.binding.renderViews`' `owner!.semanticsOwner!.rootSemanticsNode!`
+  (this is what `flutter_test` does internally in `finders.dart`). **Both
+  `binding.rootPipelineOwner` and `binding.pipelineOwner` are the wrong
+  accessors here**, and both look right: the root owner's `semanticsOwner` is
+  **null** in a widget test (each `View` gets its own `PipelineOwner` hung off
+  the root, and that is the one holding the `SemanticsOwner`), while
+  `binding.pipelineOwner` is a *separate legacy instance*, not an alias. Cost
+  12 tests failing with "Null check operator used on a null value".
+- **Semantics API facts worth remembering:** `SemanticsNode.hasFlag` is
+  deprecated — use `node.flagsCollection.<flag>`. `isButton`/`isSlider` are
+  `bool`, but `isEnabled` is a `Tristate` (so "disabled" is
+  `isNot(Tristate.isTrue)`). `SemanticsNode` has no `hasAction`; use
+  `node.getSemanticsData().hasAction(...)`. `SemanticsFlag` comes from
+  `dart:ui` via `package:flutter/semantics.dart` — `material.dart` does not
+  export it.
+- **Dispose a `SemanticsHandle` before the test body ends.** `flutter_test`
+  verifies this in `_endOfTestVerifications`, which runs *before* tearDowns, so
+  `addTearDown(handle.dispose)` is too late and fails every test. Use
+  try/finally.
 - **`AsyncSnapshot` has no `.data()`/`.error()` named ctors** in this Flutter
   version. Tests must use `AsyncSnapshot<T>.withData(state, data)` and
   `AsyncSnapshot<T>.withError(state, error, stackTrace)`. `.waiting()` and

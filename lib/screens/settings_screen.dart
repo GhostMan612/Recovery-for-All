@@ -579,10 +579,68 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'Appearance',
               ),
-              Text('Choose a palette — saved to theme_preference_v1', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+              Text(
+                'Theme mode — saved to theme_mode_v1',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              // Phase 11: the theme engine has supported System/Light/Dark
+              // since Phase 2, and `setMode` persists to theme_mode_v1, but
+              // nothing in the UI ever called it — so the key was written once
+              // at install and never again. This is the control that finally
+              // exposes what the app already does.
+              Builder(builder: (context) {
+                final mode = ref.watch(themeProvider).mode;
+                Widget seg(AppThemeMode m, String label, IconData icon) {
+                  final selected = mode == m;
+                  return ChoiceChip(
+                    avatar: ExcludeSemantics(
+                      child: Icon(icon,
+                          size: 16,
+                          color: selected
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                    label: Text(label,
+                        style: TextStyle(
+                            color: selected
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 13)),
+                    selected: selected,
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainer,
+                    onSelected: (sel) {
+                      if (sel) {
+                        ref.read(themeProvider.notifier).setMode(m);
+                      }
+                    },
+                  );
+                }
+
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    seg(AppThemeMode.system, 'System', Icons.brightness_auto),
+                    seg(AppThemeMode.light, 'Light', Icons.light_mode),
+                    seg(AppThemeMode.dark, 'Dark', Icons.dark_mode),
+                  ],
+                );
+              }),
+              const SizedBox(height: 18),
+              Text(
+                'Color palette — saved to theme_preference_v1',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12),
+              ),
               const SizedBox(height: 10),
               Builder(builder: (context) {
                 final current = ref.watch(themeProvider).palette;

@@ -159,3 +159,75 @@
   as three different outcomes. Deferring a state distinction to a `?? []`
   default is how a user gets told there is nothing happening when the app just
   has not looked yet.
+
+## L19 — A curated `Semantics` label is CONCATENATED with the child's own text (Sep 30, 2026)
+
+- **What happened:** Phase 12 of the UI/UX program added semantics coverage for
+  the dashboard. Dumping the real semantics tree (rather than trusting
+  `find.bySemanticsLabel`) showed `ToolCard`'s node label as
+  `"Meeting Finder. Live and upcoming\nMeeting Finder\nLive and upcoming"`, and
+  `SosTile` producing a curated node *plus* a redundant child node with the
+  same words. Every SOS destination and every tool card was being announced
+  **twice** by a screen reader.
+- **Root cause:** `Semantics(label: ...)` annotates rather than replaces. The
+  child `Text` widgets keep their own nodes, and the label is merged with them
+  unless the wrapper sets `excludeSemantics: true`. It reads like a rename and
+  behaves like an append.
+- **Fix:** `excludeSemantics: true` on `SosTile`, `ToolCard`,
+  `SupportLinkRow` and `SkyCrown` — each of which now repeats `onTap` on the
+  wrapper, because excluding the child also drops its action and a button with
+  a role but no action is worse than no button at all.
+- **The trap, and the law:** `CompanionSection` was deliberately NOT changed.
+  Its subtree contains `RecoveryPetCard`, which holds an `InkWell` plus two
+  real buttons (check in, walk). Excluding those semantics would make daily
+  care actions **unreachable**. It keeps a duplicated announcement instead.
+- **Law:** **when you add `excludeSemantics: true`, you must re-supply every
+  action, label, and state the child was carrying — and never apply it to a
+  subtree that contains interactive controls.** A duplicated announcement is an
+  annoyance; an unreachable action is a safety regression. Prefer the lesser
+  defect, and pin the decision with a test so nobody "fixes" it backwards.
+
+## L20 — `find.bySemanticsLabel` does not read the semantics tree (Sep 30, 2026)
+
+- **What happened:** every `bySemanticsLabel` assertion in the new Phase 12
+  tests found **zero** widgets, even though a tree dump proved a node with
+  exactly that label existed. Nine tests failed for a reason that had nothing
+  to do with the widgets under test.
+- **Root cause:** the finder inspects
+  `element.renderObject.debugSemantics` — the config on a *render object* —
+  not the assembled `SemanticsNode` tree. When an annotation is merged into a
+  child node (see L19), the render object's own `debugSemantics` is not the
+  label a screen reader receives. The two are genuinely different things, and
+  only the second is the user-facing truth.
+- **Fix:** walk the tree instead, the way `flutter_test` does internally
+  (`finders.dart`):
+  `tester.binding.renderViews`' `owner!.semanticsOwner!.rootSemanticsNode!`,
+  then recurse over `visitChildren` and match on `node.label`. **Getting the
+  owner right is the whole trap**, and the two obvious answers are both wrong:
+  - `binding.rootPipelineOwner.semanticsOwner` is **null** in a widget test.
+    Modern Flutter hangs each `View`'s own `PipelineOwner` off the root, and
+    *that* is the one holding the `SemanticsOwner`. Cost: every test in the
+    file failed with "Null check operator used on a null value" (12 failures)
+    while the widgets and the labels were entirely correct.
+  - `binding.pipelineOwner` *works* but is a **separate legacy instance**, not
+    an alias for the root. It is the expression the framework's own docs
+    recommended for years, which is exactly what makes it dangerous — it works
+    by accident and the deprecation is the only warning you get.
+
+  This is the third time in this project that the "obvious" API was wrong and
+  only reading the SDK source settled it (`AsyncSnapshot` has no `.data()`
+  ctor; `SemanticsNode` has no `hasAction`; `PipelineOwner` has no `pipelineOwner`
+  getter). **Read `flutter_test/lib/src/finders.dart` before hand-rolling
+  anything against the test framework** — it is the reference implementation.
+  Related API traps found in the same pass: `SemanticsNode.hasFlag` is
+  deprecated (use `node.flagsCollection.<flag>`), `flagsCollection.isEnabled`
+  is a `Tristate` rather than a `bool`, and `rootSemanticsNode` is literally
+  `_nodes[0]`, so it throws rather than returning null on an empty tree.
+- **Law:** **a test that asserts accessibility must read the same tree the
+  platform does.** A finder that returns zero matches is not evidence that a
+  label is missing — it may be evidence the finder is looking in the wrong
+  place. Dump the tree before concluding anything, and dispose the
+  `SemanticsHandle` with try/finally (`addTearDown` is too late; the check runs
+  before tearDowns). And when a whole test file fails identically, suspect the
+  harness before suspecting twelve widgets at once: one wrong accessor produced
+  twelve separate-looking failures.

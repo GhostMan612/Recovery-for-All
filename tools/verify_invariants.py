@@ -234,6 +234,60 @@ for path in sorted(LIB.rglob("*.dart")):
         )
 
 
+# ---------------------------------------------------------------------------
+# 6. One motion policy.
+#
+# Phase 14 found the "reduce motion" decision being made in five places: a
+# helper in themed_background.dart plus three raw
+# `MediaQuery.disableAnimationsOf` reads. Each was individually correct, which
+# is exactly why they drifted: a new animation had no single place to consult,
+# so onboarding's page transition shipped animating for users who had turned
+# animations off.
+#
+# The rule is deliberately narrow. It does not forbid *using* the setting; it
+# requires the setting to be READ in exactly one file, so there is a single
+# answer to "should this move?" and a single place to change the policy.
+# HardwareTierService.isLowEnd is a different question (can this device afford
+# to animate?) and is deliberately NOT folded in here.
+# ---------------------------------------------------------------------------
+MOTION = LIB / "core" / "motion" / "app_motion.dart"
+
+
+def strip_comments(text):
+    """Drop comments so documentation cannot satisfy or trip a scan.
+
+    Crude on purpose: it only needs to be good enough that a doc comment
+    mentioning the API is not mistaken for a call. The negative lookbehind
+    keeps `https://` inside a string literal from truncating the line.
+    """
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"(?<!:)//[^\n]*", "", text)
+
+
+if not MOTION.exists():
+    failures.append(
+        "lib/core/motion/app_motion.dart is missing. Phase 14 consolidated the "
+        "reduce-motion decision into this file so there is one place to look; "
+        "do not go back to reading MediaQuery.disableAnimations at each call "
+        "site."
+    )
+else:
+    motion_readers = []
+    for path in sorted(LIB.rglob("*.dart")):
+        if "disableAnimations" in strip_comments(read(path)):
+            motion_readers.append(path.relative_to(ROOT).as_posix())
+    extra = [p for p in motion_readers if p != MOTION.relative_to(ROOT).as_posix()]
+    if extra:
+        failures.append(
+            "REDUCE-MOTION READ OUTSIDE THE POLICY FILE: %s. The system "
+            "animation setting is read in more than one place, which is how "
+            "onboarding ended up animating for users who disabled animations. "
+            "Use AppMotion.reduceMotionOf(context) (or "
+            "AppMotion.platformReduceMotion in initState, where no MediaQuery "
+            "exists)." % ", ".join(extra)
+        )
+
+
 def main() -> int:
     for note in notes:
         print("NOTE: %s" % note)
@@ -248,7 +302,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 5)
+    print("PASS: %d architecture invariants hold" % 6)
     return 0
 
 

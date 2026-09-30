@@ -7,17 +7,16 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/motion/app_motion.dart';
 import '../services/hardware_tier_service.dart';
 
-/// Canonical reduce-motion predicate for this app (Phase 12).
+/// Reduce-motion predicate, kept for the existing call sites (constellation,
+/// pet trials, grounding, and this file's own Ken Burns gates).
 ///
-/// Every auto-playing animation must consult this. Previously only
-/// ThemedBackground did, so the 6 AnimationControllers and the Lottie aura on
-/// a craving surface (pet_trials screen shake, grounding breath, constellation
-/// twinkle, splash zoom) all played regardless of the system setting.
-bool appReduceMotion(BuildContext context) {
-  return MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-}
+/// Phase 14 moved the actual decision to `core/motion/app_motion.dart` so that
+/// there is one place to look; the three files that were reading
+/// `MediaQuery.disableAnimationsOf` directly now go through the same source.
+bool appReduceMotion(BuildContext context) => AppMotion.reduceMotionOf(context);
 
 class ThemedBackground extends StatefulWidget {
   final Widget child;

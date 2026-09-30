@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import '../core/motion/app_motion.dart';
 import '../core/theme/app_colors.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -52,12 +53,10 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _zoomController, curve: Curves.easeInOut),
     );
     // A 7-second auto-playing zoom on every cold start. initState has no
-    // MediaQuery, so read the platform accessibility feature directly; the
-    // splash still routes and still works, it just stops drifting.
-    final reduceMotion =
-        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures
-            .disableAnimations;
-    if (!reduceMotion) {
+    // MediaQuery, so this uses the context-free form of the same policy the
+    // rest of the app consults; the splash still routes and still works, it
+    // just stops drifting.
+    if (!AppMotion.platformReduceMotion) {
       _zoomController.repeat(reverse: true);
     }
 

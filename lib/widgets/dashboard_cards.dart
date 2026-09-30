@@ -123,10 +123,21 @@ class SosTile extends StatelessWidget {
         // tap now lives on the ListTile, which is what emits the button role.
         // The explicit Semantics carries the disabled state, which ListTile
         // does not express.
+        //
+        // Phase 12: `excludeSemantics` is required, not cosmetic. Without it
+        // the curated label is CONCATENATED with the ListTile's own title and
+        // subtitle, so TalkBack read "Call 988. Suicide & Crisis Lifeline" and
+        // then read the title and subtitle again from a second node. The
+        // widget supplies the whole accessible name itself, so the children's
+        // copy is dropped. `onTap` is repeated here because excluding the
+        // ListTile also drops ITS tap action, and a button with no action is
+        // not reachable at all.
         child: Semantics(
           button: true,
           enabled: enabled,
           label: subtitle == null ? title : '$title. $subtitle',
+          excludeSemantics: true,
+          onTap: enabled ? onTap : null,
           child: ListTile(
             enabled: enabled,
             onTap: enabled ? onTap : null,
@@ -180,6 +191,12 @@ class SupportLinkRow extends StatelessWidget {
       child: Semantics(
         button: true,
         label: '$title. $subtitle',
+        // Phase 12: the Row below is two Text widgets, so without this the
+        // node's label became "Fellowship Handshake. QR connect, offline,
+        // private" FOLLOWED BY both Texts again - read twice. `onTap` is
+        // repeated because excluding the InkWell also drops its action.
+        excludeSemantics: true,
+        onTap: onTap,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
@@ -262,6 +279,10 @@ class ToolCard extends StatelessWidget {
       child: Semantics(
         button: true,
         label: subtitle.isEmpty ? label : '$label. $subtitle',
+        // Phase 12: same double-announcement as SupportLinkRow - the curated
+        // label was being concatenated with the label and subtitle Texts.
+        excludeSemantics: true,
+        onTap: onTap,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),

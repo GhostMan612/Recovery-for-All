@@ -34,7 +34,8 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-10 are **complete and verified**. Phases 11-17 are **not started**.
+Phases 0-16 are **implemented**. Phase 17 is **the verification gate itself**
+and is satisfied only by the commands in the Completion Standard.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -49,11 +50,93 @@ Phases 0-10 are **complete and verified**. Phases 11-17 are **not started**.
 | 8 - Dashboard view reconstruction | COMPLETE | 4 slices, screen 1512 -> 1157 lines, 28 new tests, 3 real bugs fixed |
 | 9 - Navigation architecture | COMPLETE | 3 slices: 4 destinations, `IndexedStack`, `PopScope`, Settings reload, pet state unified, 7 tests |
 | 10 - Global SOS experience | COMPLETE | audit only: dismiss button, care-alert moved to real activation, header overflow, sheet semantics |
-| 11-17 | NOT STARTED | no code, no gates run |
+| 11 - Profile / settings | COMPLETE | grouped sections already conformed; added the missing System/Light/Dark mode control |
+| 12 - Accessibility engineering | VERIFIED | 13 new tests in `test/accessibility_contracts_test.dart`; found and fixed a real double-announcement defect |
+| 13 - Responsive hardening | VERIFIED | onboarding overflow fixes; `test/theme_matrix_test.dart` sweeps 4 form factors x 3 text scales |
+| 14 - Motion system | VERIFIED | `core/motion/app_motion.dart`; 5 read sites consolidated; onboarding transition now respects reduce-motion |
+| 15 - Theme matrix | VERIFIED | 3 palettes x 2 brightness rendered; one real palette finding recorded below |
+| 16 - Architecture hardening | VERIFIED | audit clean; invariant 6 added so the motion policy cannot fragment again |
+| 17 - Final verification | VERIFIED | analyze clean, 292 tests, both Python gates exit 0 |
 
-Gates at the close of Phase 9: `flutter analyze --no-pub` -> No issues found;
-`flutter test` -> 254 passing; `verify_no_hardcoded_colors.py` -> exit 0;
-`verify_invariants.py` -> exit 0.
+### Phase 12-17: what each phase actually found
+
+The late phases were mostly **consolidation and coverage**, not new UI. That is
+the honest summary, and three of them found real defects anyway.
+
+**Phase 12.** The audit had already fixed the high-severity set; almost none
+of it was protected by a test, and a `Semantics` wrapper is exactly the kind
+of change a later refactor deletes as redundant. The new test file pins the
+contracts (button role, disabled state, combined labels, the wellness wheel's
+six dimensions) so they cannot be lost silently.
+
+**Phase 12/13 - onboarding had no position indicator at all.** Seven steps
+behind a non-scrollable `PageView`, and nothing anywhere said which step you
+were on or how many remained. A sighted user could infer it; a screen-reader
+user could not even discover that the flow had more pages. Now announced.
+
+**Phase 13.** Three real overflow risks, all found by writing the matrix rather
+than by reading: the "Initialize Platform" button, three paired slider
+end-labels, and - the worst - `CompanionSection`'s "Tap for Skill Tree" hint,
+which is a NON-flexible child of a `Row` and so was laid out at intrinsic width
+before the `Expanded` level text received any space. At 2.0x on a 320dp screen
+that row needed ~450dp in 292dp. The hint now steps aside above 1.3x; the
+essential level and XP stay, and the Semantics label already announced
+"Open Skill Tree" regardless.
+
+**Phase 14.** The reduce-motion decision was being made in five places. Each
+was individually correct, which is precisely why it drifted. Consolidated into
+`core/motion/app_motion.dart`; `themed_background.appReduceMotion` now
+delegates so its four existing callers are unchanged. The one behavioural
+change: onboarding's page transition animated for users who had turned
+animations off. `HardwareTierService.isLowEnd` is deliberately NOT folded in -
+"should this move?" and "can this device afford to animate?" are different
+questions, and they stay OR-ed at the call sites.
+
+**Phase 15 - a real palette finding.** `midnightSlate` and `oledPitch` share
+the same accent (`0xFF38BDF8`), and light mode is generated from the seed
+accent, so **those two palettes are indistinguishable while light**. Dark mode
+is unaffected (each copies its own `bgDeep` into `surface`). This is a property
+of the palettes as designed, not a regression, and it was only discoverable by
+actually running the matrix. It is asserted in the test so it cannot change
+silently. Changing the palettes is out of scope for this program.
+
+No goldens were written. These surfaces are animated, Lottie-backed and
+device-dependent, so a pixel baseline would be brittle and would fail for
+reasons unrelated to the design system. Overflow is asserted the honest way
+instead: a `RenderFlex` overflow is a `FlutterError`, so `tester.takeException()`
+being null *is* the assertion.
+
+**Phase 16.** The audit searches came back clean: `ThemeData(` is constructed
+in exactly one file, `ColorScheme.fromSeed` likewise, and there is no duplicate
+navigation or SOS logic (invariants 2 and 6 now enforce the latter). The two
+`TODO`s in `gguf_model_service.dart` are pre-existing download-verification
+work, not debris from this program. The substantive addition is invariant 6,
+which fails the build if the motion setting is ever read outside the policy
+file again.
+
+Gates at the close of this program: `flutter analyze --no-pub` -> No issues
+found; `flutter test` -> **292 passing** (was 254, +38 from the three new files);
+`verify_no_hardcoded_colors.py` -> exit 0; `verify_invariants.py` -> exit 0 (six
+invariants).
+
+**And the closing gate earned its keep.** The final full run failed 12 tests in
+`test/accessibility_contracts_test.dart` — every tree-walking assertion in the
+file, throwing "Null check operator used on a null value" on the *harness*,
+not on any widget. All 12 assertions read the semantics tree off the wrong
+`PipelineOwner`:
+
+- `binding.rootPipelineOwner.semanticsOwner` is **null** in a widget test. Each
+  `View` hangs its own `PipelineOwner` off the root, and *that* is the one
+  holding the `SemanticsOwner`.
+- `binding.pipelineOwner` is a **separate legacy instance**, not an alias for
+  the root. It works by accident, and it is what the framework's docs
+  recommended for years — which is precisely what made it a trap.
+
+The correct expression, taken from `flutter_test/lib/src/finders.dart`, is
+`tester.binding.renderViews`' `owner!.semanticsOwner!.rootSemanticsNode!`.
+The widgets, the labels and the a11y fixes were all correct; only the
+accessor was wrong, and only the full run could have shown that. Recorded as
+**L20** in `lessons-learned.md`. Suite is green again at 292/292.
 
 ### Phase 8 breakdown (all four slices committed)
 
@@ -89,50 +172,44 @@ reason the phase was worth doing incrementally:
 **Not changed, deliberately:** the two-tab Path/Library information
 architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-## Resume Here (Phase 10 COMPLETE, Phase 11 next)
+## Resume Here (program COMPLETE — Phases 0-17, all gates green)
 
-**Phases 0-10 complete. Phases 11-17 not started.** analyze clean, 254 tests,
-all four gates green, `main` and `origin/main` in sync.
+**Nothing is left to build. The verification batch has been run and the suite
+is green at 292/292.** The one thing worth carrying forward is *how* the
+closing run earned its keep: it failed 12 tests that had previously been
+reported as passing, and the defect was in the test harness, not the app. See
+L20 and the caveat block above.
 
-### Phase 10 result: SOS hardened, not rebuilt
+### If you re-run the gates
 
-The phase is an AUDIT. `SosTile` was already the only tile implementation and
-`_showSosSheet` the only entry point, both enforced by the invariants gate, so
-nothing was restructured. Four real issues were found and fixed:
+```text
+flutter analyze --no-pub
+flutter test
+python tools/verify_no_hardcoded_colors.py
+python tools\verify_invariants.py
+```
 
-1. **No dismiss affordance.** The sheet had no close button; the gear beside
-   the title looked like one but navigates to Settings. On a crisis surface,
-   "how do I leave" must never be a guess. Added a real Close button.
-2. **Accidental activation - a sponsor got false alarms.** `_writeCareAlert`
-   fired when the SOS *sheet opened*, so peeking and dismissing sent a
-   "your person needed help" alert to a sponsor. It now fires only on real
-   activation: calling 988, or starting the persistent lifeline. Browsing
-   ("Nearest Meetings", "Crisis Resources") deliberately does NOT alert.
-3. **Header overflowed at 1.5x.** "You are not alone." at 20sp in an unguarded
-   `Row` was 297dp in a 272dp row. Now `Expanded`.
-4. **No screen-reader orientation.** The sheet announced as a loose list of
-   four items with no indication of what it was. Now a labelled, grouped
-   `Semantics` node; the heading is a `header: true` semantic.
+The three files added late in the program are the likely source of any future
+failure, since they lean hardest on SDK behaviour rather than app behaviour:
 
-### What was ALREADY correct and deliberately not touched
+- `test/accessibility_contracts_test.dart` - walks the **real** semantics tree
+  and matches exact labels. The tree must be read off the per-`View` pipeline
+  owner (`renderView.owner!.semanticsOwner!.rootSemanticsNode!`); the binding
+  root owner has a null `semanticsOwner` in a widget test and throws. If a label
+  is reworded, fix the test to the new copy rather than loosening the matcher —
+  exact matching is what keeps each lookup resolving to one node.
+- `test/theme_matrix_test.dart` - overflow-sensitive by design. A failure is a
+  genuine responsive finding, not a bad test.
+- `test/app_motion_test.dart` - pure policy, should be trivially green.
 
-- `SosTile` onTap lives on the `ListTile` (from the a11y pass), so every SOS
-  destination announces as a button with its disabled state.
-- All four tiles are `onSurface` on `surfaceContainer`; the FAB is
-  `onError` on `error`. Contrast is right.
-- The sheet has `useSafeArea` and `isScrollControlled` (from the a11y pass).
-- The gate fails on a duplicate `SosTile` or a removed `_showSosSheet`, so a
-  second SOS surface cannot land quietly.
+### Human-only, still outstanding
 
-### Next: Phase 11 (Profile / Settings Modernization)
-
-Settings is now a first-class destination. Phase 11 organizes what already
-exists under coherent groups - do NOT invent settings the app does not have.
-The one genuinely new control: the theme engine has always had
-`theme_mode_v1` and a palette preference, but the UI exposes only the palette.
-Phase 11 should surface System / Light / Dark explicitly.
-
-**Still unverified on hardware** - see the standing note in the handoff.
+Phases 0-17 have never been rendered on a real device. Light mode, the
+`HardwareTierService.isLowEnd` Lottie path (Blu View 5, 3 GB), every overflow
+fix in Phase 13, and the whole a11y batch are verified only by the compiler and
+widget tests. The audit found entire screens invisible in light mode — exactly
+what tests cannot catch. Also outstanding: a fresh signed `1.0.0+9` AAB in
+Android Studio, device smoke test, and Play versionCode 9 rollout.
 
 ## Re-Sequencing Rationale (Sep 28)
 
@@ -838,6 +915,65 @@ For each phase:
 8. **VERIFY** — explicitly evaluate the phase gate.
 9. **REPORT** — summarize changed files, tests, gate result, and any unresolved issue.
 
+### Standing override: batch verification at the end (user directive)
+
+Steps 5 and 6 are **suspended for the duration of this program**. The user
+directed, more than once, that no shell runs — `flutter analyze`,
+`flutter test`, the Python gates, and git included — while working through the
+phases, and that verification happens **once, when the whole plan is complete**.
+
+This is not a shortcut, and it is not free. The consequence is that Phases
+10-17 were written without a single local analyze or test run.
+
+**And the predicted risk is exactly what happened — but not where predicted.**
+The suspicion was that the three new test files would fail on *widget copy*:
+exact semantics labels drifting from the widgets' current wording. Instead all
+12 tree-walking assertions failed on the *harness*, throwing a null-check error
+on a `PipelineOwner` that was never the one holding the `SemanticsOwner`. The
+widgets and the labels were correct throughout. The false-confidence note
+("this file passed 13/13") was itself the problem: it was inherited from an
+earlier run and never re-checked, and reading the SDK source for the *other*
+APIs did not mean the right owner had been identified.
+
+The API facts that were checked, and are worth keeping:
+
+- `SemanticsFlag` lives in `dart:ui` and is re-exported by
+  `package:flutter/semantics.dart`; it is NOT provided by `material.dart`, so
+  the explicit import is required and is not an `unnecessary_import`.
+- `SemanticsNode.hasFlag` is DEPRECATED (after v3.32) and the analyzer fails
+  the zero-issue gate on it. Use `node.flagsCollection.<flag>` instead. Note
+  the types differ by flag: `isButton` and `isSlider` are `bool`, but
+  `isEnabled` is a `Tristate`, so "not enabled" is
+  `isNot(Tristate.isTrue)` rather than `isFalse`.
+- `SemanticsNode` has `label`, `value`, `increasedValue` and `decreasedValue`,
+  but **no** `hasAction` — that is on `SemanticsData`, so the assertion is
+  `node.getSemanticsData().hasAction(SemanticsAction.tap)`.
+- `find.bySemanticsLabel` compares a `String` pattern with `==` and a `RegExp`
+  with `hasMatch`, and it reads `renderObject.debugSemantics` — which is not
+  the node the platform sees. It is useless for these assertions.
+- The semantics root is `tester.binding.renderViews`' per-view
+  `owner!.semanticsOwner!.rootSemanticsNode!`. **Not** `binding.rootPipelineOwner`
+  (whose `semanticsOwner` is null in a widget test) and **not** the deprecated
+  `binding.pipelineOwner` (a separate legacy instance that works by accident).
+  This is the same expression `flutter_test/lib/src/finders.dart` uses.
+- A `SemanticsHandle` must be disposed in a `finally`, not via `addTearDown`:
+  `flutter_test` verifies outstanding handles *before* tearDowns run, so the
+  teardown route fails every test.
+- `RecoveryPet`, `PetMoodX`, `SkyCrown`, `CompanionSection`, `SosTile`,
+  `ToolCard` and `SupportLinkRow` were each read in source, and `_pet()` is
+  byte-identical to the one in `dashboard_sections_test.dart`, which already
+  renders that tree successfully on the host.
+
+**The durable lesson, now that the gate has actually run:** "I read the source
+first" is not a substitute for running the gate, and an inherited green result
+is a claim, not a fact. When the whole verification budget is spent once at
+the end, the first run is not a formality — it is the *only* run, and it must
+be allowed to contradict what the notes say. See L19 and L20 in
+`blueprints/lessons-learned.md`.
+
+`AGENTS.md` carries the same directive. If the two documents ever disagree, the
+user's instruction wins.
+
 ## Stop Conditions
 
 Muse Spark must stop and report rather than guess when:
@@ -881,5 +1017,17 @@ The program is complete when Recovery for All has:
 13. restrained, consistent motion;
 14. visual regression coverage for the stable design system;
 15. clean analysis/tests and no migration debris.
+
+**On item 14.** The coverage is a rendered theme matrix plus overflow
+assertions across form factors and text scales, not golden images. This is
+deliberate and follows this plan's own instruction to "not create brittle
+golden coverage for inherently dynamic content": the Companion and dashboard
+surfaces are animated, Lottie-backed, and dependent on device memory tier and
+`disableAnimations`, so a pixel baseline would churn for reasons that have
+nothing to do with the design system. The matrix catches the failures that
+matter here - a scheme that stops being distinct, and a layout that clips at a
+real text scale - without pretending to be a screenshot test it cannot be.
+Golden baselines remain the right tool the day a static, deterministic surface
+exists to capture.
 
 **The desired result is not merely a lighter version of the existing dark UI. It is a cohesive Recovery for All product experience whose visual system, navigation, state architecture, accessibility, and interaction patterns are consistent enough to support future feature development without repeating the current fragmentation.**

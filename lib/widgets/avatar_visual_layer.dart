@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:lottie/lottie.dart';
 
+import '../core/motion/app_motion.dart';
 import '../services/hardware_tier_service.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
@@ -211,7 +212,10 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
 
   @override
   Widget build(BuildContext context) {
-    final disableMotion = HardwareTierService.isLowEnd || MediaQuery.disableAnimationsOf(context);
+    // Two different questions, deliberately OR-ed here rather than conflated
+    // in AppMotion: the user asked for less motion, OR this device should not
+    // be animating at all.
+    final disableMotion = HardwareTierService.isLowEnd || AppMotion.reduceMotionOf(context);
     if (disableMotion) {
       return SizedBox(
         width: widget.size,

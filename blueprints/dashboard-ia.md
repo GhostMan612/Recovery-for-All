@@ -1,4 +1,8 @@
-# Dashboard IA — Two Tabs + Modular Tiles
+# Dashboard IA — Four Destinations + Modular Tiles
+
+> **§1 (two tabs) is HISTORICAL as of Phase 9 (Sep 30, 2026).** The app ships
+> Companion / Path / Library / Profile in a `NavigationBar` shell. Read §6 for
+> what actually ships; §1 is kept below for the original rationale.
 ## Status: ACTIVE SPEC (August 25, 2026)
 ## Doctrine: safety never moves (SOS FAB global) · tailoring decides WHAT
 ## is visible, user order decides WHERE · heroes stay anchored.
@@ -68,8 +72,9 @@ is the Phase 8 outcome. **No destination was added or moved.**
 Rules that are now load-bearing, because a widget enforces them rather than
 the dashboard happening to do the right thing:
 
-- `SosTile` is the only SOS tile implementation. The SOS FAB still renders on
-  both tabs and Phase 10 will not add a second SOS surface.
+- `SosTile` is the only SOS tile implementation. The SOS FAB renders from the
+  navigation shell, so it is one tap away on all four destinations, and Phase
+  10 did not add a second SOS surface.
 - Section headers use the shared `AppSectionHeader` primitive.
 - `ToolGrid` renders a real empty state. If every tool is hidden it explains
   that hiding is not deleting and offers "Restore all" — the grid no longer
@@ -81,8 +86,58 @@ the dashboard happening to do the right thing:
 - `ToolCard` scales its copy down inside the fixed 1.35-ratio grid cell, so the
   grid holds at large accessibility text sizes.
 
-**Coming next:** Phase 9 moves from two tabs to four destinations
-(Companion, Path, Library, Profile) per `UI-UX-themes-plan.md`. That phase
-supersedes §1 above; until it lands, §1 remains accurate. Companion must be
-promoted without duplicating pet state, and Settings becomes Profile without
-being duplicated.
+**Coming next:** nothing. The UI/UX program is complete — see below.
+
+---
+
+## 6 · SUPERSEDED by Phase 9 (Sep 30, 2026)
+
+**§1 above (two tabs) is now HISTORICAL. The app ships FOUR destinations.**
+Phase 9 of `UI-UX-themes-plan.md` replaced the Path/Library tab pair with a
+`NavigationBar` shell in `lib/core/dashboard_providers.dart`:
+
+```dart
+enum DashboardDestination { companion, path, library, profile }
+```
+
+| Destination | Body | Notes |
+|---|---|---|
+| Companion | `PetHomeScreen` | pet state read from `dashboardDataProvider`; the old duplicate "Companion Home" toolbox card was removed |
+| Path | constellation + pledge + paths + meetings | the old Path tab |
+| Library | toolbox grid | the old Library tab |
+| Profile | `SettingsScreen` | promoted in place, NOT duplicated |
+
+The shell uses an `IndexedStack`, so every destination stays alive. That has
+one sharp consequence worth remembering: **a persistent body never re-reads
+state in `initState`.** Profile reloads through
+`GlobalKey<SettingsScreenState>` and an explicit `refreshState()` call when its
+destination is selected. A second `initState`-only reload is a bug.
+
+Android back is handled by `PopScope`: from any destination it returns to Path,
+and from Path it calls `SystemNavigator.pop()`.
+
+§1's "SOS FAB renders on BOTH tabs" remains true in spirit and is now stronger:
+the FAB lives in the shell, so SOS is exactly one tap away on **all four**
+destinations. `tools/verify_invariants.py` fails if a `NavigationBar`-owning
+screen exists but never *calls* `_showSosSheet` — a live definition with no
+caller is not a reachable SOS.
+
+### Load-bearing rules added after Phase 9
+
+- **Pet state has exactly one owner**, `dashboardDataProvider`. Never re-add a
+  private `_pet` field or a second `ensureHatched()` call in a screen. Before
+  Phase 9, `pet_home_screen` and `dashboard_providers` each loaded the pet
+  independently, which would have gone stale the moment Companion became a
+  destination.
+- **`DashboardDestination` is the single source of truth** for both the
+  destination list and the Android back target. Adding a destination anywhere
+  else is the failure mode to avoid.
+- `SosTile`, `ToolCard` and `SupportLinkRow` now use `excludeSemantics: true`
+  (each repeating `onTap`), because a curated `Semantics` label is otherwise
+  *concatenated* with the child's own text and screen readers announce every
+  card twice. **`CompanionSection` must NOT do this** — `RecoveryPetCard`
+  contains an `InkWell` plus two real buttons, and excluding them would make
+  check-in and walk unreachable.
+- `CompanionSection` hides its "Tap for Skill Tree" hint above a 1.3x text
+  scale. It is a non-flexible `Row` child and overflowed at 2.0x on a 320dp
+  screen; the level/XP text is the essential part and keeps its space.

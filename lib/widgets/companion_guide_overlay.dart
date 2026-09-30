@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
 
+import '../core/motion/app_motion.dart';
 import '../services/companion_guide_service.dart';
 import '../services/hardware_tier_service.dart';
 import '../services/recovery_pet_service.dart';
@@ -193,7 +194,7 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
       return const SizedBox.shrink();
     }
 
-    final reducedMotion = MediaQuery.disableAnimationsOf(context) || HardwareTierService.isLowEnd;
+    final reducedMotion = AppMotion.reduceMotionOf(context) || HardwareTierService.isLowEnd;
 
     return Stack(
       children: [

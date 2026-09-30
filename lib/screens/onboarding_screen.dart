@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../database/recovery_database.dart';
+import '../core/motion/app_motion.dart';
 import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart';
@@ -145,12 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
     if (_currentStep < _lastStepIndex) {
-      setState(() => _currentStep++);
-      _pageController.animateToPage(
-        _currentStep,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      _goToStep(_currentStep + 1);
     } else if (!_isFinalizing) {
       _finalizeOnboarding();
     }
@@ -158,10 +154,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _previousStep() {
     if (_currentStep > 0) {
-      setState(() => _currentStep--);
+      _goToStep(_currentStep - 1);
+    }
+  }
+
+  /// Phase 14: the step transition is the one piece of motion in this flow
+  /// that ignored the system setting. Everyone who turned animations off was
+  /// still given a 300ms slide on every Back and Next, so it now jumps.
+  void _goToStep(int step) {
+    setState(() => _currentStep = step);
+    if (AppMotion.reduceMotionOf(context)) {
+      _pageController.jumpToPage(step);
+    } else {
       _pageController.animateToPage(
-        _currentStep,
-        duration: const Duration(milliseconds: 300),
+        step,
+        duration: AppMotion.normal,
         curve: Curves.easeInOut,
       );
     }
@@ -247,6 +254,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ],
                     ),
                   ),
+                  // Phase 12/13: seven steps behind a non-scrollable PageView
+                  // with no indicator anywhere. A sighted user can swipe or
+                  // read the copy; a screen-reader user had no way to know
+                  // where they were or how much was left, and could not
+                  // discover that the flow had more pages at all.
+                  // liveRegion so the position is announced on every change.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        'Step ${_currentStep + 1} of ${_lastStepIndex + 1}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Row(
@@ -259,16 +287,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           )
                         else
                           const SizedBox(width: 64),
-                        ElevatedButton(
-                          onPressed: _isFinalizing ? null : _nextStep,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                          ),
-                          child: Text(
-                            _currentStep < _lastStepIndex ? 'Next' : 'Initialize Platform',
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
+                        // Phase 13: "Initialize Platform" at 16sp is ~280dp
+                        // with Back in a 312dp row, and overflowed at 1.5x.
+                        // Flexible lets the label shrink its padding rather
+                        // than clip. foregroundColor, not a hardcoded text
+                        // colour: this sits on a primary fill.
+                        Flexible(
+                          child: ElevatedButton(
+                            onPressed: _isFinalizing ? null : _nextStep,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                            ),
+                            child: Text(
+                              _currentStep < _lastStepIndex ? 'Next' : 'Initialize Platform',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
                           ),
                         ),
                       ],
@@ -745,8 +783,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Isolate / Withdraw', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
-                Text('Reactive / Impulsive', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                // Phase 13: these end-labels are 232dp of text in a 312dp
+                // row and overflow at 1.5x. Flexible + ellipsis on both ends
+                // keeps the scale anchors readable without clipping.
+                Flexible(
+                  child: Text('Isolate / Withdraw', overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text('Reactive / Impulsive', textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -769,8 +815,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Gentle & Soft', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
-                Text('Direct & Grounded', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                Flexible(
+                  child: Text('Gentle & Soft', overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text('Direct & Grounded', textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -793,8 +844,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Secular / Practical', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
-                Text('Deeply Spiritual', style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+                Flexible(
+                  child: Text('Secular / Practical', overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text('Deeply Spiritual', textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                ),
               ],
             ),
           ],
@@ -893,8 +949,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               Text(
                                 id[0].toUpperCase() + id.substring(1),
                                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 4),
+                  ),
+                  const SizedBox(height: 4),
                               Text(reaction, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             ],
                           ),
