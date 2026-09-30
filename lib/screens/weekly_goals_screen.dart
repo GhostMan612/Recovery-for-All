@@ -216,8 +216,8 @@ class _WeeklyGoalsScreenState extends State<WeeklyGoalsScreen> {
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Log one',
+                          IconButton(
+                            tooltip: 'Log one — ${goal.title}',
                           icon: Icon(Icons.check_circle_outline,
                               color: goal.isCompleted
                                   ? Theme.of(context).colorScheme.tertiary

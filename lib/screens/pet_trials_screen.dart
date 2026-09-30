@@ -600,38 +600,48 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Resolve',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-                      Text('${battle.resolve} / ${battle.maxResolve}',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.tertiary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold)),
-                    ],
+                  Semantics(
+                    label: 'Resolve ${battle.resolve} of ${battle.maxResolve}',
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Resolve',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                        Text('${battle.resolve} / ${battle.maxResolve}',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 6),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: battle.resolve / battle.maxResolve,
-                      minHeight: 8,
-                      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
-                      color: Theme.of(context).colorScheme.tertiary,
+                    child: ExcludeSemantics(
+                      child: LinearProgressIndicator(
+                        value: battle.resolve / battle.maxResolve,
+                        minHeight: 8,
+                        backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+                        color: Theme.of(context).colorScheme.tertiary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
+                  // The five pips are pure colour, so a screen reader read
+                  // "Focus" and nothing else. State the value.
+                  Semantics(
+                    label: 'Focus ${battle.focus} of 5',
+                    child: Row(
                     children: [
                       Text('Focus',
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                       const SizedBox(width: 8),
                       for (var i = 0; i < 5; i++)
-                        Container(
+                        ExcludeSemantics(
+                          child: Container(
                           margin: const EdgeInsets.only(right: 4),
                           width: 14,
                           height: 14,
@@ -654,36 +664,44 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                                 : null,
                           ),
                         ),
+                        ),
                       const Spacer(),
                       Text('+1 / turn',
                           style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.7),
-                              fontSize: 10)),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12)),
                       if (battle.shieldActive) ...[
                         const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Theme.of(context).colorScheme.tertiary),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.shield,
-                                  size: 12, color: Theme.of(context).colorScheme.tertiary),
-                              SizedBox(width: 4),
-                              Text('Shield',
-                                  style: TextStyle(
-                                      color: Theme.of(context).colorScheme.tertiary, fontSize: 10)),
-                            ],
+                        Semantics(
+                          label: battle.shieldActive
+                              ? 'Shield active, blocks the next hit'
+                              : 'Shield',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Theme.of(context).colorScheme.tertiary),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ExcludeSemantics(
+                                  child: Icon(Icons.shield,
+                                      size: 12, color: Theme.of(context).colorScheme.tertiary),
+                                ),
+                                SizedBox(width: 4),
+                                Text('Shield',
+                                    style: TextStyle(
+                                        color: Theme.of(context).colorScheme.tertiary, fontSize: 12)),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ],
+                    ),
                   ),
                 ],
               ),

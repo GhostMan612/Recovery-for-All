@@ -1253,9 +1253,12 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                   icon: _downloading
                       ? Icons.downloading
                       : Icons.download_outlined,
-                  tooltip: 'Offline pack',
-                  onTap:
-                      _downloading ? () {} : () => _startPrefetch()),
+                  tooltip: _downloading
+                      ? 'Offline pack, downloading'
+                      : 'Offline pack',
+                  // Was `() {}` while downloading, so the control announced
+                  // as available and silently did nothing. null disables it.
+                  onTap: _downloading ? null : () => _startPrefetch()),
             ],
           ),
         ),
@@ -1431,7 +1434,7 @@ class _MapChip extends StatelessWidget {
 class _MapButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _MapButton(
       {required this.icon, required this.tooltip, required this.onTap});
@@ -1443,6 +1446,7 @@ class _MapButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Semantics(
         button: true,
+        enabled: onTap != null,
         label: tooltip,
         child: InkWell(
           onTap: onTap,

@@ -195,7 +195,13 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: achieved ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35) : Theme.of(context).colorScheme.surfaceContainer),
                               ),
-                              child: Row(
+                              // The lock state was carried only by a
+                              // check_circle / lock_outline icon, so it read
+                              // as a decorative glyph. State it.
+                              child: Semantics(
+                                label: '${perk.title}, level ${perk.level}, '
+                                    '${achieved ? 'earned' : 'locked'}',
+                                child: Row(
                                 children: [
                                   Expanded(
                                     child: Column(
@@ -207,8 +213,9 @@ class _SkillTreeModalState extends State<SkillTreeModal> {
                                       ],
                                     ),
                                   ),
-                                  Icon(achieved ? Icons.check_circle : Icons.lock_outline, color: achieved ? AppColors.pink : Theme.of(context).colorScheme.outlineVariant, size: 18),
+                                  ExcludeSemantics(child: Icon(achieved ? Icons.check_circle : Icons.lock_outline, color: achieved ? AppColors.pink : Theme.of(context).colorScheme.outlineVariant, size: 18)),
                                 ],
+                              ),
                               ),
                             ),
                           ),

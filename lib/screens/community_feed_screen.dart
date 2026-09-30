@@ -478,9 +478,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const Spacer(),
               if (post.isMine)
                 IconButton(
-                  tooltip: 'Delete',
+                  tooltip: 'Delete your post',
                   icon: Icon(Icons.delete_outline,
-                      size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
+                      size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                   onPressed: () => widget.database.deleteFeedPost(post.id),
                 ),
             ],

@@ -154,25 +154,33 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                         child: Material(
                           color: Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(14),
-                          child: ListTile(
+                          child: Semantics(
+                            button: true,
+                            label: dead
+                                ? '${link.title}. ${link.subtitle}. This link may be down.'
+                                : null,
+                            child: ListTile(
+                            // The link-health feature was a colour change plus
+                            // a link_off glyph, so it was completely invisible
+                            // to a screen reader.
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
                             title: Text(link.title,
                                 style: TextStyle(
-                                    color: dead
-                                        ? Colors.white38
-                                        : Colors.white,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600)),
                             subtitle: Text(link.subtitle,
                                 style: TextStyle(
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 12)),
-                            trailing: dead
-                                ? Icon(Icons.link_off,
-                                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24))
-                                : Icon(Icons.open_in_new,
-                                    size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+                            trailing: ExcludeSemantics(
+                              child: dead
+                                  ? Icon(Icons.link_off,
+                                      size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38))
+                                  : Icon(Icons.open_in_new,
+                                      size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                            ),
                             onTap: () {
                               _open(link.url);
                               if (dead) {
@@ -185,6 +193,7 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                                 );
                               }
                             },
+                          ),
                           ),
                         ),
                       );

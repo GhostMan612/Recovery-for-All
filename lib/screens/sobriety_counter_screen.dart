@@ -273,28 +273,36 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
               const SizedBox(height: 6),
               ..._healthMilestones.map((milestone) {
                 final reached = elapsed.inDays >= milestone.$1;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Icon(
-                        reached ? Icons.check_circle : Icons.radio_button_off,
-                        size: 14,
-                        color: reached ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${milestone.$1}d — ${milestone.$2}',
-                          style: TextStyle(
-                            color: reached
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(context).colorScheme.outline,
-                            fontSize: 12,
+                // Reached vs unreached was an icon plus a colour, so a screen
+                // reader read a flat list with no state at all.
+                return Semantics(
+                  label: '${milestone.$1} day milestone, ${milestone.$2}, '
+                      '${reached ? 'reached' : 'not yet reached'}',
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        ExcludeSemantics(
+                          child: Icon(
+                            reached ? Icons.check_circle : Icons.radio_button_off,
+                            size: 14,
+                            color: reached ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.outline,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${milestone.$1}d • ${milestone.$2}',
+                            style: TextStyle(
+                              color: reached
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }),

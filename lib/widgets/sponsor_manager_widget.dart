@@ -404,12 +404,12 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                           IconButton(
                             icon: Icon(Icons.phone_in_talk, color: Theme.of(context).colorScheme.tertiary, size: 20),
                             onPressed: () => widget.onCallInitiated(contact),
-                            tooltip: 'Call Support Contact',
+                            tooltip: 'Call ${contact.name}',
                           ),
                           IconButton(
                             icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 18),
                             onPressed: () => _deleteContact(index),
-                            tooltip: 'Delete Contact',
+                            tooltip: 'Delete ${contact.name}',
                           ),
                         ],
                       ),
