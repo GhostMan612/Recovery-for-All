@@ -206,13 +206,20 @@ class _FellowshipSyncScreenState extends State<FellowshipSyncScreen> {
             decoration: BoxDecoration(color: Theme.of(context).colorScheme.onSurface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3), width: 1.2)),
             child: _payload.isEmpty
                 ? SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)))
-                : QrImageView(
-                    data: _payload,
-                    version: QrVersions.auto,
-                    size: 260,
-                    eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: Theme.of(context).colorScheme.surface),
-                    dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Theme.of(context).colorScheme.surface),
-                    backgroundColor: Theme.of(context).colorScheme.onSurface,
+                // A QR code is opaque to a screen reader. Expose the pairing
+                // payload as text, otherwise a blind user cannot read their
+                // own code to their sponsor.
+                : Semantics(
+                    label: 'Your pairing code. '
+                        'Sponsor code ${_payload.replaceAll('|', ' ')}',
+                    child: QrImageView(
+                      data: _payload,
+                      version: QrVersions.auto,
+                      size: 260,
+                      eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: Theme.of(context).colorScheme.surface),
+                      dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Theme.of(context).colorScheme.surface),
+                      backgroundColor: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
           ),
           const SizedBox(height: 12),

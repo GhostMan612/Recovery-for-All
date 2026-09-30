@@ -141,7 +141,7 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                     const SizedBox(width: 8),
                     Text(category.name,
                         style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
                   ]),

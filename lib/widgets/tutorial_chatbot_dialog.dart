@@ -210,6 +210,7 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: 'Send message',
                   icon: Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
                   onPressed: _sendMessage,
                 ),

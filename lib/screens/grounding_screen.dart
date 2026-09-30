@@ -233,16 +233,21 @@ class _GroundingScreenState extends State<GroundingScreen>
           ),
         ),
         const Spacer(),
-        Text(
-          isDone
-              ? 'You showed up for yourself.'
-              : isExtended
-                  ? '$_phase ${_phaseSecondsLeft > 0 ? "($_phaseSecondsLeft s)" : ""}'
-                  : _phase,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+        // liveRegion: the phase IS the function of a breathing pacer, and
+        // with the scale animation reduced the text is the only cue left.
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            isDone
+                ? 'You showed up for yourself.'
+                : isExtended
+                    ? '$_phase, $_phaseSecondsLeft seconds'
+                    : _phase,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         const SizedBox(height: 32),

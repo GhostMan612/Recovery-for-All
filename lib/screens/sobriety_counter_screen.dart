@@ -123,10 +123,10 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                 leading: Icon(Icons.event_outlined,
                     color: Theme.of(context).colorScheme.primary, size: 20),
                 title: Text('Started on',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 13)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
                 trailing: Text(
                   '${chosenDate.month}/${chosenDate.day}/${chosenDate.year}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 13),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
                 ),
                 onTap: () async {
                   final picked = await showDatePicker(

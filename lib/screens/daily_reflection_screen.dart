@@ -159,42 +159,54 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: List.generate(5, (index) {
                     final isSelected = _selectedMood == index;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedMood = index;
-                        });
-                      },
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? _moodColors[index].withValues(alpha: 0.3)
-                              : Theme.of(context).colorScheme.surfaceContainer,
-                          border: Border.all(
-                            color: _moodColors[index],
-                            width: isSelected ? 2 : 1,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _getMoodEmoji(index),
-                              style: const TextStyle(fontSize: 20),
+                    // The emoji is decorative; the label is the accessible
+                    // name, and the box is the accessible button. Selection
+                    // was previously signalled by fill colour alone.
+                    return Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: _moodLabels[index],
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedMood = index;
+                          });
+                        },
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? _moodColors[index].withValues(alpha: 0.3)
+                                : Theme.of(context).colorScheme.surfaceContainer,
+                            border: Border.all(
+                              color: _moodColors[index],
+                              width: isSelected ? 2 : 1,
                             ),
-                            if (isSelected)
-                              Text(
-                                _moodLabels[index],
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ExcludeSemantics(
+                                child: Text(
+                                  _getMoodEmoji(index),
+                                  style: const TextStyle(fontSize: 20),
                                 ),
                               ),
-                          ],
+                              if (isSelected)
+                                // 8pt was below the 12sp body floor.
+                                Text(
+                                  _moodLabels[index],
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     );

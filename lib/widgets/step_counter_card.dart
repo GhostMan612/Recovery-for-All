@@ -120,7 +120,10 @@ class _StepCounterCardState extends State<StepCounterCard> {
                       label: const Text('Enable'),
                       style: TextButton.styleFrom(
                         foregroundColor: Theme.of(context).colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        // This is the only path to the pedometer permission,
+                        // so it needs the 48dp Material minimum, not a 30dp
+                        // target.
+                        minimumSize: const Size(64, 48),
                       ),
                     )
                   else

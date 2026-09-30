@@ -136,7 +136,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
                 const SizedBox(width: 8),
                 Text(
                   'Time: ${_formatDuration(_elapsed)}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ],
             ),

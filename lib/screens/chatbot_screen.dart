@@ -482,8 +482,11 @@ $text
                                     style: TextButton.styleFrom(
                                       foregroundColor: Theme.of(context).colorScheme.primary,
                                       padding: EdgeInsets.zero,
-                                      minimumSize: const Size(0, 32),
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      // Was minimumSize 32 with shrinkWrap,
+                                      // a 32dp target for the inline coach
+                                      // action chip.
+                                      minimumSize: const Size(0, 48),
+                                      tapTargetSize: MaterialTapTargetSize.padded,
                                     ),
                                     onPressed: () => _runAction(action),
                                     child: Text(actionLabel),

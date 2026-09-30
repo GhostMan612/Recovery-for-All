@@ -269,9 +269,13 @@ class SkyCrown extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final hasStars = nodes.isNotEmpty;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
+    return Semantics(
+      button: true,
+      label: 'Open your constellation, $skyName'
+          '${hasStars ? ', ${nodes.length} stars' : ', no stars yet'}',
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: Container(
           height: 150,
@@ -328,16 +332,19 @@ class SkyCrown extends StatelessWidget {
               Positioned(
                 right: 10,
                 top: 8,
-                child: Icon(
-                  Icons.expand_outlined,
-                  size: 18,
-                  color: scheme.onSurface.withValues(alpha: 0.24),
+                child: ExcludeSemantics(
+                  child: Icon(
+                    Icons.expand_outlined,
+                    size: 18,
+                    color: scheme.onSurface.withValues(alpha: 0.24),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -370,17 +377,21 @@ class CompanionSection extends StatelessWidget {
     final xpInto = evaluated.pathXp % 100;
     final progress = xpInto / 100;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RecoveryPetCard(
-            pet: pet,
-            onCheckIn: onCheckIn,
-            onWalk: onWalk,
-            onOpen: onOpen,
-          ),
+    return Semantics(
+      button: true,
+      label: 'Open Skill Tree. '
+          '${pet.name}, level ${evaluated.pathLevel}, $xpInto of 100 XP.',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RecoveryPetCard(
+              pet: pet,
+              onCheckIn: onCheckIn,
+              onWalk: onWalk,
+              onOpen: onOpen,
+            ),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -432,6 +443,7 @@ class CompanionSection extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

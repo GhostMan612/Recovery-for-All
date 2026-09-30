@@ -242,22 +242,31 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
   Widget _reactionButton(
       IconData icon, String label, int count, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 4),
-            Text('$count',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
-            const SizedBox(width: 2),
-            Text(label,
-                style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
-          ],
+    return Semantics(
+      button: true,
+      label: '$label, $count',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        // 48dp minimum: this is one of three reaction affordances per post
+        // and was a ~21dp target.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 4),
+                Text('$count',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                const SizedBox(width: 2),
+                Text(label,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+              ],
+            ),
+          ),
         ),
       ),
     );

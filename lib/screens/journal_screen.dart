@@ -597,6 +597,10 @@ class _JournalScreenState extends State<JournalScreen> {
               }
 
               return IconButton(
+                // Without this a screen reader announced only
+                // "sentiment very satisfied, button" and never the position.
+                tooltip: 'Mood ${rating + 1} of 5',
+                isSelected: isSelected,
                 icon: Icon(icon, size: 28),
                 color: isSelected ? color : Theme.of(context).colorScheme.outline,
                 onPressed: () {
@@ -624,6 +628,7 @@ class _JournalScreenState extends State<JournalScreen> {
               ),
               const SizedBox(width: 8),
               IconButton(
+                tooltip: 'Save reflection',
                 icon: Icon(Icons.send_rounded, color: Theme.of(context).colorScheme.primary),
                 onPressed: _saveEntry,
               ),

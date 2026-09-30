@@ -837,10 +837,15 @@ Future<void> _handleWalk() async {
               _showSosSheet();
             },
             backgroundColor: Theme.of(context).colorScheme.error,
-            icon: Icon(Icons.sos, color: Theme.of(context).colorScheme.onSurface),
+            // onSurface on an error fill: the SOS button is the single most
+            // important control in the app and was failing contrast in both
+            // brightness modes depending on palette.
+            foregroundColor: Theme.of(context).colorScheme.onError,
+            tooltip: 'SOS Help \u2014 call 988 or your support circle',
+            icon: Icon(Icons.sos),
             label: Text(
               isSmallScreen ? 'SOS' : 'SOS Help',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             extendedPadding: EdgeInsets.symmetric(
               horizontal: isSmallScreen ? 16 : 24,
@@ -1156,34 +1161,55 @@ Future<void> _handleWalk() async {
                 Positioned(
                   top: 6,
                   right: 6,
-                  child: InkWell(
-                    onTap: () {
-                      final l = _layout;
-                      final notifier =
-                          ref.read(dashboardLayoutProvider.notifier);
-                      if (isLibrary) {
-                        unawaited(notifier.saveLibraryOrder(
-                            l.libraryOrder,
-                            Set<String>.from(l.hiddenLibrary)..add(card.label)));
-                      } else {
-                        unawaited(notifier.saveToolOrder(
-                            l.toolOrder,
-                            Set<String>.from(l.hiddenTools)..add(card.label)));
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), shape: BoxShape.circle),
-                      child: Icon(Icons.visibility_off,
-                          size: 14, color: Theme.of(context).colorScheme.onSurface),
+                  child: Semantics(
+                    button: true,
+                    label: 'Hide ${card.label}',
+                    child: Tooltip(
+                      message: 'Hide ${card.label}',
+                      child: InkWell(
+                        // 48x48 minimum target. The visual circle stays
+                        // 22x22, but the tappable area is now the Material
+                        // minimum, and it stays inside the 1.35-ratio cell
+                        // because the icon is centred inside the 48 box.
+                        customBorder: const CircleBorder(),
+                        onTap: () {
+                          final l = _layout;
+                          final notifier =
+                              ref.read(dashboardLayoutProvider.notifier);
+                          if (isLibrary) {
+                            unawaited(notifier.saveLibraryOrder(
+                              l.libraryOrder,
+                              (Set<String>.from(l.hiddenLibrary)
+                                    ..add(card.label)),
+                            ));
+                          } else {
+                            unawaited(notifier.saveToolOrder(
+                              l.toolOrder,
+                              (Set<String>.from(l.hiddenTools)
+                                    ..add(card.label)),
+                            ));
+                          }
+                        },
+                        child: const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(child: _HideBadge()),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               Positioned(
                 bottom: 6,
                 right: 6,
-                child: Icon(Icons.drag_handle, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+                child: ExcludeSemantics(
+                  child: Icon(Icons.drag_handle,
+                      size: 16,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.38)),
+                ),
               ),
             ],
           ),
@@ -1224,6 +1250,30 @@ Future<void> _handleWalk() async {
           onTap: _showSosSheet,
         ),
       ];
+}
+
+/// The visual badge inside the 48dp hide target.
+///
+/// Extracted so the (now larger) tap target can be a plain `SizedBox`, which
+/// keeps the drag-feedback size independent of the hit area.
+class _HideBadge extends StatelessWidget {
+  const _HideBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .onSurface
+            .withValues(alpha: 0.54),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.visibility_off,
+          size: 14, color: Theme.of(context).colorScheme.onSurface),
+    );
+  }
 }
 
 /// Visible, explained placeholder for a destination that has not landed yet.

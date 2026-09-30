@@ -167,7 +167,7 @@ class _DailyMotivationScreenState extends State<DailyMotivationScreen> {
                                 quote.text,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onPrimary,
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 26,
                                   height: 1.4,
                                   fontWeight: FontWeight.w500,

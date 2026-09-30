@@ -91,12 +91,18 @@ class RecoveryPetCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      '✦ ${pet.sparks}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    child: Semantics(
+                      // '\u2726' is announced as a codepoint, not a number.
+                      label: '${pet.sparks} Sparks',
+                      child: ExcludeSemantics(
+                        child: Text(
+                          '\u2726 ${pet.sparks}',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ),

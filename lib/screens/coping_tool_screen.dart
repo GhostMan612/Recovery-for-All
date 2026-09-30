@@ -137,16 +137,15 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _selectedToolIndex = -1),
-                child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary, size: 24),
+              IconButton(
+                tooltip: 'Back to tools',
+                onPressed: () => setState(() => _selectedToolIndex = -1),
+                icon: Icon(Icons.arrow_back,
+                    color: Theme.of(context).colorScheme.primary),
               ),
               const SizedBox(width: 12),
-              // Expanded, not FittedBox: a 24pt headline should WRAP, not
-              // shrink. 'Progressive Muscle Relaxation' overflowed by ~110dp
-              // at the default text scale.
               Expanded(
-                child: Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
+                child: Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

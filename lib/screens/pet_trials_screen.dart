@@ -395,6 +395,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           IconButton(
+            tooltip: 'How Trials work',
             icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
             onPressed: _maybeShowTutorial,
           ),

@@ -117,10 +117,19 @@ class SosTile extends StatelessWidget {
             ? scheme.surfaceContainer
             : scheme.surfaceContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(12),
+        // SAFETY: onTap used to sit on the InkWell wrapping a ListTile, so
+        // ListTile's own `button: true` semantics never fired and EVERY SOS
+        // destination announced to a screen reader as plain static text. The
+        // tap now lives on the ListTile, which is what emits the button role.
+        // The explicit Semantics carries the disabled state, which ListTile
+        // does not express.
+        child: Semantics(
+          button: true,
+          enabled: enabled,
+          label: subtitle == null ? title : '$title. $subtitle',
           child: ListTile(
+            enabled: enabled,
+            onTap: enabled ? onTap : null,
             leading: Icon(icon, color: color),
             title:
                 Text(title, style: TextStyle(color: scheme.onSurface, fontSize: 15)),

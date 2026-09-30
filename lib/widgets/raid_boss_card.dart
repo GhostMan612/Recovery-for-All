@@ -78,7 +78,7 @@ class RaidBossCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text('Your contribution: ${raid.userContribution} DMG', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               const Spacer(),
-              Text('${(progress * 100).round()}% HP', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('${(progress * 100).round()}% HP', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 12),
