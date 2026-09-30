@@ -735,9 +735,14 @@ Future<void> _handleWalk() async {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => TutorialChatbotDialog(
+      builder: (dialogContext) => TutorialChatbotDialog(
         pet: ref.watch(dashboardDataProvider).pet!,
         chatbotService: _tutorialChatbot,
+        // Wired 2026-09-28. The dialog's close button calls `onClose`, and the
+        // only call site never passed it, so the first-run tutorial's X was a
+        // dead control: barrier-dismissible and system-back were the only ways
+        // out of the very first screen a new user meets.
+        onClose: () => Navigator.of(dialogContext).pop(),
       ),
     );
   }

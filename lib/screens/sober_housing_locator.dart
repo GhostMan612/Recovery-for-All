@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
 import '../core/theme/app_colors.dart';
@@ -397,6 +398,36 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
     );
   }
 
+  /// Dial the house. Wired 2026-09-28: the button previously carried an empty
+  /// closure, so a user who had found a house could not call it.
+  VoidCallback? _callHouse(SoberHouse house) {
+    final digits = house.phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (digits.isEmpty) return null;
+    return () async {
+      final uri = Uri(scheme: 'tel', path: digits);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not dial ${house.name} from this device')),
+        );
+      }
+    };
+  }
+
+  /// Open turn-by-turn directions to the house.
+  void _openDirections(SoberHouse house) {
+    final uri = Uri.parse(
+      'geo:${house.latitude},${house.longitude}?q=${house.latitude},${house.longitude}(${Uri.encodeComponent(house.name)})',
+    );
+    launchUrl(uri, mode: LaunchMode.externalApplication).then((ok) {
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No maps app available on this device')),
+        );
+      }
+    });
+  }
+
   Widget _buildHouseCard(SoberHouse house, double? distance) {
     Color labelColor;
     switch (house.targetDemographic) {
@@ -505,9 +536,9 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Call house trigger
-                  },
+                  // Previously an empty closure: the button rendered and did
+                  // nothing. SoberHouse.phone is parsed and was never used.
+                  onPressed: _callHouse(house),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                     foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -520,9 +551,8 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    // Map directions trigger
-                  },
+                  // Previously an empty closure, same as the call button.
+                  onPressed: () => _openDirections(house),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Theme.of(context).colorScheme.primary,
                     side: BorderSide(color: Theme.of(context).colorScheme.primary),

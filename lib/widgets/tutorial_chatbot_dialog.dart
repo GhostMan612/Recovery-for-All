@@ -133,8 +133,17 @@ class _TutorialChatbotDialogState extends State<TutorialChatbotDialog> {
             },
           ),
           IconButton(
+            tooltip: 'Close tutorial',
             icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-            onPressed: () => widget.onClose?.call(),
+            // Fall back to popping the route so the control can never be a
+            // no-op, even if a future caller forgets to pass onClose.
+            onPressed: () {
+              if (widget.onClose != null) {
+                widget.onClose!();
+              } else {
+                Navigator.of(context).maybePop();
+              }
+            },
           ),
         ],
       ),

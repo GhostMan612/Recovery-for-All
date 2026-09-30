@@ -197,11 +197,21 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _showChronicleGenerator(BuildContext context) async {
+    // The dialog used to be popped under `if (context.mounted)` while
+    // `barrierDismissible: false` blocked every other exit. Leaving the
+    // Journal screen mid-generation left an un-dismissable dialog on screen
+    // with no way out. Pop through the DIALOG's own context in a finally, so
+    // dismissal is guaranteed regardless of this screen's lifecycle.
+    final navigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => Center(
-        child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+      builder: (c) => PopScope(
+        canPop: true,
+        child: Center(
+          child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary),
+        ),
       ),
     );
 
@@ -209,17 +219,17 @@ class _JournalScreenState extends State<JournalScreen> {
       final text = await NarrativeExportService.generateWeeklyChronicle(widget.database);
       final pet = await RecoveryPetService.ensureHatched();
 
-      if (context.mounted) {
-        Navigator.pop(context);
-        _showChronicleSheet(context, text, pet);
-      }
+      if (!mounted) return;
+      navigator.pop();
+      if (!context.mounted) return;
+      _showChronicleSheet(context, text, pet);
     } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generation failed: $e')),
-        );
-      }
+      if (!mounted) return;
+      navigator.pop();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Generation failed: $e')),
+      );
     }
   }
 

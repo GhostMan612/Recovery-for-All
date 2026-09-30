@@ -142,7 +142,12 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                 child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary, size: 24),
               ),
               const SizedBox(width: 12),
-              Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
+              // Expanded, not FittedBox: a 24pt headline should WRAP, not
+              // shrink. 'Progressive Muscle Relaxation' overflowed by ~110dp
+              // at the default text scale.
+              Expanded(
+                child: Text(tool['title'] as String, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
           const SizedBox(height: 8),

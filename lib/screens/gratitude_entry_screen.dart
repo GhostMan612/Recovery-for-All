@@ -128,8 +128,12 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Wrap, not Row+spaceBetween: five fixed-width mood cells
+              // overflowed on a 320dp device at the default text scale.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 8,
                 children: _moods.map((mood) {
                   final isSelected = _selectedMood == mood['rating'];
                   return GestureDetector(
@@ -154,6 +158,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                           const SizedBox(height: 4),
                           Text(
                             mood['label'] as String,
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,

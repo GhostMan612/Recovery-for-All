@@ -28,6 +28,14 @@ python tools/verify_no_hardcoded_colors.py                 # standing UI gate (m
 python tools/verify_invariants.py                           # architecture invariants (must exit 0)
 ```
 
+- **Verification cadence (Sep 28, user directive).** Do NOT run `flutter
+  analyze` or `flutter test` mid-phase. They cost 15s and 85s respectively and
+  neither catches what actually breaks during a refactor. Run them ONCE when a
+  phase is complete — and even then, only if you are unsure or it is genuinely
+  necessary. The two Python gates are seconds, so keep running those freely.
+  Rationale: a color-slot typo compiles cleanly and looks wrong on a device,
+  so the analyzer is the wrong oracle for UI work anyway.
+
 ## Hard-won gotchas
 
 - **Layouts that pin a size need a multi-scale text test.** Phase 8 found a

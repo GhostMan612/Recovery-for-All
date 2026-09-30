@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
+import '../services/journal_crypto_service.dart';
 
 class DailyReflectionScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -49,9 +50,19 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   Future<void> _loadJournalEntries() async {
     try {
       final entries = await widget.database.watchRecentJournals().first;
+      // DECRYPT before display. This list previously rendered
+      // `e.contentEncrypted` raw, so users saw ciphertext instead of their own
+      // writing. Mirrors journal_screen.dart `_decryptContent`.
+      final key = await JournalCryptoService.loadMasterKey();
+      final readable = <String>[];
+      for (final e in entries) {
+        // `decrypt` already falls back to `decryptLegacy` for pre-ENC2_ rows.
+        final plain = await JournalCryptoService.decrypt(e.contentEncrypted, key);
+        readable.add(plain ?? '[Locked — unlock the journal to read this entry]');
+      }
       if (mounted) {
         setState(() {
-          _journalEntries = entries.map((e) => e.contentEncrypted).toList();
+          _journalEntries = readable;
           _isLoading = false;
         });
       }
