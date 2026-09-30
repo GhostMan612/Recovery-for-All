@@ -23,12 +23,14 @@ cheaper and is what actually catches the errors.
    reference to a retired dark-pinned `AppColors` constant.
 
 4. `python tools/verify_invariants.py`
-   Must exit 0. Enforces the six architecture invariants: the single
+   Must exit 0. Enforces the seven architecture invariants: the single
    `databaseProvider` override in main.dart, exactly one `SosTile`
    implementation, the ten load-bearing SharedPreferences keys and their owning
-   files, the Phase 8 dashboard view files, no retired color constants, and the
+   files, the Phase 8 dashboard view files, no retired color constants, the
    system animation setting being read **only** in
-   `lib/core/motion/app_motion.dart`.
+   `lib/core/motion/app_motion.dart`, and **no missing-brace string
+   interpolation** (`$ref.watch(x).y` silently renders as literal text — this
+   shipped a broken app-bar title to two devices before a human caught it).
    These rules are also in AGENTS.md as prose — the gate is what makes them
    un-ignorable. If a rule is intentionally changing, update the gate AND
    AGENTS.md in the same commit.

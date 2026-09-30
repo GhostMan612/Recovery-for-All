@@ -813,7 +813,27 @@ Future<void> _handleWalk() async {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        title: Text('Welcome, $ref.watch(dashboardDataProvider).username', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        // BUG FIXED Sep 30, 2026 — found on a real device, twice.
+        //
+        // This read `'Welcome, $ref.watch(dashboardDataProvider).username'`.
+        // Dart interpolates only the identifier `ref`; `.watch(...)` and
+        // `.username` were LITERAL TEXT, so the app bar rendered
+        //   "Welcome, " + ref.toString() + ".watch(dashboardDataProvider).username"
+        // which is why it displayed "Welcome, DashboardScree…" — `ref` is the
+        // enclosing widget. The braces were missing, so the provider was never
+        // consulted and the title could never reflect the loaded profile.
+        //
+        // Why nothing caught it, and why it is worth writing down:
+        //  - `flutter analyze` is CLEAN. It is valid Dart, just not the string
+        //    anyone meant. The analyzer cannot see a wrong string.
+        //  - The colour and invariant gates never read strings.
+        //  - No widget test asserted the app bar title.
+        //  - It is the most visible text in the app, and it shipped to two
+        //    devices and a clean install before a human looked at a screenshot.
+        title: Text(
+          'Welcome, ${ref.watch(dashboardDataProvider).username}',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         elevation: 0,
         actions: [
           IconButton(

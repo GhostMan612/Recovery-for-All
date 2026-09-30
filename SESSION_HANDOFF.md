@@ -302,7 +302,10 @@ the gate will fail and Phase 10 forbids it.
 - UI/UX Phases **0-17 complete**. No phase outstanding.
 - Final gates: `flutter analyze --no-pub` -> No issues found; `flutter test` ->
   292 passing; `verify_no_hardcoded_colors.py` -> exit 0;
-  `verify_invariants.py` -> exit 0 (now 6 invariants).
+  `verify_invariants.py` -> exit 0 (now 7 invariants — the seventh is
+  missing-brace interpolation, added Sep 30 after device testing found the app
+  bar shipping `"Welcome, DashboardScree…"` because of `$ref.watch(...)` with no
+  braces).
 - **Honest caveat, now RESOLVED:** the final gate run caught a real defect that
   the earlier "13/13 passed" claim had hidden. All 12 tree-walking assertions in
   `test/accessibility_contracts_test.dart` were reading the semantics tree off
@@ -339,15 +342,36 @@ the gate will fail and Phase 10 forbids it.
     the dashboard passes the *fallback* name, so it was never empty. Regression
     tests added that assert the **rendered outcome** (mutually exclusive copy,
     rect containment) rather than the absence of an exception. Lesson: L22.
-  - **NOT a bug:** the app bar read "Welcome, DashboardScree…". Only one
-    production write site exists for that field
-    (`onboarding_screen.dart:182`, the onboarding text field), so this is stale
-    data typed into that device on Sep 14, not a defect. The `Friend` fallback is
-    correct and tested. Minor cosmetic point: a long alias ellipsizes because the
-    two AppBar icon buttons hold fixed width.
-- **⚠️ DEVICE LEFT DIRTY — MUST BE RESTORED:** system `font_scale` is still
-  **2.0** on the B160V (set to reproduce the `SkyCrown` collision). Restore with
-  `adb shell settings put system font_scale 1.0` in the next device pass.
+  - **🔴 SECOND REAL BUG, and the worst one in the program: the app bar read
+    "Welcome, DashboardScree…".** Root cause was one missing pair of braces in
+    `dashboard_screen.dart`:
+    `Text('Welcome, $ref.watch(dashboardDataProvider).username')`. Dart
+    interpolates only the identifier `ref`, so `.watch(...)` and `.username`
+    were **literal text** and the provider was never consulted. It is the most
+    visible string in the app and it survived a 292-test suite, a 3x2x4x3 theme
+    matrix, and the whole UI/UX program, because `flutter analyze` is **clean**
+    on valid Dart that is simply not the string anyone meant. Fixed with
+    `${...}`; verified on device — the title now reads **"Welcome, Anonymous"**,
+    the real value of the profile's alias field. Added **invariant 7** to
+    `tools/verify_invariants.py` to fail the build on `$identifier.` followed by
+    a method call inside any string literal in `lib/`, with
+    `tools/selftest_invariant7.py` proving the pattern catches the bug shape
+    while leaving `'$title. $subtitle'`, `'$modelId.gguf'` and `'$tablePrefix.'`
+    alone. Recorded as L23.
+  - **I got this one wrong first.** I reported the title as "stale data typed on
+    this device in September". It was not: a **clean install reproduced it**,
+    which disproved the theory. One `grep` for `\$ref\.` across `lib/` would
+    have found it in seconds. Lesson recorded in L23 — a conclusion resting on
+    "this device is weird" must be tested by removing the weirdness, not argued
+    for.
+  - **NOT a bug:** nothing else found on the Moto G. The full second install
+    path is clean: `versionCode 9`, onboarding renders, "Step 6 of 7" indicator
+    visible, toolbox/meeting cards render, no crash in logcat.
+- **⚠️ DEVICE LEFT DIRTY — MUST BE RESTORED:** system `font_scale` was set to
+  **2.0** on the B160V during testing and has been **restored to 1.0**. Screenshot
+  files have been removed from `/sdcard` on both devices. The Moto G
+  (192.168.4.202:40809, WiFi) has since dropped offline — reconnect with
+  `adb connect 192.168.4.202:40809`.
 - The `+9` release AAB in `build/` predates all of this and is stale. Do not
   upload it. The only binary built so far is a **debug** APK.
 - **Still unverified on hardware:** the Companion and Library destinations, the

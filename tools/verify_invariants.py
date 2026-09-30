@@ -288,6 +288,64 @@ else:
         )
 
 
+# ---------------------------------------------------------------------------
+# 7. No missing-brace string interpolation.
+#
+# `lib/screens/dashboard_screen.dart` shipped this for the whole UI/UX program:
+#
+#     Text('Welcome, $ref.watch(dashboardDataProvider).username')
+#
+# Dart interpolates ONLY the identifier `ref`. Everything after it -- the
+# `.watch(...)` call and `.username` -- was LITERAL TEXT, so the app bar rendered
+#   "Welcome, " + ref.toString() + ".watch(dashboardDataProvider).username"
+# which is why it displayed "Welcome, DashboardScree…". The provider was never
+# consulted, so the title could never show the user's name.
+#
+# This is the exact class of defect the analyzer cannot see: it is VALID Dart,
+# just not the string anyone meant. The colour gate never reads strings, and no
+# test asserted the title. It reached two devices and a clean install before a
+# human read a screenshot. Hence a gate.
+#
+# The pattern that distinguishes the bug from correct code is a METHOD CALL or
+# further chaining after the dot, not merely a dot:
+#
+#   BAD    '$ref.watch(x).y'      dot -> identifier -> '('   (missing brace)
+#   GOOD   '$title. $subtitle'    dot -> space               (sentence separator)
+#   GOOD   '$modelId.gguf'        dot -> identifier -> end   (file extension)
+#   GOOD   '$tablePrefix.'        dot -> end
+#
+# So require the dot to be followed by an identifier and THEN a '(' or another
+# dot. Generated *.g.dart files are skipped: they are build_runner output, must
+# never be hand-edited, and legitimately build "prefix.name" identifiers.
+BAD_INTERPOLATION = re.compile(
+    r"""\$[A-Za-z_]\w*\.[A-Za-z_]\w*(?:\s*\(|\s*\.)"""
+)
+
+interp_hits = []
+for path in sorted(LIB.rglob("*.dart")):
+    if path.name.endswith(".g.dart"):
+        continue
+    text = strip_comments(read(path))
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        # Only look inside single- or double-quoted string literals.
+        for literal in re.findall(r"'([^'\n]*)'|\"([^\"\n]*)\"", line):
+            segment = literal[0] or literal[1]
+            if BAD_INTERPOLATION.search(segment):
+                interp_hits.append(
+                    "%s:%d: %s"
+                    % (path.relative_to(ROOT).as_posix(), lineno, line.strip())
+                )
+
+if interp_hits:
+    failures.append(
+        "MISSING-BRACE STRING INTERPOLATION (invariant 7). In Dart, `$name` "
+        "interpolates ONLY the identifier; anything after it is literal text. "
+        "Each of these is a visible string that was never wired to its value: "
+        + " || ".join(interp_hits)
+        + " -- use `${name.field}` instead of `$name.field`."
+    )
+
+
 def main() -> int:
     for note in notes:
         print("NOTE: %s" % note)
@@ -302,7 +360,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 6)
+    print("PASS: %d architecture invariants hold" % 7)
     return 0
 
 

@@ -98,6 +98,51 @@ not evidence about a *pinned box with positioned children*. Those need a
 rendered check, and until a device is in hand, the honest move is to say so
 rather than let "292 passing" imply coverage it does not provide.
 
+## L23 — `$ref.watch(x).y` is valid Dart that renders a literal (Sep 30, 2026)
+
+- **What shipped:** the app bar on the dashboard read
+  **"Welcome, DashboardScree…"** — truncated, and lengthening as the user
+  raised the text scale. It reached the B160V, a clean install on a Moto G, and
+  every screenshot taken in between.
+- **Root cause:** one missing pair of braces.
+  ```dart
+  Text('Welcome, $ref.watch(dashboardDataProvider).username')
+  ```
+  Dart's `$identifier` interpolation substitutes **only the identifier**. The
+  `.watch(dashboardDataProvider).username` after it is ordinary literal text, so
+  the title rendered as
+  `"Welcome, " + ref.toString() + ".watch(dashboardDataProvider).username"`.
+  `ref` is the Riverpod `WidgetRef`, whose `toString` is the enclosing widget —
+  hence "DashboardScreen…", and hence the truncation growing from
+  "DashboardScree…" at 1.0x to "Dashboar…" at 2.0x. The provider was **never
+  consulted**; the title could not have shown the user's name at any point.
+- **Why nothing caught it, which is the entire point:**
+  - `flutter analyze` was **clean**. It is valid Dart — just not the string
+    anyone meant. The analyzer checks types and syntax, never intent.
+  - The colour gate never reads strings. The invariant gate never read
+    strings. Both were structurally incapable of it.
+  - No test asserted the app bar title.
+  - It is the single most visible piece of text in the app, and it survived a
+    292-test suite, a 3x2x4x3 theme matrix, and an entire UI/UX program.
+- **The reasoning trap, worth naming:** I first reported this as *stale data on
+  that device* — someone had typed "DashboardScreen" into the onboarding alias
+  field. The evidence for that was plausible (only one write site for the
+  field, and it feeds straight from a text box). It was **wrong**, and the thing
+  that disproved it was a clean install reproducing it. **A conclusion that
+  depends on "this device is weird" must be tested by removing the weirdness,
+  not argued for.** One grep — `$ref.` across `lib/` — would have found it in
+  seconds; I had grep available and reached for a story instead.
+- **Fix:** `'Welcome, ${ref.watch(dashboardDataProvider).username}'`.
+- **Fix, structurally:** invariant 7 in `tools/verify_invariants.py` now fails
+  the build on `$identifier.` inside any string literal in `lib/`, because that
+  pattern is a missing brace essentially always.
+- **Law:** **a gate that only covers what you already know will keep passing
+  while the app is visibly wrong.** When a real user-visible bug appears, ask
+  what class it belongs to, and if nothing enforces that class, add the
+  enforcement before moving on. And when something looks like bad data, try
+  reproducing it clean before concluding — "the device is weird" is a hypothesis,
+  not a finding.
+
 ---
 
 ### L1 · PowerShell 5.1 UTF-8 mojibake
