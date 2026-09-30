@@ -1039,20 +1039,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Uri.parse('https://github.com/code4recovery/spec'),
                   mode: LaunchMode.externalApplication,
                 ),
-                child: Padding(
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
                   padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.menu_book_outlined,
-                          size: 16, color: Theme.of(context).colorScheme.outline),
+                      ExcludeSemantics(
+                        child: Icon(Icons.menu_book_outlined,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Feed format spec (Code for Recovery) — works with AA intergroups and BMLT',
-                          style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12),
                         ),
                       ),
-                      Icon(Icons.open_in_new, size: 14, color: Theme.of(context).colorScheme.outline),
+                      ExcludeSemantics(
+                        child: Icon(Icons.open_in_new,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ),

@@ -425,20 +425,36 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                       final status =
                           RecoveryPetService.speciesStatus(pet, species.id);
                       final affordable = status == OutfitUnlockStatus.available;
-                      return InkWell(
-                        onTap:
-                            active || status == OutfitUnlockStatus.bondTooLow ||
-                                    status == OutfitUnlockStatus.notEnoughSparks
-                                ? null
-                                : () => _adoptSpecies(species),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          width: 132,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainer,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
+                      // Spelled out rather than the '✦' codepoint, and
+                      // 'Bond 3000%' is corrected: the field is already a
+                      // percentage, so multiplying by 100 was wrong.
+                      final costLabel = active
+                          ? 'Active'
+                          : status == OutfitUnlockStatus.alreadyOwned
+                              ? 'Adopt · free'
+                              : status == OutfitUnlockStatus.available
+                                  ? 'Adopt · ${species.unlockSparks} Sparks'
+                                  : status == OutfitUnlockStatus.bondTooLow
+                                      ? 'Needs ${species.unlockBond}% bond'
+                                      : '${species.unlockSparks} Sparks needed';
+                      return Semantics(
+                        // The unlock cost was a bare '✦' codepoint and the
+                        // locked/active state was conveyed only by onTap being
+                        // null, which announces as a live button that does
+                        // nothing.
+                        button: true,
+                        enabled: affordable,
+                        label: '${species.label}. $costLabel',
+                        child: InkWell(
+                          onTap: affordable ? () => _adoptSpecies(species) : null,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            width: 132,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
                               color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
                               width: active ? 2 : 1,
                             ),
@@ -446,8 +462,9 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(species.emoji,
-                                  style: const TextStyle(fontSize: 30)),
+                              ExcludeSemantics(
+                                  child: Text(species.emoji,
+                                      style: const TextStyle(fontSize: 30))),
                               const SizedBox(height: 6),
                               Text(species.label,
                                   textAlign: TextAlign.center,
@@ -459,29 +476,22 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
                               Text(
-                                active
-                                    ? 'Active'
-                                    : status ==
-                                            OutfitUnlockStatus.alreadyOwned
-                                        ? 'Adopt · free'
-                                        : status == OutfitUnlockStatus.available
-                                            ? 'Adopt · ${species.unlockSparks}✦'
-                                            : status == OutfitUnlockStatus.bondTooLow
-                                                ? 'Bond ${species.unlockBond * 100 ~/ 1}%'
-                                                : '${species.unlockSparks}✦ needed',
+                                costLabel,
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: active
                                       ? Theme.of(context).colorScheme.primary
                                       : affordable
                                           ? Theme.of(context).colorScheme.tertiary
-                                          : Theme.of(context).colorScheme.outline,
-                                  fontSize: 11,
+                                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      );
+                      ),
+                    );
                     },
                   ),
                 ),

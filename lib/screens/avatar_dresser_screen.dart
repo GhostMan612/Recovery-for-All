@@ -319,7 +319,11 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                         final emoji = item.emoji ??
                             AvatarVisualLayer.displayEmoji(item.id);
 
-                        return InkWell(
+                        return Semantics(
+                          button: true,
+                          enabled: !_busy,
+                          label: '${item.label}, ${item.cost} Sparks',
+                          child: InkWell(
                           onTap: _busy ? null : () => _swap(item),
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
@@ -366,12 +370,13 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                                     color: equipped
                                         ? Theme.of(context).colorScheme.primary
                                         : Theme.of(context).colorScheme.onSurfaceVariant,
-                                    fontSize: 10,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                        ),
                         );
                       },
                     );

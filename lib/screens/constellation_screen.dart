@@ -613,14 +613,19 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
           Positioned(left: 16, top: 12, child: Material(
             color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(12),
-            child: InkWell(onTap: _toggle3DView, borderRadius: BorderRadius.circular(12), child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_is3DView ? Icons.view_in_ar : Icons.crop_rotate, color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), size: 20),
-                const SizedBox(width: 6),
-                Text(_is3DView ? '3D View' : '2D View', style: TextStyle(color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.w600)),
-              ]),
-            )),
+            child: Semantics(
+              button: true,
+              label: _is3DView ? 'Switch to 2D view' : 'Switch to 3D view',
+              child: InkWell(onTap: _toggle3DView, borderRadius: BorderRadius.circular(12), child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  ExcludeSemantics(child: Icon(_is3DView ? Icons.view_in_ar : Icons.crop_rotate, color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), size: 20)),
+                  const SizedBox(width: 6),
+                  Text(_is3DView ? '3D View' : '2D View', style: TextStyle(color: _is3DView ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              )),
+            ),
           )),
           // Focus info badge
           if (_focusedStarIndex != null)
@@ -833,7 +838,7 @@ class _CategoryLegend extends StatelessWidget {
                     _labels[entry.key] ?? entry.key,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 10,
+                      fontSize: 12,
                     ),
                   ),
                 ]),

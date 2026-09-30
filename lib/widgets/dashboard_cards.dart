@@ -177,10 +177,13 @@ class SupportLinkRow extends StatelessWidget {
     return Material(
       color: scheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
+      child: Semantics(
+        button: true,
+        label: '$title. $subtitle',
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -220,8 +223,11 @@ class SupportLinkRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: scheme.outline),
-            ],
+              ExcludeSemantics(
+                child: Icon(Icons.chevron_right, color: scheme.outline),
+              ),
+              ],
+            ),
           ),
         ),
       ),
@@ -253,11 +259,14 @@ class ToolCard extends StatelessWidget {
     return Material(
       color: scheme.surfaceContainer,
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+      child: Semantics(
+        button: true,
+        label: subtitle.isEmpty ? label : '$label. $subtitle',
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -305,6 +314,7 @@ class ToolCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

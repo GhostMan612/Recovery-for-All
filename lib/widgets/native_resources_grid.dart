@@ -111,7 +111,7 @@ class _NativeResourcesGridState extends State<NativeResourcesGrid> {
                         program,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                          fontSize: 10,
+                          fontSize: 12,
                         ),
                       ),
                     );

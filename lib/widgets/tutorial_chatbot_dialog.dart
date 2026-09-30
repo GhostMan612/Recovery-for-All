@@ -273,7 +273,7 @@ class _ChatBubble extends StatelessWidget {
                 '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                 style: TextStyle(
                   color: message.isUser ? Colors.black54 : Theme.of(context).colorScheme.outline,
-                  fontSize: 10,
+                  fontSize: 12,
                 ),
               ),
             ],

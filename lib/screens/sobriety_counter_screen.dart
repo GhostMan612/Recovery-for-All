@@ -436,7 +436,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
                                             color: elapsed >= chip.at
                                                 ? Theme.of(context).colorScheme.tertiary
                                                 : Theme.of(context).colorScheme.outline,
-                                            fontSize: 10)),
+                                            fontSize: 12)),
                                   ],
                                 ),
                               ),

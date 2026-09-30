@@ -367,7 +367,7 @@ class _SponsorManagerWidgetState extends State<SponsorManagerWidget> {
                                     contact.pathway,
                                     style: TextStyle(
                                       color: pathwayColor,
-                                      fontSize: 9,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

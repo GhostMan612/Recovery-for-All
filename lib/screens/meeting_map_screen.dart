@@ -1338,7 +1338,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         Text('LIVE',
                             style: TextStyle(
                                 color: Theme.of(context).colorScheme.tertiary,
-                                fontSize: 8,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -1417,10 +1417,13 @@ class _MapChip extends StatelessWidget {
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11)),
     );
     if (onTap == null) return chip;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: chip,
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: chip,
+      ),
     );
   }
 }
@@ -1438,14 +1441,21 @@ class _MapButton extends StatelessWidget {
     return Material(
       color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Tooltip(
-          message: tooltip,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Tooltip(
+            message: tooltip,
+            // 10px padding around a 20px icon is a 40x40 target; five of these
+            // stack on the map edge, so they need the 48dp minimum.
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              padding: const EdgeInsets.all(14),
+              child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+            ),
           ),
         ),
       ),

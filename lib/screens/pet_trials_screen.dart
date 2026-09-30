@@ -834,12 +834,18 @@ class _AbilityButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    return Semantics(
+      // An unaffordable ability previously announced as a live button that
+      // did nothing, because the disabled state was only a null onTap.
+      button: true,
+      enabled: enabled,
+      label: '${ability.name}, ${ability.focusCost} Focus',
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: enabled
               ? Theme.of(context).colorScheme.surfaceContainer
@@ -877,7 +883,7 @@ class _AbilityButton extends StatelessWidget {
                       style: TextStyle(
                           color:
                               enabled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold)),
                 ),
               ],
@@ -891,8 +897,9 @@ class _AbilityButton extends StatelessWidget {
                         : '${ability.minDamage}–${ability.maxDamage} dmg',
                 style: TextStyle(
                     color: enabled ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.outline,
-                    fontSize: 10)),
+                    fontSize: 12)),
           ],
+        ),
         ),
       ),
     );

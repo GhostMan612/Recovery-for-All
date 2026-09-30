@@ -513,7 +513,7 @@ class _ShapeBadge extends StatelessWidget {
           for (final row in rows)
             Text(row,
                 style: const TextStyle(
-                    fontSize: 10, height: 1.25, letterSpacing: 2)),
+                    fontSize: 12, height: 1.25, letterSpacing: 2)),
         ],
       ),
     );

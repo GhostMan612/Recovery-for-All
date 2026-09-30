@@ -76,10 +76,17 @@ class AppCard extends StatelessWidget {
       margin: margin,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: shape,
-          child: content,
+        // InkWell is operable but Flutter does not give it the `button`
+        // semantic role, so a screen reader announces a card as a generic
+        // clickable rather than a control. Centralising it here fixes every
+        // AppCard at once.
+        child: Semantics(
+          button: true,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: shape,
+            child: content,
+          ),
         ),
       ),
     );
