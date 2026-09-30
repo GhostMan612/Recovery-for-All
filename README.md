@@ -76,7 +76,8 @@ dart --version           # 3.12+
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 
-# Agent gates (human builds in Android Studio)
+# End-of-plan gates — run once, batched, after the plan is finished
+# (human builds in Android Studio; see AGENTS.md "SHELL DISCIPLINE")
 flutter analyze          # must report: No issues found
 flutter test             # 90+ tests must pass
 

@@ -38,7 +38,8 @@ C:\sovereign_tagger_bak
 
 ### 1.5 Build boundary — HARD RULE
 - **NEVER run full builds.** No `flutter build apk`, `flutter build appbundle`, `flutter run`, or any command that produces a compiled binary artifact.
-- The human builds in Android Studio. Your gates are `flutter pub get`, `flutter analyze` (must be "No issues found"), and `flutter test`.
+- The human builds in Android Studio.
+- **Cadence, not permission:** `flutter pub get`, `flutter analyze` (must be "No issues found"), and `flutter test` are the end-of-plan gates. They run **once, batched, after the whole plan is finished** — not between steps, not to "just check" an edit. `AGENTS.md` "SHELL DISCIPLINE" is binding and has the intent→tool routing table. This clause previously said only that these are "your gates", which read as licence to run them per-feature; §1.7 below is the cadence.
 - If a build breaks on their side, debug from their pasted error output — never by rebuilding locally.
 
 ### 1.6 Nothing outside the project without approval
@@ -104,13 +105,15 @@ Do not install software, modify system settings, or write to new locations outsi
 4. Check `SPRINT_PLAN.md` status block for latest state
 
 ### 4.2 Session end (every session)
-1. Run `flutter analyze` + `flutter test` — both must pass
-2. Run `python tools/generate_code_package.py`
-3. Tick relevant `blueprints/*.md` checklists
-4. Commit code by explicit path with a descriptive message
+1. Finish the entire plan first. No shell ran during it (§1.5, `AGENTS.md` SHELL DISCIPLINE).
+2. **Then**, in one batched shell block: `flutter analyze` + `flutter test` + `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py`
+3. Run `python tools/generate_code_package.py`
+4. Tick relevant `blueprints/*.md` checklists
+5. Device checklist, if the plan called for one — also batched into the same end pass
+6. Commit code by explicit path with a descriptive message
 
 ### 4.3 Verification law
-No feature is done until `flutter analyze` reports zero issues AND `flutter test` passes. Evidence before status flips.
+No feature is *reported done* until `flutter analyze` reports zero issues AND `flutter test` passes — and those two numbers are collected **once, at the end**, not per feature. Evidence before status flips; the evidence is a single end-of-plan run, and a run is only meaningful if it is the one that closes the plan. Mid-plan runs produce stale signal that must then be re-derived, and they are what turns a three-day plan into a three-day wait.
 
 ### 4.4 Scope law
 Big ideas go into `blueprints/roadmap-v2.md` with phased plans first. Ship vertical slices; never let polish precede a working build.

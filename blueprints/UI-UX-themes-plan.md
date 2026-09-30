@@ -32,10 +32,50 @@ A phase is complete only when:
 - the repository diff contains no unrelated work;
 - the phase gate below is explicitly satisfied.
 
+**Read this carefully: the analyze/test lines are satisfied ONCE, at the end of
+the whole program — not once per phase.** The per-phase "Gate N" sections are a
+checklist of *what must be true when the gates are finally run*, not an
+instruction to run them at each phase boundary. There was a version of this
+plan where a "Gate" per phase was read as a trigger to shell out, and it is the
+direct cause of the shell overuse that `AGENTS.md` "SHELL DISCIPLINE" now bans
+outright. Batch them; see that section.
+
 ## Execution Status
 
-Phases 0-16 are **implemented**. Phase 17 is **the verification gate itself**
-and is satisfied only by the commands in the Completion Standard.
+Phases 0-17 are **implemented and gate-verified**, and the program has now been
+run on **real hardware** once (LG B160V, Android 14, 2.75 GB, 411dp).
+
+### Device verification — LG B160V, Sep 30 2026
+
+This is the first time any of Phases 0-17 has been rendered on a real screen,
+and it changed the program's conclusions in three ways:
+
+| Check | Result |
+|---|---|
+| `isLowEnd` low-end path | **`totalRamGb=2.75 isLowEnd=true`** — exercised on hardware for the first time; Lottie underlays correctly absent |
+| Light mode (Settings) | fully legible |
+| Light mode (Path dashboard) | fully legible — the audit's worst bug class confirmed fixed on a real screen |
+| Phase 13 at 2.0x text scale | **found a real bug the whole suite could not** — see below |
+| Phase 11 theme control | confirmed present and switching |
+
+**The 2.0x finding, and why it matters more than the bug itself.** The
+empty-state `SkyCrown` rendered the centred prompt wrapping to two lines, and
+the bottom-left sky name painted straight through it. `SkyCrown` pins
+`height: 150` and puts the prompt and the `Positioned` name in the same `Stack`
+as two independent children, so neither can know the other is there. **No
+`RenderFlex` overflowed** — and this program's entire responsive strategy,
+`test/theme_matrix_test.dart`, asserts on `tester.takeException()`. It was
+green. Not because it missed a case, but because it asserts the wrong *kind* of
+thing: overflow tests catch overflow, and this was collision. Fixed by gating
+the name behind `if (hasStars)`, and the new tests assert rendered *outcome*
+(mutually exclusive copy, rect containment) rather than absence of an error.
+
+**What this implies for the phases that are still unverified.** One device, one
+palette (Midnight Slate), dark and light, at 1.0x and 2.0x. The Companion and
+Library destinations, the onboarding flow, and the SOS sheet were not opened. A
+green matrix is not coverage of a pinned box with positioned children, and until
+a second device and the remaining destinations are checked, that is the honest
+claim — see L22.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -52,7 +92,7 @@ and is satisfied only by the commands in the Completion Standard.
 | 10 - Global SOS experience | COMPLETE | audit only: dismiss button, care-alert moved to real activation, header overflow, sheet semantics |
 | 11 - Profile / settings | COMPLETE | grouped sections already conformed; added the missing System/Light/Dark mode control |
 | 12 - Accessibility engineering | VERIFIED | 13 new tests in `test/accessibility_contracts_test.dart`; found and fixed a real double-announcement defect |
-| 13 - Responsive hardening | VERIFIED | onboarding overflow fixes; `test/theme_matrix_test.dart` sweeps 4 form factors x 3 text scales |
+| 13 - Responsive hardening | VERIFIED + **device-fixed** | onboarding overflow fixes; `test/theme_matrix_test.dart` sweeps 4 form factors x 3 text scales — and on a real B160V at 2.0x it was proven **insufficient**: a silent `Stack` collision in `SkyCrown` that no overflow assertion can see. Fixed, with outcome-based regression tests. |
 | 14 - Motion system | VERIFIED | `core/motion/app_motion.dart`; 5 read sites consolidated; onboarding transition now respects reduce-motion |
 | 15 - Theme matrix | VERIFIED | 3 palettes x 2 brightness rendered; one real palette finding recorded below |
 | 16 - Architecture hardening | VERIFIED | audit clean; invariant 6 added so the motion policy cannot fragment again |
@@ -204,12 +244,19 @@ failure, since they lean hardest on SDK behaviour rather than app behaviour:
 
 ### Human-only, still outstanding
 
-Phases 0-17 have never been rendered on a real device. Light mode, the
-`HardwareTierService.isLowEnd` Lottie path (Blu View 5, 3 GB), every overflow
-fix in Phase 13, and the whole a11y batch are verified only by the compiler and
-widget tests. The audit found entire screens invisible in light mode — exactly
-what tests cannot catch. Also outstanding: a fresh signed `1.0.0+9` AAB in
-Android Studio, device smoke test, and Play versionCode 9 rollout.
+The `isLowEnd` low-end path and light mode are now **proven on one real
+device** (LG B160V, 2.75 GB, Midnight Slate, dark + light, 1.0x + 2.0x). Still
+open:
+
+- A **second, high-RAM** device — the non-low-end branch (Lottie *enabled*) is
+  still only ever exercised on the host, which forces `isLowEnd = false` and
+  therefore tests the branch the B160V does not take.
+- The **Companion** and **Library** destinations, the **onboarding** flow, and
+  the **SOS sheet** were not opened on device.
+- **Deep Forest** and **OLED Pitch** were not spot-checked on screen.
+- A fresh **signed** `1.0.0+9` AAB in Android Studio, and Play versionCode 9
+  rollout. Only a **debug** APK has been built; the `build/` release AAB is
+  stale and must not be uploaded.
 
 ## Re-Sequencing Rationale (Sep 28)
 
@@ -988,6 +1035,10 @@ Muse Spark must stop and report rather than guess when:
 
 ## Change Discipline
 
+- **Work the whole plan with `read`/`edit`/`write`/`grep` and no shell.** Run
+  the gate batch once, at the end (`AGENTS.md` "SHELL DISCIPLINE"). If a phase
+  seems to need a mid-plan gate run, that is a signal to stop and report a
+  blocked item, not to run it.
 - Do not rewrite unrelated files.
 - Do not rename public APIs without necessity.
 - Do not replace Riverpod with another state system.

@@ -12,7 +12,8 @@
 
 1. Fork is disabled for the private repo. Ask for a collaborator invite.
 2. Create a feature branch: `git checkout -b feat/short-name`
-3. Follow the gates in `AGENTS.md`:
+3. Follow the gates in `AGENTS.md` — run them **once, at the end, batched**,
+   not after each step or each file:
    ```bash
    flutter pub get
    flutter analyze          # must be "No issues found"

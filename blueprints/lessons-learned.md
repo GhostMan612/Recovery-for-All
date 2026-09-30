@@ -5,6 +5,101 @@
 
 ---
 
+## L21 — The rules said "permitted", so the shell got used every 5 seconds (Sep 30, 2026)
+
+- **What happened:** the UI/UX program's final days were spent far longer on
+  round-trips than on work. The pattern was visible in the transcript: a
+  `read`, then a `grep`, then a `flutter analyze` or an `adb` probe, then
+  `sleep`, then another probe — every few minutes, for hours. The user's
+  assessment: this plan should not have taken three days, and they should not
+  have to sit at their laptop watching it. They were right.
+- **Root cause — and this is the part that matters: it was not a discipline
+  failure, it was a *documentation* failure.** Three separate documents
+  granted unconditional permission, and only one narrow paragraph anywhere
+  forbade it:
+  - `AGENTS.md`'s own auto-doc workflow said *"After **every** code or
+    blueprint change the agent MUST… run this sequence"* with
+    `flutter analyze` and `flutter test` in the list. That is a standing order
+    to shell out after every single edit.
+  - `CLAUDE.md`: analyze/test "are permitted and **expected** as code-quality
+    gates" — with no cadence attached, which reads as licence, not as a
+    closing step.
+  - `RULES.md`: "Your gates are `flutter pub get`, `flutter analyze`, and
+    `flutter test`", plus "no feature is done until…" — a *per-feature* rule.
+  - `blueprints/SPRINT_PLAN.md`: "Run `flutter analyze` **after each task** to
+    verify." Literal instruction to do the expensive thing, per task.
+  - `.opencode/agents/debugger.md`: "After proposing, run `flutter analyze` to
+    verify the fix compiles." An agent instructed to verify each fix.
+  Meanwhile the no-shell rule existed, but it sat *below* the permission lines
+  in `SESSION_HANDOFF.md` and was phrased as an override — which is a weaker
+  device than being the first thing read. Rules that must be read *around*
+  other rules will eventually be read around.
+- **Fix:** restructured so cadence is attached to every grant of permission,
+  and so the ban is a routing table rather than an exhortation:
+  - `AGENTS.md` "SHELL DISCIPLINE" is now a hard gate with an intent→tool
+    table (read/grep/edit/write for working; *nothing* for "does it compile"),
+    the three named traps, and the instruction that a plan needing mid-flight
+    verification is a plan to *report as blocked*, not to shell out on.
+  - The per-change auto-doc list and the per-plan verification list are now two
+    separate sections. Docs per change; gates once.
+  - `CLAUDE.md`, `RULES.md`, `CONTRIBUTING.md`, `README.md`,
+    `SESSION_HANDOFF.md`, `UI-UX-themes-plan.md`, `SPRINT_PLAN.md`,
+    `.opencode/commands/{verify,commit}.md` and
+    `.opencode/agents/{debugger,a11y-auditor,test-runner}.md` were all swept
+    and relabelled as end-of-plan.
+- **The two arguments that actually closed it,** because they are the reason
+  this recurred four times: (1) the analyzer **cannot see the class of bug this
+  project has** — a colour-slot typo, a wrong string, two widgets colliding in
+  a fixed box all pass a clean analyze; and (2) each run costs 20–90s and
+  **goes stale with the very next edit**, so a mid-plan result is not just
+  wasteful, it is misleading. Neither argument is about the user's preference.
+- **Law:** **when a rule is repeatedly violated, suspect the rule before the
+  behaviour.** Grep the whole repo for every document that touches the tool in
+  question, and fix *all* of them in one pass — because a single surviving
+  "permitted" line is enough to license the old habit, and a future session
+  will find it and reasonably follow it. Permission and cadence must be written
+  together or not at all. And put the prohibition **first**, not as an
+  override of something above it.
+
+## L22 — Two Stack children in a fixed box can collide with no error at all (Sep 30, 2026)
+
+- **What happened:** on a real B160V at 2.0× system text scale, the empty-state
+  `SkyCrown` rendered the centred prompt "Plant your first star — name your
+  sky" wrapping to two lines, and the bottom-left sky name "Your Constellation"
+  painted straight through it. Unmistakable on screen; the two words overlapped.
+- **Root cause:** `SkyCrown` pins `height: 150` and stacks its content. With no
+  stars, the centred prompt renders *and* the `Positioned` bottom-left
+  `skyName` renders — two independent `Stack` children that cannot see each
+  other. On the dashboard the caller passes the fallback
+  (`skyName: ref.watch(skyNameProvider) ?? 'Your Constellation'`,
+  `dashboard_screen.dart:944`), so the label is never empty and the collision
+  always happens at large text scales.
+- **The part that generalises: no `RenderFlex` ever overflowed.** A
+  `RenderFlex` overflow is loud — yellow/black stripes and a thrown
+  `FlutterError`. Two positioned siblings landing on the same pixels is
+  *silent*. The 3×2×4×3 matrix test that already covers `SkyCrown` at 2.0× was
+  **green**, because the matrix asserts on `tester.takeException()` and there is
+  no exception to take. The matrix was not missing a case; it was asserting the
+  wrong *kind* of thing. A device screenshot found in about a minute what the
+  whole matrix could not.
+- **Fix:** don't render the bottom-left name until there is a sky to name —
+  `if (hasStars)`, mirroring the existing `if (hasStars)` on the star count.
+  The empty state then shows only the centred prompt, and the fallback name is
+  not shown to anyone as though it were real.
+- **Law:** **overflow tests catch overflow, not collision.** For any
+  fixed-height box with multiple children, assert the *outcome* — non-empty
+  `find.text` for mutually exclusive copy, and rect-intersection checks — not
+  the absence of an exception. A widget test that only asserts
+  `takeException()` is decoration: it is green precisely when the two things
+  you care about cannot collide.
+
+**Corollary, and the reason this was only found late:** a green host suite is
+not evidence about a *pinned box with positioned children*. Those need a
+rendered check, and until a device is in hand, the honest move is to say so
+rather than let "292 passing" imply coverage it does not provide.
+
+---
+
 ### L1 · PowerShell 5.1 UTF-8 mojibake
 - **Symptom:** emoji/·/— turned into `Ã°Å¸` garbage in shipped files.
 - **Root cause:** `Get-Content | Set-Content` round-trips decode ANSI.

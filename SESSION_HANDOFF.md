@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. Late phases were consolidation and found three more real defects: an a11y double-announcement, an onboarding that never said which step you were on, and a `CompanionSection` row that overflowed at 2.0x on a 320dp screen. Final close: analyze 0, **test 292 passing**, all five gates green — the closing run also caught a 12-test harness bug that a stale "13/13 passed" note had been hiding. See L20.)
+**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**, and now **first-verified on real hardware**. The LG B160V confirmed the `isLowEnd` low-end branch (`totalRamGb=2.75 isLowEnd=true`) and light mode on a real screen — and immediately paid for itself by exposing a **real bug the entire test suite could not catch**: two independent `Stack` children colliding inside a fixed 150px `SkyCrown` box at 2.0x text scale, with no overflow and therefore no failing test. Fixed + regression-tested. Also overhauled the repo's shell rules repo-wide: three documents were quietly *licensing* per-edit shelling. See L21 and L22.)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -19,21 +19,25 @@ resume without losing progress. Update it at every session end.
 
 ## 2 · Hard rules (never violate)
 
-- **Build boundary**: NEVER `flutter build apk|appbundle|run`. The human
-  builds in Android Studio. Agent gates: `flutter pub get` →
-  `flutter analyze` (**must be "No issues found"**) → `flutter test`.
-- **⛔ NO SHELL UNTIL THE ENTIRE TASK IS COMPLETE.** This overrides the gate
-  list above, which still describes *what* to run, not *when*. The user has
-  directed this repeatedly and unambiguously: while working through a plan, do
-  not call the shell **at all** — not `flutter analyze`, not `flutter test`, not
-  the Python gates, not git, not a scratch `.py`. Use `read`, `edit`, `write`,
-  `grep` and subagents; those are the tools for working. Run verification
-  **once, at the end, when the whole plan is done**, or when explicitly asked.
-  If unsure whether a file compiles, **read it again** instead of shelling out.
+- **⛔ NO SHELL UNTIL THE ENTIRE TASK IS COMPLETE.** Read this before the
+  build boundary below; it overrides anything that reads like permission. The
+  user has directed this repeatedly and unambiguously: while working through a
+  plan, do not call the shell **at all** — not `flutter analyze`, not
+  `flutter test`, not the Python gates, not git, not adb, not a scratch `.py`.
+  Use `read`, `edit`, `write`, `grep` and subagents; those are the tools for
+  working. Run verification **once, at the end, when the whole plan is done**,
+  batched into a single shell block, or when explicitly asked. If unsure
+  whether a file compiles, **read it again** instead of shelling out.
   Rationale: the analyzer is the wrong oracle for this work — a colour-slot
-  typo compiles cleanly and looks wrong on a device — and repeated analyzer
-  runs were repeatedly spent re-checking hand-balanced parens instead of
-  reading the enclosing block first.
+  typo compiles cleanly and looks wrong on a device, and two widgets colliding
+  in a fixed box raise no type error at all — so mid-plan runs buy almost
+  nothing and cost 20–90s each.
+- **Build boundary**: NEVER `flutter build apk|appbundle|run` without explicit
+  per-instance authorization. The human normally builds in Android Studio. (The
+  user granted a one-off exception on 2026-09-30 to build and install a debug
+  APK for device verification; that is not standing permission.) End-of-plan
+  gates, when the plan is finished: `flutter pub get` → `flutter analyze`
+  (**must be "No issues found"**) → `flutter test`.
 - **Commits by explicit path only** (never `git add .`/`-A`). Commit
   messages report analyze/test status ONLY — never claim build success.
 - **Safety pipeline order untouchable** (`chatbot_screen.dart:72`):
@@ -293,7 +297,8 @@ of either. Audit FAB placement, labels, contrast, dismissal, accidental
 activation, and screen-reader semantics. **Do not build a second SOS surface** -
 the gate will fail and Phase 10 forbids it.
 
-### Session-boundary state (Sep 30, after Phase 17)
+### Session-boundary state (Sep 30, after Phase 17 + FIRST device verification)
+
 - UI/UX Phases **0-17 complete**. No phase outstanding.
 - Final gates: `flutter analyze --no-pub` -> No issues found; `flutter test` ->
   292 passing; `verify_no_hardcoded_colors.py` -> exit 0;
@@ -312,13 +317,43 @@ the gate will fail and Phase 10 forbids it.
   Fixed, and the full suite now runs **292 passing, analyze clean**. Lesson
   recorded as L20 — and the meta-lesson is that "the file passed 13/13" was
   never independently re-verified after the accessor was changed.
-- **THE BIGGEST REMAINING RISK: nothing in Phases 0-17 has run on hardware.**
-  ~200 colour substitutions, a large a11y batch, and every overflow fix are
-  verified only by the compiler and widget tests. The audit found entire
-  screens invisible in light mode — exactly what tests cannot catch. A
-  plugged-in Blu View 5 would also exercise the `isLowEnd` Lottie branch, never
-  yet run on a real device.
-- The `+9` AAB in `build/` predates all of this and is stale. Do not upload it.
+- **🔴 FIRST HARDWARE RUN — LG B160V, Android 14 / SDK 34, arm64-v8a, 2.75 GB
+  RAM, 411x921 dp.** This closes the biggest open risk in the program. The user
+  granted a one-off exception to the build boundary to produce a debug APK and
+  install it (commit `1ff936fb1d1`, `versionCode 9` confirmed on device).
+  - **`isLowEnd` branch exercised for the first time on real hardware.**
+    `[hardware] totalRamGb=2.75 isLowEnd=true`, matching the 3.0 GB threshold
+    exactly as designed. The Lottie underlays are correctly absent from the
+    avatar. This is the `isLowEnd` path that had only ever run on the host.
+  - **Light mode verified on a real screen** — Settings and the Path dashboard
+    both fully legible. The audit's worst bug class (screens invisible in light
+    mode) is confirmed fixed. This is the check the compiler cannot do.
+  - **🐛 NEW REAL BUG FOUND ON DEVICE, at 2.0x system text scale:** the
+    empty-state `SkyCrown` rendered the centred prompt "Plant your first star —
+    name your sky" wrapping to two lines, and the bottom-left sky name painted
+    straight through it. Root cause: two independent `Stack` children inside a
+    fixed `height: 150` box, so neither knows the other exists — and **no
+    `RenderFlex` ever overflowed**, so the 3x2x4x3 matrix test was green and
+    could not have caught it. Fixed by not rendering the bottom-left name until
+    there are stars (mirroring the existing `if (hasStars)` on the star count);
+    the dashboard passes the *fallback* name, so it was never empty. Regression
+    tests added that assert the **rendered outcome** (mutually exclusive copy,
+    rect containment) rather than the absence of an exception. Lesson: L22.
+  - **NOT a bug:** the app bar read "Welcome, DashboardScree…". Only one
+    production write site exists for that field
+    (`onboarding_screen.dart:182`, the onboarding text field), so this is stale
+    data typed into that device on Sep 14, not a defect. The `Friend` fallback is
+    correct and tested. Minor cosmetic point: a long alias ellipsizes because the
+    two AppBar icon buttons hold fixed width.
+- **⚠️ DEVICE LEFT DIRTY — MUST BE RESTORED:** system `font_scale` is still
+  **2.0** on the B160V (set to reproduce the `SkyCrown` collision). Restore with
+  `adb shell settings put system font_scale 1.0` in the next device pass.
+- The `+9` release AAB in `build/` predates all of this and is stale. Do not
+  upload it. The only binary built so far is a **debug** APK.
+- **Still unverified on hardware:** the Companion and Library destinations, the
+  onboarding flow, and the SOS sheet. Phases 0-17's *light mode* is now proven on
+  one device only (B160V, Midnight Slate palette). Dark Forest and OLED Pitch
+  were **not** spot-checked on screen.
 
 
 ## 8 · End-of-session checklist (every session)

@@ -78,5 +78,8 @@ A table of findings sorted by severity with `file:line`, then per-category
 counts, then the top 5 things to fix first. State explicitly if a category has
 no findings — silence reads as "not checked" otherwise.
 
-Never run `flutter build`. The gates are
-`C:\android\flutter\bin\flutter.bat analyze --no-pub` and `flutter test`.
+Never run `flutter build` — and never run `flutter analyze` or `flutter test`
+either. You are a read-only reviewer: report findings with `file:line` and let
+the orchestrator batch the gates once at the end of the plan
+(`AGENTS.md` "SHELL DISCIPLINE"). Your value is entirely in what you can see by
+reading, which is also the only class of defect these gates miss.

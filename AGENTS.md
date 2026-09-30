@@ -9,13 +9,21 @@ end-of-session checklist. Keep it updated every session.
 Read `CLAUDE.md` too — its §1–§4 (token conservation, filtered CLI output,
 explicit-path commits) and **§5 Build Boundary** are binding:
 
-- **NEVER build binaries.** No `flutter build apk|appbundle|run`. The human
-  builds in Android Studio. Your gates are `flutter pub get`,
-  `flutter analyze` (must be "No issues found"), and `flutter test`.
+- **NEVER build binaries** without explicit per-instance authorization from the
+  user. The human normally builds in Android Studio. (On 2026-09-30 the user
+  granted a one-off exception to build and install a **debug** APK for device
+  verification — that is not standing permission, and it does not extend to
+  release/APK/AAB or to any future build.) The `flutter pub get` → `flutter
+  analyze` → `flutter test` sequence is the **end-of-plan** gate batch; see
+  SHELL DISCIPLINE below for when it runs.
 - **Commit by explicit path only** — never `git add .` / `-A`.
 - Commit messages: analyze/test status only; never claim build success.
 
 ## Commands
+
+**These are the END-OF-PLAN batch. Do not run them mid-plan** — see SHELL
+DISCIPLINE below, which binds harder than this list. This is a list of *what*
+to run once the plan is finished, not a checklist to work through.
 
 ```bash
 flutter pub get
@@ -28,28 +36,63 @@ python tools/verify_no_hardcoded_colors.py                 # standing UI gate (m
 python tools/verify_invariants.py                           # architecture invariants (must exit 0)
 ```
 
-- **VERIFICATION CADENCE — BINDING USER DIRECTIVE (restated 4×; violated
-  again on Sep 30).** Treat it as absolute, with no exceptions for "just to
-  confirm" or "one quick check":
-  - **NO `flutter analyze`. NO `flutter test`. NO Bash/`Shell` tool calls at
-    all** while working through a phase. Not after one edit, not after a batch
-    of edits, not "just to confirm", not to sanity-check a paren balance, and
-    not to run a helper `.py` script for a bulk doc edit. Use `edit` for that.
-  - Run verification **ONCE, at the very end, when the entire plan is complete**
-    — or when the user explicitly asks.
-  - The user's words: "ONLY SHELL AT THE VERY END OF TASK" and "STOP USING
-    SHELLS! USE THE EDIT TOOL".
-  - `read`, `edit`, `write`, and `grep` are fine. Those are the tools for
-    working. `Shell` is not a "quick check" tool; it is an end-of-task tool.
-  - If you are unsure whether a file compiles, **read it again** rather than
-    shelling out. The Bash tool is for git, builds, and the gates at the very
-    end — nothing else.
-  - Rationale beyond the user's preference: the analyzer is the wrong oracle
-    for this work. A color-slot typo compiles cleanly and looks wrong on a
-    device, and repeated analyzer runs were repeatedly spent re-checking
-    hand-balanced parens instead of reading the enclosing block first.
-  - Corollary: if a phase is finished and the plan is finished, THEN verify.
-    "One more small edit" is not a reason to re-run.
+- **⛔ SHELL DISCIPLINE — THE RULE THAT MATTERS MOST. Restated after being
+  violated repeatedly; it is not a preference, it is a hard gate.**
+
+  **During a plan, the Shell/Bash tool must not be called at all.** Not once.
+  Not "to check one thing". The plan is not finished, so there is nothing to
+  verify *for*. Verification is an end-of-plan activity, and calling it early
+  does not make the work safer — it makes it slower and it produces stale
+  signal that then has to be re-derived.
+
+  **Route every intent to a tool. There is no judgment call here:**
+
+  | You want to… | Use | Never |
+  |---|---|---|
+  | see a file, a block, line numbers, a value | `read` | Shell `type`/`cat` |
+  | find where a symbol is defined or used | `grep` | Shell `find`/`Select-String` |
+  | change text in a file | `edit` | Shell `Set-Content`, sed, python |
+  | create a file | `write` | Shell `New-Item`, heredoc |
+  | crop/zoom an image you already pulled | `read` on the image | Shell for it |
+  | audit the repo for a pattern | `grep` / subagents | Shell loops |
+  | **does it compile / do tests pass** | **NOTHING — queue it** | Shell |
+  | **git status / diff / commit** | **NOTHING — queue it** | Shell |
+  | **adb / screenshots / device probes** | **NOTHING — queue it** | Shell |
+
+  **The three traps, named, because all three happened here:**
+
+  1. **"Let me just check it compiles."** It does not tell you anything you
+     cannot learn by `read`ing the enclosing block, and the analyzer cannot see
+     a colour-slot typo, a wrong string, or two widgets colliding — it only
+     sees types. It has never once caught the class of bug this project
+     actually has. Meanwhile it costs 20–90s *every* time.
+  2. **"One quick git status."** Git is a shell command, and the answer does
+     not change any edit you are about to make. Batch it into the single
+     end-of-plan commit.
+  3. **"One screenshot / one adb probe to see what's going on."** Device work
+     is end-of-plan verification like everything else. Queue the whole device
+     checklist, then do it once, in one pass.
+
+  **Batching is the entire point.** A correct plan for this repo is:
+  *read → edit → read → edit … for the whole plan*, then **one** shell block at
+  the end containing analyze, test, both Python gates, the device checklist, and
+  the commit. If you notice yourself shelling out every 5–10 seconds, you have
+  already broken this rule; the fix is to stop, not to justify the next call.
+
+  **If the rule feels like it is costing correctness, that is the signal to
+  report a blocked item, not to run the command.** A plan that cannot be
+  completed without mid-flight verification is a plan that needs a decision from
+  the user — say so and wait.
+
+  Two further standing rules that follow from this:
+  - **Never round-trip source through a shell.** Bulk edits go through `edit`,
+    or a `write` of the whole file. `Get-Content | Set-Content`, `sed -i`, and
+    `python -c` have each corrupted or mangled a file in this repo. PowerShell
+    5.1 in particular decodes UTF-8 as ANSI and silently destroys emoji and
+    typographic characters.
+  - **Device state is left clean.** If you change `font_scale`, animations, or
+    any other system setting on a test device, restore it in the same
+    end-of-plan pass, and say that you did.
 
 ## Hard-won gotchas
 
@@ -223,14 +266,32 @@ python tools/verify_invariants.py                           # architecture invar
 
 ## Auto-doc + auto-commit workflow (added Aug 25 — never ask again)
 
-After **every** code or blueprint change the agent MUST, without being
-asked, run this sequence before considering the work done:
+**Cadence: docs are per-change, verification is per-PLAN. Never mix them.**
+The two halves below were originally one list that said "after *every* change
+the agent MUST run this sequence", with `flutter analyze` and `flutter test`
+sitting in it. That is a direct instruction to run the analyzer and the whole
+suite after every single edit, it is what produced months of shell traffic, and
+it is now split in two on purpose.
 
-1. `python tools/verify_resources.py` if any URL changed (fails → fix)
-2. `python tools/generate_code_package.py` (regen `recovery_all_code.md`)
-3. Update `SESSION_HANDOFF.md` §3/§7 + tick affected checklist boxes
-4. `flutter analyze` (must be zero) + `flutter test`
-5. `git add` **by explicit path** + commit (message = gates status only)
+### Per change, and every one of these are free — do them as you go
+
+1. `SESSION_HANDOFF.md` §3/§7 + the date line
+2. Tick affected `blueprints/*.md` checklist boxes
+3. Update the mistake ledger, `blueprints/lessons-learned.md`, if a trip happened
 
 The human never needs to say "update docs" — it is automatic.
+
+### Once, at the very end of the whole plan, in ONE batched shell block
+
+4. `python tools/verify_resources.py` — **only if a URL actually changed**
+5. `python tools/generate_code_package.py` (regen `recovery_all_code.md`)
+6. `flutter analyze` (must be zero) + `flutter test`
+7. `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py`
+8. Device checklist, if the plan called for one
+9. `git add` **by explicit path** + commit (message = gates status only)
+
+Steps 4–9 are the only shell calls in a session's work, and they happen once.
+If a plan is going to need a gate run in the middle, the plan is wrong — say so
+and wait for a decision rather than running it.
+
 `git push` remains manual (repo needs cleaning first).

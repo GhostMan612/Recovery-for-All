@@ -312,29 +312,40 @@ class SkyCrown extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(
-                left: 12,
-                bottom: 10,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      skyName,
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+              // Phase 13 follow-up (found on a B160V at 2.0x text scale, not by
+              // any test): the centred empty-state prompt and this bottom-left
+              // label are two independent Stack children inside a fixed 150px
+              // box, so neither knows the other exists. At 2.0x the prompt wraps
+              // to two lines and grows down into the label. No RenderFlex ever
+              // overflowed, which is exactly why the 3x2x4x3 matrix was green.
+              //
+              // Fixed by not showing the label until there is a sky to name: with
+              // no stars, `skyName` is only ever the caller's fallback
+              // ('Your Constellation'), and the centred prompt already says
+              // "name your sky". The stars count was already gated this way.
+              if (hasStars)
+                Positioned(
+                  left: 12,
+                  bottom: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        skyName,
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    if (hasStars)
                       Text(
                         '${nodes.length} stars',
                         style: TextStyle(
                             color: scheme.onSurfaceVariant, fontSize: 11),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               Positioned(
                 right: 10,
                 top: 8,

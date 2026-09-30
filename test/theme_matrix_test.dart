@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:recovery_for_all/core/theme/app_colors.dart';
+import 'package:recovery_for_all/screens/constellation_canvas_3d.dart';
 import 'package:recovery_for_all/services/recovery_pet_service.dart';
 import 'package:recovery_for_all/widgets/dashboard_cards.dart';
 import 'package:recovery_for_all/widgets/dashboard_sections.dart';
@@ -235,7 +236,124 @@ void main() {
       }
     }
   });
+
+  // Found on a real B160V (2.75 GB, 411dp) at 2.0x system text scale, after
+  // the matrix above had already gone green. Worth reading twice, because it
+  // is a hole in the matrix itself rather than a gap in its coverage.
+  group('fixed-size boxes must not let siblings collide', () {
+    testWidgets('empty SkyCrown does not render the fallback sky name',
+        (tester) async {
+      // The regression: with no stars, `skyName` is only ever the caller's
+      // fallback ('Your Constellation'). It rendered bottom-left inside the
+      // fixed 150px box while the centred prompt ALSO rendered, and at 2.0x
+      // the prompt wrapped to two lines and grew straight into it.
+      //
+      // Note what the matrix could not do: nothing overflowed, so there was no
+      // error to assert on. A `takeException()` check is blind to two Stack
+      // children colliding inside a pinned box. The assertion has to be about
+      // the rendered result, not the absence of a crash.
+      for (final scale in const [1.0, 1.5, 2.0]) {
+        await _pumpSkyCrown(
+          tester,
+          textScale: scale,
+          nodes: const [],
+          skyName: 'Your Constellation',
+        );
+        expect(
+          find.text('Your Constellation'),
+          findsNothing,
+          reason: 'the fallback sky name must not be shown before a sky is '
+              'named, or it collides with the centred prompt at ${scale}x',
+        );
+        expect(tester.takeException(), isNull,
+            reason: 'no overflow at ${scale}x');
+      }
+    });
+
+    testWidgets('empty SkyCrown keeps its prompt inside the 150px box',
+        (tester) async {
+      for (final scale in const [1.0, 1.5, 2.0]) {
+        await _pumpSkyCrown(
+          tester,
+          textScale: scale,
+          nodes: const [],
+          skyName: 'Your Constellation',
+        );
+
+        final prompt = find.text('Plant your first star — name your sky');
+        expect(prompt, findsOneWidget, reason: 'the empty-state prompt is the '
+            'only thing the crown should be saying at ${scale}x');
+
+        // The prompt must fit the pinned box, because the box does NOT grow.
+        final box = tester.getRect(find.byType(SkyCrown));
+        final text = tester.getRect(prompt);
+        expect(text.top, greaterThanOrEqualTo(box.top),
+            reason: 'prompt escapes the top of the box at ${scale}x');
+        expect(text.bottom, lessThanOrEqualTo(box.bottom),
+            reason: 'prompt escapes the bottom of the fixed 150px box at '
+                '${scale}x — it will be clipped or collide with whatever sits '
+                'below');
+      }
+    });
+
+    testWidgets('a named sky still shows its name and star count',
+        (tester) async {
+      // Guard against "fix" the other way: suppressing the label must not
+      // delete it once there IS a sky.
+      await _pumpSkyCrown(
+        tester,
+        textScale: 1.0,
+        nodes: [_constellationNode],
+        skyName: 'Recovery for All',
+      );
+      expect(find.text('Recovery for All'), findsOneWidget);
+      expect(find.text('1 stars'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
+
+/// Pumps [SkyCrown] alone, so the assertion is about this widget and not about
+/// whatever happens to sit next to it in the dashboard column.
+Future<void> _pumpSkyCrown(
+  WidgetTester tester, {
+  required double textScale,
+  required List<ConstellationNode3D> nodes,
+  required String skyName,
+}) async {
+  tester.view.physicalSize = const Size(411, 731) * 3.0;
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppColors.themeDataFor(
+          const ThemePreference(), Brightness.light),
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: Scaffold(
+          body: Center(
+            child: SkyCrown(nodes: nodes, skyName: skyName, onTap: _noop),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+// Not `const`: `ConstellationNode3D.timestamp` is a DateTime, and DateTime has
+// no const constructor, so neither this nor a list holding it can be const.
+final ConstellationNode3D _constellationNode = ConstellationNode3D(
+  id: 'n1',
+  title: 'First Star',
+  category: 'star',
+  timestamp: DateTime(2026, 1, 1),
+  x: 0.5,
+  y: 0.5,
+  z: 0.0,
+);
 
 RecoveryPet _pet() {
   final now = DateTime.now().millisecondsSinceEpoch;

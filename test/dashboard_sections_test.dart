@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:recovery_for_all/core/theme/app_colors.dart';
+import 'package:recovery_for_all/screens/constellation_canvas_3d.dart';
 import 'package:recovery_for_all/services/recovery_pet_service.dart';
 import 'package:recovery_for_all/services/meeting_finder_service.dart';
 import 'package:recovery_for_all/widgets/dashboard_sections.dart';
@@ -277,8 +278,16 @@ void main() {
   });
 
   group('SkyCrown', () {
-    testWidgets('named sky with no stars invites the first star',
-        (tester) async {
+    testWidgets('empty sky shows only the first-star prompt', (tester) async {
+      // CHANGED Sep 30, 2026. This used to assert that the sky name was
+      // rendered *alongside* the prompt when there were no stars. On a real
+      // B160V at 2.0x text scale that turned out to be a genuine defect: both
+      // live in the same fixed `height: 150` Stack as independent children, so
+      // the prompt wrapping to two lines painted straight through the name.
+      // Nothing overflowed, so no other test — including the 3x2x4x3 matrix —
+      // could see it. The name is now gated behind `if (hasStars)`, so before
+      // you have named your sky the only thing the crown says is the prompt.
+      // See L22.
       var taps = 0;
       for (final b in Brightness.values) {
         await tester.pumpWidget(_host(
@@ -289,13 +298,43 @@ void main() {
           ),
           brightness: b,
         ));
-        expect(find.text('Recovery for All'), findsOneWidget);
         expect(find.textContaining('Plant your first star'), findsOneWidget);
+        expect(find.text('Recovery for All'), findsNothing,
+            reason: 'the name must not be painted before there is a sky to '
+                'name, or it collides with the prompt at large text scales');
         // No star count when there is nothing to count.
         expect(find.textContaining('stars'), findsNothing);
       }
       await tester.tap(find.byType(SkyCrown));
       expect(taps, 1);
+    });
+
+    testWidgets('a named sky shows its name and star count', (tester) async {
+      // The other direction, so the fix above cannot be "fix" by deleting the
+      // label outright.
+      await tester.pumpWidget(_host(
+        SkyCrown(
+          nodes: [
+            ConstellationNode3D(
+              id: 'n1',
+              title: 'First Star',
+              category: 'star',
+              timestamp: DateTime(2026, 1, 1),
+              x: 0.5,
+              y: 0.5,
+              z: 0.0,
+            ),
+          ],
+          skyName: 'Recovery for All',
+          onTap: () {},
+        ),
+        brightness: Brightness.dark,
+      ));
+      await tester.pump();
+
+      expect(find.text('Recovery for All'), findsOneWidget);
+      expect(find.text('1 stars'), findsOneWidget);
+      expect(find.textContaining('Plant your first star'), findsNothing);
     });
   });
 
