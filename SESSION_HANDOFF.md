@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Phases 0-8 COMPLETE; Phase 9 IN PROGRESS - slice A shipped the four-destination shell enum, `IndexedStack`, and `PopScope` back handling; analyze 0, test 254, all four gates green)
+**Last updated:** September 28, 2026 (UI/UX Phases 0-8 COMPLETE; Phase 9 slice A shipped; a full a11y + text-scale audit landed 6 FUNCTIONAL bug fixes and the high-severity accessibility set across 4 batches; analyze 0, test 254, all four gates green)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -99,6 +99,29 @@ resume without losing progress. Update it at every session end.
   `/verify` command that runs all four gates. Use them for the Phase 12/13
   audits; do NOT fan out parallel agents over Phase 9 (navigation touching SOS
   is single-threaded by nature).
+- **A11Y + TEXT-SCALE AUDIT (Sep 28) — landed, device-unverified.** A
+  two-agent audit of all 96 `lib/` files found 117 issues. Six were genuine
+  FUNCTIONAL bugs, not accessibility polish, and all are fixed:
+  1. First-run tutorial close button was a no-op (`onClose` never passed).
+  2. `journal_screen` could hard-lock the app (un-dismissable dialog whose
+     `Navigator.pop` was gated on `context.mounted`).
+  3. `daily_reflection_screen` rendered RAW CIPHERTEXT in "Recent Reflections".
+  4. Two sober-housing buttons were empty closures; `SoberHouse.phone` and
+     coordinates were parsed and unused.
+  5. The Wellness Check-In was unreachable by screen reader: its labels were
+     `TextPainter` output inside a `CustomPainter`, which emits no semantics.
+  6. The toolbox grid overflowed at EVERY text scale (6/34/61px at 1.0/1.5/2.0).
+  Also fixed: ~187 `Colors.white`/`Colors.black` text colors migrated to
+  scheme slots, 5 reduce-motion guards (incl. the craving-surface screen
+  shake), 11 bottom sheets given `isScrollControlled`+`useSafeArea`, 12sp font
+  floor on 13 sites, and button/state semantics across the SOS sheet, mood
+  scales, QR pairing code, milestones, skill tree, and link health.
+- **THREE audit claims were checked and found FALSE** — do not "fix" them:
+  mood-rating scales are 0-based in BOTH screens (fixing it would corrupt
+  saved journal data); `avatar_visual_layer.dart` already had a reduce-motion
+  guard; all 15 `AlertDialog` sites already had dismiss affordances.
+  `AppType.micro` (11sp) is a deliberate token, not a sub-floor bug.
+
 - **Roadmap complete through R19**: Tier 1–2, R9 RPG, R11 GGUF, plus the
   Aug 25 marathon — R12 self-verifying resources (registries +
   verify_resources.py build gate + runtime link-health with 30-day TTL),
@@ -198,39 +221,39 @@ all are renderable in tests without a provider scope. 28 new tests.
 to four destinations is Phase 9's job; Phase 8 added and moved nothing.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
 **Next: Phase 9 slice B (Profile), then slice C (Companion).** Slice A is
-committed: `DashboardDestination` enum, `IndexedStack` body, `PopScope` back
-handling, and `SettingsScreen` promoted to the Profile destination. 254 tests.
+committed (four-destination shell, `IndexedStack`, `PopScope`). 254 tests.
 
-**Slice B must fix the initState trap first.** `SettingsScreen` loads nine
-fields once in `initState` (`settings_screen.dart:50-64`). It is now a
-persistent tab, so those fields never re-read and `_biometricEnabled` can
-drift from what `splash_screen.dart:91-96` actually enforces. Nothing in
-`flutter analyze` will catch a tab that silently stops saving.
+**Slice B must fix the `initState`-once trap first.** `SettingsScreen` loads
+nine fields in `initState` (`settings_screen.dart:50-64`) and is now a
+persistent tab, so those never re-read and `_biometricEnabled` can drift from
+what `splash_screen.dart:91-96` enforces. Nothing in `flutter analyze` will
+catch a tab that silently stops saving.
 
 **Slice C must unify pet state.** `pet_home_screen.dart:66` and
-`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`
-independently. Harmless while the card pushes a fresh screen; a live duplicate
-the moment Companion becomes a tab. Make the tab consume `dashboardDataProvider`
-and keep the pet-events `StreamBuilder` as the only events subscription.
+`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`.
+Harmless while the card pushes a fresh screen; a live duplicate the moment
+Companion becomes a tab. Make the tab consume `dashboardDataProvider`.
 
-**Also in scope:** `_push`'s 600 ms debounce (`dashboard_screen.dart:539`)
-guarded the Settings gear and Companion card. As tab switches it must not
-swallow legitimate taps.
+**The a11y audit is done but UNVERIFIED ON HARDWARE.** See §3 for what landed
+and §"still unverified" for why that is the highest risk in the project.
 
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
-### Session-boundary state (Sep 28, after Phase 9 slice A)
-- Working tree clean; all four gates green (analyze 0, test 254, color
-  gate exit 0, invariants exit 0).
-- Everything committed on `main` and pushed; `origin/main` is in sync.
-- UI/UX Phases 0-8 complete. Phase 9 in progress (slice A done). Phases
-  10-17 not started.
-- **Still unverified on any device.** Phases 0-8 are proven by unit
-  tests only. Light mode has never been rendered on hardware, and the
-  Phase 8 empty/error states have never been seen by a human. The
-  on-device smoke list in §7 is the first chance to catch that.
-- The `+9` AAB in `build/` predates the entire UI/UX program and is stale.
-  Do not upload it; rebuild once Phases 9-17 are done.
+### Session-boundary state (Sep 28, after the a11y batches)
+- Working tree clean; all four gates green (analyze 0, test 254, color gate
+  exit 0, invariants exit 0). Both invariant-gate self-tests pass.
+- `main` and `origin/main` in sync.
+- UI/UX Phases 0-8 complete. Phase 9 slice A done. Phases 9b/9c and 10-17
+  not started.
+- **THE BIGGEST RISK, STATED PLAINLY: nothing in Phases 0-9 or the a11y pass
+  has run on hardware.** Roughly 200 color substitutions and a large a11y
+  batch are verified only by the compiler and unit tests. The audit found
+  entire screens rendering invisible in light mode via white-on-light, which
+  is precisely the class of bug a test suite cannot catch. A plugged-in
+  Blu View 5 would also exercise the `HardwareTierService.isLowEnd` Lottie
+  branch, which has NEVER run on a real device.
+- The `+9` AAB in `build/` predates all of this and is stale. Do not upload it.
+
 
 ## 8 · End-of-session checklist (every session)
 

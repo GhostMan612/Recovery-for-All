@@ -88,139 +88,70 @@ reason the phase was worth doing incrementally:
 **Not changed, deliberately:** the two-tab Path/Library information
 architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-## Resume Here (Phase 9 slice A done)
+## Resume Here (Phase 9 slice A done; a11y remediation landed)
 
-**Phase 8 COMPLETE. Phase 9 in progress - slice A (foundation) is committed.**
-247 -> 254 tests; all four gates green.
+**Phases 0-8 complete. Phase 9 in progress.** 254 tests, analyze clean, all
+four gates green, `origin/main` in sync with `main`.
 
-### What the recon changed about this phase
+### What happened after Phase 8 closed
 
-The Phase 9 plan says "preserve tab state" and "verify Android back
-behavior." **Neither existed.** There is no `IndexedStack`, no `PopScope`, no
-`navigatorObservers`, no `PageView` in the shell. The body was a ternary, so the
-off-screen tab was destroyed and rebuilt on every switch and back at the root
-exited the app. Phase 9 is therefore net-new work, not a migration - and an
-`IndexedStack` swap would have silently changed back from "exit app" to
-"nothing happens" if `PopScope` had not landed in the same slice.
+A full accessibility + text-scale audit was run against `lib/` (96 files). It
+found 117 issues, of which **the high-severity set has been fixed across four
+committed batches**. Verification is compile + 254 unit tests + the two gates.
+**None of it has been seen on hardware.**
 
-### Slice A shipped
+Six defects were found and fixed that were genuine functional bugs, not
+accessibility polish:
 
-- `DashboardDestination` enum in `dashboard_providers.dart`, four values:
-  Companion | Path | Library | Profile. It is the single source of truth for
-  the destination list AND the back target, so the bar and the back handler
-  cannot disagree about what an index means. Replaces the dead `DashboardTab`
-  class, which was declared and never referenced.
-- `IndexedStack` body: destinations stay alive, so scroll offset and per-tab
-  edit mode survive a switch.
-- `PopScope` back handling: from any destination returns to Path; AT Path it
-  calls `SystemNavigator.pop()` so Android exits exactly as it does today.
-- `SettingsScreen` is now the Profile destination body. It already used
-  `themeProvider`, so relocating it duplicates no state.
-- Companion shows an honest placeholder rather than a blank region.
+1. **The first-run tutorial's close button did nothing.** `onClose` was never
+   passed at its only call site, so the X on the first screen a new user meets
+   invoked `null?.call()`.
+2. **The journal could hard-lock the app.** `showDialog(barrierDismissible:
+   false)` with `Navigator.pop` guarded by `if (context.mounted)`. Leaving the
+   screen mid-generation left an un-dismissable dialog with no escape.
+3. **"Recent Reflections" displayed raw ciphertext.** It mapped
+   `e.contentEncrypted` straight into a `Text`; `journal_screen.dart` decrypts
+   properly but this screen never did.
+4. **Two sober-housing buttons were empty closures.** `SoberHouse.phone` and
+   the coordinates were parsed and unused, so a user who found a house they
+   wanted could not call or navigate to it. Both wired.
+5. **The Wellness Check-In was unreachable by screen reader.** Its dimension
+   names and scores were drawn with `TextPainter` inside a `CustomPainter`,
+   which emits zero semantics nodes, and the drag gesture had no semantic
+   action. Now a `Semantics(slider:)` node with a real label and
+   increase/decrease.
+6. **The toolbox grid overflowed at every text scale** (6px/34px/61px at
+   1.0/1.5/2.0) because the grid pins `childAspectRatio: 1.35`.
 
-### Known trade-off, recorded not hidden
+### Gates now in place (four, not three)
 
-A live `IndexedStack` keeps off-screen animations ticking, notably the Lottie
-aura on Pet Home. Children are lazy so the tree is not built twice and nothing
-is re-fetched, but this is a real cost. Revisit in Phase 14 (motion).
+- `python tools/verify_no_hardcoded_colors.py` now ALSO fails on
+  `Colors.white`/`Colors.black` used as a text color. That was the single most
+  common way a screen looked fine in dark mode and was unreadable in light
+  mode, and every one of ~187 instances passed all previous gates.
+- `python tools/verify_invariants.py` enforces five architecture invariants,
+  each with a self-test that deliberately breaks it to prove the gate fails.
+- `appReduceMotion(context)` in `themed_background.dart` is now the single
+  reduce-motion predicate. Five auto-playing animation sites consult it,
+  including the screen shake on a craving surface.
+- 11 bottom sheets gained `isScrollControlled: true` and `useSafeArea: true`.
 
-### Invariants for slices B and C
+### Audit findings deliberately NOT actioned
 
-1. **Pet state is ALREADY duplicated, and Phase 9 makes it dangerous.**
-   `pet_home_screen.dart:66` and `dashboard_providers.dart:293` each call
-   `RecoveryPetService.ensureHatched()` independently. Today that is harmless
-   because the card pushes a fresh screen. As a persistent tab, a check-in on
-   one tab will NOT update the other. Slice C must make the Companion tab
-   consume `dashboardDataProvider`, keeping the pet-events `StreamBuilder` as
-   the only events subscription.
-2. **`SettingsScreen` loads nine fields once in `initState`**
-   (`settings_screen.dart:50-64`). Now that it is a persistent tab those fields
-   never re-read, and `_biometricEnabled` can drift from what
-   `splash_screen.dart:91-96` actually enforces. Slice B must fix this or the
-   tab will silently stop saving what the user toggled.
-3. **`_push` has a 600 ms debounce** (`dashboard_screen.dart:539`) that guarded
-   the Settings gear and the Companion card. As tabs they become `setState`
-   switches, so the debounce must not swallow legitimate tab taps.
-4. `test/companion_guide_validator_test.dart` asserts route ids "pet" and
-   "settings" by STRING. Renaming either class breaks it.
-5. `companion_guide_overlay.dart` and `companion_guide_service.dart` are DEAD
-   CODE with zero importers. Do not mistake them for Companion infrastructure.
+- A claim that mood-rating scales were 0-based in one screen and 1-based in
+  another. **Checked and false** - both use `_selectedMood` 0-based. "Fixing"
+  it would have corrupted saved journal data.
+- A claim that `avatar_visual_layer.dart` lacked a reduce-motion guard. It
+  already had one; the auditor had correctly excluded it but then listed it.
+- Raising the 47 `fontSize: 11` sites to 12. `AppType.micro` is a deliberate
+  token, not an oversight. Only the 13 sites below it were changed.
 
-**Standing gates - re-run all four before touching anything:**
+### Next: Phase 9 slice B (Profile), then slice C (Companion)
 
-```text
-flutter analyze --no-pub
-flutter test
-python tools/verify_no_hardcoded_colors.py
-python tools/verify_invariants.py
-```
-
-**Where the dashboard view code lives now:**
-
-- `lib/widgets/dashboard_cards.dart` - `PledgeCard`, `ToolCard`, `SosTile`, `SupportLinkRow`
-- `lib/widgets/dashboard_sections.dart` - `PathChips`, `MeetingSpotlight`, `ToolGrid`, `SkyCrown`, `CompanionSection`
-- `lib/screens/dashboard_screen.dart` - 1157 lines, now almost entirely
-  callbacks, navigation, and the two tab bodies
-
-**Invariants that must survive Phase 9 (navigation is the risk):**
-
-1. `SosTile` is the ONLY SOS tile implementation and `_showSosSheet`
-   is the only SOS entry point. Phase 10 forbids a second surface. When
-   adding a destination, the SOS FAB must keep working from every tab.
-2. `ToolCard` `FittedBox` is load-bearing: the 1.35-ratio grid cell
-   overflowed by 6/34/61px at text scale 1.0/1.5/2.0 before the fix.
-3. `main.dart` overrides `databaseProvider` with the single
-   `RecoveryDatabase`. Removing it opens a second SQLCipher connection.
-4. Both SharedPreferences key families are live user data: `dashboard_*_v1`
-   and `theme_*`, `last_known_location_*`. Do not rename.
-5. `AsyncSnapshot` in tests needs `withData(state, data)` /
-   `withError(state, err, stack)`. The bare `.data()` and `.error()` named ctors do not
-   exist in this Flutter version.
-
-**These five are now enforced by `tools/verify_invariants.py`, not just
-documented.** If you change one on purpose, update the gate and `AGENTS.md` in the
-same commit. The gate also catches a *partial* prefs-key rename, which is the dangerous
-kind: the key still exists in the reader while the writer moved on, and real users lose their saved
-settings with no error anywhere.
-
-**Next: Phase 9 (Navigation Architecture).** Four destinations - Companion,
-Path, Library, Profile - without duplicating pet state, duplicating
-settings, losing tab state, or breaking Android back behavior. The current
-two-tab IA plus Settings/SOS buttons is the baseline. Do this in slices
-with the gates between, exactly as Phase 8 was done.
-
-**Before touching code, re-run the standing gates** (all three must be green;
-if any is not, the tree is not where this document thinks it is):
-
-```text
-flutter analyze --no-pub
-flutter test
-python tools/verify_no_hardcoded_colors.py
-```
-
-**Invariants a new session must not break:**
-
-1. `AppColors` now holds ONLY brightness-independent domain tokens (`mood*`,
-   `raid*`, `star*`, `fellow*`, `pin*`, `housing*`, `starfield`, `brandZoom`,
-   `monsterHound`, `accentSky`, `dangerSoft`, `pink`). Never re-add a
-   brightness-dependent constant; the gate fails on the retired names.
-2. `lib/core/dashboard_providers.dart` owns dashboard state. New dashboard state
-   goes in a notifier, not back into `_DashboardScreenState`.
-3. `main.dart` overrides `databaseProvider` with the single `RecoveryDatabase`.
-   Removing that override re-opens a second SQLCipher connection to the same
-   encrypted file — that was a real latent bug.
-4. Shared UI comes from `lib/widgets/app_primitives.dart`; prefer it over new
-   one-off containers.
-5. Both `SharedPreferences` key families are load-bearing for real users
-   (`dashboard_*_v1`, `theme_*`, `last_known_location_*`). Do not rename.
-
-**Highest-risk remaining work, in order:** Phase 8 (split the 1449-line
-dashboard into view files), Phase 9 (4-tab navigation), Phase 10 (SOS surface).
-All three touch the safety-critical path; do them one at a time with the gates
-between, never in a single sweeping change.
-
-**Next phase is Phase 8 (Dashboard View Reconstruction)** — safe now that state ownership
-is explicit; the split cannot leave a giant coupled controller behind.
+Slice B must fix the `initState`-once trap: `SettingsScreen` loads nine fields
+in `initState` and is now a persistent tab, so those never re-read.
+Slice C must unify pet state - `pet_home_screen.dart:66` and
+`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`.
 
 ## Re-Sequencing Rationale (Sep 28)
 
