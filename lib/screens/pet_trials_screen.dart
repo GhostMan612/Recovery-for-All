@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_colors.dart';
 import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/themed_background.dart' show appReduceMotion;
 import '../widgets/trial_monster_painter.dart';
 
 enum _BattlePhase { playerTurn, enemyTurn, victory, defeat }
@@ -121,8 +122,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   void initState() {
     super.initState();
     _breath = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2200))
-      ..repeat();
+        vsync: this, duration: const Duration(milliseconds: 2200));
     _shake = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 320));
     _flash = AnimationController(
@@ -137,6 +137,20 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     _maybeShowTutorial();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The monster's idle breath used to start in initState and run forever.
+    // Start it only once the context is available, and only if the user has
+    // not asked for reduced motion.
+    if (!appReduceMotion(context) && !_breath.isAnimating) {
+      _breath.repeat();
+    } else if (appReduceMotion(context) && _breath.isAnimating) {
+      _breath.stop();
+      _breath.value = 0;
+    }
+  }
+
   Future<void> _maybeShowTutorial() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('seen_trials_tutorial') ?? false) return;
@@ -146,6 +160,8 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     if (!mounted) return;
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -213,10 +229,14 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
   }
 
   void _doShake() {
+    // Screen shake on a craving surface is the highest-risk motion in the app.
+    // Honour the system reduce-motion setting.
+    if (appReduceMotion(context)) return;
     _shake.forward(from: 0);
   }
 
   void _doFlash() {
+    if (appReduceMotion(context)) return;
     _flash.forward(from: 0);
   }
 

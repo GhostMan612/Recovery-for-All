@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/themed_background.dart' show appReduceMotion;
 
 /// Full-screen grounding / breathing exercise.
 /// Two modes: Box Breathing (4-4-4-4) and 4-7-8 (inhale-hold-exhale).
@@ -43,8 +44,22 @@ class _GroundingScreenState extends State<GroundingScreen>
     _breathController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
+    );
     _breathController.addListener(_onBreathTick);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The circle used to pulse before the user even picked a mode, with no
+    // reduce-motion check. The TEXT countdown below is what actually conveys
+    // pace, so it stays unconditional; only the scale animation is gated.
+    if (appReduceMotion(context)) {
+      _breathController.stop();
+      _breathController.value = 0;
+    } else if (!_breathController.isAnimating) {
+      _breathController.repeat(reverse: true);
+    }
   }
 
   @override
@@ -69,7 +84,9 @@ class _GroundingScreenState extends State<GroundingScreen>
       _remaining = _totalSeconds;
     });
     _breathController.duration = const Duration(seconds: 4);
-    _breathController.repeat(reverse: true);
+    if (!appReduceMotion(context)) {
+      _breathController.repeat(reverse: true);
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_remaining <= 1) {
         t.cancel();

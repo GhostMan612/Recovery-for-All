@@ -372,6 +372,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _showRule25Sheet() {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(

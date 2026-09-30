@@ -60,6 +60,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -172,6 +173,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   void _showCrisisDoor() {
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

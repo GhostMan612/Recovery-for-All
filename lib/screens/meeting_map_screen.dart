@@ -510,6 +510,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
 
     return showModalBottomSheet<_ReflectionData>(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -611,6 +612,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
     final label = MeetingFinderService.upcomingLabel(meeting, now);
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -721,6 +724,8 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   void _openLayers() {
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -788,6 +793,7 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   void _openFilters() {
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(

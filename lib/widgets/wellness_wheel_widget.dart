@@ -24,6 +24,12 @@ class WellnessWheelWidget extends StatefulWidget {
 
 class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
   late Map<String, double> _scores;
+
+  /// Which spoke the screen reader is currently adjusting. The wheel is a
+  /// radial slider, so without this there is no way to express "increase"
+  /// against six independent values.
+  int _focusedSpoke = 0;
+
   final List<String> _dimensions = [
     'Spiritual',
     'Intellectual',
@@ -40,6 +46,31 @@ class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
     for (final dim in _dimensions) {
       _scores.putIfAbsent(dim, () => 0.5);
     }
+  }
+
+  /// Screen-reader equivalent of dragging out from the centre.
+  void _adjustFocusedSpoke(double delta) {
+    final dim = _dimensions[_focusedSpoke];
+    final next = ((_scores[dim] ?? 0.5) + delta).clamp(0.0, 1.0);
+    setState(() => _scores[dim] = (next * 10).round() / 10.0);
+    widget.onScoresChanged?.call(Map<String, double>.from(_scores));
+  }
+
+  void _focusNextSpoke() {
+    setState(() => _focusedSpoke = (_focusedSpoke + 1) % _dimensions.length);
+  }
+
+  /// All six spokes, spoken. The painted labels are invisible to a screen
+  /// reader because CustomPainter emits no semantics nodes, so the whole
+  /// summary has to live here.
+  String _semanticsLabel() {
+    final parts = <String>[];
+    for (var i = 0; i < _dimensions.length; i++) {
+      final dim = _dimensions[i];
+      final marker = i == _focusedSpoke ? ' (adjusting)' : '';
+      parts.add('$dim ${((_scores[dim] ?? 0.5) * 10).round()} out of 10$marker');
+    }
+    return 'Wellness check-in wheel. ${parts.join(', ')}.';
   }
 
   void _handlePanUpdate(DragUpdateDetails details, Size size) {
@@ -73,6 +104,9 @@ class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
 
     setState(() {
       _scores[_dimensions[index]] = roundedScore;
+      // Keep the screen-reader focus on the spoke the user just touched, so
+      // increase/decrease operate on what they can see selected.
+      _focusedSpoke = index;
     });
 
     if (widget.onScoresChanged != null) {
@@ -82,28 +116,50 @@ class _WellnessWheelWidgetState extends State<WellnessWheelWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1.0,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final size = Size(constraints.maxWidth, constraints.maxHeight);
-          return GestureDetector(
-            onPanUpdate: (details) => _handlePanUpdate(details, size),
-            onTapDown: (details) => _handleTapDown(details, size),
-            child: CustomPaint(
-              size: size,
-              painter: _WheelPainter(
-                dimensions: _dimensions,
-                scores: _scores,
-                gridColor: Theme.of(context).colorScheme.outlineVariant,
-                primaryColor: Theme.of(context).colorScheme.primary,
-                nodeColor: Theme.of(context).colorScheme.surfaceContainer,
-                labelColor: Theme.of(context).colorScheme.onSurface,
-                accentGlow: AppColors.starMindfulness,
-              ),
-            ),
-          );
-        },
+    final focusedDim = _dimensions[_focusedSpoke];
+    final focusedValue = ((_scores[focusedDim] ?? 0.5) * 10).round();
+    return Semantics(
+      container: true,
+      label: _semanticsLabel(),
+      slider: true,
+      value: '$focusedValue out of 10',
+      increasedValue: '${(focusedValue + 1).clamp(0, 10)} out of 10',
+      decreasedValue: '${(focusedValue - 1).clamp(0, 10)} out of 10',
+      onIncrease: () => _adjustFocusedSpoke(0.1),
+      onDecrease: () => _adjustFocusedSpoke(-0.1),
+      // A radial slider has no single linear axis, so left/right move between
+      // spokes. There is no Semantics parameter for that, so the focus change
+      // is driven by tap (below) and announced in the label instead.
+      onTap: () => _focusNextSpoke(),
+      child: ExcludeSemantics(
+        child: AspectRatio(
+          aspectRatio: 1.0,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              return GestureDetector(
+                onPanUpdate: (details) => _handlePanUpdate(details, size),
+                onTapDown: (details) => _handleTapDown(details, size),
+                child: CustomPaint(
+                  size: size,
+                  painter: _WheelPainter(
+                    dimensions: _dimensions,
+                    scores: _scores,
+                    gridColor: Theme.of(context).colorScheme.outlineVariant,
+                    primaryColor: Theme.of(context).colorScheme.primary,
+                    nodeColor: Theme.of(context).colorScheme.surfaceContainer,
+                    labelColor: Theme.of(context).colorScheme.onSurface,
+                    accentGlow: AppColors.starMindfulness,
+                    focusedSpoke: _focusedSpoke,
+                    // The painter ignored MediaQuery.textScaler, so its 10pt
+                    // labels stayed 10pt at every accessibility setting.
+                    textScaler: MediaQuery.textScalerOf(context),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -117,6 +173,8 @@ class _WheelPainter extends CustomPainter {
   final Color nodeColor;
   final Color labelColor;
   final Color accentGlow;
+  final int focusedSpoke;
+  final TextScaler textScaler;
 
   _WheelPainter({
     required this.dimensions,
@@ -126,6 +184,8 @@ class _WheelPainter extends CustomPainter {
     required this.nodeColor,
     required this.labelColor,
     required this.accentGlow,
+    required this.focusedSpoke,
+    required this.textScaler,
   });
 
   @override
@@ -163,9 +223,11 @@ class _WheelPainter extends CustomPainter {
         dimensions[i],
         labelOffset,
         TextStyle(
-          color: labelColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          color: i == focusedSpoke ? primaryColor : labelColor,
+          // 10pt was below the 12sp body floor, so the labels were unreadable
+          // even before scaling. The gutter below is sized off this.
+          fontSize: 12,
+          fontWeight: i == focusedSpoke ? FontWeight.w800 : FontWeight.bold,
           letterSpacing: 0.5,
         ),
       );
@@ -242,6 +304,9 @@ class _WheelPainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
+      // Honour the user's accessibility text size. Without this the painted
+      // labels stayed 12pt no matter what the system setting said.
+      textScaler: textScaler,
     );
     textPainter.layout();
 
@@ -260,6 +325,8 @@ class _WheelPainter extends CustomPainter {
         oldDelegate.primaryColor != primaryColor ||
         oldDelegate.nodeColor != nodeColor ||
         oldDelegate.labelColor != labelColor ||
-        oldDelegate.accentGlow != accentGlow;
+        oldDelegate.accentGlow != accentGlow ||
+        oldDelegate.focusedSpoke != focusedSpoke ||
+        oldDelegate.textScaler != textScaler;
   }
 }

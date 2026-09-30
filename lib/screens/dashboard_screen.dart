@@ -183,6 +183,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<String?> showPetCheckInSheet(BuildContext context) async {
     return showModalBottomSheet<String>(
       context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -427,6 +429,7 @@ Future<void> _handleWalk() async {
       onTap: () {
         showModalBottomSheet<void>(
           context: context,
+          useSafeArea: true,
           backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
           isScrollControlled: true,
           shape: const RoundedRectangleBorder(
@@ -591,6 +594,7 @@ Future<void> _handleWalk() async {
     unawaited(SosNotificationService.ensureNotificationPermission());
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -900,6 +904,7 @@ Future<void> _handleWalk() async {
                 pet: pet,
                 onTap: () => showModalBottomSheet(
                   context: context,
+                  isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (_) => SkillTreeModal(database: widget.database),
                 ),

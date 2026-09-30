@@ -23,6 +23,7 @@ import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/app_primitives.dart';
+import '../widgets/themed_background.dart' show appReduceMotion;
 import 'constellation_canvas_3d.dart';
 
 /// Recovery Constellation — the user's path rendered as a living star map.
@@ -223,6 +224,7 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
 
     final choice = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -378,6 +380,7 @@ ${nodes.length} stars over $spanDays nights
     final date = node.timestamp;
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) => SafeArea(
@@ -509,9 +512,22 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   @override
   void initState() {
     super.initState();
-    _twinkleController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _twinkleController = AnimationController(vsync: this, duration: const Duration(seconds: 4));
     _zoomController = AnimationController.unbounded(vsync: this, duration: const Duration(milliseconds: 200), value: widget.zoom);
     _focusController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 80 stars twinkling on a 4s infinite loop. Static stars are still a
+    // complete constellation, so reduce-motion just freezes them.
+    if (appReduceMotion(context)) {
+      _twinkleController.stop();
+      _twinkleController.value = 0;
+    } else if (!_twinkleController.isAnimating) {
+      _twinkleController.repeat();
+    }
   }
 
   @override

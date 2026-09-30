@@ -9,6 +9,16 @@ import 'package:flutter/material.dart';
 
 import '../services/hardware_tier_service.dart';
 
+/// Canonical reduce-motion predicate for this app (Phase 12).
+///
+/// Every auto-playing animation must consult this. Previously only
+/// ThemedBackground did, so the 6 AnimationControllers and the Lottie aura on
+/// a craving surface (pet_trials screen shake, grounding breath, constellation
+/// twinkle, splash zoom) all played regardless of the system setting.
+bool appReduceMotion(BuildContext context) {
+  return MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+}
+
 class ThemedBackground extends StatefulWidget {
   final Widget child;
   final String assetPath;
@@ -45,7 +55,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final reduce = (MediaQuery.maybeOf(context)?.disableAnimations ?? false) || HardwareTierService.isLowEnd;
+    final reduce = appReduceMotion(context) || HardwareTierService.isLowEnd;
     final ctrl = _controller;
     if (ctrl == null) return;
     if (widget.enableKenBurns && !reduce) {
@@ -66,7 +76,7 @@ class _ThemedBackgroundState extends State<ThemedBackground>
 
   @override
   Widget build(BuildContext context) {
-    final reduce = (MediaQuery.maybeOf(context)?.disableAnimations ?? false) || HardwareTierService.isLowEnd;
+    final reduce = appReduceMotion(context) || HardwareTierService.isLowEnd;
     final animate = widget.enableKenBurns && !reduce && _controller != null;
 
     final scheme = Theme.of(context).colorScheme;

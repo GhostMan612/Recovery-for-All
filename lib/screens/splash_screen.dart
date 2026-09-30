@@ -51,7 +51,15 @@ class _SplashScreenState extends State<SplashScreen>
     _zoomAnimation = Tween<double>(begin: 1.0, end: 1.14).animate(
       CurvedAnimation(parent: _zoomController, curve: Curves.easeInOut),
     );
-    _zoomController.repeat(reverse: true);
+    // A 7-second auto-playing zoom on every cold start. initState has no
+    // MediaQuery, so read the platform accessibility feature directly; the
+    // splash still routes and still works, it just stops drifting.
+    final reduceMotion =
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures
+            .disableAnimations;
+    if (!reduceMotion) {
+      _zoomController.repeat(reverse: true);
+    }
 
     // Fire-and-forget is safe now: _routeToNextScreen catches everything
     // internally and reports through _bootError.

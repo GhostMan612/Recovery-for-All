@@ -233,6 +233,7 @@ class _SobrietyCounterScreenState extends State<SobrietyCounterScreen> {
     final elapsed = DateTime.now().difference(start);
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
