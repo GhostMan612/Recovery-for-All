@@ -33,11 +33,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
   const SettingsScreen({super.key, required this.database});
 
+  /// Public so the dashboard shell can hold a GlobalKey and call
+  /// `refreshState()` when this screen is selected as a persistent tab.
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+  SettingsScreenState createState() => SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _sponsorController = TextEditingController();
   final _customHelpController = TextEditingController();
   final _safetyPlanController = TextEditingController();
@@ -70,6 +72,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadProfile();
     _loadMeetingSources();
+  }
+
+  /// Re-reads persisted state.
+  ///
+  /// Phase 9: this screen became a persistent tab inside an `IndexedStack`, so
+  /// it is constructed once and never rebuilt. Loading only in `initState`
+  /// meant every toggle showed whatever was true when the app launched, and
+  /// `_biometricEnabled` could contradict what `SplashScreen` actually
+  /// enforces (it reads Drift directly, not from here). The shell calls this
+  /// when the Profile destination is selected, so arriving at the tab always
+  /// shows current state.
+  void refreshState() {
+    if (!mounted) return;
+    _loadProfile();
   }
 
   @override

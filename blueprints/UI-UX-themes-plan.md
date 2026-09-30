@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-8 are **complete and verified**. Phase 9 is **in progress** (slice A committed). Phases 10-17 are **not started**.
+Phases 0-9 are **complete and verified**. Phases 10-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -47,11 +47,11 @@ Phases 0-8 are **complete and verified**. Phase 9 is **in progress** (slice A co
 | 6 - Empty/loading/error/offline | COMPLETE | `AppErrorState` + `AppOfflineState`, 3 screens adopted, `isCacheStale()` |
 | 7 - Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
 | 8 - Dashboard view reconstruction | COMPLETE | 4 slices, screen 1512 -> 1157 lines, 28 new tests, 3 real bugs fixed |
-| 9 - Navigation architecture | IN PROGRESS | slice A: 4-destination enum, `IndexedStack`, `PopScope`, Profile body, 7 tests |
+| 9 - Navigation architecture | COMPLETE | 3 slices: 4 destinations, `IndexedStack`, `PopScope`, Settings reload, pet state unified, 7 tests |
 | 10-17 | NOT STARTED | no code, no gates run |
 
-Gates at the close of Phase 9 slice A: `flutter analyze --no-pub` -> No issues
-found; `flutter test` -> 254 passing; `verify_no_hardcoded_colors.py` -> exit 0;
+Gates at the close of Phase 9: `flutter analyze --no-pub` -> No issues found;
+`flutter test` -> 254 passing; `verify_no_hardcoded_colors.py` -> exit 0;
 `verify_invariants.py` -> exit 0.
 
 ### Phase 8 breakdown (all four slices committed)
@@ -88,70 +88,68 @@ reason the phase was worth doing incrementally:
 **Not changed, deliberately:** the two-tab Path/Library information
 architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-## Resume Here (Phase 9 slice A done; a11y remediation landed)
+## Resume Here (Phase 9 COMPLETE)
 
-**Phases 0-8 complete. Phase 9 in progress.** 254 tests, analyze clean, all
-four gates green, `origin/main` in sync with `main`.
+**Phases 0-9 complete. Phases 10-17 not started.** 254 tests, analyze clean,
+all four gates green, `main` and `origin/main` in sync.
 
-### What happened after Phase 8 closed
+### Phase 9 result: four destinations, no duplicated state
 
-A full accessibility + text-scale audit was run against `lib/` (96 files). It
-found 117 issues, of which **the high-severity set has been fixed across four
-committed batches**. Verification is compile + 254 unit tests + the two gates.
-**None of it has been seen on hardware.**
+| Slice | Change |
+|---|---|
+| A | `DashboardDestination` enum, `IndexedStack` body, `PopScope` back handling, Profile body |
+| B | `SettingsScreen.refreshState()` + `GlobalKey`, called when Profile is selected |
+| C | Companion promoted to a destination; pet state unified on `dashboardDataProvider` |
 
-Six defects were found and fixed that were genuine functional bugs, not
-accessibility polish:
+**The two latent duplicates are now closed.**
 
-1. **The first-run tutorial's close button did nothing.** `onClose` was never
-   passed at its only call site, so the X on the first screen a new user meets
-   invoked `null?.call()`.
-2. **The journal could hard-lock the app.** `showDialog(barrierDismissible:
-   false)` with `Navigator.pop` guarded by `if (context.mounted)`. Leaving the
-   screen mid-generation left an un-dismissable dialog with no escape.
-3. **"Recent Reflections" displayed raw ciphertext.** It mapped
-   `e.contentEncrypted` straight into a `Text`; `journal_screen.dart` decrypts
-   properly but this screen never did.
-4. **Two sober-housing buttons were empty closures.** `SoberHouse.phone` and
-   the coordinates were parsed and unused, so a user who found a house they
-   wanted could not call or navigate to it. Both wired.
-5. **The Wellness Check-In was unreachable by screen reader.** Its dimension
-   names and scores were drawn with `TextPainter` inside a `CustomPainter`,
-   which emits zero semantics nodes, and the drag gesture had no semantic
-   action. Now a `Semantics(slider:)` node with a real label and
-   increase/decrease.
-6. **The toolbox grid overflowed at every text scale** (6px/34px/61px at
-   1.0/1.5/2.0) because the grid pins `childAspectRatio: 1.35`.
+- *Settings* loaded nine fields once in `initState`. As a persistent tab it is
+  never rebuilt, so `_biometricEnabled` could contradict what
+  `splash_screen.dart:91-96` actually enforces. The shell now calls
+  `refreshState()` on tab select, and `SettingsScreenState` is public so the
+  `GlobalKey` can reach it.
+- *Pet state* was loaded twice: `pet_home_screen.dart` and
+  `dashboard_providers.dart` each called `RecoveryPetService.ensureHatched()`.
+  That was harmless while the card pushed a fresh screen and would have been a
+  live stale-state bug as a persistent tab. `PetHomeScreen` is now a
+  `ConsumerStatefulWidget` that reads `ref.watch(dashboardDataProvider).pet`
+  and routes every mutation through `setPet`/`refreshPet`. One owner.
 
-### Gates now in place (four, not three)
+**Also removed:** the "Companion Home" card from the Path toolbox, since a
+destination and a card pointing at the same screen are two routes to one
+place. A saved tool order still naming it is dropped safely by
+`DashboardLayout.ordered`. The `_DestinationPlaceholder` scaffolding is gone -
+all four destinations now have real bodies.
 
-- `python tools/verify_no_hardcoded_colors.py` now ALSO fails on
-  `Colors.white`/`Colors.black` used as a text color. That was the single most
-  common way a screen looked fine in dark mode and was unreadable in light
-  mode, and every one of ~187 instances passed all previous gates.
-- `python tools/verify_invariants.py` enforces five architecture invariants,
-  each with a self-test that deliberately breaks it to prove the gate fails.
-- `appReduceMotion(context)` in `themed_background.dart` is now the single
-  reduce-motion predicate. Five auto-playing animation sites consult it,
-  including the screen shake on a craving surface.
-- 11 bottom sheets gained `isScrollControlled: true` and `useSafeArea: true`.
+### The a11y audit that ran after Phase 8
 
-### Audit findings deliberately NOT actioned
+A two-agent audit of all 96 `lib/` files found 117 issues. The high-severity
+set was fixed across four committed batches. Six were genuine FUNCTIONAL bugs:
+a dead close button on the first-run tutorial, a journal dialog that could
+hard-lock the app, raw ciphertext rendered in "Recent Reflections", two
+empty-closure housing buttons, a Wellness Check-In unreachable by screen
+reader, and a toolbox grid that overflowed at every text scale.
 
-- A claim that mood-rating scales were 0-based in one screen and 1-based in
-  another. **Checked and false** - both use `_selectedMood` 0-based. "Fixing"
-  it would have corrupted saved journal data.
-- A claim that `avatar_visual_layer.dart` lacked a reduce-motion guard. It
-  already had one; the auditor had correctly excluded it but then listed it.
-- Raising the 47 `fontSize: 11` sites to 12. `AppType.micro` is a deliberate
-  token, not an oversight. Only the 13 sites below it were changed.
+Three audit claims were checked and found FALSE. Do not "fix" them: mood
+ratings are 0-based in both screens; `avatar_visual_layer.dart` already had a
+reduce-motion guard; all 15 `AlertDialog` sites already had dismiss
+affordances. `AppType.micro` (11sp) is a deliberate token.
 
-### Next: Phase 9 slice B (Profile), then slice C (Companion)
+### Still unverified on hardware
 
-Slice B must fix the `initState`-once trap: `SettingsScreen` loads nine fields
-in `initState` and is now a persistent tab, so those never re-read.
-Slice C must unify pet state - `pet_home_screen.dart:66` and
-`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`.
+Everything above is verified by the compiler, 254 unit tests, and the two
+gates. **None of it has been on a device.** The audit found entire screens
+rendering invisible in light mode via white-on-light - exactly what a test
+suite cannot catch. A plugged-in Blu View 5 would also exercise the
+`HardwareTierService.isLowEnd` Lottie branch, which has never run on hardware.
+
+### Next: Phase 10 (Global SOS Experience)
+
+SOS is already the strongest surface in the app: `SosTile` is the only tile
+implementation, `_showSosSheet` is the only entry point, and the invariants
+gate fails on a duplicate of either. Phase 10 is therefore mostly an audit and
+a discoverability pass - FAB placement, labels, contrast, dismissal, and
+semantics - NOT a rewrite. Keep it that way.
 
 ## Re-Sequencing Rationale (Sep 28)
 

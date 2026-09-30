@@ -505,12 +505,10 @@ Future<void> _handleWalk() async {
       icon: Icons.wb_twilight_outlined,
       onTap: () => _push(const DailyMotivationScreen()),
     ));
-    cards.add(ToolCard(
-      label: 'Companion Home',
-      subtitle: 'Stats, outfits, care log',
-      icon: Icons.pets_outlined,
-      onTap: () => _push(PetHomeScreen(database: widget.database)),
-    ));
+    // Phase 9 slice C: the Companion card was removed from the Path toolbox.
+    // Companion is a first-class destination now, so keeping the card would
+    // mean two routes to the same screen. A stale saved order still naming
+    // "Companion Home" is dropped safely by DashboardLayout.ordered.
     cards.add(ToolCard(
       label: 'Recovery Circle',
       subtitle: 'Share shapes, not numbers',
@@ -728,6 +726,12 @@ Future<void> _handleWalk() async {
   DashboardDestination _selected =
       DashboardDestination.backTarget;
 
+  /// Lets the shell ask the persistent Profile tab to re-read persisted
+  /// settings when the user navigates to it. Required because the Profile body
+  /// lives in an IndexedStack and is therefore never rebuilt.
+  final GlobalKey<SettingsScreenState> _profileKey =
+      GlobalKey<SettingsScreenState>();
+
   /// Kept for the ordering calls that index into [_layout] lists; the shell
   /// itself no longer uses an int.
   int get _selectedIndex => _selected.index;
@@ -814,8 +818,20 @@ Future<void> _handleWalk() async {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         indicatorColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(
-            () => _selected = DashboardDestination.values[i]),
+        onDestinationSelected: (i) {
+          final next = DashboardDestination.values[i];
+          setState(() => _selected = next);
+          // A persistent tab is never rebuilt, so it cannot refresh itself.
+          if (next == DashboardDestination.profile) {
+            _profileKey.currentState?.refreshState();
+          }
+          // The Companion tab no longer holds its own pet snapshot, but a
+          // refresh costs one Drift read and guarantees the tab reflects
+          // anything that changed while it was off-screen.
+          if (next == DashboardDestination.companion) {
+            unawaited(ref.read(dashboardDataProvider.notifier).refreshPet());
+          }
+        },
         destinations: [
           for (final destination in DashboardDestination.values)
             NavigationDestination(
@@ -867,13 +883,9 @@ Future<void> _handleWalk() async {
       case DashboardDestination.library:
         return _buildLibraryTab();
       case DashboardDestination.profile:
-        return SettingsScreen(database: widget.database);
+        return SettingsScreen(key: _profileKey, database: widget.database);
       case DashboardDestination.companion:
-        return const _DestinationPlaceholder(
-          icon: Icons.pets,
-          title: 'Companion',
-          message: 'Your companion is moving here next.',
-        );
+        return PetHomeScreen(database: widget.database);
     }
   }
 
@@ -1275,54 +1287,3 @@ class _HideBadge extends StatelessWidget {
     );
   }
 }
-
-/// Visible, explained placeholder for a destination that has not landed yet.
-///
-/// A blank `SizedBox` would read as a broken tab. This states plainly what is
-/// coming so a half-finished navigation shell is never mistaken for a bug.
-class _DestinationPlaceholder extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-
-  const _DestinationPlaceholder({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 40, color: scheme.primary),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: scheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-

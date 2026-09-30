@@ -3,14 +3,17 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/dashboard_providers.dart';
 import '../database/recovery_database.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
@@ -21,16 +24,34 @@ import 'memory_wall_screen.dart';
 import 'pet_trials_screen.dart';
 
 /// Full companion view: stats, equipped cosmetics, and the care activity log.
-class PetHomeScreen extends StatefulWidget {
+///
+/// Phase 9 slice C: this became the Companion destination, a persistent tab.
+/// It is a `ConsumerWidget` on purpose. It previously kept its own
+/// `RecoveryPet? _pet` and called `RecoveryPetService.ensureHatched()`
+/// independently of `dashboardDataProvider`, which holds a second snapshot of
+/// the same row. Two live copies meant a check-in on the Path tab would not
+/// appear here. Reading the notifier makes the dashboard the single owner.
+class PetHomeScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
 
   const PetHomeScreen({super.key, required this.database});
 
   @override
-  State<PetHomeScreen> createState() => _PetHomeScreenState();
+  ConsumerState<PetHomeScreen> createState() => _PetHomeScreenState();
 }
 
-class _PetHomeScreenState extends State<PetHomeScreen> {
+class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
+  /// Phase 9 slice C: the dashboard notifier is the single owner of the pet.
+  /// This screen previously held its own `RecoveryPet? _pet` and called
+  /// `ensureHatched()` independently, so a check-in on the Path tab did not
+  /// appear here. Reading the notifier makes the duplicate impossible.
+  RecoveryPet? get _pet => ref.watch(dashboardDataProvider).pet;
+
+  void _setPet(RecoveryPet pet) {
+    if (!mounted) return;
+    unawaited(ref.read(dashboardDataProvider.notifier).setPet(pet));
+  }
+
   static const Map<String, String> _eventLabels = {
     'check_in': 'Daily check-in',
     'journal': 'Journal entry',
@@ -40,12 +61,11 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
     'reward': 'Care action',
   };
 
-  RecoveryPet? _pet;
-
   @override
   void initState() {
     super.initState();
-    _load();
+    // The dashboard notifier loads the pet on first watch, so there is no
+    // second `ensureHatched()` call here any more.
     _maybeShowCardTip();
   }
 
@@ -63,15 +83,15 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
   }
 
   Future<void> _load() async {
-    final pet = await RecoveryPetService.ensureHatched();
-    if (mounted) setState(() => _pet = pet);
+    if (!mounted) return;
+    await ref.read(dashboardDataProvider.notifier).refreshPet();
   }
 
   Future<void> _adoptSpecies(PetSpecies species) async {
     final before = _pet?.sparks ?? 0;
     final updated = await RecoveryPetService.adoptSpecies(species.id);
     if (!mounted) return;
-    setState(() => _pet = updated);
+    _setPet(updated);
     final spent = before - updated.sparks;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -95,7 +115,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
       ),
     );
     if (updated != null) {
-      setState(() => _pet = updated);
+      _setPet(updated);
     } else {
       _load();
     }

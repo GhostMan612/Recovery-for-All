@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 28, 2026 (UI/UX Phases 0-8 COMPLETE; Phase 9 slice A shipped; a full a11y + text-scale audit landed 6 FUNCTIONAL bug fixes and the high-severity accessibility set across 4 batches; analyze 0, test 254, all four gates green)
+**Last updated:** September 28, 2026 (UI/UX Phases 0-9 COMPLETE - Phase 9 shipped four destinations with no duplicated Settings or pet state; a full a11y + text-scale audit landed 6 FUNCTIONAL bug fixes plus the high-severity accessibility set; analyze 0, test 254, all four gates green)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -220,38 +220,32 @@ all are renderable in tests without a provider scope. 28 new tests.
 **⚠ Deliberately NOT done in Phase 8:** the two-tab Path/Library IA. Moving
 to four destinations is Phase 9's job; Phase 8 added and moved nothing.
 **🐛 BUG FIXED (was latent, boot-critical):** `databaseProvider` lazily built a SECOND `RecoveryDatabase` — a second SQLCipher connection to the same encrypted file with its own key read — while `main.dart` built its own; 6 providers watched it. `main.dart` now does `overrides: [databaseProvider.overrideWithValue(database)]` so everything shares one instance. If you ever add a provider that watches the DB, verify the override is still in place.
-**Next: Phase 9 slice B (Profile), then slice C (Companion).** Slice A is
-committed (four-destination shell, `IndexedStack`, `PopScope`). 254 tests.
+**Next: Phase 10 (Global SOS Experience).** Phases 0-9 complete.
 
-**Slice B must fix the `initState`-once trap first.** `SettingsScreen` loads
-nine fields in `initState` (`settings_screen.dart:50-64`) and is now a
-persistent tab, so those never re-read and `_biometricEnabled` can drift from
-what `splash_screen.dart:91-96` enforces. Nothing in `flutter analyze` will
-catch a tab that silently stops saving.
-
-**Slice C must unify pet state.** `pet_home_screen.dart:66` and
-`dashboard_providers.dart:293` each call `RecoveryPetService.ensureHatched()`.
-Harmless while the card pushes a fresh screen; a live duplicate the moment
-Companion becomes a tab. Make the tab consume `dashboardDataProvider`.
-
-**The a11y audit is done but UNVERIFIED ON HARDWARE.** See §3 for what landed
-and §"still unverified" for why that is the highest risk in the project.
+Phase 10 is mostly an AUDIT, not a rewrite. SOS is already the strongest
+surface in the app: `SosTile` is the only tile implementation, `_showSosSheet`
+is the only entry point, and `tools/verify_invariants.py` fails on a duplicate
+of either. Audit FAB placement, labels, contrast, dismissal, accidental
+activation, and screen-reader semantics. **Do not build a second SOS surface** -
+the gate will fail and Phase 10 forbids it.
 
 Read the **"Resume Here"** block at the top of `blueprints/UI-UX-themes-plan.md` first — it carries the standing gates and the five invariants a new session must not break.
 
-### Session-boundary state (Sep 28, after the a11y batches)
+### Session-boundary state (Sep 28, after Phase 9)
 - Working tree clean; all four gates green (analyze 0, test 254, color gate
-  exit 0, invariants exit 0). Both invariant-gate self-tests pass.
+  exit 0, invariants exit 0).
 - `main` and `origin/main` in sync.
-- UI/UX Phases 0-8 complete. Phase 9 slice A done. Phases 9b/9c and 10-17
-  not started.
-- **THE BIGGEST RISK, STATED PLAINLY: nothing in Phases 0-9 or the a11y pass
-  has run on hardware.** Roughly 200 color substitutions and a large a11y
-  batch are verified only by the compiler and unit tests. The audit found
-  entire screens rendering invisible in light mode via white-on-light, which
-  is precisely the class of bug a test suite cannot catch. A plugged-in
-  Blu View 5 would also exercise the `HardwareTierService.isLowEnd` Lottie
-  branch, which has NEVER run on a real device.
+- UI/UX Phases 0-9 complete. Phases 10-17 not started.
+- **Two duplicates closed in Phase 9, both were live bugs waiting to happen:**
+  Settings' nine `initState`-only fields (a persistent tab never re-reads them,
+  so `_biometricEnabled` could contradict what splash enforces), and pet state
+  (loaded independently by `pet_home_screen` and `dashboard_providers`, which
+  would have gone stale the moment Companion became a tab).
+- **THE BIGGEST REMAINING RISK: nothing in Phases 0-9 has run on hardware.**
+  ~200 color substitutions and a large a11y batch are verified only by the
+  compiler and unit tests. The audit found entire screens invisible in light
+  mode - exactly what tests cannot catch. A plugged-in Blu View 5 would also
+  exercise the `isLowEnd` Lottie branch, never yet run on a real device.
 - The `+9` AAB in `build/` predates all of this and is stale. Do not upload it.
 
 

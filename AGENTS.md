@@ -134,6 +134,14 @@ python tools/verify_invariants.py                           # architecture invar
   reads. Add new dashboard UI to those files, not inline in the screen.
   `SosTile` is the ONLY SOS tile implementation; never add a second SOS
   surface.
+- **Navigation shell** (Phase 9): `DashboardDestination` in
+  `dashboard_providers.dart` is the single source of truth for the four
+  destinations AND the Android back target. The shell uses an
+  `IndexedStack`, so every destination stays alive; a persistent body must
+  therefore be told to refresh explicitly (`SettingsScreenState.refreshState()`
+  via a `GlobalKey`) rather than relying on `initState`. Pet state has ONE
+  owner, `dashboardDataProvider`; never re-add a private `_pet` field or a
+  second `ensureHatched()` call in a screen.
 - **M3 theme engine** (Phase 2): `lib/core/theme/app_colors.dart` holds
   `AppColors.themeDataFor(ThemePreference, Brightness)` for 3 palettes × 2
   brightness. `AppColors` top-level statics are DELETED; only
@@ -146,7 +154,7 @@ python tools/verify_invariants.py                           # architecture invar
 ## Docs that are load-bearing
 
 - `blueprints/UI-UX-themes-plan.md` — the ACTIVE 17-phase UI/UX
-  program (Phases 0-8 complete; Phases 9-17 not started). Its "Resume Here"
+  program (Phases 0-9 complete; Phases 10-17 not started). Its "Resume Here"
   block is the authoritative next-step pointer for this workstream.
 - `blueprints/roadmap-v2.md` — tiered feature queue (work in progress)
 - `blueprints/pet-store-rules.md` — sparks economy + feed laws (C1–C5)
