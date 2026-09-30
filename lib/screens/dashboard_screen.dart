@@ -553,8 +553,14 @@ Future<void> _handleWalk() async {
   // SOS safety layer
   // ------------------------------------------------------------------
 
-  /// When SOS fires and a sponsor is linked, write a care alert to
+  /// When the user actually reaches for help, write a care alert to
   /// Firestore so the sponsor's app can pick it up (v1: console-visible).
+  ///
+  /// Phase 10: this used to fire when the SOS *sheet opened*, so anyone who
+  /// peeked at their options and closed it sent their sponsor a false alarm.
+  /// It now fires on real activation only - calling 988, or starting the
+  /// persistent SOS lifeline. Deliberately NOT fired by "Nearest Meetings" or
+  /// "Crisis Resources", which are browsing, not asking for help.
   Future<void> _writeCareAlert() async {
     final sponsor = await SponsorLinkService.registeredSponsor();
     if (sponsor == null) return;
@@ -601,27 +607,60 @@ Future<void> _handleWalk() async {
       builder: (sheetContext) {
         final sponsorPhone = ref.watch(dashboardDataProvider).sponsorPhone;
         return SafeArea(
-          child: Padding(
+          // Phase 10: a screen reader entering this sheet had no
+          // orientation at all. Group the options so the four destinations
+          // are announced as a set rather than a loose list.
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: 'SOS support options',
+            child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header with gear icon
+                // Header: heading, support-circle link, and an explicit close.
+                // The sheet previously had no dismiss affordance at all - the
+                // gear next to the title looked like one but navigates to
+                // Settings. On a crisis surface, "how do I get out of here"
+                // must never be a guess.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'You are not alone.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
+                    // Expanded, not FittedBox: at 1.5x this heading was
+                    // 297dp in a 272dp row and overflowed.
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          'You are not alone.',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ),
                     IconButton(
                       tooltip: 'My Support Circle',
-                      icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                      icon: Icon(Icons.settings_outlined,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7)),
                       onPressed: () {
                         Navigator.pop(sheetContext);
                         _push(SettingsScreen(database: widget.database));
                       },
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      icon: Icon(Icons.close,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7)),
+                      onPressed: () => Navigator.pop(sheetContext),
                     ),
                   ],
                 ),
@@ -642,6 +681,9 @@ Future<void> _handleWalk() async {
                         subtitle: 'Suicide & Crisis Lifeline · 24/7',
                         onTap: () {
                           Navigator.pop(sheetContext);
+                          // Real activation: alert the sponsor, start the
+                          // lifeline, then dial.
+                          unawaited(_writeCareAlert());
                           SosNotificationService.startPersistentSos();
                           _callNumber('988');
                         },
@@ -657,6 +699,8 @@ Future<void> _handleWalk() async {
                         enabled: sponsorPhone != null,
                         onTap: sponsorPhone != null ? () {
                           Navigator.pop(sheetContext);
+                          // Reaching a person is real activation.
+                          unawaited(_writeCareAlert());
                           _callNumber(sponsorPhone);
                         } : null,
                       ),
@@ -709,6 +753,7 @@ Future<void> _handleWalk() async {
                 ),
                 const SizedBox(height: 8),
               ],
+            ),
             ),
           ),
         );
@@ -848,10 +893,7 @@ Future<void> _handleWalk() async {
         builder: (context, constraints) {
           final isSmallScreen = constraints.maxWidth < 360;
           return FloatingActionButton.extended(
-            onPressed: () {
-              _writeCareAlert();
-              _showSosSheet();
-            },
+            onPressed: _showSosSheet,
             backgroundColor: Theme.of(context).colorScheme.error,
             // onSurface on an error fill: the SOS button is the single most
             // important control in the app and was failing contrast in both
@@ -873,9 +915,8 @@ Future<void> _handleWalk() async {
     );
   }
 
-  /// Maps a destination to its body. Slices B and C fill in Profile and
-  /// Companion; until then those show an honest placeholder rather than a
-  /// blank region, so a shipped build never looks broken.
+  /// Maps a destination to its body. All four have real bodies as of the
+  /// Phase 9 slices, so no destination renders a placeholder.
   Widget _bodyFor(DashboardDestination destination) {
     switch (destination) {
       case DashboardDestination.path:

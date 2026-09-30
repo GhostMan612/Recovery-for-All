@@ -34,7 +34,7 @@ A phase is complete only when:
 
 ## Execution Status
 
-Phases 0-9 are **complete and verified**. Phases 10-17 are **not started**.
+Phases 0-10 are **complete and verified**. Phases 11-17 are **not started**.
 
 | Phase | State | Evidence |
 |---|---|---|
@@ -48,7 +48,8 @@ Phases 0-9 are **complete and verified**. Phases 10-17 are **not started**.
 | 7 - Dashboard state | COMPLETE | 5 notifiers, 22 fields -> 3, `ConsumerState`, 18 tests, fixed duplicate-DB |
 | 8 - Dashboard view reconstruction | COMPLETE | 4 slices, screen 1512 -> 1157 lines, 28 new tests, 3 real bugs fixed |
 | 9 - Navigation architecture | COMPLETE | 3 slices: 4 destinations, `IndexedStack`, `PopScope`, Settings reload, pet state unified, 7 tests |
-| 10-17 | NOT STARTED | no code, no gates run |
+| 10 - Global SOS experience | COMPLETE | audit only: dismiss button, care-alert moved to real activation, header overflow, sheet semantics |
+| 11-17 | NOT STARTED | no code, no gates run |
 
 Gates at the close of Phase 9: `flutter analyze --no-pub` -> No issues found;
 `flutter test` -> 254 passing; `verify_no_hardcoded_colors.py` -> exit 0;
@@ -88,68 +89,50 @@ reason the phase was worth doing incrementally:
 **Not changed, deliberately:** the two-tab Path/Library information
 architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
-## Resume Here (Phase 9 COMPLETE)
+## Resume Here (Phase 10 COMPLETE, Phase 11 next)
 
-**Phases 0-9 complete. Phases 10-17 not started.** 254 tests, analyze clean,
+**Phases 0-10 complete. Phases 11-17 not started.** analyze clean, 254 tests,
 all four gates green, `main` and `origin/main` in sync.
 
-### Phase 9 result: four destinations, no duplicated state
+### Phase 10 result: SOS hardened, not rebuilt
 
-| Slice | Change |
-|---|---|
-| A | `DashboardDestination` enum, `IndexedStack` body, `PopScope` back handling, Profile body |
-| B | `SettingsScreen.refreshState()` + `GlobalKey`, called when Profile is selected |
-| C | Companion promoted to a destination; pet state unified on `dashboardDataProvider` |
+The phase is an AUDIT. `SosTile` was already the only tile implementation and
+`_showSosSheet` the only entry point, both enforced by the invariants gate, so
+nothing was restructured. Four real issues were found and fixed:
 
-**The two latent duplicates are now closed.**
+1. **No dismiss affordance.** The sheet had no close button; the gear beside
+   the title looked like one but navigates to Settings. On a crisis surface,
+   "how do I leave" must never be a guess. Added a real Close button.
+2. **Accidental activation - a sponsor got false alarms.** `_writeCareAlert`
+   fired when the SOS *sheet opened*, so peeking and dismissing sent a
+   "your person needed help" alert to a sponsor. It now fires only on real
+   activation: calling 988, or starting the persistent lifeline. Browsing
+   ("Nearest Meetings", "Crisis Resources") deliberately does NOT alert.
+3. **Header overflowed at 1.5x.** "You are not alone." at 20sp in an unguarded
+   `Row` was 297dp in a 272dp row. Now `Expanded`.
+4. **No screen-reader orientation.** The sheet announced as a loose list of
+   four items with no indication of what it was. Now a labelled, grouped
+   `Semantics` node; the heading is a `header: true` semantic.
 
-- *Settings* loaded nine fields once in `initState`. As a persistent tab it is
-  never rebuilt, so `_biometricEnabled` could contradict what
-  `splash_screen.dart:91-96` actually enforces. The shell now calls
-  `refreshState()` on tab select, and `SettingsScreenState` is public so the
-  `GlobalKey` can reach it.
-- *Pet state* was loaded twice: `pet_home_screen.dart` and
-  `dashboard_providers.dart` each called `RecoveryPetService.ensureHatched()`.
-  That was harmless while the card pushed a fresh screen and would have been a
-  live stale-state bug as a persistent tab. `PetHomeScreen` is now a
-  `ConsumerStatefulWidget` that reads `ref.watch(dashboardDataProvider).pet`
-  and routes every mutation through `setPet`/`refreshPet`. One owner.
+### What was ALREADY correct and deliberately not touched
 
-**Also removed:** the "Companion Home" card from the Path toolbox, since a
-destination and a card pointing at the same screen are two routes to one
-place. A saved tool order still naming it is dropped safely by
-`DashboardLayout.ordered`. The `_DestinationPlaceholder` scaffolding is gone -
-all four destinations now have real bodies.
+- `SosTile` onTap lives on the `ListTile` (from the a11y pass), so every SOS
+  destination announces as a button with its disabled state.
+- All four tiles are `onSurface` on `surfaceContainer`; the FAB is
+  `onError` on `error`. Contrast is right.
+- The sheet has `useSafeArea` and `isScrollControlled` (from the a11y pass).
+- The gate fails on a duplicate `SosTile` or a removed `_showSosSheet`, so a
+  second SOS surface cannot land quietly.
 
-### The a11y audit that ran after Phase 8
+### Next: Phase 11 (Profile / Settings Modernization)
 
-A two-agent audit of all 96 `lib/` files found 117 issues. The high-severity
-set was fixed across four committed batches. Six were genuine FUNCTIONAL bugs:
-a dead close button on the first-run tutorial, a journal dialog that could
-hard-lock the app, raw ciphertext rendered in "Recent Reflections", two
-empty-closure housing buttons, a Wellness Check-In unreachable by screen
-reader, and a toolbox grid that overflowed at every text scale.
+Settings is now a first-class destination. Phase 11 organizes what already
+exists under coherent groups - do NOT invent settings the app does not have.
+The one genuinely new control: the theme engine has always had
+`theme_mode_v1` and a palette preference, but the UI exposes only the palette.
+Phase 11 should surface System / Light / Dark explicitly.
 
-Three audit claims were checked and found FALSE. Do not "fix" them: mood
-ratings are 0-based in both screens; `avatar_visual_layer.dart` already had a
-reduce-motion guard; all 15 `AlertDialog` sites already had dismiss
-affordances. `AppType.micro` (11sp) is a deliberate token.
-
-### Still unverified on hardware
-
-Everything above is verified by the compiler, 254 unit tests, and the two
-gates. **None of it has been on a device.** The audit found entire screens
-rendering invisible in light mode via white-on-light - exactly what a test
-suite cannot catch. A plugged-in Blu View 5 would also exercise the
-`HardwareTierService.isLowEnd` Lottie branch, which has never run on hardware.
-
-### Next: Phase 10 (Global SOS Experience)
-
-SOS is already the strongest surface in the app: `SosTile` is the only tile
-implementation, `_showSosSheet` is the only entry point, and the invariants
-gate fails on a duplicate of either. Phase 10 is therefore mostly an audit and
-a discoverability pass - FAB placement, labels, contrast, dismissal, and
-semantics - NOT a rewrite. Keep it that way.
+**Still unverified on hardware** - see the standing note in the handoff.
 
 ## Re-Sequencing Rationale (Sep 28)
 
