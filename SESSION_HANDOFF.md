@@ -297,7 +297,84 @@ of either. Audit FAB placement, labels, contrast, dismissal, accidental
 activation, and screen-reader semantics. **Do not build a second SOS surface** -
 the gate will fail and Phase 10 forbids it.
 
-### Session-boundary state (Sep 30, after Phase 17 + FIRST device verification)
+### Session-boundary state (Oct 2026 — closed-test tester bug round, after Phase 17 + device verification)
+
+- **NEW: builds are PRE-AUTHORIZED.** The user granted standing permission for
+  `flutter build apk --debug` and `flutter build appbundle --release` (signed,
+  via `android/key.properties` + `upload-keystore.jks`). `AGENTS.md` §5 was
+  rewritten to say so. Do not re-ask for build authorization. Builds still happen
+  only in the end-of-plan batch.
+- **FOUR tester-reported bugs fixed in one pass.** All were *wiring / value*
+  bugs — `flutter analyze` was clean and could not see any of them:
+  1. **Constellation zoom slid instead of zooming.** Root cause: two owners.
+     `_ConstellationScreenState._zoom` (parent) and
+     `_ConstellationCanvasState._zoomController` (child) never communicated. The
+     slider wrote to the child's `AnimationController.value` and lived *outside*
+     the `AnimatedBuilder` that repainted the canvas, so the thumb and the stars
+     rendered from different values; `onZoomChanged` was never called, so the
+     parent stayed at 1.0. Fix: zoom is now a plain `double` in state written
+     only through `_setZoom()`, with the parent notified on gesture **end**
+     (not every frame). The `AnimationController` was never animated, so its
+     200 ms duration was dead code and is gone.
+  2. **"In progress now" card showed statewide meetings during a 2-mile search.**
+     Root cause: `_radiusMi` was a plain field on `MeetingMapScreen` — never
+     persisted, invisible to the dashboard. The dashboard therefore invented its
+     own 25/50/100 km tiers in `applyRadiusTiers`, and the fall-through branch
+     returned the **entire** input list when nothing was nearby. "It shows all the
+     meetings" was literally the code. Fix: radius is now persisted shared state
+     (`radiusMiles` on `MeetingRadiusState`, new pref
+     `meeting_search_radius_miles_v1`, written via `setRadiusMiles`, read by both
+     surfaces). `applyRadiusTiers` filters to the real radius and returns an
+     **empty** list plus a "widen the radius" hint instead of silently widening
+     itself. `MeetingMapScreen` is now a `ConsumerStatefulWidget`.
+  3. **Meeting map rotated while zooming.** Root cause: `MapOptions` declared no
+     `interactionOptions`, so flutter_map's default `InteractiveFlag.all` left
+     the two-finger twist gesture live; on a phone it competes with pinch-zoom.
+     The pre-existing `_mapController.rotate(0)` only fired from a button and
+     could not keep up with a live gesture. Fix: explicit
+     `InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+     cursorKeyboardRotationOptions: CursorKeyboardRotationOptions.disabled())`.
+     NOTE `CursorKeyboardRotationOptions.disabled()` is **not** a const ctor —
+     using `const` on that `InteractionOptions` fails analyze.
+  4. **Bottom-nav order.** `DashboardDestination` enum reordered to
+     `path, companion, library, profile`. Safe because nothing hardcodes an index
+     (verified by grep before editing); every consumer iterates `.values`. This
+     also makes the back target the FIRST destination, which is now pinned by a
+     test.
+- **Three tests were encoding the OLD behavior and had to be rewritten, not just
+  updated.** `applyRadiusTiers cascades Nearby Regional Wider Area Statewide`
+  asserted the exact tier cascade that was removed, and its companion asserted
+  that the empty-radius case returns the whole list with a "Statewide — No local
+  meetings" label — i.e. the tests **pinned the bug as the contract**. Replaced
+  with 5 tests for the real contract (honours the radius, returns EMPTY,
+  2 mi is the default, drops no-coord meetings, clamps input). The nav test's
+  expected order was updated and a "back target is FIRST" test added.
+- **fastlane scaffolding added** (`fastlane/Appfile`, `fastlane/Fastfile`) with
+  lanes: `status`, `validate`, `upload`, `promote`, `set_rollout`,
+  `promote_to_production`, `promote_to_closed`, `complete_rollout`, `halt_rollout`.
+  **No `build` lane on purpose** — a `buildAppbundle` lane would silently turn
+  `fastlane promote` into a release build and violate the build boundary.
+  Service-account JSON is gitignored. **fastlane does not run on Windows** —
+  WSL2 or a CI `ubuntu` runner only.
+- **Release AAB built and verified**: `build/app/outputs/bundle/release/
+  recovery-for-all-1.0.0+9.aab` (129.1 MB, from `app-release.aab`). Signature
+  confirmed via `keytool` — `CN=Glenn Lee Clark IV, OU=Recovery For All,
+  O=Recovery, L=Saint Paul, ST=Minnesota`, self-signed, valid to 2054, and
+  `META-INF/UPLOAD.RSA` present. This is the **upload** key, not the Play App
+  Signing key — back that up separately.
+- **The `build/` tree was deleted at some point**, so the previously-referenced
+  "stale" `recovery-for-all-1.0.0+9.aab` did not exist. Anything remembered
+  about artifacts in `build/` must be re-verified before being trusted; it is
+  gitignored and was never in the repo.
+- **Flutter is NOT on PATH on this host.** The SDK is at `C:\android\flutter\bin`
+  and is exposed only as the env var `flutter`. Prepend it in any shell that
+  needs the toolchain: `$env:PATH = "C:\android\flutter\bin;" + $env:PATH`.
+- Gates after this round: `flutter analyze` -> No issues found; `flutter test` ->
+  **300 passing**; `verify_no_hardcoded_colors.py` -> exit 0;
+  `verify_invariants.py` -> exit 0 (7 invariants); `selftest_invariant7.py` ->
+  10/10.
+
+### Earlier session-boundary state (Sep 30, after Phase 17 + FIRST device verification)
 
 - UI/UX Phases **0-17 complete**. No phase outstanding.
 - Final gates: `flutter analyze --no-pub` -> No issues found; `flutter test` ->

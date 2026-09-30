@@ -27,9 +27,11 @@ void main() {
     test('declares exactly the four Phase 9 destinations, in shell order', () {
       expect(
         DashboardDestination.values.map((d) => d.label).toList(),
-        ['Companion', 'Path', 'Library', 'Profile'],
+        ['Path', 'Companion', 'Library', 'Profile'],
         reason: 'the NavigationBar is generated from this list, so the order '
-            'is the visible tab order',
+            'is the visible tab order. Path is first: it is the recovery '
+            'journey, it is the back target, and it is the destination the '
+            'shell opens on.',
       );
     });
 
@@ -56,6 +58,15 @@ void main() {
       expect(DashboardDestination.backTarget, DashboardDestination.path);
       expect(DashboardDestination.values,
           contains(DashboardDestination.backTarget));
+    });
+
+    // With Path first in the enum, the shell's initial selection IS the back
+    // target. If a future edit moves Path back behind Companion, this is the
+    // assertion that catches it — otherwise the first back press would
+    // re-select Path and look like a no-op to the user.
+    test('the back target is the FIRST destination', () {
+      expect(DashboardDestination.values.first, DashboardDestination.backTarget,
+          reason: 'Path must lead the shell so back exits immediately');
     });
 
     // The shell OPENS on the back target, which is the documented starting

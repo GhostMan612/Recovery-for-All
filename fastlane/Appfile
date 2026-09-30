@@ -1,0 +1,10 @@
+# Google Play app identity for fastlane/supply.
+#
+# Credentials are NOT configured here. Supply resolves them in this order:
+#   1. PLAY_JSON_KEY env var containing the raw service-account JSON
+#      (preferred for CI — nothing touches disk)
+#   2. fastlane/play-service-account.json on disk (gitignored)
+#
+# See the Fastfile for the lanes that use this.
+
+package_name "com.recoveryforall"

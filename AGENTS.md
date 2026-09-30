@@ -9,13 +9,15 @@ end-of-session checklist. Keep it updated every session.
 Read `CLAUDE.md` too — its §1–§4 (token conservation, filtered CLI output,
 explicit-path commits) and **§5 Build Boundary** are binding:
 
-- **NEVER build binaries** without explicit per-instance authorization from the
-  user. The human normally builds in Android Studio. (On 2026-09-30 the user
-  granted a one-off exception to build and install a **debug** APK for device
-  verification — that is not standing permission, and it does not extend to
-  release/APK/AAB or to any future build.) The `flutter pub get` → `flutter
-  analyze` → `flutter test` sequence is the **end-of-plan** gate batch; see
-  SHELL DISCIPLINE below for when it runs.
+- **Builds are PRE-AUTHORIZED.** On 2026-09-30 the user granted **standing
+  permission** to build binaries without asking again: `flutter build apk
+  --debug`, `flutter build appbundle --release`, and signed release bundles
+  using `android/key.properties` + `upload-keystore.jks`. Do not re-request
+  build authorization. The `flutter pub get` → `flutter analyze` → `flutter
+  test` sequence remains the **end-of-plan** gate batch; see SHELL DISCIPLINE
+  below for when it runs. Builds still happen only in the end-of-plan batch —
+  authorization to build is not permission to build mid-plan. Release signing
+  keys are never committed; `build/` is gitignored.
 - **Commit by explicit path only** — never `git add .` / `-A`.
 - Commit messages: analyze/test status only; never claim build success.
 

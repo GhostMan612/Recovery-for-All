@@ -1,0 +1,214 @@
+# frozen_string_literal: true
+
+# ============================================================================
+# Google Play publishing — Recovery for All
+#
+# SCOPE: this Fastfile UPLOADS and PROMOTES. It never builds. Producing a
+# release AAB is a human decision under the AGENTS.md "Build Boundary", so
+# there is deliberately no `build` lane here. Build the AAB first, then point
+# a lane at it via --aab or the AAB_PATH env var.
+#
+# CREDENTIALS: never commit the service-account JSON. Set PLAY_JSON_KEY to the
+# raw JSON contents (CI), or drop the file at fastlane/play-service-account.json
+# (gitignored). Play's API grants are per-service-account; see `status` below.
+#
+# PREREQUISITE: the first-ever upload for this package must be done by hand in
+# the Play Console web UI. supply cannot create the app. versionCode 8 already
+# exists on `closed`, so every lane here is usable today.
+#
+# PLATFORM: fastlane is macOS/Linux only. Run this from WSL2 or a CI runner,
+# not from Windows PowerShell.
+# ============================================================================
+
+PACKAGE = "com.recoveryforall"
+
+# internal + closed are pre-production; beta is open testing; production is live.
+VALID_TRACKS = %w[internal closed beta production].freeze
+
+# --- helpers ---------------------------------------------------------------
+
+def play_key_args
+  raw = ENV["PLAY_JSON_KEY"].to_s.strip
+  return { json_key_data: raw } unless raw.empty?
+
+  path = ENV["PLAY_JSON_KEY_FILE"] || File.join("fastlane", "play-service-account.json")
+  unless File.exist?(path)
+    UI.user_error!(
+      "No Play credentials. Set PLAY_JSON_KEY to the service-account JSON " \
+      "contents, or create #{path}."
+    )
+  end
+
+  { json_key_file: File.expand_path(path) }
+end
+
+def check_track!(track)
+  return if VALID_TRACKS.include?(track)
+
+  UI.user_error!("Unknown track '#{track}'. Use one of: #{VALID_TRACKS.join(', ')}")
+end
+
+def track_codes(track)
+  google_play_track_version_codes(track: track, **play_key_args) || []
+rescue StandardError => e
+  UI.error("#{track}: #{e.message}")
+  []
+end
+
+def newest_version_code(track)
+  codes = track_codes(track)
+  UI.user_error!("No version codes on track '#{track}' — has a build been uploaded?") if codes.empty?
+
+  codes.map(&:to_i).max
+end
+
+def resolve_aab(options)
+  aab = options[:aab] || ENV["AAB_PATH"] || "build/app/outputs/bundle/release/app-release.aab"
+  UI.user_error!("AAB not found: #{aab}") unless File.exist?(aab)
+
+  aab
+end
+
+platform :android do
+  desc "List the version codes Play currently has on every track"
+  lane :status do
+    UI.header("#{PACKAGE} — live version codes")
+    VALID_TRACKS.each do |track|
+      codes = track_codes(track)
+      UI.message("#{track.ljust(11)} #{codes.empty? ? '(none)' : codes.sort_by(&:to_i).join(', ')}")
+    end
+  end
+
+  desc "Validate a track change against Play without committing it"
+  lane :validate do |options|
+    check_track!(options[:track] || "closed")
+    upload_to_play_store(
+      package_name: PACKAGE,
+      aab: resolve_aab(options),
+      track: options[:track] || "closed",
+      release_status: "completed",
+      rollout: "1",
+      validate_only: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      **play_key_args
+    )
+  end
+
+  desc "Upload an AAB to a track (default: closed, 100% of that track)"
+  lane :upload do |options|
+    track = options[:track] || "closed"
+    check_track!(track)
+
+    upload_to_play_store(
+      package_name: PACKAGE,
+      aab: resolve_aab(options),
+      track: track,
+      release_status: options[:draft] ? "draft" : "completed",
+      rollout: options[:rollout] || "1",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      # Pass --changelogs true to push fastlane/metadata/**/changelogs/<code>.txt
+      skip_upload_changelogs: !options[:changelogs],
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      **play_key_args
+    )
+  end
+
+  desc "Promote an already-uploaded build from one track to another"
+  lane :promote do |options|
+    from = options[:from] || "closed"
+    to = options[:to] || "production"
+    check_track!(from)
+    check_track!(to)
+
+    code = (options[:version_code] || ENV["VERSION_CODE"] || newest_version_code(from)).to_s
+    rollout = options[:rollout] || "0.1"
+
+    UI.message("Promoting versionCode #{code}: #{from} -> #{to} at #{rollout}")
+
+    # NOTE: do not add version_codes_to_retain here. Combined with
+    # skip_upload_apk/skip_upload_aab it makes supply take the *upload* path
+    # instead of the promote path (fastlane #29984), which creates a bogus
+    # release on the destination track.
+    upload_to_play_store(
+      package_name: PACKAGE,
+      track: from,
+      track_promote_to: to,
+      version_code: code,
+      release_status: rollout.to_f >= 1.0 ? "completed" : "inProgress",
+      rollout: rollout,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: !options[:changelogs],
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      **play_key_args
+    )
+  end
+
+  desc "Change the staged rollout of the newest build already on a track"
+  lane :set_rollout do |options|
+    track = options[:track] || "production"
+    check_track!(track)
+
+    rollout = options[:rollout] || "1"
+    code = (options[:version_code] || newest_version_code(track)).to_s
+
+    UI.message("Setting rollout of versionCode #{code} on #{track} to #{rollout}")
+
+    upload_to_play_store(
+      package_name: PACKAGE,
+      track: track,
+      version_code: code,
+      release_status: rollout.to_f >= 1.0 ? "completed" : "inProgress",
+      rollout: rollout,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      **play_key_args
+    )
+  end
+
+  desc "Promote the newest closed build to production at 10%"
+  lane :promote_to_production do |options|
+    promote(from: "closed", to: "production", rollout: options[:rollout] || "0.1",
+            version_code: options[:version_code], changelogs: options[:changelogs])
+  end
+
+  desc "Promote the newest internal build to the closed track"
+  lane :promote_to_closed do |options|
+    promote(from: "internal", to: "closed", rollout: options[:rollout] || "1",
+            version_code: options[:version_code], changelogs: options[:changelogs])
+  end
+
+  desc "Take a staged production release to 100%"
+  lane :complete_rollout do
+    set_rollout(track: "production", rollout: "1")
+  end
+
+  desc "Halt a staged production rollout (keep the release, stop serving it)"
+  lane :halt_rollout do
+    upload_to_play_store(
+      package_name: PACKAGE,
+      track: "production",
+      version_code: newest_version_code("production").to_s,
+      release_status: "halted",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      **play_key_args
+    )
+  end
+end

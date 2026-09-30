@@ -503,17 +503,28 @@ class _ConstellationCanvas extends StatefulWidget {
 
 class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerProviderStateMixin {
   late AnimationController _twinkleController;
-  late AnimationController _zoomController;
   late AnimationController _focusController;
+
+  /// Single source of truth for zoom. This used to be an AnimationController
+  /// used purely as a value holder, which broke in two ways: (1) the slider
+  /// lived outside the AnimatedBuilder that repainted the canvas, so dragging
+  /// the thumb moved the stars in one coordinate space and the thumb in
+  /// another — it read as the sky sliding sideways rather than zooming; and
+  /// (2) nothing ever called onZoomChanged, so the parent's _zoom stayed at
+  /// 1.0 forever. A plain field in state makes every consumer agree.
+  double _zoom = 1.0;
   double _pinchBaseZoom = 1.0;
   int? _focusedStarIndex;
   bool _is3DView = false;
+
+  static const double _minZoom = 1.0;
+  static const double _maxZoom = 10.0;
 
   @override
   void initState() {
     super.initState();
     _twinkleController = AnimationController(vsync: this, duration: const Duration(seconds: 4));
-    _zoomController = AnimationController.unbounded(vsync: this, duration: const Duration(milliseconds: 200), value: widget.zoom);
+    _zoom = widget.zoom;
     _focusController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
   }
 
@@ -533,15 +544,28 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   @override
   void didUpdateWidget(covariant _ConstellationCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.zoom != widget.zoom) _zoomController.value = widget.zoom;
+    if (oldWidget.zoom != widget.zoom && (widget.zoom - _zoom).abs() > 0.001) {
+      _zoom = widget.zoom.clamp(_minZoom, _maxZoom);
+    }
   }
 
   @override
   void dispose() {
     _twinkleController.dispose();
-    _zoomController.dispose();
     _focusController.dispose();
     super.dispose();
+  }
+
+  /// Single entry point for every zoom gesture (slider thumb and pinch).
+  /// Repaints the canvas AND the slider from the same value, so they can never
+  /// drift apart again.
+  void _setZoom(double value, {bool notifyParent = false}) {
+    final next = value.clamp(_minZoom, _maxZoom);
+    if ((next - _zoom).abs() <= 0.001) return;
+    setState(() => _zoom = next);
+    // Only tell the parent on gesture end. Pushing on every drag frame would
+    // setState the whole screen ~60x/sec for no benefit.
+    if (notifyParent) widget.onZoomChanged(next);
   }
 
   void _focusOnStar(int index) {
@@ -569,11 +593,9 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onScaleStart: (_) { _pinchBaseZoom = _zoomController.value; },
-      onScaleUpdate: (details) {
-        final next = (_pinchBaseZoom * details.scale).clamp(1.0, 10.0);
-        if ((next - _zoomController.value).abs() > 0.001) _zoomController.value = next;
-      },
+      onScaleStart: (_) { _pinchBaseZoom = _zoom; },
+      onScaleUpdate: (details) => _setZoom(_pinchBaseZoom * details.scale),
+      onScaleEnd: (_) => widget.onZoomChanged(_zoom),
       onTapUp: (details) {
         final size = context.size;
         if (size == null) return;
@@ -581,8 +603,8 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
         int? bestIndex;
         for (var i = 0; i < widget.nodes.length; i++) {
           final node = widget.nodes[i];
-          final px = size.width / 2 + node.x * size.width * 0.45 * _zoomController.value;
-          final py = size.height / 2 + node.y * size.height * 0.45 * _zoomController.value;
+          final px = size.width / 2 + node.x * size.width * 0.45 * _zoom;
+          final py = size.height / 2 + node.y * size.height * 0.45 * _zoom;
           final dist = (details.localPosition - Offset(px, py)).distance;
           if (dist < 30 && dist < bestDist) { bestDist = dist; bestIndex = i; }
         }
@@ -597,12 +619,14 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
         children: [
           // Animated starfield background
           AnimatedBuilder(animation: _twinkleController, builder: (context, _) => CustomPaint(painter: _StarFieldPainter(time: _twinkleController.value, starColor: Theme.of(context).colorScheme.onSurface))),
-          // Main constellation with zoom + branch lines + focus highlight
+          // Main constellation with zoom + branch lines + focus highlight.
+          // Reads _zoom directly now that zoom lives in state, so this
+          // repaints on every _setZoom — same as the slider below.
           AnimatedBuilder(
-            animation: Listenable.merge([_zoomController, _focusController]),
+            animation: _focusController,
             builder: (context, _) => CustomPaint(painter: _ConstellationCanvasPainter(
               nodes: widget.nodes,
-              zoom: _zoomController.value,
+              zoom: _zoom,
               focusedIndex: _focusedStarIndex,
               focusProgress: _focusController.value,
               fallbackColor: Theme.of(context).colorScheme.primary,
@@ -638,7 +662,14 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
           // Zoom slider (bottom)
           Positioned(left: 16, right: 16, bottom: 12, child: Row(children: [
             Icon(Icons.zoom_out, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
-            Expanded(child: Slider(value: _zoomController.value, min: 1.0, max: 10.0, activeColor: Theme.of(context).colorScheme.primary, onChanged: (v) => _zoomController.value = v)),
+            Expanded(child: Slider(
+              value: _zoom,
+              min: _minZoom,
+              max: _maxZoom,
+              activeColor: Theme.of(context).colorScheme.primary,
+              onChanged: (v) => _setZoom(v),
+              onChangeEnd: (v) => widget.onZoomChanged(v),
+            )),
             Icon(Icons.zoom_in, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
           ])),
           // Sky name label

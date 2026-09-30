@@ -84,6 +84,20 @@ secrets.json
 credentials.json
 **/secrets/
 
+# Google Play / fastlane publishing — NEVER commit the service-account key.
+# It is anonymous read/write access to the Play Console. Only the upload key
+# (.jks) is referenced by android/key.properties; this is a different secret.
+fastlane/play-service-account.json
+fastlane/*service-account*.json
+fastlane/*.json
+fastlane/Authfile
+fastlane/output/
+fastlane/test_output/
+fastlane/report.xml
+fastlane/.env*
+*service-account*.json
+play-key.json
+
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
 

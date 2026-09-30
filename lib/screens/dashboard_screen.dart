@@ -1014,7 +1014,11 @@ Future<void> _handleWalk() async {
                     isCacheFresh(_radius.cachedAtMs);
                 if (cacheUsable) {
                   final userLoc = ll.LatLng(_radius.lat!, _radius.lng!);
-                  final tiered = applyRadiusTiers(filtered, userLoc);
+                  final tiered = applyRadiusTiers(
+                    filtered,
+                    userLoc,
+                    radiusMiles: _radius.radiusMiles,
+                  );
                   display = sortMeetings(tiered.meetings, userLoc, DateTime.now());
                   tierLabel = tiered.tierLabel;
                 }

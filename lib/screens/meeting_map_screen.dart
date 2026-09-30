@@ -12,9 +12,11 @@ import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart' as ll;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../core/meeting_radius_logic.dart';
+import '../core/dashboard_providers.dart' show meetingRadiusProvider;
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
@@ -25,8 +27,13 @@ import '../widgets/app_primitives.dart';
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
 /// city filter, live/upcoming color tiers, compass + re-center, and a
-/// live weather chip (Open-Meteo, keyless).
-class MeetingMapScreen extends StatefulWidget {
+/// live weather chip (Open-Meteon, keyless).
+///
+/// ConsumerStatefulWidget so the radius slider can publish to
+/// [meetingRadiusProvider]; the dashboard's "In progress now" card reads the
+/// same value. While this was a local field, the two surfaces could not agree
+/// and the card quietly showed statewide meetings during a 2-mile search.
+class MeetingMapScreen extends ConsumerStatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
 
@@ -37,7 +44,7 @@ class MeetingMapScreen extends StatefulWidget {
   });
 
   @override
-  State<MeetingMapScreen> createState() => _MeetingMapScreenState();
+  ConsumerState<MeetingMapScreen> createState() => _MeetingMapScreenState();
 }
 
 // ---- layer definitions (Sovereign Mantle pattern: independent toggles) ----
@@ -51,7 +58,7 @@ class _MapLayer {
       {this.subdomains = const []});
 }
 
-class _MeetingMapScreenState extends State<MeetingMapScreen> {
+class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   final MapController _mapController = MapController();
 
   /// Resolved device position as (lat, lng); null until a fix lands.
@@ -61,8 +68,9 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   String _loadStage = 'Finding you…';
   bool _showMapView = false;
 
-  // Filters
-  double _radiusMi = 2; // Default 2 miles instead of 25 to prevent overload
+  // Filters. Seeded from the shared provider in initState so the map opens
+  // showing the radius the dashboard is already using.
+  late double _radiusMi = MeetingRadiusPrefs.defaultRadiusMiles;
   String _cityFilter = 'All';
   bool _showAllTime = false;
   List<RecoveryMeeting> _base = [];
@@ -93,12 +101,15 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
   List<Marker> _userMarkers = [];
   List<Marker> _meetingMarkers = [];
 
-  static const double _maxRadiusMi = 50.0;
+  static const double _maxRadiusMi = MeetingRadiusPrefs.maxRadiusMiles;
   static const double _miToKm = 1.60934;
 
   @override
   void initState() {
     super.initState();
+    // Adopt the persisted radius. Safe in initState: Riverpod's ref is
+    // available there, and setRadiusMiles only guards against a no-op write.
+    _radiusMi = ref.read(meetingRadiusProvider).radiusMiles;
     _initialize();
   }
 
@@ -817,13 +828,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
                         color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                 Slider(
                   value: _radiusMi,
-                  min: 1,
+                  min: MeetingRadiusPrefs.minRadiusMiles,
                   max: _maxRadiusMi,
                   divisions: 49,
                   activeColor: Theme.of(context).colorScheme.primary,
                   label: '${_radiusMi.round()} mi',
                   onChanged: (v) => setSheet(() => _radiusMi = v),
-                  onChangeEnd: (v) => setState(() => _radiusMi = v),
+                  // Commit on release: writing SharedPreferences on every
+                  // drag frame is wasted I/O, and the dashboard only needs the
+                  // settled value.
+                  onChangeEnd: (v) {
+                    setState(() => _radiusMi = v);
+                    unawaited(ref.read(meetingRadiusProvider.notifier).setRadiusMiles(v));
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text('City / Area',
@@ -1138,6 +1155,19 @@ class _MeetingMapScreenState extends State<MeetingMapScreen> {
             options: MapOptions(
               initialCenter: _mapCenter,
               initialZoom: _me != null ? 12.0 : 9.0,
+              // flutter_map's default is `InteractiveFlag.all`, which
+              // INCLUDES a two-finger twist gesture. On a phone that gesture
+              // competes with pinch-zoom, so a zoom that drifts even slightly
+              // sideways snaps the map into a rotation nobody asked for — the
+              // exact complaint from the closed-test testers. Strip rotate,
+              // plus the desktop ctrl+drag path, which is a separate flag.
+              // Panning and zooming are untouched: one-finger drag and
+              // two-finger pinch both still work as users expect.
+              interactionOptions: InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                cursorKeyboardRotationOptions:
+                    CursorKeyboardRotationOptions.disabled(),
+              ),
             ),
             children: [
               for (final (index, layer) in _availableLayers.indexed)

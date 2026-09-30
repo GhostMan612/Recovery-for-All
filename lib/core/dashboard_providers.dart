@@ -34,6 +34,7 @@ class MeetingRadiusKeys {
   static const String lng = MeetingRadiusPrefs.lngKey;
   static const String time = MeetingRadiusPrefs.timeKey;
   static const String enforce = MeetingRadiusPrefs.enforceKey;
+  static const String radiusMiles = MeetingRadiusPrefs.radiusMilesKey;
 }
 
 /// The shell's primary destinations.
@@ -43,8 +44,8 @@ class MeetingRadiusKeys {
 /// index, so the `NavigationBar` and any back handling cannot disagree about
 /// what "index 2" means.
 enum DashboardDestination {
-  companion('Companion', Icons.pets_outlined, Icons.pets),
   path('Path', Icons.home_outlined, Icons.home),
+  companion('Companion', Icons.pets_outlined, Icons.pets),
   library('Library', Icons.menu_book_outlined, Icons.menu_book),
   profile('Profile', Icons.person_outline, Icons.person);
 
@@ -171,9 +172,35 @@ class MeetingRadiusState {
   final int? cachedAtMs;
   final bool enforce;
 
-  const MeetingRadiusState({this.lat, this.lng, this.cachedAtMs, this.enforce = true});
+  /// Search radius in MILES, shared with the meeting map so both surfaces
+  /// describe the same search. Defaults to 2 mi.
+  final double radiusMiles;
+
+  const MeetingRadiusState({
+    this.lat,
+    this.lng,
+    this.cachedAtMs,
+    this.enforce = true,
+    this.radiusMiles = MeetingRadiusPrefs.defaultRadiusMiles,
+  });
 
   bool get hasFix => lat != null && lng != null;
+
+  MeetingRadiusState copyWith({
+    double? lat,
+    double? lng,
+    int? cachedAtMs,
+    bool? enforce,
+    double? radiusMiles,
+  }) {
+    return MeetingRadiusState(
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      cachedAtMs: cachedAtMs ?? this.cachedAtMs,
+      enforce: enforce ?? this.enforce,
+      radiusMiles: radiusMiles ?? this.radiusMiles,
+    );
+  }
 }
 
 class MeetingRadiusNotifier extends Notifier<MeetingRadiusState> {
@@ -191,6 +218,9 @@ class MeetingRadiusNotifier extends Notifier<MeetingRadiusState> {
       lng: prefs.getDouble(MeetingRadiusKeys.lng),
       cachedAtMs: prefs.getInt(MeetingRadiusKeys.time),
       enforce: prefs.getBool(MeetingRadiusKeys.enforce) ?? true,
+      radiusMiles: MeetingRadiusPrefs.sanitizeRadiusMiles(
+        prefs.getDouble(MeetingRadiusKeys.radiusMiles),
+      ),
     );
     if (restored.hasFix || !restored.enforce) {
       state = restored;
@@ -198,14 +228,20 @@ class MeetingRadiusNotifier extends Notifier<MeetingRadiusState> {
   }
 
   Future<void> setEnforce(bool value) async {
-    state = MeetingRadiusState(
-      lat: state.lat,
-      lng: state.lng,
-      cachedAtMs: state.cachedAtMs,
-      enforce: value,
-    );
+    state = state.copyWith(enforce: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(MeetingRadiusKeys.enforce, value);
+  }
+
+  /// Single owner for the search radius. The meeting map calls this on every
+  /// slider change, and the dashboard reads [MeetingRadiusState.radiusMiles],
+  /// so the two can no longer disagree.
+  Future<void> setRadiusMiles(double miles) async {
+    final safe = MeetingRadiusPrefs.sanitizeRadiusMiles(miles);
+    if (safe == state.radiusMiles) return;
+    state = state.copyWith(radiusMiles: safe);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(MeetingRadiusKeys.radiusMiles, safe);
   }
 }
 

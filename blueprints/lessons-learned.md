@@ -145,6 +145,62 @@ rather than let "292 passing" imply coverage it does not provide.
 
 ---
 
+## L24 — Two zoom states that never talk: the slider moves, the sky slides (Oct 2026)
+
+- **What testers reported:** dragging the constellation zoom slider "slid the
+  stars to the right" instead of zooming. Separately, the dashboard's **"In
+  progress now"** card showed meetings from across Minnesota during a 2-mile
+  search, and the meeting map rotated when the user only meant to zoom.
+- **Root cause 1 — the constellation had two owners.** The parent
+  (`_ConstellationScreenState._zoom`) and the child
+  (`_ConstellationCanvasState._zoomController`) each held a zoom. The slider wrote
+  to the child's `AnimationController.value`, which (a) lived **outside** the
+  `AnimatedBuilder` that repainted the canvas, so the thumb and the stars were
+  rendered from two different values, and (b) never called `onZoomChanged`, so
+  the parent's `_zoom` stayed at 1.0 forever. The `AnimationController` was also
+  never *animated* — its 200 ms duration was dead weight on a value that was only
+  ever assigned. Net effect: stars scaled about a fixed centre while the control
+  moved independently, which reads as panning.
+- **Root cause 2 — the radius was a screen-local field.** `_radiusMi` lived on
+  `MeetingMapScreen`, was never persisted, and was invisible to the dashboard.
+  The dashboard therefore invented its own 25/50/100 km tiers in
+  `applyRadiusTiers`, and its fall-through branch returned the **entire** input
+  list when nothing was nearby. So the card either ignored the requested radius
+  or, worse, showed everything. "It shows all the meetings" was literally the
+  code.
+- **Root cause 3 — flutter_map rotates by default.** `MapOptions` declared no
+  `interactionOptions`, so the default `InteractiveFlag.all` left the two-finger
+  twist gesture enabled. On a phone that gesture competes with pinch-zoom, so a
+  zoom that drifted sideways became a rotation. A `_mapController.rotate(0)` call
+  existed but only fired from a manual button, so it could not keep up with a
+  live gesture.
+- **Why no gate caught any of it:** all three are *wiring and value* bugs, not
+  type errors. `flutter analyze` was clean. The colour and invariant gates read
+  neither widget state nor gesture flags. This is the **same** shape as L23 —
+  the analyzer can only see types, and every real bug in this repo has been
+  above the type level.
+- **Fixes, and the pattern behind them:** one owner per value.
+  - Constellation: zoom is now a plain `double` in state, written only through
+    `_setZoom()`, which repaints canvas and slider together and notifies the
+    parent on gesture *end* (not every frame).
+  - Radius: promoted to persisted shared state — `radiusMiles` on
+    `MeetingRadiusState`, written via `setRadiusMiles`, read by both the map
+    slider and the dashboard. `applyRadiusTiers` now filters to the actual
+    requested radius and returns an **empty** list plus a "widen the radius"
+    hint instead of silently falling back to statewide.
+  - Map: explicit `interactionOptions` with
+    `flags: InteractiveFlag.all & ~InteractiveFlag.rotate` and
+    `CursorKeyboardRotationOptions.disabled()`.
+- **Law:** **before adding a second copy of a value, ask who owns the first.**
+  Two `State` objects in a parent/child pair, or a widget field standing in for a
+  user preference, is the defect — not the missing sync code you'd add to patch
+  it. And a fallback branch that returns *everything* when a filter finds
+  nothing is never a fallback; it is a bug that hides behind a success state.
+  For gesture flags, always set them explicitly: library defaults are chosen for
+  the general case, not yours.
+
+---
+
 ### L1 · PowerShell 5.1 UTF-8 mojibake
 - **Symptom:** emoji/·/— turned into `Ã°Å¸` garbage in shipped files.
 - **Root cause:** `Get-Content | Set-Content` round-trips decode ANSI.

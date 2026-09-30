@@ -67,34 +67,61 @@ void main() {
     expect(r.tierLabel, 'Statewide');
   });
 
-  test('applyRadiusTiers cascades Nearby Regional Wider Area Statewide', () {
+  // The two tests below used to assert the tier cascade (Nearby -> Regional ->
+  // Wider Area -> Statewide) and, on the empty case, that the FULL input list
+  // came back with a "Statewide — No local meetings" label. That fallback was
+  // the bug: during a 2-mile search the dashboard's "In progress now" card
+  // advertised meetings from across the state. The contract now is a hard
+  // radius filter that returns EMPTY rather than widening itself.
+  test('applyRadiusTiers keeps only meetings inside the requested radius', () {
     final near = _m(id: 'near', lat: 45.0778, lng: -93.2650);
     final regional = _m(id: 'regional', lat: 45.3778, lng: -93.2650);
     final wider = _m(id: 'wider', lat: 45.7778, lng: -93.2650);
     final far = _m(id: 'far', lat: 46.4778, lng: -93.2650);
-    var r = applyRadiusTiers([far, wider, regional, near], _ref);
-    expect(r.tierLabel, 'Nearby');
-    expect(r.meetings.map((m) => m.id), ['near']);
-    r = applyRadiusTiers([far, wider, regional], _ref);
-    expect(r.tierLabel, 'Regional');
-    expect(r.meetings.map((m) => m.id), ['regional']);
-    r = applyRadiusTiers([far, wider], _ref);
-    expect(r.tierLabel, 'Wider Area');
-    expect(r.meetings.map((m) => m.id), ['wider']);
-    r = applyRadiusTiers([far], _ref);
-    expect(r.tierLabel, 'Statewide — No local meetings found in the next 6 hours');
-    expect(r.meetings.map((m) => m.id), ['far']);
+
+    // 2 mi (the default) admits only the ~7 mi `near` outlier is excluded too,
+    // so use explicit radii to prove the boundary is honoured.
+    final r = applyRadiusTiers([near, regional, wider, far], _ref,
+        radiusMiles: 30);
+    expect(r.meetings.map((m) => m.id), ['near', 'regional']);
+    expect(r.tierLabel, 'Within 30.0 mi');
   });
 
-  test('applyRadiusTiers excludes no-coord meetings from tiers but keeps fallback', () {
+  test('applyRadiusTiers returns EMPTY, not statewide, when nothing is in range',
+      () {
+    final far = _m(id: 'far', lat: 46.4778, lng: -93.2650);
+    final r = applyRadiusTiers([far], _ref, radiusMiles: 2);
+    expect(r.meetings, isEmpty,
+        reason: 'a 2-mile search must never fall back to showing the whole state');
+    expect(r.tierLabel, contains('No meetings within'));
+  });
+
+  test('applyRadiusTiers default radius is 2 miles, not a wide tier', () {
+    // ~7 mi away: inside the old 25 km "Nearby" tier, far outside 2 mi.
+    final sevenMiles = _m(id: 'seven', lat: 45.0778, lng: -93.2650);
+    final r = applyRadiusTiers([sevenMiles], _ref);
+    expect(r.meetings, isEmpty);
+    expect(r.tierLabel, 'No meetings within 2.0 mi — widen the radius to see more');
+  });
+
+  test('applyRadiusTiers drops no-coord meetings instead of surfacing them', () {
     final noCoord = _m(id: 'ghost', lat: 0, lng: 0);
-    final near = _m(id: 'near', lat: 45.0778, lng: -93.2650);
-    var r = applyRadiusTiers([noCoord, near], _ref);
-    expect(r.tierLabel, 'Nearby');
-    expect(r.meetings.map((m) => m.id), ['near']);
-    r = applyRadiusTiers([noCoord], _ref);
-    expect(r.tierLabel, 'Statewide — No local meetings found in the next 6 hours');
-    expect(r.meetings.map((m) => m.id), ['ghost']);
+    final near = _m(id: 'near', lat: 45.0010, lng: -93.2650);
+    final r = applyRadiusTiers([noCoord, near], _ref, radiusMiles: 2);
+    expect(r.meetings.map((m) => m.id), ['near'],
+        reason: 'a meeting with no location cannot be inside any radius');
+  });
+
+  test('sanitizeRadiusMiles clamps to the supported range', () {
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(null),
+        MeetingRadiusPrefs.defaultRadiusMiles);
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(0), 1.0);
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(500), 50.0);
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(double.nan),
+        MeetingRadiusPrefs.defaultRadiusMiles);
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(double.infinity),
+        MeetingRadiusPrefs.defaultRadiusMiles);
+    expect(MeetingRadiusPrefs.sanitizeRadiusMiles(7), 7.0);
   });
 
   test('sortMeetings orders live before soon before later at equal distance', () {
