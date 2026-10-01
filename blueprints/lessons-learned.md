@@ -467,4 +467,59 @@ rather than let "292 passing" imply coverage it does not provide.
   I initially read "3 check-ins, +5 sparks, sky still empty" as a bug. It is
   correct behaviour, and `constellation_service.dart` is the file that proves it.
   *A surprising empty state is a reason to read the service that owns it, not to
-  file a bug.*
+  file a bug.* The empty state does have a **"Begin My Path"** button that writes
+  a milestone star directly — that is the fast way to get a seeded sky, and it
+  is far more reliable than trying to fake 500 pedometer steps.
+
+---
+
+## L26 — I never asserted the app was in the foreground, and spent two rounds tapping a file manager (Oct 2026)
+
+- **What happened:** continuing L25's device work, I wrote a script whose first
+  act was `input keyevent 4` to "clear a leftover dialog". On a pushed route
+  that walks *past* the app root, out to the launcher. Every subsequent tap then
+  landed on whatever was behind the app. The result: a full round of
+  "zoom slider" taps whose only visible effect was scrolling **X-plore**, a file
+  manager. The file sizes looked plausible (two alternating values), so the run
+  *appeared* to work. Only reading the screenshot caught it.
+- **Root cause — I treated the app being foreground as an assumption rather than
+  a precondition.** Each individual step was correct; the *sequence* had no
+  invariant. Three compounding causes:
+  1. A bare `back` is not a navigation tool, it is an assertion that the current
+     screen has a parent. On a pushed route it does not.
+  2. I never read the foreground activity, so I had no way to know the app had
+     left. `am start` returns `Status: timeout` for this app because the splash
+     alone runs ~12 s — which I had already learned *looks* like failure and
+     isn't, so I had stopped paying attention to that signal entirely.
+  3. PNG byte size was being used as an oracle. It is a **noisy** oracle: an
+     infinite twinkle animation changes every frame, so a real UI change and a
+     random frame are nearly the same size. Two alternating values looked like a
+     pattern; it was two screens.
+- **Prevention rule (the law):** *assert the precondition before every
+  interaction, and never use an indirect signal as evidence.*
+  1. Before **every** tap, read the real resumed activity —
+     `dumpsys activity activities | grep -m1 mResumedActivity` — and re-launch
+     with `am start -n <pkg>/.MainActivity` if it is not ours. Wrap it in
+     `guarded_tap()` so it is impossible to skip. This one function would have
+     caught both lost rounds on the first tap.
+  2. **No bare `back`.** Navigate with `am start` plus taps; when you must go
+     back one known level, re-assert focus afterwards.
+  3. `am start -n` with only `-a/-c` + a package argument **silently no-ops**
+     here — it leaves you on the launcher and reports nothing. Always the
+     explicit component.
+  4. **PNG size is not an oracle** for "did the UI change". Use a dump, or read
+     the image. A screenshot read costs nothing; a wrong conclusion costs a whole
+     round.
+  5. Also: the **Add Star FAB (x 478-692, down to y~1516) nearly touches the zoom
+     track at y=1524**. A track tap at x=678 opens the FAB. Keep track taps
+     clear of the FAB, and expect a surprising dialog when you do not.
+  6. `uiautomator dump` returns **zero nodes** on the constellation screen: its
+     4 s twinkle `AnimationController` never lets the window idle. That screen's
+     geometry has to come from a native-resolution screencap — and because the
+     capture is 1:1, a pixel read off it is a device pixel, which is the one
+     place eyeballing a screenshot is sound.
+- **Why this one matters more than L25:** L25 was a coordinate error, caught by
+  looking. L26 was a *missing invariant* — I generated confident, plausible,
+  entirely fictional evidence about the zoom control, and nearly wrote it up as a
+  pass. A wrong measurement wastes time; **a confidently wrong one poisons the
+  handoff**, which is the artefact the next session trusts.

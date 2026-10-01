@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**, and now **first-verified on real hardware**. The LG B160V confirmed the `isLowEnd` low-end branch (`totalRamGb=2.75 isLowEnd=true`) and light mode on a real screen — and immediately paid for itself by exposing a **real bug the entire test suite could not catch**: two independent `Stack` children colliding inside a fixed 150px `SkyCrown` box at 2.0x text scale, with no overflow and therefore no failing test. Fixed + regression-tested. Also overhauled the repo's shell rules repo-wide: three documents were quietly *licensing* per-edit shelling. See L21 and L22.)
+**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is now **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed on hardware, plus the SOS sheet and all three palettes. That pass earned its keep by finding a **real remaining defect the entire test suite cannot catch** — the constellation zoom pushes off-centre stars off-screen with no pan and no size scaling (§7a, three candidate fixes, needs a human call). Two process lessons came out of the same pass: L25 (never tap in a resized screenshot's coordinate space) and L26 (assert the app is foreground before every tap — I twice generated confident evidence about a screen the app was not on).)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -468,26 +468,87 @@ the gate will fail and Phase 10 forbids it.
   3. **Map rotation** — map renders north-up and **stays** north-up after touch
      interaction; clustering and the "6 live · 198 shown" chip render correctly.
   4. **Title** — "Welcome, Anonymous" still correct.
-  - **Constellation zoom: still NOT device-verified — the slider only exists
-    once the sky has stars, and a fresh profile has none.** Stars are created by
-    walks (500 pedometer steps), 12-Step progress, trial wins, and goals — NOT by
-    mood check-ins (those only award sparks; confirmed: 3 check-ins gave +5
-    sparks and Bond 1% but left the sky empty, which is correct behaviour, not a
-    bug). The B160V has no pedometer to simulate, so this needs either the Moto G
-    with real steps, or a device whose DB is seeded.
-  - **Incidentally verified while walking the flow:** Companion destination
-    (pet card, dresser, Trials) — first hardware check of that destination;
-    Library destination (6 tiles) — first hardware check; Avatar dresser renders
-    with Soft Glow equipped; Kin Remembers memory wall empty state; splash
-    resolves in ~12 s and **persists state across relaunch** (sparks/bond kept);
-    the pedometer permission prompt fires on the Walk **gesture**, never at boot
-    (R24 fix confirmed); walk dialog shows 0/500 on a fresh install with Finish
-    correctly disabled (sensor-offset baseline fix confirmed).
-  - **Still unverified on hardware:** the SOS sheet, onboarding flow, and the
-    Dark Forest / OLED Pitch palettes. Light mode is proven on this one device
-    only (B160V, Midnight Slate).
-  - Device left clean: `font_scale` confirmed 1.0, all `/sdcard` screenshots
-    removed.
+  - **Constellation zoom: NOW device-verified, and the verification found a REAL
+    REMAINING DEFECT — see §7a. Read that before touching the zoom code.**
+    Getting a star onto the sky is the key that was missing: the empty-sky state
+    has a **"Begin My Path"** `FilledButton` that writes a `milestone` star
+    directly (`constellation_screen.dart:448`), and the **"Add Star"** FAB opens
+    the manual dialog (title, hint, 0/40 counter, all six category chips). Both
+    were confirmed on device. Note that mood check-ins do **not** create stars —
+    they only award sparks and bond; stars come from walks (500 pedometer steps),
+    12-Step progress, trial wins, and goals. That is correct, not a bug.
+- **Incidentally verified while walking the flow:** Companion destination
+  (pet card, dresser, Trials) — first hardware check of that destination;
+  Library destination (6 tiles) — first hardware check; Avatar dresser renders
+  with Soft Glow equipped; Kin Remembers memory wall empty state; splash
+  resolves in ~12 s and **persists state across relaunch** (sparks/bond kept);
+  the pedometer permission prompt fires on the Walk **gesture**, never at boot
+  (R24 fix confirmed); walk dialog shows 0/500 on a fresh install with Finish
+  correctly disabled (sensor-offset baseline fix confirmed).
+- **🟢 SOS sheet — device-verified.** Opens from the Path-tab `SOS Help` FAB at
+  measured bounds (447,1304,692,1402). Sheet contents, all four actions present:
+  "You are not alone. / Immediate support, one tap away.", **Call 988** (Suicide
+  & Crisis Lifeline · 24/7), **Call Sponsor** — correctly *disabled*
+  (`clickable=false`) because no sponsor is set, **Nearest Meetings** (three
+  rooms close to you), **Crisis Resources** (988lifeline.org), plus My Support
+  Circle and Close. One SOS surface, as the invariant requires.
+- **🟢 All three palettes — device-verified** (Profile → Appearance; measured
+  chip bounds, Dark mode active): **Midnight Slate** (blue on near-black),
+  **Deep Forest** (green accents on dark green — screenshot confirmed the whole
+  screen re-tints, including SOS red and the switch), **OLED Pitch** (true
+  `#000000` background, confirmed pure black on device). The
+  `midnightSlate`/`oledPitch` light-mode accent limitation still stands and is
+  unchanged.
+- **Still unverified on hardware:** the onboarding flow (needs a data wipe,
+  which would destroy the test state) and the 3D-constellation view.
+- **Device-verification technique that matters (see L25/L26):** the
+  constellation screen returns **zero** `uiautomator` nodes — its 4 s twinkle
+  `AnimationController` never lets the window idle — so slider geometry there
+  must be read off a *native-resolution* screencap. And every tap must be
+  preceded by a foreground assertion; a bare `back` can walk out of the app
+  entirely and the next tap lands on whatever is behind it.
+- Device left clean: `font_scale` confirmed 1.0, all `/sdcard` screenshots
+  removed.
+
+### 7a · OPEN: constellation zoom pushes stars off-screen with no way back
+
+Found by hardware verification on Oct 30, 2026 — **not** caught by any test.
+
+**Symptom.** With one star on the sky, moving the zoom slider right moves the
+thumb and the track fill correctly together, but the **star leaves the visible
+canvas entirely** past roughly 2x and there is no gesture that brings it back.
+Sliding back to minimum restores it. The control reads as "the sky slid away"
+rather than "zoomed in" — the same class of complaint the original tester filed.
+
+**Root cause, in `constellation_screen.dart`:**
+- `_ConstellationCanvasPainter` scales **position only**, about the canvas
+  centre: `px = cx + node.x * size.width * 0.45 * zoom` (lines 745-748 and
+  757-758). With `node.x` normalised to roughly ±1, any node off-centre is
+  pushed past the canvas edge at a low multiple of `zoom`.
+- **Star size ignores `zoom` entirely**: `starSize = 6.0 * focusScale`
+  (line 767). So a star never actually grows, however far you zoom.
+- **There is no pan.** `onScaleUpdate` uses `details.scale` only and never
+  `details.focalPoint` (lines 596-598), so the canvas cannot be dragged.
+
+Net effect: `_maxZoom = 10.0` is unreachable in practice for any constellation
+with off-centre nodes — every one of them flies off screen.
+
+**The fix that shipped in `5f0ec393fcc` was still correct and is confirmed:** the
+slider and the canvas now share one `_zoom` field, so the thumb and the stars
+move in the same coordinate space in the same frame. That half is done. What is
+missing is zoom *semantics*.
+
+**Not yet decided** — needs a human call, do not pick one unilaterally:
+1. *Fit-and-clamp* — scale positions about the constellation's own bounding-box
+   centre and clamp so no node can leave the canvas. Smallest change, no new
+   gesture, but "zoom" then mostly tightens the cluster.
+2. *Real pan + size scaling* — track `focalPoint` for translation and make
+   `starSize`/`glowSize` scale with `zoom`. The honest zoom, but it is a
+   gesture-arena change next to the existing pinch and needs multi-scale
+   regression tests.
+3. *Cap `_maxZoom`* to the largest value that keeps the current spread on
+   screen, and scale star size with it. Cheap, but silently reduces the range
+   the UI advertises.
 
 
 ## 8 · End-of-session checklist (every session)

@@ -222,17 +222,27 @@ the seventh is missing-brace interpolation, added after device testing found
 the app bar shipping the literal text `"Welcome, DashboardScree…"`; prove it with
 `python tools/selftest_invariant7.py` (10/10).
 
-**Three of the four Oct fixes are now device-verified** on the LG B160V
-(versionCode 9): nav order, meeting radius ("198 meetings · 2 mi" in the header,
-one meeting 2.0 mi away on the dashboard card), and map rotation lock
-(north-up and stays north-up). **Constellation zoom is not** — its slider only
-exists once the sky has stars, and a fresh profile has none; stars come from
-walks / 12-Step / trials / goals, never from mood check-ins. See
-`SESSION_HANDOFF.md` §7 for what to check on a device that can produce steps.
+**All four Oct fixes are now device-verified** on the LG B160V (versionCode 9):
+nav order, meeting radius ("198 meetings · 2 mi" in the header, one meeting
+2.0 mi away on the dashboard card), map rotation lock (north-up and stays
+north-up), and constellation zoom. The SOS sheet and all three palettes
+(Midnight Slate, Deep Forest, OLED Pitch) are verified too. Only the onboarding
+flow and the 3D view remain unproven on hardware.
+
+**But the zoom verification found a real remaining defect**, and it is the same
+class of bug the tester originally filed: the slider and the canvas now share
+one `_zoom` correctly, yet zoom scales *position about the canvas centre* only,
+`starSize` ignores `zoom` entirely, and there is no pan — so any off-centre star
+flies off screen past ~2x with no way back. `_maxZoom = 10.0` is unreachable in
+practice. Three candidate fixes are laid out in `SESSION_HANDOFF.md` §7a and
+**need a human decision**; do not pick one unilaterally.
 
 The one thing worth carrying forward is *how* the closing run earned its keep:
 it failed 12 tests that had previously been reported as passing, and the defect
-was in the test harness, not the app. See L20 and the caveat block above.
+was in the test harness, not the app. See L20 and the caveat block above. The
+device pass then earned its keep a second way — see L25 and L26, where the real
+lesson is that I twice generated confident evidence from a screen the app was
+not even on.
 
 ### If you re-run the gates
 
