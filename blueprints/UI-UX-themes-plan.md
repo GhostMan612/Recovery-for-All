@@ -222,34 +222,54 @@ the seventh is missing-brace interpolation, added after device testing found
 the app bar shipping the literal text `"Welcome, DashboardScree…"`; prove it with
 `python tools/selftest_invariant7.py` (10/10).
 
-**All four Oct fixes are now device-verified** on the LG B160V (versionCode 9):
-nav order, meeting radius ("198 meetings · 2 mi" in the header, one meeting
-2.0 mi away on the dashboard card), map rotation lock (north-up and stays
-north-up), and constellation zoom. The SOS sheet and all three palettes
-(Midnight Slate, Deep Forest, OLED Pitch) are verified too. Only the 3D view
-remains unproven on hardware; onboarding was completed by hand on the device.
+**All four Oct fixes are device-verified** on the LG B160V: nav order, meeting
+radius ("198 meetings · 2 mi" in the header, one meeting 2.0 mi away on the
+dashboard card), map rotation lock (north-up and stays north-up), and
+constellation zoom. The SOS sheet and all three palettes (Midnight Slate, Deep
+Forest, OLED Pitch) are verified too, and the 3D view now is as well. Onboarding
+was completed by hand on the device. **Nothing in this program is unverified on
+hardware any more.**
 
-That pass then found a **real remaining defect** in the zoom — the same class of
-bug the tester originally filed. The thumb and the canvas shared one `_zoom`
-correctly, but zoom scaled *position about the canvas centre* only, star size
-ignored zoom entirely, and there was no pan, so any off-centre star flew off
-screen past ~2.5x with no way back. **Fixed** with real pan plus size scaling
-and a `clampSkyPan` invariant that makes every star reachable by construction;
-180 new tests, suite at 480, gates green. Confirmed on hardware by A/B: the same
-track tap that used to make the star vanish now leaves it centred and larger.
-The full account, including the rejected options, is in `SESSION_HANDOFF.md`
-§7a. Pan itself remains unit-verified only — a single star always fits the
-canvas, so panning is correctly a no-op and there is nothing to exercise until
-the sky holds several stars.
+That pass then found **three real remaining defects**, none of which any test
+could see — the same class of bug the tester originally filed, three more times:
 
-The one thing worth carrying forward is *how* the closing run earned its keep:
-it failed 12 tests that had previously been reported as passing, and the defect
-was in the test harness, not the app. See L20 and the caveat block above. The
-device pass then earned its keep a second way — see L25 and L26, where the real
-lesson is that I twice generated confident evidence from a screen the app was
-not even on, and L27, which is the one that matters most: I knew the shell rule,
+1. **Zoom stranded stars.** The thumb and the canvas shared one `_zoom`
+   correctly, but zoom scaled *position about the canvas centre* only, star size
+   ignored zoom entirely, and there was no pan, so any off-centre star flew off
+   screen past ~2.5x with no way back. **Fixed** with real pan plus size scaling
+   and a `clampSkyPan` invariant that makes every star reachable by
+   construction; 180 tests.
+2. **The zoom slider sat underneath the Add Star FAB** at `bottom: 12`, so its
+   right third could not be tapped — a tap meant to zoom opened the Add Star
+   dialog instead. Nothing overflowed, so the 3x2x4x3 matrix was blind to it.
+   Fixed to `bottom: 84`, which clears the FAB at any FAB width.
+3. **The 3D view emitted no semantics at all** — drawn entirely with canvas
+   calls — so a screen-reader user got an unlabelled region. Same class as the
+   Wellness Check-In. Now labelled with the star count and the gesture.
+
+Suite at **488**, all five gates green. Confirmed on hardware: the same track tap
+that used to lose the star now leaves it centred and larger; pan moves a
+seven-star sky that is genuinely wider than the canvas, and low zoom re-centres
+it; the 3D view renders and rotates. The full account is `SESSION_HANDOFF.md`
+§7a.
+
+**What the closing runs actually taught me**, which is worth more than the fixes:
+L20 and L25–L27 are about how I gathered evidence — 12 tests that had been
+reported as passing were failing, and twice I generated confident evidence from a
+screen the app was not even on. **L27** is the sharpest: I knew the shell rule,
 wrote a guard to satisfy it, and then made five separate device calls anyway.
 The lesson is not "add a guard". It is **one call, or report the blocker**.
+
+**L29 and L30 are the ones to carry forward**, because they invalidate the
+measurement technique itself. Two verification runs "confirmed" a regression that
+did not exist, because the installed APK predated the fix and a tap that hits
+nothing looks exactly like a tap on a broken control — both produce byte-identical
+screenshots. It took reading the slider *thumb position* out of the frame, and
+checking `versionCode`, to tell them apart. And when the runs did work, byte
+counts proved unreliable in the other direction: a 26-byte difference between two
+supposedly identical frames is the 4 s twinkle animation, not state. **On a
+screen with a running `AnimationController`, assert on geometry, never on bytes** —
+which is also why `uiautomator` is unusable on this screen at all.
 
 ### If you re-run the gates
 

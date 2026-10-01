@@ -747,8 +747,16 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
             ))))),
           // 3D view
           if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
-          // Zoom slider (bottom)
-          Positioned(left: 16, right: 16, bottom: 12, child: Row(children: [
+          // Zoom slider (bottom).
+          //
+          // `bottom: 12` put this row underneath the extended "Add Star" FAB:
+          // the FAB spans roughly 16..72dp from the bottom on the right half of
+          // the screen, so the right ~30% of the slider track was covered and
+          // could not be tapped or dragged at all. Discovered on hardware, not
+          // by reading — a tap intended for the slider opened the Add Star
+          // dialog instead. Sitting the row above the FAB clears it entirely,
+          // and it clears it for any FAB width rather than for today's label.
+          Positioned(left: 16, right: 16, bottom: 84, child: Row(children: [
             Icon(Icons.zoom_out, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
             Expanded(child: Slider(
               value: _zoom,

@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. That pass found a **real remaining defect the test suite could not catch** — the constellation zoom stranded off-centre stars with no pan and no size scaling — now **fixed** and re-verified on hardware by A/B, with a `clampSkyPan` reachability invariant, 180 new tests, suite at 480, gates green (§7a). Still open: pan is unit-verified only (a lone star always fits the canvas, so there is nothing to pan), and the 3D view is unverified. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap — I twice reported confidently on a screen the app was not on), **L27 (I knew the shell rule, wrote a guard to satisfy it, and then made five device calls anyway — the unit of compliance is the plan, not the call)**, and L28 (two wrong tests before one caught a real bug).)
+**Last updated:** October 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. Hardware testing then found **three real defects the test suite could not catch** — the constellation zoom stranded off-centre stars (§7a), the zoom slider sat **underneath the Add Star FAB** so its right third was untappable, and the 3D view was silent to screen readers. All three are **fixed, tested and re-verified on the device**, including pan on a sky genuinely wider than the canvas. Suite at **488**, analyze clean, all five gates green. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap), **L27 (the unit of compliance is the plan, not the call)**, **L29 (a byte-identical screenshot means nothing happened — not that the control is broken; two passes were invalidated by a stale APK)**, and L28 (two wrong tests before one caught a real bug).)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -221,6 +221,20 @@ resume without losing progress. Update it at every session end.
 3. Release (non-debug) rebuild validation of llama.cpp `.so` set
 4. Re-publish `firestore/firestore.rules` in Firebase console
 5. **Android debug build verified** — agent gates pass; human builds in Android Studio for device testing
+
+### Boxed — hardware or account-gated, NOT open work
+These are **not** unfinished features and must not be re-queued as bugs. Each is
+blocked by something outside the repo, and the blocker is named:
+
+| Item | Blocked by | Note |
+|---|---|---|
+| GGUF on-device QA matrix | **RAM gate** | `isLowEnd` is true on the B160V (2.75 GB), so the GGUF path is gated OFF and *cannot* be exercised there by design. Needs the Moto G 2025 (4-8 GB). Test plan is complete: `docs/qa/gguf_qa.md`. |
+| Step-counter / pedometer QA | **no sensor** | The B160V has no step sensor, so real-movement walk verification cannot run on it. Needs the Moto G. Test plan complete: `docs/qa/step_counter_qa.md`. |
+| iOS / Apple App Store release | **no Mac + $99/yr** | Windows-only dev env; iOS builds need macOS/Xcode. Full spec + unbox checklist in `roadmap-v2.md`. |
+
+The honest summary: **every feature is shipped.** What remains is verification
+that requires hardware or an account this environment does not have. Do not
+open a new feature thread in response to a blocked QA item.
 
 ### Deferred pet items (with reasons — do not silently drop)
 - **Pet-card share**: RepaintBoundary→share_plus; low risk, unscheduled.
@@ -586,12 +600,88 @@ the pre-fix build:
 Screenshot sizes confirm it is reversible rather than a one-way drift: low zoom
 59947 bytes → high 63342/63410 → low 59947 again.
 
-**Pan is still unit-verified only, and honestly so:** with a single star the
-constellation always *fits* the canvas, so `clampSkyPan` centres it and panning
-is a legitimate no-op — there is nothing to pan. Exercising pan on hardware
-needs a constellation wider than the canvas, i.e. several stars, which means
-adding stars through the "Add Star" dialog. The drag was performed and produced
-no misbehaviour, but that proves nothing about panning.
+### 🐛🐛 Two more real defects, found by the same hardware pass
+
+**1. The zoom slider was underneath the Add Star FAB — its right third was
+untappable.** `Positioned(bottom: 12)` put the slider row across the bottom of
+the canvas, and the extended FAB occupies roughly 16..72dp from the bottom
+across the right half of the screen. About 30% of the track was covered: a tap
+meant to zoom **opened the Add Star dialog instead**. Nothing overflowed, so the
+3x2x4x3 theme matrix could not see it. Fixed to `bottom: 84`, which clears the
+FAB for any FAB width rather than for today's label. Pinned by
+`test/constellation_controls_layout_test.dart`, which asserts the non-overlap
+**and** that the old inset *did* overlap, so the guard cannot go vacuous.
+
+**2. The 3D view emitted no semantics at all.** It is drawn entirely with
+`canvas.drawCircle`/`TextPainter`, which produce nothing for a screen reader, so
+a blind user got an unlabelled region where the star list used to be — the same
+class of bug as the Wellness Check-In. It now carries an explicit label with the
+star count and the gesture ("3D constellation view. 7 stars. Drag to rotate."),
+wrapped in `ExcludeSemantics` so the per-star titles are not announced twice.
+Its star cores also used `Colors.white`, a raw literal the colour gate permits
+only in the token file; that is now `colorScheme.onSurface`.
+`test/constellation_layout_test.dart` — 8 tests.
+
+### 🟢 Pan is now device-verified, and so is the 3D view
+
+Seeding **six** stars in one category makes the sky genuinely wider than the
+canvas at high zoom (phyllotaxis radii reach `0.42*sqrt(6)/sqrt(7)` = 0.398,
+and `0.398 * kSkySpread * zoom` passes 1.0 at about zoom 5.6). With one star
+the sky always *fits*, so `clampSkyPan` centres it and panning is a correct
+no-op — which is why the earlier single-star pass could not have tested pan.
+
+With seven stars on `versionCode 10`:
+
+| check | result |
+|---|---|
+| slider reachable off the FAB | low 105140 → high 70466 → low 105140 bytes; thumb visibly clear of the FAB |
+| pan moves the sky | 70544 → 82531 (left) → 70431 (right) → 82505 (left again) — all four distinct |
+| pan brings stars back | a star off-canvas at high zoom is at (306, 917) after one drag left |
+| low zoom re-centres | all 7 stars back and centred; `clampSkyPan` discards the pan when the sky fits |
+| 3D view rotates | 66598 → 61713 → 66738 bytes across two drags, and returns to its original view |
+
+The 26-byte differences between "identical" states are the 4 s twinkle
+animation caught mid-phase, not state — see L30.
+
+### 🧹 The device-pass trap that cost three runs — read this before scripting
+
+Three consecutive device runs produced **false conclusions**, and the cause is
+worth more than any of the fixes above.
+
+The sequence went: the FAB/slider overlap was discovered → fixed in source →
+two verification scripts were written and run. Both "confirmed" that the slider
+still did not work, because low-zoom and high-zoom screenshots came back
+**byte-identical**. That was read as "the fix did not work."
+
+It had. **The installed APK predated the fix.** The taps landed in empty space
+because the slider had moved and the APK had not, so nothing happened — and
+"nothing happened" and "the control is broken" produce the *same* screenshot
+evidence. It took a third run, against a freshly installed `versionCode 10`
+build, for the slider to move at all.
+
+The rules that come out of it, all enforced in `verify_final.py`:
+- **Byte equality is not a diagnosis.** Before concluding a control is broken,
+  confirm the *control moved*. For a slider that means reading the thumb
+  position out of the frame; for a FAB it means checking that no dialog opened.
+  A tap that opens a dialog and a tap that hits nothing are indistinguishable
+  by screenshot size alone.
+- **A device script must assert its own precondition** — which build is
+  installed, and is the versionCode the one under test. `dumpsys package | grep
+  versionCode` costs nothing and would have caught this on run one.
+- **Re-measure after a layout change, never reuse a coordinate.** The slider's y
+  moved by 147px with the fix. Reusing the old `y=1524` is exactly the L25 trap
+  in a new costume, and I walked into it while documenting L25.
+- **Never leave a dialog open between runs.** The stale Add Star dialog from a
+  measurement step swallowed every tap in the run after it, which is how the
+  FAB overlap was found in the first place — a genuine bug discovered
+  accidentally, via a mistake.
+
+**L29:** byte-identical screenshots mean *nothing happened*, not *the control is
+broken*. Confirm the control actually moved before drawing a conclusion, and
+assert which build is installed.
+**L30:** a 26-byte delta between two supposedly identical frames is an
+animation caught mid-phase, not state. Use real geometry, not file size, when
+the screen has a running `AnimationController`.
 
 **Not yet decided** — needs a human call, do not pick one unilaterally:
 1. *Fit-and-clamp* — scale positions about the constellation's own bounding-box

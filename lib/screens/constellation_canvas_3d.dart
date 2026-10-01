@@ -100,25 +100,37 @@ class _RecoveryConstellation3DWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanUpdate: (details) {
-        setState(() {
-          _yaw += details.delta.dx * 0.01;
-          _pitch += details.delta.dy * 0.01;
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Theme.of(context).colorScheme.surface,
-        child: CustomPaint(
-          painter: Constellation3DPainter(
-            nodes: widget.nodes,
-            yaw: _yaw,
-            pitch: _pitch,
-            centerColor: Theme.of(context).colorScheme.primary,
-            linkColor: AppColors.accentSky,
-            labelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+    final theme = Theme.of(context);
+    // The 3D surface is drawn by TextPainter/canvas calls, which emit no
+    // semantics of their own — without this a screen-reader user gets an
+    // unlabelled region where the star list used to be (same class of bug as
+    // the Wellness Check-In).
+    return Semantics(
+      label: '3D constellation view. ${widget.nodes.length} '
+          '${widget.nodes.length == 1 ? 'star' : 'stars'}. Drag to rotate.',
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            _yaw += details.delta.dx * 0.01;
+            _pitch += details.delta.dy * 0.01;
+          });
+        },
+        child: ExcludeSemantics(
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: theme.colorScheme.surface,
+            child: CustomPaint(
+              painter: Constellation3DPainter(
+                nodes: widget.nodes,
+                yaw: _yaw,
+                pitch: _pitch,
+                centerColor: theme.colorScheme.primary,
+                linkColor: AppColors.accentSky,
+                starColor: theme.colorScheme.onSurface,
+                labelColor: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ),
       ),
@@ -133,6 +145,7 @@ class Constellation3DPainter extends CustomPainter {
   final double zoom;
   final Color centerColor;
   final Color linkColor;
+  final Color starColor;
   final Color labelColor;
 
   Constellation3DPainter({
@@ -142,6 +155,7 @@ class Constellation3DPainter extends CustomPainter {
     this.zoom = 1.0,
     required this.centerColor,
     required this.linkColor,
+    required this.starColor,
     required this.labelColor,
   });
 
@@ -219,7 +233,7 @@ class Constellation3DPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
 
       final starPaint = Paint()
-        ..color = Colors.white.withValues(alpha: depthAlpha)
+        ..color = starColor.withValues(alpha: depthAlpha)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(projectedPoints[i], 10.0 * depthAlpha, starGlowPaint);

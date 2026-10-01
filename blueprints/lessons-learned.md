@@ -598,3 +598,71 @@ own implementation.
   that does not place its own subject under the instrument is measuring nothing.
   Keep the derivation next to the function, because the missing term looked like
   a harmless simplification.
+
+---
+
+## L29 — Byte-identical screenshots mean "nothing happened", not "it's broken" (Oct 30, 2026)
+
+The most expensive mistake in this whole device-verification effort, and it cost
+**three** full runs.
+
+- **What happened:** I found a genuine defect on the LG B160V — the constellation
+  zoom slider sat at `bottom: 12`, underneath the extended "Add Star" FAB, so
+  roughly the right third of the track was covered and a tap meant to zoom opened
+  the Add Star dialog instead. I fixed it (`bottom: 84`) and wrote a verification
+  script. It reported: *"FAIL identical sizes -> the tap still is not reaching
+  the slider."* So did the next script. Both were confidently reporting a
+  regression in a fix that worked perfectly well.
+- **Root cause: the installed APK predated the fix.** The taps landed in empty
+  space because the slider had moved up by 147 px and the build on the device had
+  not moved with it. Nothing was happening. But "nothing is happening" and "the
+  control is broken" produce **the same screenshot evidence** — byte-identical
+  PNGs. I treated the second reading as confirmation instead of as a coincidence
+  that should have made me suspicious, and on run three it finally occurred to me
+  to check `dumpsys package | grep versionCode`. It said `9`. The fix was in
+  `main` at `10`.
+- **The worst part:** I had written L25 — *never tap in a resized screenshot's
+  coordinate space* — one session earlier, in almost exactly this shape. Reusing
+  the old `y=1524` after a layout change is the L25 trap wearing a different hat,
+  and I walked straight into it while documenting L25.
+- **Prevention rule (the law):**
+  1. **Byte equality is not a diagnosis.** Before concluding that a control is
+     broken, confirm *the control moved*. For a slider that means reading the
+     thumb's position out of the frame; for a FAB that means checking no dialog
+     opened. Those are direct observations. File size is an indirect proxy that
+     collapses two very different worlds into one.
+  2. **A device script must assert its own preconditions.** Which build is
+     installed, and is its `versionCode` the one under test, costs one
+     `dumpsys` call. It would have caught this on run one. Never let a script
+     report PASS/FAIL on a build it has not identified.
+  3. **Re-measure after any layout change; a coordinate is only valid for the
+     layout it was measured on.** My own lesson file said this. Layout changes
+     invalidate every coordinate in the same pass, including ones for widgets the
+     change did not touch.
+  4. **Never leave a dialog open between runs.** The stale Add Star dialog left
+     over from a measurement step swallowed every tap in the run after it. That is
+     genuinely how the FAB overlap was discovered — a real bug found by accident,
+     through a mistake, which is the least trustworthy way to find a bug.
+
+---
+
+## L30 — A 26-byte delta is an animation, not a state change (Oct 30, 2026)
+
+- **What happened:** my verification script warned *"low zoom is not returning to
+  the same render"* because two low-zoom screenshots differed by 26 bytes out of
+  105140 — a quarter of a percent. Another pair differed by 26 bytes. I had
+  built the whole pass on file size as a cheap proxy for "did the render change,"
+  and the twinkle `AnimationController` makes that proxy unreliable in *both*
+  directions: it invents differences where there is none, and it can mask real
+  differences if the animation happens to land on the same phase twice.
+- **Root cause:** using a noisy scalar as a proxy for a geometric question. The
+  constellation screen runs an 80-star twinkling starfield on a 4 s cycle; any two
+  frames are almost-but-not-quite identical. It is the same noise floor that makes
+  `uiautomator` unusable on this screen (the window never idles, so every dump
+  ends in `Broken pipe`).
+- **Prevention rule (the law):** **when a screen has a running animation, assert
+  on geometry, never on bytes.** Read the star's coordinates out of the frame, or
+  the thumb's, or use a region that excludes the animated background. If the
+  measurement has to be a byte count, first establish the noise floor — take two
+  screenshots of a provably static state and measure how much they differ. A
+  metric you have not calibrated is not a verdict.
