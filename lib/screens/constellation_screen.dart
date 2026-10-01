@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constellation_geometry.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
@@ -514,11 +515,28 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   /// 1.0 forever. A plain field in state makes every consumer agree.
   double _zoom = 1.0;
   double _pinchBaseZoom = 1.0;
+
+  /// Pan offset in canvas logical pixels, applied after the zoom scaling.
+  ///
+  /// Zoom alone cannot keep stars reachable: positions scale about the canvas
+  /// centre, so a node even slightly off-centre leaves the screen by ~2.5x.
+  /// Pan is what makes the sky draggable, and [clampSkyPan] is what guarantees
+  /// that no combination of zoom and pan can strand a star off-screen.
+  Offset _pan = Offset.zero;
+  Offset _panAtGestureStart = Offset.zero;
+  Offset _focalAtGestureStart = Offset.zero;
+
   int? _focusedStarIndex;
   bool _is3DView = false;
 
   static const double _minZoom = 1.0;
   static const double _maxZoom = 10.0;
+
+  /// Nodes mapped to the normalised (-0.45..0.45) space the geometry module
+  /// expects, so the painter, the hit-test and the tests all speak the same
+  /// language.
+  List<Offset> _normalisedNodes() =>
+      [for (final n in widget.nodes) Offset(n.x, n.y)];
 
   @override
   void initState() {
@@ -556,13 +574,29 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
     super.dispose();
   }
 
-  /// Single entry point for every zoom gesture (slider thumb and pinch).
-  /// Repaints the canvas AND the slider from the same value, so they can never
-  /// drift apart again.
+  /// Single entry point for zoom changes that are NOT gestures — i.e. the
+  /// slider. Repaints the canvas AND the slider from the same value, so they can
+  /// never drift apart again.
+  ///
+  /// The pinch path deliberately does not come through here: it has a focal
+  /// point and sets `_zoom` and `_pan` together in one `setState`, because a
+  /// focal-anchored zoom is not expressible as "scale the old zoom".
   void _setZoom(double value, {bool notifyParent = false}) {
     final next = value.clamp(_minZoom, _maxZoom);
     if ((next - _zoom).abs() <= 0.001) return;
-    setState(() => _zoom = next);
+    setState(() {
+      final previous = _zoom;
+      _zoom = next;
+      if (_zoom <= _minZoom) {
+        // Minimum zoom is the "go home" state, so the pan resets there.
+        _pan = Offset.zero;
+      } else {
+        // Scale the pan by the same factor, which keeps the view scaling about
+        // the canvas centre: a point at `C + d` moves to `C + d*r`. Without
+        // this, dragging the slider would also slide the sky sideways.
+        _pan = _pan * (next / previous);
+      }
+    });
     // Only tell the parent on gesture end. Pushing on every drag frame would
     // setState the whole screen ~60x/sec for no benefit.
     if (notifyParent) widget.onZoomChanged(next);
@@ -593,20 +627,73 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onScaleStart: (_) { _pinchBaseZoom = _zoom; },
-      onScaleUpdate: (details) => _setZoom(_pinchBaseZoom * details.scale),
-      onScaleEnd: (_) => widget.onZoomChanged(_zoom),
+      onScaleStart: (d) {
+        _pinchBaseZoom = _zoom;
+        _panAtGestureStart = _pan;
+        _focalAtGestureStart = d.localFocalPoint;
+      },
+      onScaleUpdate: (d) {
+        final size = context.size;
+        if (size == null) return;
+        // One handler for both gestures, because a one-finger drag arrives
+        // here too with scale == 1.0. Zooming and panning in separate
+        // callbacks is what made them fight each other.
+        final next = (_pinchBaseZoom * d.scale).clamp(_minZoom, _maxZoom);
+        final pan = gesturePan(
+          basePan: _panAtGestureStart,
+          baseZoom: _pinchBaseZoom,
+          newZoom: next,
+          focalDelta: d.localFocalPoint - _focalAtGestureStart,
+          startFocal: _focalAtGestureStart,
+          size: size,
+        );
+        setState(() {
+          _zoom = next;
+          _pan = pan;
+        });
+      },
+      onScaleEnd: (_) {
+        // Snap back inside the reachable range so a fling cannot leave the sky
+        // stranded somewhere the user cannot drag out of.
+        final size = context.size;
+        if (size != null) {
+          setState(() {
+            _pan = clampSkyPan(
+              normalised: _normalisedNodes(),
+              size: size,
+              zoom: _zoom,
+              desired: _pan,
+            );
+          });
+        }
+        widget.onZoomChanged(_zoom);
+      },
       onTapUp: (details) {
         final size = context.size;
         if (size == null) return;
+        final pan = clampSkyPan(
+          normalised: _normalisedNodes(),
+          size: size,
+          zoom: _zoom,
+          desired: _pan,
+        );
+        final positions = skyPositions(
+          normalised: _normalisedNodes(),
+          size: size,
+          zoom: _zoom,
+          pan: pan,
+        );
         double bestDist = double.infinity;
         int? bestIndex;
-        for (var i = 0; i < widget.nodes.length; i++) {
-          final node = widget.nodes[i];
-          final px = size.width / 2 + node.x * size.width * 0.45 * _zoom;
-          final py = size.height / 2 + node.y * size.height * 0.45 * _zoom;
-          final dist = (details.localPosition - Offset(px, py)).distance;
-          if (dist < 30 && dist < bestDist) { bestDist = dist; bestIndex = i; }
+        for (var i = 0; i < positions.length; i++) {
+          final dist = (details.localPosition - positions[i]).distance;
+          // The hit radius tracks the drawn star, so a zoomed-in star is still
+          // easy to tap and a zoomed-out one is not fiddly to miss.
+          final radius = 30.0 * skyStarScale(_zoom);
+          if (dist < radius && dist < bestDist) {
+            bestDist = dist;
+            bestIndex = i;
+          }
         }
         if (bestIndex != null) {
           _focusOnStar(bestIndex);
@@ -627,6 +714,7 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
             builder: (context, _) => CustomPaint(painter: _ConstellationCanvasPainter(
               nodes: widget.nodes,
               zoom: _zoom,
+              pan: _pan,
               focusedIndex: _focusedStarIndex,
               focusProgress: _focusController.value,
               fallbackColor: Theme.of(context).colorScheme.primary,
@@ -706,6 +794,10 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
 class _ConstellationCanvasPainter extends CustomPainter {
   final List<ConstellationNode3D> nodes;
   final double zoom;
+
+  /// Requested pan. The *effective* pan is derived from it in [paint] via
+  /// [clampSkyPan], so a caller can never strand the sky off-screen.
+  final Offset pan;
   final int? focusedIndex;
   final double focusProgress;
   final Color fallbackColor;
@@ -714,6 +806,7 @@ class _ConstellationCanvasPainter extends CustomPainter {
   _ConstellationCanvasPainter({
     required this.nodes,
     required this.zoom,
+    required this.pan,
     required this.fallbackColor,
     required this.branchColor,
     this.focusedIndex,
@@ -722,8 +815,22 @@ class _ConstellationCanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
+    final normalised = [for (final n in nodes) Offset(n.x, n.y)];
+    final effectivePan = clampSkyPan(
+      normalised: normalised,
+      size: size,
+      zoom: zoom,
+      desired: pan,
+    );
+    final points = skyPositions(
+      normalised: normalised,
+      size: size,
+      zoom: zoom,
+      pan: effectivePan,
+    );
+    // Star radius grows with zoom so zooming reads as getting closer, not just
+    // as the sky sliding apart.
+    final starScale = skyStarScale(zoom);
 
     // Group nodes by category for branch lines
     final categoryGroups = <String, List<(ConstellationNode3D, int)>>{};
@@ -740,13 +847,11 @@ class _ConstellationCanvasPainter extends CustomPainter {
       if (catNodes.length < 2) continue;
       catNodes.sort((a, b) => a.$1.timestamp.compareTo(b.$1.timestamp));
       for (int i = 1; i < catNodes.length; i++) {
-        final (prevNode, _) = catNodes[i - 1];
-        final (currNode, _) = catNodes[i];
-        final px1 = cx + prevNode.x * size.width * 0.45 * zoom;
-        final py1 = cy + prevNode.y * size.height * 0.45 * zoom;
-        final px2 = cx + currNode.x * size.width * 0.45 * zoom;
-        final py2 = cy + currNode.y * size.height * 0.45 * zoom;
-        final path = Path()..moveTo(px1, py1)..quadraticBezierTo((px1 + px2) / 2, (py1 + py2) / 2 - 30, px2, py2);
+        final (prevNode, prevIndex) = catNodes[i - 1];
+        final (currNode, currIndex) = catNodes[i];
+        final p1 = points[prevIndex];
+        final p2 = points[currIndex];
+        final path = Path()..moveTo(p1.dx, p1.dy)..quadraticBezierTo((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2 - 30, p2.dx, p2.dy);
         canvas.drawPath(path, branchPaint);
       }
     }
@@ -754,8 +859,7 @@ class _ConstellationCanvasPainter extends CustomPainter {
     // Draw stars
     for (int i = 0; i < nodes.length; i++) {
       final node = nodes[i];
-      final px = cx + node.x * size.width * 0.45 * zoom;
-      final py = cy + node.y * size.height * 0.45 * zoom;
+      final at = points[i];
       final color = _colorForCategory(node.category);
       final isFocused = focusedIndex == i;
       final focusScale = isFocused ? 1.0 + 0.5 * focusProgress : 1.0;
@@ -764,15 +868,17 @@ class _ConstellationCanvasPainter extends CustomPainter {
       final glowPaint = Paint()..color = color.withValues(alpha: 0.4 * focusAlpha * focusScale)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0)..style = PaintingStyle.fill;
       final starPaint = Paint()..color = color.withValues(alpha: focusAlpha)..style = PaintingStyle.fill;
 
-      final starSize = 6.0 * focusScale;
-      final glowSize = 14.0 * focusScale;
+      // starScale is what makes zoom legible: without it a star stayed 6px at
+      // every zoom level and zooming only moved it around.
+      final starSize = 6.0 * focusScale * starScale;
+      final glowSize = 14.0 * focusScale * starScale;
 
-      canvas.drawCircle(Offset(px, py), glowSize, glowPaint);
-      canvas.drawCircle(Offset(px, py), starSize, starPaint);
+      canvas.drawCircle(at, glowSize, glowPaint);
+      canvas.drawCircle(at, starSize, starPaint);
 
       if (isFocused) {
         final ringPaint = Paint()..color = color.withValues(alpha: 0.5 * focusProgress)..style = PaintingStyle.stroke..strokeWidth = 3.0;
-        canvas.drawCircle(Offset(px, py), starSize + 8 + 10 * focusProgress, ringPaint);
+        canvas.drawCircle(at, starSize + 8 + 10 * focusProgress, ringPaint);
       }
     }
   }
@@ -781,7 +887,9 @@ class _ConstellationCanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ConstellationCanvasPainter oldDelegate) {
-    return oldDelegate.zoom != zoom || oldDelegate.focusedIndex != focusedIndex || oldDelegate.focusProgress != focusProgress || oldDelegate.nodes != nodes || oldDelegate.fallbackColor != fallbackColor || oldDelegate.branchColor != branchColor;
+    // pan is load-bearing here: without it in this list, panning repaints
+    // nothing and the sky appears frozen under the user's finger.
+    return oldDelegate.zoom != zoom || oldDelegate.pan != pan || oldDelegate.focusedIndex != focusedIndex || oldDelegate.focusProgress != focusProgress || oldDelegate.nodes != nodes || oldDelegate.fallbackColor != fallbackColor || oldDelegate.branchColor != branchColor;
   }
 }
 

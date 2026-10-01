@@ -229,20 +229,25 @@ north-up), and constellation zoom. The SOS sheet and all three palettes
 (Midnight Slate, Deep Forest, OLED Pitch) are verified too. Only the onboarding
 flow and the 3D view remain unproven on hardware.
 
-**But the zoom verification found a real remaining defect**, and it is the same
-class of bug the tester originally filed: the slider and the canvas now share
-one `_zoom` correctly, yet zoom scales *position about the canvas centre* only,
-`starSize` ignores `zoom` entirely, and there is no pan — so any off-centre star
-flies off screen past ~2x with no way back. `_maxZoom = 10.0` is unreachable in
-practice. Three candidate fixes are laid out in `SESSION_HANDOFF.md` §7a and
-**need a human decision**; do not pick one unilaterally.
+That pass then found a **real remaining defect** in the zoom — the same class of
+bug the tester originally filed. The thumb and the canvas shared one `_zoom`
+correctly, but zoom scaled *position about the canvas centre* only, star size
+ignored zoom entirely, and there was no pan, so any off-centre star flew off
+screen past ~2.5x with no way back. **Fixed** with real pan plus size scaling
+and a `clampSkyPan` invariant that makes every star reachable by construction;
+180 new tests, suite at 480, gates green. The full account, including the
+options that were rejected, is `SESSION_HANDOFF.md` §7a. It is **unit-verified
+only** — a fresh install lands on onboarding, which also defeats `uiautomator`,
+so it could not be walked blind.
 
 The one thing worth carrying forward is *how* the closing run earned its keep:
 it failed 12 tests that had previously been reported as passing, and the defect
 was in the test harness, not the app. See L20 and the caveat block above. The
 device pass then earned its keep a second way — see L25 and L26, where the real
 lesson is that I twice generated confident evidence from a screen the app was
-not even on.
+not even on, and L27, which is the one that matters most: I knew the shell rule,
+wrote a guard to satisfy it, and then made five separate device calls anyway.
+The lesson is not "add a guard". It is **one call, or report the blocker**.
 
 ### If you re-run the gates
 

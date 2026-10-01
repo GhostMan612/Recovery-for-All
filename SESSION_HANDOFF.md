@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is now **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed on hardware, plus the SOS sheet and all three palettes. That pass earned its keep by finding a **real remaining defect the entire test suite cannot catch** — the constellation zoom pushes off-centre stars off-screen with no pan and no size scaling (§7a, three candidate fixes, needs a human call). Two process lessons came out of the same pass: L25 (never tap in a resized screenshot's coordinate space) and L26 (assert the app is foreground before every tap — I twice generated confident evidence about a screen the app was not on).)
+**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. That pass found a **real remaining defect the test suite could not catch** — the constellation zoom stranded off-centre stars with no pan and no size scaling — now **fixed** with a `clampSkyPan` reachability invariant, 180 new tests, suite at 480, gates green (§7a). Still open: the zoom fix is unit-verified only, and onboarding is unverified because it also defeats `uiautomator`. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap — I twice reported confidently on a screen the app was not on), **L27 (I knew the shell rule, wrote a guard to satisfy it, and then made five device calls anyway — the unit of compliance is the plan, not the call)**, and L28 (two wrong tests before one caught a real bug).)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -510,33 +510,66 @@ the gate will fail and Phase 10 forbids it.
 - Device left clean: `font_scale` confirmed 1.0, all `/sdcard` screenshots
   removed.
 
-### 7a · OPEN: constellation zoom pushes stars off-screen with no way back
+### 7a · FIXED: constellation zoom no longer strands stars
 
-Found by hardware verification on Oct 30, 2026 — **not** caught by any test.
+Found by hardware verification on Oct 30, 2026 — **not** caught by any test — and
+fixed the same day. **Option 2 of the three candidates** (real pan + size
+scaling) was chosen, because it is the only one where the control means what it
+says.
 
-**Symptom.** With one star on the sky, moving the zoom slider right moves the
-thumb and the track fill correctly together, but the **star leaves the visible
-canvas entirely** past roughly 2x and there is no gesture that brings it back.
-Sliding back to minimum restores it. The control reads as "the sky slid away"
-rather than "zoomed in" — the same class of complaint the original tester filed.
+**What was wrong.** The painter scaled star *position* about the canvas centre
+by `zoom`, never scaled star *size*, and there was no pan gesture at all:
 
-**Root cause, in `constellation_screen.dart`:**
-- `_ConstellationCanvasPainter` scales **position only**, about the canvas
-  centre: `px = cx + node.x * size.width * 0.45 * zoom` (lines 745-748 and
-  757-758). With `node.x` normalised to roughly ±1, any node off-centre is
-  pushed past the canvas edge at a low multiple of `zoom`.
-- **Star size ignores `zoom` entirely**: `starSize = 6.0 * focusScale`
-  (line 767). So a star never actually grows, however far you zoom.
-- **There is no pan.** `onScaleUpdate` uses `details.scale` only and never
-  `details.focalPoint` (lines 596-598), so the canvas cannot be dragged.
+- `px = cx + node.x * size.width * 0.45 * zoom` — position only
+- `starSize = 6.0 * focusScale` — **size ignored `zoom` entirely**
+- `onScaleUpdate` read `details.scale` only, never `details.focalPoint`
 
-Net effect: `_maxZoom = 10.0` is unreachable in practice for any constellation
-with off-centre nodes — every one of them flies off screen.
+So a star even slightly off-centre left the screen by about 2.5x with no gesture
+that could bring it back, and `_maxZoom = 10.0` was unreachable for any
+constellation with off-centre nodes. Note the earlier fix in `5f0ec393fcc` was
+itself correct — it made the thumb and the canvas share one `_zoom` — but
+sharing the value did not make the *semantics* right.
 
-**The fix that shipped in `5f0ec393fcc` was still correct and is confirmed:** the
-slider and the canvas now share one `_zoom` field, so the thumb and the stars
-move in the same coordinate space in the same frame. That half is done. What is
-missing is zoom *semantics*.
+**The fix, in `lib/core/constellation_geometry.dart` (new) plus
+`constellation_screen.dart`:**
+- All the layout maths now lives in one module, so the painter, the tap
+  hit-test and the tests cannot disagree — the painter and the hit-test used to
+  compute star positions independently, which is how they drifted apart in the
+  first place.
+- `skyStarScale(zoom)` — star radius grows sub-linearly with zoom. Linear would
+  be wrong: the range is 1x-10x, so a star would end up wider than the phone.
+- `clampSkyPan(...)` — **the invariant that matters.** When the zoomed sky fits
+  the canvas the pan is discarded and it is centred. When it is too big to fit,
+  the pan is clamped to exactly the range that can bring either edge of the sky
+  to the opposite edge of the canvas. Every star is therefore *reachable by
+  construction*: you may not see them all at once, but none can be lost.
+  Applied inside `paint`, so no caller can strand the sky.
+- `gesturePan(...)` — one handler for pinch and one-finger drag, so a pinch
+  zooms **about the fingers** and a drag pans. The grabbed point stays under the
+  fingertip.
+- `shouldRepaint` now includes `pan`; without it, panning repaints nothing and
+  the sky appears frozen under the user's finger.
+- The tap hit radius tracks the drawn star size, so a zoomed-in star stays easy
+  to tap.
+
+**Verified:** `test/constellation_geometry_test.dart`, 180 tests — the
+reachability invariant across 3 canvas sizes (incl. a 320x568) x 3 node sets x
+19 zoom levels, plus `clampSkyPan` idempotence, degenerate inputs, and the
+focal-anchored pinch. Full suite **480 passing**, `flutter analyze` clean, both
+Python gates exit 0.
+
+**The new test caught a real bug in my own first attempt:** `gesturePan` was
+missing a `basePan * k` term, which double-counted any pan already in effect and
+made the grabbed star slide out from under the finger. Two earlier drafts of the
+test were also wrong before that — one asserted that *some node* is on screen
+(unknowable when the sky is larger than the canvas) and one "grabbed" empty sky
+without ever placing a star under the finger. See L28.
+
+**Not yet device-verified.** The fix is confirmed by unit test only. Verifying
+it on the B160V needs a profile with a star, and a fresh install now lands on
+**onboarding** — which is a screen that also defeats `uiautomator` (nodes come
+back with empty labels), so it could not be walked blind. Onboarding screens 1
+and 4 of 7 were seen and render correctly; steps 2-3 and 5-7 are unseen.
 
 **Not yet decided** — needs a human call, do not pick one unilaterally:
 1. *Fit-and-clamp* — scale positions about the constellation's own bounding-box
@@ -545,7 +578,7 @@ missing is zoom *semantics*.
 2. *Real pan + size scaling* — track `focalPoint` for translation and make
    `starSize`/`glowSize` scale with `zoom`. The honest zoom, but it is a
    gesture-arena change next to the existing pinch and needs multi-scale
-   regression tests.
+   regression tests. **← This is the one that was built. See above.**
 3. *Cap `_maxZoom`* to the largest value that keeps the current spread on
    screen, and scale star size with it. Cheap, but silently reduces the range
    the UI advertises.
