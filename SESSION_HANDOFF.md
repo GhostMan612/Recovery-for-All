@@ -233,7 +233,7 @@ resume without losing progress. Update it at every session end.
 | Device fleet | Blu View 5 (~3 GB → GGUF gate OFF), Moto G 2025 (4–8 GB, primary test target), Dell Latitude 5400 dev host (16 GB) |
 | TF training | System Python 3.14 has no TF wheels → use `.venv-tf` (Python 3.12 via uv); see AGENTS.md command |
 | Firebase | Project `recovery-for-all-c2ee8`, package `com.recoveryforall`, anonymous auth live, `community_feeds` mirror confirmed working |
-| Sovereign dirs | `C:\pathfinder_god`, `C:\Sovereign Nodes`, `C:\sovereign_mantle`, `C:\sovereign_tagger_2`, `C:\sovereign_tagger_bak` — READ/COPY only, never modify |
+| Sovereign dirs | `C:\pathfinder_god`, `C:\Sovereign Nodes`, `C:\sovereign_mantle`, `C:\sovereign_tagger_2`, `C:\sovereign_tagger_bak` — **READ-ONLY by default.** Do not modify on your own initiative. If the user asks for work there, hand them a self-contained prompt to run in that repo, or get explicit per-repo authorization first. A past session edited four of these unprompted; `git revert` then deleted 30 tracked `.opencode` files from `pathfinder_god` and its agents/plugins/tools vanished. Everything was recoverable from history, but the detour cost hours. |
 
 ## 6 · Question → document map
 
@@ -449,12 +449,45 @@ the gate will fail and Phase 10 forbids it.
   files have been removed from `/sdcard` on both devices. The Moto G
   (192.168.4.202:40809, WiFi) has since dropped offline — reconnect with
   `adb connect 192.168.4.202:40809`.
-- The `+9` release AAB in `build/` predates all of this and is stale. Do not
-  upload it. The only binary built so far is a **debug** APK.
-- **Still unverified on hardware:** the Companion and Library destinations, the
-  onboarding flow, and the SOS sheet. Phases 0-17's *light mode* is now proven on
-  one device only (B160V, Midnight Slate palette). Dark Forest and OLED Pitch
-  were **not** spot-checked on screen.
+- ~~The `+9` release AAB in `build/` predates all of this and is stale. Do not
+  upload it. The only binary built so far is a **debug** APK.~~
+  **SUPERSEDED (Oct 2026):** the `build/` tree had been deleted, so there was no
+  AAB at all. A **fresh signed release AAB was then built after the four
+  tester-bug fixes** — `build/app/outputs/bundle/release/
+  recovery-for-all-1.0.0+9.aab` (129.1 MB), signature verified with `keytool`
+  (`CN=Glenn Lee Clark IV, OU=Recovery For All`, valid to 2054,
+  `META-INF/UPLOAD.RSA` present). That one is current and safe to upload.
+  Note `build/` is gitignored, so re-verify the file exists before referencing it.
+- **🟢 DEVICE VERIFIED (Oct round, LG B160V, versionCode 9, debug APK, font_scale
+  1.0, fresh install).** All four Oct tester fixes confirmed on real hardware:
+  1. **Nav order** — Path · Companion · Library · Profile, Path leading.
+  2. **Meeting radius** — Meeting Finder header reads **"198 meetings · 2 mi"**,
+     and the dashboard "In Progress Now" card shows **one** meeting 2.0 mi away
+     with a real St. Paul address. It no longer lists statewide meetings during
+     a 2-mile search. Radius survives navigation.
+  3. **Map rotation** — map renders north-up and **stays** north-up after touch
+     interaction; clustering and the "6 live · 198 shown" chip render correctly.
+  4. **Title** — "Welcome, Anonymous" still correct.
+  - **Constellation zoom: still NOT device-verified — the slider only exists
+    once the sky has stars, and a fresh profile has none.** Stars are created by
+    walks (500 pedometer steps), 12-Step progress, trial wins, and goals — NOT by
+    mood check-ins (those only award sparks; confirmed: 3 check-ins gave +5
+    sparks and Bond 1% but left the sky empty, which is correct behaviour, not a
+    bug). The B160V has no pedometer to simulate, so this needs either the Moto G
+    with real steps, or a device whose DB is seeded.
+  - **Incidentally verified while walking the flow:** Companion destination
+    (pet card, dresser, Trials) — first hardware check of that destination;
+    Library destination (6 tiles) — first hardware check; Avatar dresser renders
+    with Soft Glow equipped; Kin Remembers memory wall empty state; splash
+    resolves in ~12 s and **persists state across relaunch** (sparks/bond kept);
+    the pedometer permission prompt fires on the Walk **gesture**, never at boot
+    (R24 fix confirmed); walk dialog shows 0/500 on a fresh install with Finish
+    correctly disabled (sensor-offset baseline fix confirmed).
+  - **Still unverified on hardware:** the SOS sheet, onboarding flow, and the
+    Dark Forest / OLED Pitch palettes. Light mode is proven on this one device
+    only (B160V, Midnight Slate).
+  - Device left clean: `font_scale` confirmed 1.0, all `/sdcard` screenshots
+    removed.
 
 
 ## 8 · End-of-session checklist (every session)

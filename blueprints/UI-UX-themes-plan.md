@@ -96,7 +96,7 @@ claim — see L22.
 | 14 - Motion system | VERIFIED | `core/motion/app_motion.dart`; 5 read sites consolidated; onboarding transition now respects reduce-motion |
 | 15 - Theme matrix | VERIFIED | 3 palettes x 2 brightness rendered; one real palette finding recorded below |
 | 16 - Architecture hardening | VERIFIED | audit clean; invariant 6 added so the motion policy cannot fragment again |
-| 17 - Final verification | VERIFIED | analyze clean, 292 tests, both Python gates exit 0 |
+| 17 - Final verification | VERIFIED | analyze clean, 292 tests (300 after the Oct bug round), both Python gates exit 0 |
 
 ### Phase 12-17: what each phase actually found
 
@@ -214,11 +214,25 @@ architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
 ## Resume Here (program COMPLETE — Phases 0-17, all gates green)
 
-**Nothing is left to build. The verification batch has been run and the suite
-is green at 292/292.** The one thing worth carrying forward is *how* the
-closing run earned its keep: it failed 12 tests that had previously been
-reported as passing, and the defect was in the test harness, not the app. See
-L20 and the caveat block above.
+**Nothing is left to build. As of the Oct closed-test bug round the suite is
+green at 300/300** (292 after Phase 17, +8 from the four tester-bug fixes: 5
+radius tests replacing 2 that had pinned the bug, plus the nav-order and
+back-target tests). `verify_invariants.py` now enforces **seven** invariants —
+the seventh is missing-brace interpolation, added after device testing found
+the app bar shipping the literal text `"Welcome, DashboardScree…"`; prove it with
+`python tools/selftest_invariant7.py` (10/10).
+
+**Three of the four Oct fixes are now device-verified** on the LG B160V
+(versionCode 9): nav order, meeting radius ("198 meetings · 2 mi" in the header,
+one meeting 2.0 mi away on the dashboard card), and map rotation lock
+(north-up and stays north-up). **Constellation zoom is not** — its slider only
+exists once the sky has stars, and a fresh profile has none; stars come from
+walks / 12-Step / trials / goals, never from mood check-ins. See
+`SESSION_HANDOFF.md` §7 for what to check on a device that can produce steps.
+
+The one thing worth carrying forward is *how* the closing run earned its keep:
+it failed 12 tests that had previously been reported as passing, and the defect
+was in the test harness, not the app. See L20 and the caveat block above.
 
 ### If you re-run the gates
 

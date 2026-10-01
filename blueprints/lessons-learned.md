@@ -427,3 +427,44 @@ rather than let "292 passing" imply coverage it does not provide.
   before tearDowns). And when a whole test file fails identically, suspect the
   harness before suspecting twelve widgets at once: one wrong accessor produced
   twelve separate-looking failures.
+
+---
+
+## L25 — Blinding device verification to scaled screenshots cost ~10 wasted probes (Oct 2026)
+
+- **What happened:** verifying the four tester fixes on the B160V burned roughly
+  ten screenshot/tap round-trips that accomplished nothing. Taps at
+  `input tap 120 665` and similar simply did not land, and the app looked
+  identical after each one, so each failure looked like "the fix didn't work"
+  when in fact the tap had never reached the widget.
+- **Root cause — two separate mistakes, both about not reading the screen's real
+  geometry.** First: `adb exec-out screencap -p > file` through PowerShell
+  **silently corrupted the PNG** (ANSI/CRLF mangling); `PIL` then raised
+  `UnidentifiedImageError`, which reads like a bad capture rather than a bad
+  redirect. Second, and worse: the images I was reasoning over had been
+  *downscaled to 322 px wide for reading*, and I was then tapping in
+  **scaled coordinates against a 720x1612 device**. Every tap was landing
+  roughly 2.2x off target. I "fixed" this by guessing new coordinates several
+  times instead of measuring once.
+- **Prevention rule (the law):** *never reason about a screenshot you resized,
+  and never tap in the coordinate space of a resized image.*
+  1. `adb shell screencap -p /sdcard/x.png` then `adb pull` — **never**
+     `exec-out` with a PowerShell `>` redirect.
+  2. Resize **only a second copy** for viewing; tap in **device pixels**.
+  3. Before the first tap, get the real geometry once:
+     `adb shell wm size` and `adb shell wm density`. Scale factor is
+     `device_width / resized_width`. Do this once per device, not per tap.
+  4. When a tap produces no change, the correct next step is to **measure the
+     target** (`uiautomator dump` + read `bounds`) or to navigate by a route you
+     have confirmed in code — **not** to try another coordinate. I burned four
+     probes on guessed taps that a single `wm size` would have prevented.
+  5. `uiautomator dump` puts the whole tree on **one line**, so `grep` truncates
+     it and inline `python -c` through PowerShell mangles the regex (again, see
+     the PowerShell rule). Read bounds with a small `.py` file, not a shell one-liner.
+- **Bonus finding, worth keeping:** a fresh profile's constellation is empty, and
+  **mood check-ins do not create stars** — they only award sparks and bond. Stars
+  come from walks (500 pedometer steps), 12-Step progress, trial wins, and goals.
+  I initially read "3 check-ins, +5 sparks, sky still empty" as a bug. It is
+  correct behaviour, and `constellation_service.dart` is the file that proves it.
+  *A surprising empty state is a reason to read the service that owns it, not to
+  file a bug.*
