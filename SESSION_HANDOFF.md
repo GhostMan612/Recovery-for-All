@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. That pass found a **real remaining defect the test suite could not catch** — the constellation zoom stranded off-centre stars with no pan and no size scaling — now **fixed** with a `clampSkyPan` reachability invariant, 180 new tests, suite at 480, gates green (§7a). Still open: the zoom fix is unit-verified only, and onboarding is unverified because it also defeats `uiautomator`. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap — I twice reported confidently on a screen the app was not on), **L27 (I knew the shell rule, wrote a guard to satisfy it, and then made five device calls anyway — the unit of compliance is the plan, not the call)**, and L28 (two wrong tests before one caught a real bug).)
+**Last updated:** September 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. That pass found a **real remaining defect the test suite could not catch** — the constellation zoom stranded off-centre stars with no pan and no size scaling — now **fixed** and re-verified on hardware by A/B, with a `clampSkyPan` reachability invariant, 180 new tests, suite at 480, gates green (§7a). Still open: pan is unit-verified only (a lone star always fits the canvas, so there is nothing to pan), and the 3D view is unverified. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap — I twice reported confidently on a screen the app was not on), **L27 (I knew the shell rule, wrote a guard to satisfy it, and then made five device calls anyway — the unit of compliance is the plan, not the call)**, and L28 (two wrong tests before one caught a real bug).)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -499,14 +499,22 @@ the gate will fail and Phase 10 forbids it.
   `#000000` background, confirmed pure black on device). The
   `midnightSlate`/`oledPitch` light-mode accent limitation still stands and is
   unchanged.
-- **Still unverified on hardware:** the onboarding flow (needs a data wipe,
-  which would destroy the test state) and the 3D-constellation view.
-- **Device-verification technique that matters (see L25/L26):** the
+- **Still unverified on hardware:** the 3D-constellation view. The onboarding
+  flow was **completed on the device by hand** (it could not be walked blind —
+  see the technique note below), and the result is a working profile; steps 1
+  and 4 of 7 were seen rendering correctly, but 2-3 and 5-7 were not
+  independently observed.
+- **Device-verification technique that matters (see L25/L26/L27):** the
   constellation screen returns **zero** `uiautomator` nodes — its 4 s twinkle
   `AnimationController` never lets the window idle — so slider geometry there
-  must be read off a *native-resolution* screencap. And every tap must be
-  preceded by a foreground assertion; a bare `back` can walk out of the app
-  entirely and the next tap lands on whatever is behind it.
+  must be read off a *native-resolution* screencap. Onboarding likewise returns
+  nodes with **empty labels**, so its CTA cannot be found by text either. Every
+  tap must be preceded by a foreground assertion; a bare `back` can walk out of
+  the app entirely and the next tap lands on whatever is behind it. And do not
+  reuse a measured coordinate across layouts: **the empty-sky state replaces the
+  whole body, so there is no legend and no zoom slider until a star exists** —
+  six track taps against the empty state changed nothing and produced six
+  byte-identical screenshots.
 - Device left clean: `font_scale` confirmed 1.0, all `/sdcard` screenshots
   removed.
 
@@ -565,11 +573,25 @@ test were also wrong before that — one asserted that *some node* is on screen
 (unknowable when the sky is larger than the canvas) and one "grabbed" empty sky
 without ever placing a star under the finger. See L28.
 
-**Not yet device-verified.** The fix is confirmed by unit test only. Verifying
-it on the B160V needs a profile with a star, and a fresh install now lands on
-**onboarding** — which is a screen that also defeats `uiautomator` (nodes come
-back with empty labels), so it could not be walked blind. Onboarding screens 1
-and 4 of 7 were seen and render correctly; steps 2-3 and 5-7 are unseen.
+**🟢 Now device-verified too.** Re-installed the debug APK on the B160V and ran
+the decisive A/B — the *same* track tap at `x=438, y=1524` that lost the star on
+the pre-fix build:
+
+| | pre-fix | post-fix |
+|---|---|---|
+| the seeded star | **absent from the canvas** | **present, centred at (360, 917)** |
+| star size | unchanged | visibly larger, wider glow |
+| slider | thumb moves, star does not follow | thumb and star agree, reversibly |
+
+Screenshot sizes confirm it is reversible rather than a one-way drift: low zoom
+59947 bytes → high 63342/63410 → low 59947 again.
+
+**Pan is still unit-verified only, and honestly so:** with a single star the
+constellation always *fits* the canvas, so `clampSkyPan` centres it and panning
+is a legitimate no-op — there is nothing to pan. Exercising pan on hardware
+needs a constellation wider than the canvas, i.e. several stars, which means
+adding stars through the "Add Star" dialog. The drag was performed and produced
+no misbehaviour, but that proves nothing about panning.
 
 **Not yet decided** — needs a human call, do not pick one unilaterally:
 1. *Fit-and-clamp* — scale positions about the constellation's own bounding-box

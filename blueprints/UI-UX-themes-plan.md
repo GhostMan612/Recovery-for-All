@@ -226,8 +226,8 @@ the app bar shipping the literal text `"Welcome, DashboardScree…"`; prove it w
 nav order, meeting radius ("198 meetings · 2 mi" in the header, one meeting
 2.0 mi away on the dashboard card), map rotation lock (north-up and stays
 north-up), and constellation zoom. The SOS sheet and all three palettes
-(Midnight Slate, Deep Forest, OLED Pitch) are verified too. Only the onboarding
-flow and the 3D view remain unproven on hardware.
+(Midnight Slate, Deep Forest, OLED Pitch) are verified too. Only the 3D view
+remains unproven on hardware; onboarding was completed by hand on the device.
 
 That pass then found a **real remaining defect** in the zoom — the same class of
 bug the tester originally filed. The thumb and the canvas shared one `_zoom`
@@ -235,10 +235,12 @@ correctly, but zoom scaled *position about the canvas centre* only, star size
 ignored zoom entirely, and there was no pan, so any off-centre star flew off
 screen past ~2.5x with no way back. **Fixed** with real pan plus size scaling
 and a `clampSkyPan` invariant that makes every star reachable by construction;
-180 new tests, suite at 480, gates green. The full account, including the
-options that were rejected, is `SESSION_HANDOFF.md` §7a. It is **unit-verified
-only** — a fresh install lands on onboarding, which also defeats `uiautomator`,
-so it could not be walked blind.
+180 new tests, suite at 480, gates green. Confirmed on hardware by A/B: the same
+track tap that used to make the star vanish now leaves it centred and larger.
+The full account, including the rejected options, is in `SESSION_HANDOFF.md`
+§7a. Pan itself remains unit-verified only — a single star always fits the
+canvas, so panning is correctly a no-op and there is nothing to exercise until
+the sky holds several stars.
 
 The one thing worth carrying forward is *how* the closing run earned its keep:
 it failed 12 tests that had previously been reported as passing, and the defect
