@@ -101,7 +101,7 @@ flutter build apk --debug                                  # expect: success
 ```
 
 Notes for the collaborator:
-- `lib/database/recovery_database.g.dart` is intentionally excluded; build_runner regenerates it from the schema (v6).
+- `lib/database/recovery_database.g.dart` is intentionally excluded; build_runner regenerates it from the schema (v12 as of the Oct 30 audit batch — read `schemaVersion` in `recovery_database.dart` for the live value, do not trust this comment).
 - The Meeting Finder currently ships a synthetic offline sample directory (`lib/services/meeting_finder_service.dart`).
 - Research grounding per feature is catalogued in the companion notebook index (Wellbriety/Medicine Wheel -> toolbox pool, PERMA -> gratitude math, MI/sycophancy-mitigation -> coach prompts, SQLCipher -> database pragmas).
 """

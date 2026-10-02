@@ -7,6 +7,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import '../database/recovery_database.dart';
+import 'journal_crypto_service.dart';
 import 'ollama_service.dart';
 
 /// R26 — Narrative Identity engine (Dan P. McAdams).
@@ -106,15 +107,33 @@ Keep it concise, empathetic, and free of medical advice or sycophancy.
     return "$p1\n\n$p2\n\n$p3";
   }
 
-  /// Persists chronicle as a journal entry (encrypted at rest via SQLCipher DB).
-  /// Content is stored as the journal's contentEncrypted field; the DB layer
-  /// is already encrypted, and journal crypto is applied at the UI layer on read.
+  /// Persists chronicle as a journal entry, ENCRYPTED with the journal's own
+  /// key — not merely sitting inside the SQLCipher file.
+  ///
+  /// The old code wrote the chronicle into `contentEncrypted` as PLAINTEXT and
+  /// justified it with "the DB layer is already encrypted". That reasoning is
+  /// wrong: `JournalCryptoService.decrypt` routes anything without the `ENC2_`
+  /// prefix to `decryptLegacy`, which returns the string as-is. So the chronicle
+  /// was readable by anything holding the DB key, with no PIN, and it was
+  /// exported verbatim by `DataExportService`. It also mixed plaintext and
+  /// ciphertext in one column, which any consumer that assumes ciphertext will
+  /// mishandle.
   static Future<void> saveToJournal(RecoveryDatabase db, String chronicle) async {
+    String sealed;
+    try {
+      final key = await JournalCryptoService.loadMasterKey();
+      sealed = await JournalCryptoService.encrypt(chronicle, key);
+    } catch (e) {
+      // Refuse to store a clinical narrative in the clear. Losing the export is
+      // strictly better than writing readable plaintext into the journal.
+      debugPrint('[narrative] refusing to write an unencrypted chronicle: $e');
+      rethrow;
+    }
     final entry = JournalEntry(
       id: 'chronicle_${DateTime.now().millisecondsSinceEpoch}',
       timestamp: DateTime.now().millisecondsSinceEpoch,
       moodRating: 4,
-      contentEncrypted: chronicle,
+      contentEncrypted: sealed,
       isSyncedToCloud: false,
     );
     await db.addJournalEntry(entry);

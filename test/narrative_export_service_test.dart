@@ -5,14 +5,25 @@
 
 import 'package:drift/drift.dart' show QueryExecutor;
 import 'package:drift/native.dart';
+import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
+import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recovery_for_all/database/recovery_database.dart';
+import 'package:recovery_for_all/services/journal_crypto_service.dart';
 import 'package:recovery_for_all/services/narrative_export_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late RecoveryDatabase db;
 
   setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // saveToJournal now encrypts with the journal key, which lives in
+    // flutter_secure_storage. Without a platform the load throws and the
+    // method deliberately refuses to store plaintext.
+    FlutterSecureStoragePlatform.instance =
+        TestFlutterSecureStoragePlatform({});
+    SharedPreferences.setMockInitialValues({});
     db = RecoveryDatabase.forTesting(NativeDatabase.memory() as QueryExecutor);
   });
 
@@ -106,12 +117,24 @@ void main() {
       }
     });
 
-    test('saveToJournal persists chronicle as journal entry', () async {
+    test('saveToJournal persists the chronicle ENCRYPTED, not in the clear', () async {
       const text = 'Test chronicle paragraph one.\n\nParagraph two.\n\nParagraph three.';
       await NarrativeExportService.saveToJournal(db, text);
       final entries = await db.watchRecentJournals().first;
-      expect(entries.any((e) => e.contentEncrypted == text), isTrue);
-      expect(entries.firstWhere((e) => e.contentEncrypted == text).moodRating, 4);
+      final chronicle = entries.cast<JournalEntry?>().firstWhere(
+          (e) => e?.contentEncrypted.startsWith('ENC2_') ?? false,
+          orElse: () => null);
+      expect(chronicle, isNotNull,
+          reason: 'the chronicle must carry the ENC2_ prefix, or decrypt() '
+              'routes it to decryptLegacy and returns plaintext');
+      expect(chronicle!.contentEncrypted, isNot(contains('paragraph one')),
+          reason: 'the narrative must not be readable in the stored column');
+      // And it must round-trip back to exactly what was written.
+      final master = await JournalCryptoService.loadMasterKey();
+      final opened = await JournalCryptoService.decrypt(
+          chronicle.contentEncrypted, master);
+      expect(opened, text);
+      expect(chronicle.moodRating, 4);
     });
 
     test('battle_win and walk eventType matching is case-sensitive', () async {

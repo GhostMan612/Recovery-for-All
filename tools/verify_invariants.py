@@ -157,6 +157,11 @@ REQUIRED_KEYS = {
     "dashboard_library_order_v1": "core/dashboard_providers.dart",
     "dashboard_hidden_library_v1": "core/dashboard_providers.dart",
     "dashboard_enforce_radius_v1": "core/meeting_radius_logic.dart",
+    # Load-bearing since the Oct tester round: without this the dashboard's
+    # meeting card fell back to statewide results and the map's slider
+    # disagreed with the dashboard's. A rename would silently reopen that bug
+    # with no gate failure.
+    "meeting_search_radius_miles_v1": "core/meeting_radius_logic.dart",
     "last_known_location_lat_v1": "core/meeting_radius_logic.dart",
     "last_known_location_lng_v1": "core/meeting_radius_logic.dart",
     "last_known_location_time_v1": "core/meeting_radius_logic.dart",
@@ -164,8 +169,14 @@ REQUIRED_KEYS = {
     "theme_preference_v1": "core/providers.dart",
 }
 
+# The prefix set must cover every REQUIRED_KEYS entry, or a key can be listed
+# as load-bearing and still never be found — which is exactly what happened to
+# `meeting_search_radius_miles_v1`: it was added to REQUIRED_KEYS and the gate
+# failed, because KEY_PAT below only matched dashboard_/theme_/
+# last_known_location_. A listed key that the scanner cannot see is not a pin.
 KEY_PAT = re.compile(
-    r"['\"]((?:dashboard_|theme_|last_known_location_)[A-Za-z0-9_]*)['\"]"
+    r"['\"]((?:dashboard_|theme_|last_known_location_|meeting_search_radius_)"
+    r"[A-Za-z0-9_]*)['\"]"
 )
 
 found_keys = {}

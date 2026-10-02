@@ -36,11 +36,17 @@ C:\sovereign_tagger_bak
 - Recovery meeting data from live feeds (aaMinnesota, BMLT) is fetched at runtime, not committed.
 - `android/app/google-services.json` is gitignored — it exists on disk for the build to read, never in history.
 
-### 1.5 Build boundary — HARD RULE
-- **NEVER run full builds.** No `flutter build apk`, `flutter build appbundle`, `flutter run`, or any command that produces a compiled binary artifact.
-- The human builds in Android Studio.
+### 1.5 Build boundary
+- **Builds are PRE-AUTHORIZED.** On 2026-09-30 the user granted **standing
+  permission** to build binaries without asking again: `flutter build apk
+  --debug`, `flutter build appbundle --release`, and signed release bundles
+  using `android/key.properties` + `upload-keystore.jks`. Do not re-request
+  build authorization. The `flutter pub get` → `flutter analyze` → `flutter
+  test` sequence remains the **end-of-plan** gate batch; see SHELL DISCIPLINE
+  below for when it runs. Builds still happen only in the end-of-plan batch —
+  authorization to build is not permission to build mid-plan. Release signing
+  keys are never committed; `build/` is gitignored.
 - **Cadence, not permission:** `flutter pub get`, `flutter analyze` (must be "No issues found"), and `flutter test` are the end-of-plan gates. They run **once, batched, after the whole plan is finished** — not between steps, not to "just check" an edit. `AGENTS.md` "SHELL DISCIPLINE" is binding and has the intent→tool routing table. This clause previously said only that these are "your gates", which read as licence to run them per-feature; §1.7 below is the cadence.
-- If a build breaks on their side, debug from their pasted error output — never by rebuilding locally.
 
 ### 1.6 Nothing outside the project without approval
 Do not install software, modify system settings, or write to new locations outside `C:\Recovery for All` without asking the user first.
@@ -52,7 +58,12 @@ Do not install software, modify system settings, or write to new locations outsi
 
 - Filter all terminal output; pipe for failures only (`Select-String "error|fail"`), never ingest passing noise.
 - No massive file reads — probe large JSON/data files with short Python scripts instead.
-- Targeted verification only during development; full test suite reserved for staged-commit verification.
+- **No testing mid-plan, at all — not even targeted.** This line previously read
+  "Targeted verification only during development; full test suite reserved for
+  staged-commit verification," and it was the last surviving licence for the
+  habit that caused L21's four regressions: a single surviving "permitted"
+  clause is enough to reopen it. There is no cheap version of running a gate;
+  see `AGENTS.md` SHELL DISCIPLINE and `CLAUDE.md` §1.
 - Spawn subagents for deep exploration when available; return summaries, not raw dumps.
 - Proactively compact context after each verified+committed phase.
 
@@ -71,7 +82,7 @@ Do not install software, modify system settings, or write to new locations outsi
 3. **Minnesota-first doctrine**: fallbacks center Twin Cities; MN feeds first; other states are additive. The meeting finder, resources, and sober housing all reflect this.
 4. **Tailoring doctrine**: onboarding choices drive the dashboard, meeting fellowships, and downloads. Never show the user everything — show what they chose.
 5. **No emoji in the avatar composite** — the companion is painted via `AvatarPainter` (procedural vector). Emoji survive only as dresser grid thumbnails and minor glyphs. Full custom art destination: see `blueprints/avatar-art-spec.md`.
-6. **Safety pipeline is untouchable**: guardrail → crisis keywords → model → keyword fallback → unknown redirect. Never reorder. Never let a model suppress a crisis path.
+6. **Safety pipeline is untouchable**: guardrail → crisis keywords → model (GGUF, output re-checked) → TFLite intent → scripted skills → keyword fallback → unknown redirect. Never reorder. Never let a model suppress a crisis path — a crisis-worded or empty model reply is discarded so the scripted coach still answers.
 7. **Pet never dies, never gets sad, never guilts.** Low activity = resting. Return after absence = welcomed. Loss in minigames = "learned something" +Bond, no punishment.
 8. **Cosmetics only**: Sparks buy outfits/species/auras. Never gate safety, meetings list, or crisis tools behind currency.
 
@@ -82,10 +93,11 @@ Do not install software, modify system settings, or write to new locations outsi
 | Law | Rule |
 |-----|------|
 | PowerShell UTF-8 | NEVER round-trip source files through `Get-Content | Set-Content` without `-Encoding UTF8` — ANSI decode mangles emoji/·/— into mojibake. Use the file tools or Python with `io.open(..., encoding='utf-8', newline='\n')`. Console showing `Ã°Å¸` is display-only; verify with strict Python read. |
-| Drift schema | Currently **v9**. Schema edit = bump `schemaVersion` AND add `if (from < N)` migration block, then `dart run build_runner build --delete-conflicting-outputs`. Never edit `recovery_database.g.dart` by hand. v9 adds `equippedSlotsJson/pathLevel/pathXp` (R28). |
+| Drift schema | Currently **v12** (v10 `fellowship_syncs`, v11 `active_raids`, v12 seven `@TableIndex` annotations). Schema edit = bump `schemaVersion` AND add `if (from < N)` migration block, then `dart run build_runner build --delete-conflicting-outputs`. Never edit `recovery_database.g.dart` by hand. v9 added `equippedSlotsJson/pathLevel/pathXp` (R28); v12's block is the index template. |
 | SQLCipher | Uses `sqlcipher_flutter_libs 0.6.8` + `sqlite3 ^2.9.4` (pinned). The `sqlite3mc` native-assets experiment and `sqlcipher_flutter_libs 0.7.0+eol` (empty shell) are DEAD ENDS — do not revisit. sqlite3 3.x line ships cipher natively = future migration path. |
 | TensorFlow | System Python is 3.14 → no TF wheels. Coach-model training uses `.venv-tf` (Python 3.12 via uv): `python -m uv venv .venv-tf --python 3.12` → `uv pip install --python .venv-tf numpy tensorflow-cpu`. Model artifacts in `assets/models/` ARE committed. |
-| Analyzer scope | `analysis_options.yaml` excludes `Recovery-for-All-main/` (archived upstream — never read/build/analyze) and platform dirs. `flutter analyze` must stay at zero issues. Don't loosen excludes. |
+| Analyzer scope | `analysis_options.yaml` excludes `Recovery-for-All-main/` (archived upstream, gitignored and currently absent — the exclude is a harmless no-op) and platform dirs. `flutter analyze` must stay at zero issues. Don't loosen excludes. |
+| Prefs keys | `meeting_search_radius_miles_v1` (`lib/core/meeting_radius_logic.dart`) is load-bearing — it is what stops the dashboard meeting card falling back to statewide results. It is in `verify_invariants.py`'s `REQUIRED_KEYS`; if you rename it, rename it there in the same commit. |
 | Code package | `blueprints/recovery_all_code.md` is generated by `tools/generate_code_package.py`. Never hand-edit. Regenerate after code changes. |
 | flutter_map v8 | Uses `latlong2 ^0.9.1` (pinned for marker_cluster compat). `TileLayer` requires named params in v22+ FLN. Stacked layers = multiple `TileLayer` children in `FlutterMap`. |
 | FLN 22 | `initialize()`, `show()`, `zonedSchedule()` all use NAMED parameters. `uiLocalNotificationDateInterpretation` REMOVED. `desugar_jdk_libs` must be ≥ 2.1.5. |
@@ -102,7 +114,7 @@ Do not install software, modify system settings, or write to new locations outsi
 1. Read `AGENTS.md`
 2. Read THIS file (`RULES.md`)
 3. Read `blueprints/roadmap-v2.md` → current tier
-4. Check `SPRINT_PLAN.md` status block for latest state
+4. Check `blueprints/SPRINT_PLAN.md` status block for latest state (historical; gitignored)
 
 ### 4.2 Session end (every session)
 1. Finish the entire plan first. No shell ran during it (§1.5, `AGENTS.md` SHELL DISCIPLINE).

@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** October 30, 2026, later (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~30 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop** in the constellation screen, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, and a `Colors.white`-on-`primary` foreground that was invisible in one theme. Suite at **511** (23 new), analyze clean, **nine** invariants green, all links alive. The governing lesson is **L31**: seven false negatives in one session, every one from trusting an unvalidated probe — and L31 is the reason the fixes above were found at all.)
+**Last updated:** October 30, 2026, latest (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~30 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance; equipping a cosmetic silently reset earned Trials XP; a Drift read error fabricated a default pet over real data), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop**, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, and a **plaintext chronicle written into the encrypted journal column**. A **documentation audit** then found ~34 doc↔code contradictions, including a schema version stated as v9 (it is **v12**), a build rule that forbade builds the user had pre-authorized, and a stale "Phases 10-17 not started" line in the cold-start file. Suite at **511**, analyze clean, **nine** invariants green, all links alive. Governing lesson: **L31** — seven false negatives in one session, every one from trusting an unvalidated probe. Its corollary: *a listed-but-unscannable key is not a pin*, which is how `meeting_search_radius_miles_v1` sat ungated while load-bearing.)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -45,7 +45,7 @@ resume without losing progress. Update it at every session end.
   fallback → unknown redirect.
 - **PowerShell 5.1 corrupts UTF-8** — never round-trip source through
   `Get-Content | Set-Content`; use file tools or Python utf-8.
-- **Drift schema v9** — bump `schemaVersion` + migration block +
+- **Drift schema v12** - bump `schemaVersion` + migration block +
   build_runner; never hand-edit `.g.dart`.
 - **SQLCipher pin**: sqlite3 ^2.9.4 + sqlcipher_flutter_libs 0.6.8;
   drift 2.34 blocked by design until sqlite3 3.x migration path.
@@ -101,7 +101,7 @@ resume without losing progress. Update it at every session end.
     3. Hiding every toolbox tool collapsed the grid with no explanation and
        no way back. `ToolGrid` now explains that hiding is not deleting
        and offers "Restore all".
-  - Suite is at **292 tests** (was 254 before the final three test files), analyze clean.
+  - Suite was at **292 tests** at that point (now **511**), analyze clean.
   - **Phases 10-16 shipped after that.** Phase 10 (SOS) was an audit: added a
     dismiss control, moved the sponsor care-alert off sheet *open* onto real
     activation, and fixed a header overflow. Phase 11 found that the theme
@@ -393,9 +393,9 @@ the gate will fail and Phase 10 forbids it.
   and is exposed only as the env var `flutter`. Prepend it in any shell that
   needs the toolchain: `$env:PATH = "C:\android\flutter\bin;" + $env:PATH`.
 - Gates after this round: `flutter analyze` -> No issues found; `flutter test` ->
-  **300 passing**; `verify_no_hardcoded_colors.py` -> exit 0;
-  `verify_invariants.py` -> exit 0 (7 invariants); `selftest_invariant7.py` ->
-  10/10.
+  **300 passing** (now **511**); `verify_no_hardcoded_colors.py` -> exit 0;
+  `verify_invariants.py` -> exit 0 (**9** invariants; was 7 at the time);
+  `selftest_invariant7.py` -> 10/10.
 
 ### Earlier session-boundary state (Sep 30, after Phase 17 + FIRST device verification)
 
@@ -586,8 +586,8 @@ sharing the value did not make the *semantics* right.
 **Verified:** `test/constellation_geometry_test.dart`, 180 tests — the
 reachability invariant across 3 canvas sizes (incl. a 320x568) x 3 node sets x
 19 zoom levels, plus `clampSkyPan` idempotence, degenerate inputs, and the
-focal-anchored pinch. Full suite **480 passing**, `flutter analyze` clean, both
-Python gates exit 0.
+focal-anchored pinch. Full suite **480 passing** at that point (now **511**),
+`flutter analyze` clean, both Python gates exit 0.
 
 **The new test caught a real bug in my own first attempt:** `gesturePan` was
 missing a `basePan * k` term, which double-counted any pan already in effect and

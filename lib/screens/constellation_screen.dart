@@ -770,16 +770,29 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
               child: Material(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.95), borderRadius: BorderRadius.circular(16), child: Padding(padding: EdgeInsets.all(16), child: _buildFocusInfo(widget.nodes[_focusedStarIndex!])),
             ))))),
           // 3D view
-          if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
-          // Zoom slider (bottom).
           //
-          // `bottom: 12` put this row underneath the extended "Add Star" FAB:
-          // the FAB spans roughly 16..72dp from the bottom on the right half of
-          // the screen, so the right ~30% of the slider track was covered and
-          // could not be tapped or dragged at all. Discovered on hardware, not
-          // by reading — a tap intended for the slider opened the Add Star
-          // dialog instead. Sitting the row above the FAB clears it entirely,
-          // and it clears it for any FAB width rather than for today's label.
+          // The opaque 3D surface is declared BEFORE the toggle and the slider,
+          // not after. A Stack hit-tests its LAST child first, so with the
+          // overlay last it sat on top of the toggle: entering 3D was a
+          // one-way door, and the only way out was a full app restart. The
+          // device pass that proved rotation rendered the identical frame
+          // before and after the "return" tap (v_11 and v_12 both 66738 bytes),
+          // which is the signature of a tap that hit nothing.
+          if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
+          // Zoom slider + sky name.
+          //
+          // Also AFTER the 3D overlay, for the same reason: in 3D the slider was
+          // unreachable too, so it reported the wrong zoom instead of doing
+          // nothing at all.
+          //
+          // `bottom: 12` used to put this row underneath the extended "Add Star"
+          // FAB: the FAB spans roughly 16..72dp from the bottom on the right
+          // half of the screen, so the right ~30% of the slider track was
+          // covered and could not be tapped or dragged at all. Discovered on
+          // hardware, not by reading — a tap intended for the slider opened the
+          // Add Star dialog instead. Sitting the row above the FAB clears it
+          // entirely, and it clears it for any FAB width rather than for
+          // today's label.
           Positioned(left: 16, right: 16, bottom: 84, child: Row(children: [
             Icon(Icons.zoom_out, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
             Expanded(child: Slider(
@@ -792,8 +805,29 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
             )),
             Icon(Icons.zoom_in, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
           ])),
-          // Sky name label
-          if (widget.skyName != null) Positioned(left: 12, top: 8, child: Text(widget.skyName!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontSize: 11))),
+          // Sky name label. `bottom`, not `top: 8`: the 3D toggle occupies the
+          // top-left corner at top:12, and this label is also top-left — the
+          // toggle's opaque surface painted over the sky name, so a user who
+          // named their sky could only read half of it.
+          if (widget.skyName != null)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  widget.skyName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.5),
+                      fontSize: 11),
+                ),
+              ),
+            ),
         ],
       ),
     );

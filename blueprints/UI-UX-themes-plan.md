@@ -42,8 +42,9 @@ outright. Batch them; see that section.
 
 ## Execution Status
 
-Phases 0-17 are **implemented and gate-verified**, and the program has now been
-run on **real hardware** once (LG B160V, Android 14, 2.75 GB, 411dp).
+Phases 0-17 are **implemented, gate-verified, and device-verified** — on the
+LG B160V (Android 14, 2.75 GB, the `isLowEnd = true` branch) and the Moto G
+2025 (3.56 GB, the `isLowEnd = false` branch).
 
 ### Device verification — LG B160V, Sep 30 2026
 
@@ -214,13 +215,15 @@ architecture is Phase 9's job. Phase 8 did not add or move a destination.
 
 ## Resume Here (program COMPLETE — Phases 0-17, all gates green)
 
-**Nothing is left to build. As of the Oct closed-test bug round the suite is
-green at 300/300** (292 after Phase 17, +8 from the four tester-bug fixes: 5
-radius tests replacing 2 that had pinned the bug, plus the nav-order and
-back-target tests). `verify_invariants.py` now enforces **seven** invariants —
-the seventh is missing-brace interpolation, added after device testing found
-the app bar shipping the literal text `"Welcome, DashboardScree…"`; prove it with
-`python tools/selftest_invariant7.py` (10/10).
+**Nothing is left to build. As of the Oct 30 audit batch the suite is green at
+511/511** (was 300/300 through the tester-bug round, 488 before the structural
+audit, +23 regression tests from `test/audit_regressions_test.dart` and
+`test/indexedstack_staleness_test.dart`).
+`verify_invariants.py` now enforces **nine** invariants — 7 is missing-brace
+interpolation (added after device testing found the app bar shipping the
+literal text `"Welcome, DashboardScree…"`, proved with
+`python tools/selftest_invariant7.py`, 10/10); 8 is the pet-state single owner;
+9 is the paired-foreground colourScheme role.
 
 **All four Oct fixes are device-verified** on the LG B160V: nav order, meeting
 radius ("198 meetings · 2 mi" in the header, one meeting 2.0 mi away on the
@@ -247,10 +250,14 @@ could see — the same class of bug the tester originally filed, three more time
    calls — so a screen-reader user got an unlabelled region. Same class as the
    Wellness Check-In. Now labelled with the star count and the gesture.
 
-Suite at **488**, all five gates green. Confirmed on hardware: the same track tap
+Suite was at 488 when these three were verified (now **511** after the Oct 30
+structural audit; nine invariants). Confirmed on hardware: the same track tap
 that used to lose the star now leaves it centred and larger; pan moves a
 seven-star sky that is genuinely wider than the canvas, and low zoom re-centres
-it; the 3D view renders and rotates. The full account is `SESSION_HANDOFF.md`
+it. The 3D view renders and rotates — and, as of the audit batch, can now also
+be **exited**, which it could not before (the opaque 3D surface sat above the
+toggle in the Stack, making it a one-way door). The full account is
+`SESSION_HANDOFF.md`
 §7a.
 
 **What the closing runs actually taught me**, which is worth more than the fixes:
@@ -295,19 +302,20 @@ failure, since they lean hardest on SDK behaviour rather than app behaviour:
 
 ### Human-only, still outstanding
 
-The `isLowEnd` low-end path and light mode are now **proven on one real
-device** (LG B160V, 2.75 GB, Midnight Slate, dark + light, 1.0x + 2.0x). Still
-open:
+**Superseded — this section was stale.** It previously listed the Companion and
+Library destinations, onboarding, the SOS sheet, Deep Forest / OLED Pitch, and a
+high-RAM device as all unverified, which contradicted the same file 66 lines
+earlier. All of those are now device-verified (see §Verification). Do not
+re-queue them from this section.
 
-- A **second, high-RAM** device — the non-low-end branch (Lottie *enabled*) is
-  still only ever exercised on the host, which forces `isLowEnd = false` and
-  therefore tests the branch the B160V does not take.
-- The **Companion** and **Library** destinations, the **onboarding** flow, and
-  the **SOS sheet** were not opened on device.
-- **Deep Forest** and **OLED Pitch** were not spot-checked on screen.
-- A fresh **signed** `1.0.0+9` AAB in Android Studio, and Play versionCode 9
-  rollout. Only a **debug** APK has been built; the `build/` release AAB is
-  stale and must not be uploaded.
+What genuinely remains, and is not a bug:
+
+- A **high-RAM** device for the non-low-end branch (Lottie enabled). The B160V
+  takes `isLowEnd = true`; the **Moto G 2025** (`[hardware] totalRamGb=3.56
+  isLowEnd=false`) now exercises the other branch, so this is closed too.
+- Play rollout of `1.0.0+10`. A signed release AAB was built and verified
+  (JAR signature present, 732 signed digests verified, all 18 arm64 `.so`
+  16 KB aligned); uploading and the publication questionnaire are human-owned.
 
 ## Re-Sequencing Rationale (Sep 28)
 
