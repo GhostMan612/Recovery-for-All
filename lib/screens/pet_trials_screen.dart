@@ -582,8 +582,14 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     child: Text(
                       battle.log[index],
                       style: TextStyle(
+                          // onPrimary, not Colors.white. The most recent log
+                          // line is emphasised with `primary`, a LIGHT tone in
+                          // light mode. Same pairing bug as the chat bubble and
+                          // the FilterChips: the newest line of a raid battle —
+                          // the thing the player is watching — was invisible
+                          // in light mode.
                           color: index == 0
-                              ? Colors.white
+                              ? Theme.of(context).colorScheme.onPrimary
                               : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13),
                     ),
@@ -730,8 +736,12 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     backgroundColor: battle.phase == _BattlePhase.victory
                         ? Theme.of(context).colorScheme.tertiary
                         : Theme.of(context).colorScheme.surfaceContainer,
+                    // onTertiary / onSurfaceVariant, not Colors.white: M3
+                    // tertiary is a light tone in light mode. This is the
+                    // "Victory — return" button, i.e. the end of the raid the
+                    // player just fought.
                     foregroundColor: battle.phase == _BattlePhase.victory
-                        ? Colors.white
+                        ? Theme.of(context).colorScheme.onTertiary
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () => setState(() => _battle = null),
@@ -880,7 +890,11 @@ class _AbilityButton extends StatelessWidget {
               children: [
                 Text(ability.name,
                     style: TextStyle(
-                        color: enabled ? Colors.white : Theme.of(context).colorScheme.outline,
+                        // onPrimary, not Colors.white: the ability card's fill
+                        // is `primary`, a light tone in light mode.
+                        color: enabled
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.outline,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(width: 6),

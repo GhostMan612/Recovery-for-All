@@ -387,13 +387,23 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  quest.done
-                                      ? quest.title
-                                      : quest.title,
+                                  // The ternary this replaced was
+                                  // `quest.done ? quest.title : quest.title` —
+                                  // identical branches, a leftover from a
+                                  // locked/unlocked title feature that no
+                                  // longer exists. Simplifying it is the point:
+                                  // a branch that cannot differ is a branch
+                                  // nobody reviews.
+                                  quest.title,
                                   style: TextStyle(
+                                      // onSurface, not Colors.white: the quest
+                                      // card is `surfaceContainer` at 70%,
+                                      // near-white in light mode.
                                       color: quest.done
-                                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                                          : Colors.white,
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant
+                                          : Theme.of(context).colorScheme.onSurface,
                                       fontSize: 13,
                                       decoration: quest.done
                                           ? TextDecoration.lineThrough

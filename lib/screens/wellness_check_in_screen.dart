@@ -149,7 +149,15 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
                           data: SliderThemeData(
                             activeTrackColor: Theme.of(context).colorScheme.primary,
                             inactiveTrackColor: Theme.of(context).colorScheme.outlineVariant,
-                            thumbColor: Colors.white,
+                            // surface, not Colors.white. The thumb sits at the
+                            // boundary between `primary` and
+                            // `outlineVariant`, so it needs to contrast with
+                            // BOTH. A white thumb is invisible against the
+                            // light `outlineVariant` in light mode — the
+                            // control looks like a bare track with no handle.
+                            // `surface` contrasts with primary and with
+                            // outlineVariant in both brightnesses.
+                            thumbColor: Theme.of(context).colorScheme.surface,
                             overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                             trackHeight: 3,
                           ),

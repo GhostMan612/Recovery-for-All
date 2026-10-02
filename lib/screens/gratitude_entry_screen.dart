@@ -160,7 +160,12 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                             mood['label'] as String,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
+                              // onPrimary when selected, not Colors.white:
+                              // the selected fill is `primary`, a LIGHT tone
+                              // in light mode.
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),

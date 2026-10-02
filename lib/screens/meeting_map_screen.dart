@@ -557,13 +557,19 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                       label: Text(tag,
                           style: TextStyle(
                               fontSize: 13,
+                              // onPrimary when selected, not Colors.white:
+                              // the selected fill is `primary`, which is a
+                              // LIGHT tone in light mode. The unselected
+                              // branch keeps onSurfaceVariant over
+                              // surfaceContainer, which is already correct.
                               color: selectedTag == tag
-                                  ? Colors.white
+                                  ? Theme.of(context).colorScheme.onPrimary
                                   : Theme.of(context).colorScheme.onSurfaceVariant)),
                       selected: selectedTag == tag,
                       selectedColor: Theme.of(context).colorScheme.primary,
                       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                      checkmarkColor: Colors.white,
+                      // Same reasoning: the checkmark sits on `primary`.
+                      checkmarkColor: Theme.of(context).colorScheme.onPrimary,
                       onSelected: (on) {
                         setSheet(() => selectedTag = on ? tag : null);
                       },
@@ -657,7 +663,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.tertiary,
-                        foregroundColor: Colors.white),
+                        foregroundColor: Theme.of(context).colorScheme.onTertiary),
                     icon: const Icon(Icons.how_to_reg_outlined),
                     label: const Text('I attended — reflect'),
                     onPressed: () {
@@ -675,6 +681,15 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.brandZoom,
+                        // White is CORRECT here, and this comment exists so a
+                        // future sweep does not "fix" it. `brandZoom` (#0B5CFF)
+                        // is a deep, brightness-independent brand colour: white
+                        // on it is ~5.4:1, which passes WCAG AA, and because the
+                        // fill never changes with brightness a scheme role
+                        // would be a regression rather than a fix.
+                        //
+                        // Contrast this with the two `pink`/`dangerSoft` call
+                        // sites, which DO need `AppColors.onDomainAccent`.
                         foregroundColor: Colors.white),
                     icon: const Icon(Icons.videocam_outlined),
                     label: const Text('Join on Zoom'),
@@ -768,13 +783,16 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                         label: Text(layer.label,
                             style: TextStyle(
                                 fontSize: 13,
+                                // onPrimary, not Colors.white — the selected
+                                // fill is `primary`, a light tone in light
+                                // mode. See the tag FilterChip above.
                                 color: _activeLayers.contains(layer.id)
-                                    ? Colors.white
+                                    ? Theme.of(context).colorScheme.onPrimary
                                     : Theme.of(context).colorScheme.onSurfaceVariant)),
                         selected: _activeLayers.contains(layer.id),
                         selectedColor: Theme.of(context).colorScheme.primary,
                         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                        checkmarkColor: Colors.white,
+                        checkmarkColor: Theme.of(context).colorScheme.onPrimary,
                         onSelected: (on) {
                           setSheet(() {
                             if (on) {
@@ -856,13 +874,15 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                         label: Text(city,
                             style: TextStyle(
                                 fontSize: 12,
+                                // onPrimary, not Colors.white — see the two
+                                // FilterChips above for the reasoning.
                                 color: _cityFilter == city
-                                    ? Colors.white
+                                    ? Theme.of(context).colorScheme.onPrimary
                                     : Theme.of(context).colorScheme.onSurfaceVariant)),
                         selected: _cityFilter == city,
                         selectedColor: Theme.of(context).colorScheme.primary,
                         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                        checkmarkColor: Colors.white,
+                        checkmarkColor: Theme.of(context).colorScheme.onPrimary,
                         onSelected: (_) {
                           setSheet(() => _cityFilter = city);
                           setState(() => _cityFilter = city);
@@ -985,6 +1005,9 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // Urgency color tiers
   // ------------------------------------------------------------------
 
+  // Pin fill. `primary`/`tertiary` are scheme roles, but `pinOnline`/`pinSoon`
+  // are brightness-independent domain tokens, so one icon colour cannot serve
+  // all four. See [_pinIconColor].
   Color _pinColor(RecoveryMeeting m) {
     final now = DateTime.now();
     if (MeetingFinderService.isInProgress(m, now)) return Theme.of(context).colorScheme.tertiary;
@@ -995,6 +1018,19 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
     }
     return Theme.of(context).colorScheme.primary;
   }
+
+  /// Readable icon colour for a marker drawn on [_pinColor].
+  ///
+  /// This used to be a flat `colorScheme.onSurface`, which is near-white in
+  /// dark mode — so in dark mode the meeting glyph vanished into a light
+  /// tertiary or primary pin, on the map surface where it matters most.
+  ///
+  /// Relative luminance decides it rather than a hardcoded pair of constants,
+  /// because the pin can be a scheme role (flips with brightness) OR a
+  /// fixed domain token (does not). Deriving from the actual fill means a
+  /// future palette change cannot silently reintroduce the invisible glyph.
+  Color _pinIconColor(Color pin) =>
+      pin.computeLuminance() > 0.45 ? Colors.black : Colors.white;
 
   // ------------------------------------------------------------------
   // Markers
@@ -1045,7 +1081,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
             child: Icon(
                 m.type.contains('Online') ? Icons.videocam : Icons.groups_2,
                 size: 15,
-                color: Theme.of(context).colorScheme.onSurface),
+                color: _pinIconColor(color)),
           ),
         ),
       ));

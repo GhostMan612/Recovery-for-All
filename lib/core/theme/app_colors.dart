@@ -115,7 +115,25 @@ class AppPalette {
 class AppColors {
   static const Color dangerSoft = Color(0xFFF87171);
 
+  /// Brightness-independent on purpose (see the class doc), which means a
+  /// caller pairing a fill with a foreground CANNOT use a scheme role for the
+  /// foreground — `onSurface` is near-black in light mode and near-white in
+  /// dark, and neither guarantees contrast against a fixed mid-light tint like
+  /// [pink].
+  ///
+  /// Contrast with [pink] (#F472B6) is ~2.6:1, below the 4.5:1 WCAG AA floor for
+  /// normal text. So text drawn on these two fills uses [onDomainAccent], and
+  /// these two must never be used as a fill behind white text. The chip-like
+  /// uses (a coloured dot, a hairline) are unaffected — they carry no text.
   static const Color pink = Color(0xFFF472B6);
+
+  /// Readable foreground for text sitting ON [pink] or [dangerSoft].
+  ///
+  /// A single fixed dark value, rather than a brightness-dependent role,
+  /// precisely because the fills it sits on do not change with brightness. A
+  /// scheme role here would be the bug again: `onSurface` flips to near-white
+  /// in dark mode and would put white text back onto light pink.
+  static const Color onDomainAccent = Color(0xFF1A0B12);
 
   static const Color brandZoom = Color(0xFF0B5CFF);
   static const Color accentSky = Color(0xFF0EA5E9);

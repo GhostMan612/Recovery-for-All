@@ -303,35 +303,34 @@ class CommunityFeedService {
     }
   }
 
-  /// Mirror a moderation action to Firestore. Both of these previously wrote
-  /// only to the local Drift row, so a post that a user hid or flagged stayed
-  /// fully visible to everyone else in the Recovery Circle indefinitely —
-  /// the remote feed merges on `status != 'visible'`.
+  /// Mirror a moderation action to the LOCAL row only.
+  ///
+  /// This used to also write `status` to Firestore. That was removed, for two
+  /// reasons that point the same way:
+  ///
+  ///  1. **It was a vulnerability.** `isModerator()` reads a SharedPreferences
+  ///     flag, which the caller controls — Firestore rules cannot see prefs, so
+  ///     any way of expressing moderator status in the rules would have been
+  ///     self-declared. The old remote write therefore meant *any* signed-in
+  ///     user could set `status` to `visible` (self-approving their own post past
+  ///     the C5 queue), or to `hidden` (burying anyone else's). The rules now
+  ///     deny remote `status` writes outright, which is why this stopped being a
+  ///     write at all rather than a guarded one.
+  ///  2. **It contradicted the documented design.** pet-store-rules C5 states
+  ///     moderation "stays on-device until networked moderation exists". The
+  ///     remote mirror was the implementation quietly disagreeing with the spec.
+  ///
+  /// Reaction counts still mirror — they are communal, need no authorisation,
+  /// and are display-only.
   Future<void> flag(String postId) async {
     await database.flagPost(postId);
-    await _mirrorStatus(postId, 'pending');
   }
 
   Future<void> approve(String postId) async {
     await database.setPostStatus(postId, 'visible');
-    await _mirrorStatus(postId, 'visible');
   }
 
   Future<void> hide(String postId) async {
     await database.setPostStatus(postId, 'hidden');
-    await _mirrorStatus(postId, 'hidden');
-  }
-
-  Future<void> _mirrorStatus(String postId, String status) async {
-    final authed = await _ensureAuth();
-    if (!authed) return;
-    try {
-      await FirebaseFirestore.instance
-          .collection(remoteCollection)
-          .doc(postId)
-          .update({'status': status});
-    } catch (e) {
-      debugPrint('[circle] Cloud status sync failed ($status): $e');
-    }
   }
 }

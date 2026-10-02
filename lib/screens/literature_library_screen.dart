@@ -123,7 +123,12 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
             tooltip: _showAll ? 'Showing everything' : 'Tailored to your paths',
             icon: Icon(
               _showAll ? Icons.visibility : Icons.tune,
-              color: _showAll ? Theme.of(context).colorScheme.primary : Colors.white38,
+              color: _showAll
+                  ? Theme.of(context).colorScheme.primary
+                  // onSurfaceVariant, not Colors.white38 — the AppBar
+                  // background is `primary`, a light tone in light mode, so a
+                  // 38%-white glyph vanished there.
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             onPressed: () => _toggleShowAll(!_showAll),
           ),

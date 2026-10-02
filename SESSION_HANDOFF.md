@@ -1,6 +1,24 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** October 30, 2026, latest (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~30 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance; equipping a cosmetic silently reset earned Trials XP; a Drift read error fabricated a default pet over real data), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop**, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, and a **plaintext chronicle written into the encrypted journal column**. A **documentation audit** then found ~34 doc↔code contradictions, including a schema version stated as v9 (it is **v12**), a build rule that forbade builds the user had pre-authorized, and a stale "Phases 10-17 not started" line in the cold-start file. Suite at **511**, analyze clean, **nine** invariants green, all links alive. Governing lesson: **L31** — seven false negatives in one session, every one from trusting an unvalidated probe. Its corollary: *a listed-but-unscannable key is not a pin*, which is how `meeting_search_radius_miles_v1` sat ungated while load-bearing.)
+**Last updated:** October 30, 2026, latest (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~40 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance; equipping a cosmetic silently reset earned Trials XP; a Drift read error fabricated a default pet over real data), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop**, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, a **plaintext chronicle written into the encrypted journal column**, and a **GGUF free-space check that compared a 4096-byte directory entry against a 241 MB model — blocking 100% of model downloads** while reading as a working safety check. A **documentation audit** then found ~34 doc↔code contradictions, including a schema version stated as v9 (it is **v12**) and a build rule that forbade builds the user had pre-authorized. Suite at **511**, analyze clean, **eleven** invariants green, all links alive. Governing lessons: **L31** (a probe that has never been shown to work on a case where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*) and **L32** (*a comment describing a fix is not the fix* — the 3D one-way door shipped alongside prose claiming it was already fixed).
+
+**Release state:** the Play upload questionnaire is **complete** and the app is **awaiting approval for public publishing**. Device verification of the current source is owned by the user and has not been run for this batch.
+
+**Firestore rules — READ BEFORE PUBLISHING.** `firestore/firestore.rules` was
+restructured and the console copy is stale. The old
+`match /sponsor_bundles/{docId} { allow read, write: if request.auth != null; }`
+granted **every authenticated user** read, sign and write over every clinical
+step-work bundle. It is now partitioned by uid **in the path**
+(`sponsor_bundles/{ownerUid}/bundles/…`, `sponsorBundles/{sponsorUid}/inbox/…`)
+because rules can compare a path segment to `request.auth.uid` but cannot compare
+a *field* to the caller without a custom claim — and there is no Admin SDK here,
+so the caller-written `ownerUid` field was never an authorisation check.
+Consequences: flat-schema bundles are now unreachable (deliberate; see
+`SponsorLinkService.orphanedRelayDocIds()`), and genuine **cross-account** relay
+needs an `sponsor_code` custom claim, which does not exist yet — the offline
+messenger path is unaffected and remains the default. The `community_feeds`
+update rule is also now field-scoped, so a user can no longer rewrite another
+user's alias or body.
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -394,7 +412,9 @@ the gate will fail and Phase 10 forbids it.
   needs the toolchain: `$env:PATH = "C:\android\flutter\bin;" + $env:PATH`.
 - Gates after this round: `flutter analyze` -> No issues found; `flutter test` ->
   **300 passing** (now **511**); `verify_no_hardcoded_colors.py` -> exit 0;
-  `verify_invariants.py` -> exit 0 (**9** invariants; was 7 at the time);
+  `verify_invariants.py` -> exit 0 (**11** invariants; was 7 at the time — 8 is
+  the pet-state single owner, 9 the paired-foreground colour role, 10 the
+  constellation `Stack` child order, 11 Firestore-rule ownership);
   `selftest_invariant7.py` -> 10/10.
 
 ### Earlier session-boundary state (Sep 30, after Phase 17 + FIRST device verification)

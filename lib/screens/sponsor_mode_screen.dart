@@ -255,7 +255,15 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.tertiary,
-                      foregroundColor: Colors.white,
+                      // onTertiary, not Colors.white. M3 tertiary is a LIGHT
+                      // tone in light mode, so a hardcoded white label is
+                      // effectively invisible there.
+                      //
+                      // This call site is why invariant 9 used to be stated as
+                      // "paired on one physical line": the two properties are on
+                      // adjacent lines here, so the old regex missed it. The
+                      // gate now scans whole call expressions instead.
+                      foregroundColor: Theme.of(context).colorScheme.onTertiary,
                     ),
                     icon: const Icon(Icons.fact_check_outlined),
                     label: const Text('Review a step-work bundle',
@@ -304,7 +312,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Theme.of(context).colorScheme.tertiary,
-                                      foregroundColor: Colors.white,
+                                      foregroundColor: Theme.of(context).colorScheme.onTertiary,
                                     ),
                                     child: const Text('Sign & Send',
                                         style: TextStyle(

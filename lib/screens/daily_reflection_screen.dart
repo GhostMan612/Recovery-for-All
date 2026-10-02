@@ -247,7 +247,12 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         selectedColor: Theme.of(context).colorScheme.primary,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
+                          // onPrimary when selected, not Colors.white — the
+                          // selected fill is `primary`, a light tone in light
+                          // mode.
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),

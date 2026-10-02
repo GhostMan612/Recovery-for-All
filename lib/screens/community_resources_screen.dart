@@ -140,11 +140,34 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                   leading: Icon(link.icon,
-                      color:
-                          dead ? Colors.white24 : Theme.of(context).colorScheme.primary),
+                      // A dead link dims; a live one uses primary. Both were
+                      // hardcoded `Colors.white24`/`primary` — white24 on
+                      // `surfaceContainer` is invisible in light mode, so a
+                      // broken link looked like a blank row.
+                      color: dead
+                          ? Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.38)
+                          : Theme.of(context).colorScheme.primary),
                   title: Text(link.title,
                       style: TextStyle(
-                          color: dead ? Colors.white38 : Colors.white,
+                          // onSurface, NOT Colors.white. This is the most
+                          // serious instance of the pairing bug this repo has
+                          // had: the tile background is `surfaceContainer`,
+                          // which is near-white in light mode, so EVERY link
+                          // title on the Community Resources screen rendered
+                          // invisible in light mode — the screen's entire
+                          // content, not one control. The subtitle was
+                          // already on a role, which is why the layout looked
+                          // plausible in review and nobody noticed the titles
+                          // were gone.
+                          color: dead
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withValues(alpha: 0.55)
+                              : Theme.of(context).colorScheme.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
                   subtitle: Text(link.subtitle,
@@ -186,7 +209,13 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
             tooltip: _showAll ? 'Showing everything' : 'Tailored to your paths',
             icon: Icon(
               _showAll ? Icons.visibility : Icons.tune,
-              color: _showAll ? Theme.of(context).colorScheme.primary : Colors.white38,
+              color: _showAll
+                  ? Theme.of(context).colorScheme.primary
+                  // onSurfaceVariant at 38%, not Colors.white38: the AppBar
+                  // background is `primary` in M3, which is a LIGHT tone in
+                  // light mode, so a 38%-white glyph all but disappeared
+                  // there.
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             onPressed: () => _toggleShowAll(!_showAll),
           ),

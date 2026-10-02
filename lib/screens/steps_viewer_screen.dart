@@ -381,7 +381,15 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                       child: Text(
                         '${step.number}',
                         style: TextStyle(
-                          color: done || signed ? Colors.white : Theme.of(context).colorScheme.primary,
+                          // onTertiary when the badge is filled, not
+                          // Colors.white: the filled fill is
+                          // `colorScheme.tertiary`, which is a LIGHT tone in
+                          // light mode — white numerals were invisible there.
+                          // The unfilled branch keeps `primary` on a 15%-alpha
+                          // primary tint, which is already correct.
+                          color: done || signed
+                              ? Theme.of(context).colorScheme.onTertiary
+                              : Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

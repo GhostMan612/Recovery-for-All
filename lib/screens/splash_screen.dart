@@ -4,7 +4,10 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/motion/app_motion.dart';
+import '../core/providers.dart';
 import '../core/theme/app_colors.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -13,16 +16,16 @@ import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 import '../database/recovery_database.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
-  
+
   const SplashScreen({super.key, required this.database});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -95,9 +98,32 @@ class _SplashScreenState extends State<SplashScreen>
       await Future.delayed(const Duration(seconds: 3));
       if (!mounted) return;
 
-      final profile = await widget.database
-          .getProfile('active_user_profile')
+      // `hasCompletedOnboardingProvider` rather than a bare
+      // `getProfile(...) != null`. The direct read collapsed three different
+      // outcomes into one: "no profile yet" (onboard), "still reading" (wait),
+      // and "the read threw" (…also treated as "no profile"). So a single
+      // transient Drift failure on a returning user's device sent them into
+      // onboarding as if they were new — the "fresh-install boot hang" screen
+      // below is the same failure wearing a different hat.
+      //
+      // The provider returns `AsyncValue<bool>` precisely so those three are
+      // distinguishable. Only `isData && value == false` routes to onboarding;
+      // a load in progress waits, and an error surfaces the boot diagnostics.
+      //
+      // `autoDispose` matters here: this provider is only alive while the
+      // splash is watching it, so the FutureProvider is created, read once, and
+      // disposed — rather than pinned for the app's lifetime by a watch that
+      // outlives the navigation.
+      final onboarding = await ref
+          .read(hasCompletedOnboardingProvider.future)
           .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+
+      // The profile object is still needed for the biometric gate. Read it
+      // once, after the routing decision is known, so the two never disagree
+      // about what the profile is.
+      final profile =
+          await widget.database.getProfile('active_user_profile');
       if (!mounted) return;
 
       if (profile?.biometricLockEnabled ?? false) {
@@ -106,7 +132,7 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
 
-      if (profile == null) {
+      if (!onboarding) {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -136,7 +162,9 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint('[splash] BOOT FAILURE: $e\n$stack');
       if (!mounted) return;
       setState(() => _bootError =
-          'Startup stalled at: ${e.runtimeType}\n$e\n\nThis is a fresh-install boot hang — tap Retry or Continue.');
+          'Startup stalled at: ${e.runtimeType}\n$e\n\n'
+          'Your data is still on this device — nothing has been deleted. Tap '
+          'Retry, or Continue to start the app without onboarding.');
     }
   }
 
@@ -145,11 +173,37 @@ class _SplashScreenState extends State<SplashScreen>
     _routeToNextScreen();
   }
 
-  void _continueOffline() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OnboardingScreen(
+  /// Escape hatch when boot cannot determine the profile state.
+///
+/// Re-reads the profile once. This used to route unconditionally to
+/// [OnboardingScreen], which is the *worst* available choice for the user in
+/// this state: onboarding is reached because the app could not read, and
+/// walking a returning user through setup is how their existing profile gets
+/// overwritten with a fresh one.
+///
+/// So: a successful read with no profile means onboard; anything else — a
+/// profile, or a read that failed again — means the dashboard, where every
+/// query is null-tolerant and the user can see their real data.
+Future<void> _continueOffline() async {
+  var onboard = false;
+  try {
+    final profile =
+        await widget.database.getProfile('active_user_profile');
+    onboard = profile == null;
+  } catch (e) {
+    debugPrint('[splash] continue-offline profile read failed: $e');
+    onboard = false;
+  }
+  if (!mounted) return;
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (context) {
+        if (!onboard) {
+          return DashboardScreen(database: widget.database);
+        }
+        return OnboardingScreen(
           database: widget.database,
           onOnboardingComplete: () {
             Navigator.pushReplacement(
@@ -159,10 +213,11 @@ class _SplashScreenState extends State<SplashScreen>
                       DashboardScreen(database: widget.database, isFirstLaunch: true)),
             );
           },
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
 
   @override
   void dispose() {
@@ -294,7 +349,26 @@ class _SplashScreenState extends State<SplashScreen>
                       Expanded(
                         child: OutlinedButton(
                           onPressed: _retryBoot,
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: AppColors.dangerSoft)),
+                          // onDomainAccent, not Colors.white. The card behind this
+                          // button is danger-tinted and the app has three
+                          // palettes in both brightnesses; white on a light
+                          // tint is invisible in light mode.
+                          //
+                          // `dangerSoft` is brightness-independent, so a scheme
+                          // role would be wrong too — see
+                          // AppColors.onDomainAccent for why.
+                          //
+                          // This one also documents a GAP in invariant 9: the
+                          // gate pairs `foregroundColor` with a
+                          // `backgroundColor`/`backgroundColor:` on the same
+                          // physical line, and this call site has a
+                          // `side:` instead — so a raw `Colors.white` here
+                          // passed the gate silently. The failure mode is
+                          // broader than the rule that catches it.
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  AppColors.onDomainAccent,
+                              side: BorderSide(color: AppColors.dangerSoft)),
                           child: const Text('Retry'),
                         ),
                       ),

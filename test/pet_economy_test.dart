@@ -283,6 +283,71 @@ group('ensureHatched idle decay (Drift-backed)', () {
     });
   });
 
+  group('accessibility manual walk (ASK-4)', () {
+    // `logWalkManualFallback` shipped with no caller, while the dashboard's
+    // "Override" button on the unverified-walk snackbar used
+    // `logWalk(requireVerification: false)` — the full walk-exempt 15 and one
+    // of the two daily walk slots. So the accessibility path was the most
+    // generously rewarded walk available, and farming it only required failing
+    // the 500-step check and tapping a button.
+    test('pays the REDUCED capped rate, not the walk-exempt rate', () async {
+      final before = await RecoveryPetService.ensureHatched();
+      final after = await RecoveryPetService.logWalkManualFallback();
+      expect(after.sparks, before.sparks + RecoveryPetService.sparksWalkManual);
+      expect(after.sparks - before.sparks, isNot(15),
+          reason: 'a manual walk must not be paid the walk-exempt rate');
+    });
+
+    test('consumes the daily allowance — it is a capped stream, not exempt',
+        () async {
+      // Fill the daily cap with another capped stream, then the manual walk
+      // must add nothing. Under the old routing it added 15 regardless.
+      for (var i = 0; i < 19; i++) {
+        await RecoveryPetService.logGrounding();
+      }
+      await RecoveryPetService.logGrounding();
+      expect(await RecoveryPetService.earnedToday(), 150);
+
+      final capped = await RecoveryPetService.ensureHatched();
+      final after = await RecoveryPetService.logWalkManualFallback();
+      expect(after.sparks, capped.sparks,
+          reason: 'a capped stream must respect the cap; walk-exempt streams '
+              'are the exception and this is deliberately not one');
+      expect(await RecoveryPetService.earnedToday(), 150);
+    });
+
+    test('still consumes one of the two daily walk slots', () async {
+      final first = await RecoveryPetService.logWalkManualFallback();
+      expect(first.sparks, greaterThan(0));
+      final before = await RecoveryPetService.ensureHatched();
+      final second = await RecoveryPetService.logWalkManualFallback();
+      expect(second.sparks, before.sparks + RecoveryPetService.sparksWalkManual,
+          reason: 'second manual walk of the day is allowed');
+      final third = await RecoveryPetService.logWalkManualFallback();
+      expect(third.sparks, second.sparks,
+          reason: 'the third is over the two-per-day walk limit');
+    });
+
+    test('records walk_verified_v1 so the UI reflects the logged walk',
+        () async {
+      // Without this the Sparks land while the Steps viewer still says no walk
+      // happened — the user sees a reward the app does not acknowledge.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('walk_verified_v1', false);
+
+      await RecoveryPetService.logWalkManualFallback();
+
+      expect(prefs.getBool('walk_verified_v1'), isTrue);
+    });
+
+    // The `walk_manual` event type itself is exercised through Drift in
+    // `test/audit_regressions_test.dart`. It is NOT asserted here because this
+    // suite drives the service through its SharedPreferences mirror, and the
+    // mirror deliberately does not carry pet_events — inventing a
+    // `recentEvents` accessor purely so this assertion could live here would
+    // add untested API to production for the benefit of a test.
+  });
+
   group('daily gentle quest (P3.1)', () {
     test('returns a valid catalog invitation, stable within the day',
         () async {

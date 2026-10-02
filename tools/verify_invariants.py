@@ -438,33 +438,377 @@ if owner_violations:
 # passed 500 steps.
 #
 # Only flag a hardcoded foreground when a colorScheme background appears in the
-# SAME statement, because a white icon on an avatar or inside a canvas painter is
+# SAME STATEMENT, because a white icon on an avatar or inside a canvas painter is
 # a legitimate constant, not a tone mismatch.
+#
+# The statement, not the line. This used to be a per-line regex pairing, and that
+# is how four unreadable pairings shipped past it:
+#
+#   lib/screens/sponsor_mode_screen.dart   tertiary / Colors.white
+#   lib/screens/meeting_map_screen.dart    tertiary / Colors.white
+#   lib/widgets/companion_guide_overlay.dart  primary / Colors.black
+#   lib/screens/splash_screen.dart         dangerSoft / Colors.white (a `side:`)
+#
+# In every case the two properties were on ADJACENT lines inside one
+# `ElevatedButton.styleFrom(...)` call, which no same-line check can see. The
+# scan below balances parentheses instead, so the window is the whole argument
+# list — which is what "same statement" was always trying to mean.
 # ---------------------------------------------------------------------------
 HARD_FG = re.compile(
-    r"foregroundColor:\s*Colors\.(white|black)\b", re.IGNORECASE
+    r"(?:foregroundColor|labelStyle\s*:|checkmarkColor\s*:|thumbColor\s*:)"
+    r"\s*(?:TextStyle\s*\([^)]*?color\s*:)?\s*Colors\.(white|black)\b",
+    re.IGNORECASE,
 )
-SCHEME_BG = re.compile(r"backgroundColor:\s*Theme\.of\(context\)\.colorScheme\.")
+SCHEME_BG = re.compile(
+    r"backgroundColor:\s*Theme\.of\(\s*\w+\s*\)\.colorScheme\."
+)
+# `BoxDecoration(color:)` inside the same widget as a hardcoded white TEXT
+# colour. This is the shape that produced the two worst bugs in the sweep:
+# `const TextStyle(color: Colors.white)` on a `surfaceContainer` panel — the
+# Companion Guide tutorial body and the entire Community Resources link list
+# were invisible in light mode.
+SCHEME_PANEL = re.compile(
+    r"color:\s*Theme\.of\(\s*\w+\s*\)\.colorScheme\."
+    r"\.(?:surface|surfaceContainer|surfaceContainerHigh|surfaceContainerHighest"
+    r"|primary|tertiary|secondary|error)"
+)
+# A `side:`/`border:` carries the same tone question as a background: it is the
+# edge of the same filled button, so a white label on a light border has the same
+# contrast problem.
+SCHEME_SIDE = re.compile(
+    r"(?:side|border)\s*:\s*Border\.(?:all|side)\(\s*color\s*:\s*"
+    r"(?:Theme\.of\(\s*\w+\s*\)\.colorScheme\.|AppColors\.)"
+)
+# Fixed, light domain fills whose only readable foreground is a dark one.
+APP_ACCENT_FILL = re.compile(
+    r"backgroundColor:\s*AppColors\.(?:pink|dangerSoft)\b"
+)
+
+
+def statements(text):
+    """Yield (line_no, snippet) for each top-level-looking `(...)` argument list.
+
+    Deliberately crude: track parenthesis depth from outside-in and treat each
+    return to depth 1 as the end of one call's arguments. It does not need to
+    understand Dart, only to keep a multi-line `styleFrom(...)` together, which
+    is the whole job. Brace-delimited widget bodies are not separated, so a
+    `foregroundColor:` in one card and a `backgroundColor:` in the next card
+    cannot be joined — that over-reach would produce false positives.
+    """
+    depth = 0
+    start = 0
+    start_line = 1
+    for i, ch in enumerate(text):
+        if ch == "(":
+            if depth == 0:
+                start = i
+                start_line = text.count("\n", 0, i) + 1
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                yield start_line, text[start : i + 1]
+            if depth < 0:
+                depth = 0
+
 
 paired_fg = []
 for path in sorted(LIB.rglob("*.dart")):
     if path.name.endswith(".g.dart"):
         continue
     text = strip_comments(read(path))
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if HARD_FG.search(line) and SCHEME_BG.search(line):
+    # Two passes. The statement pass catches a `styleFrom(...)` whose properties
+    # span several lines. The window pass below catches the `const TextStyle(
+    # color: Colors.white)` form, where the text colour and the panel colour are
+    # in *different* constructs with no shared parentheses — so there is no
+    # statement that contains both, and only proximity can pair them.
+    for lineno, stmt in statements(text):
+        if HARD_FG.search(stmt) and (
+            SCHEME_BG.search(stmt)
+            or SCHEME_SIDE.search(stmt)
+            or APP_ACCENT_FILL.search(stmt)
+        ):
+            snippet = " ".join(stmt.split())
             paired_fg.append(
                 "%s:%d: %s"
-                % (path.relative_to(ROOT).as_posix(), lineno, line.strip()[:110])
+                % (path.relative_to(ROOT).as_posix(), lineno, snippet[:110])
             )
+
+    # Window pass: a hardcoded white/black text colour with a scheme panel or
+    # accent fill within 12 lines, in either order. 12 is chosen to span a
+    # `Text(...)` inside its parent's `Container`/`Card` decoration without
+    # reaching the next widget on the screen — a wider window would start
+    # pairing unrelated rows, and a gate that cries wolf gets ignored.
+    LINES = text.splitlines()
+    for i, line in enumerate(LINES):
+        if not re.search(r"Colors\.(white|black)\b", line, re.IGNORECASE):
+            continue
+        lo = max(0, i - 12)
+        hi = min(len(LINES), i + 13)
+        window = "\n".join(LINES[lo:hi])
+        if not (SCHEME_PANEL.search(window) or APP_ACCENT_FILL.search(window)):
+            continue
+        if path.name.endswith(".g.dart"):
+            continue
+        snippet = " ".join(line.split())
+        entry = "%s:%d: %s" % (
+            path.relative_to(ROOT).as_posix(),
+            i + 1,
+            snippet[:110],
+        )
+        if entry not in paired_fg:
+            paired_fg.append(entry)
 
 if paired_fg:
     failures.append(
-        "PAIRED FOREGROUND MUST BE A colorScheme ROLE (invariant 9). M3 primary "
-        "and error flip tone with brightness, so a hardcoded white/black "
-        "foreground is unreadable in one mode. Use onPrimary / onError / "
-        "onSurface: " + " || ".join(paired_fg)
+        "PAIRED FOREGROUND MUST BE A colorScheme ROLE (invariant 9). M3 primary, "
+        "tertiary, surfaceContainer and error flip tone with brightness, so a "
+        "hardcoded white/black text colour is unreadable in one mode — and "
+        "`const TextStyle(color: Colors.white)` cannot read the theme at all. "
+        "Use onPrimary / onTertiary / onSurface / onSurfaceContainer, or "
+        "AppColors.onDomainAccent for the brightness-independent pink and "
+        "dangerSoft fills: " + " || ".join(paired_fg)
     )
+
+
+# ---------------------------------------------------------------------------
+# 10. Stack child order in the constellation canvas.
+#
+# A Stack hit-tests its LAST child first. The 3D view is an opaque
+# `Positioned.fill` surface, so if it is declared after the controls it
+# swallows every tap aimed at them: entering 3D mode became a ONE-WAY DOOR
+# whose only exit was killing the app.
+#
+# This gate exists because the bug was invisible to both the analyzer and a
+# careful read: the file carried a comment describing the CORRECT ordering
+# immediately above the WRONG line. "The opaque 3D surface is declared BEFORE
+# the toggle and the slider, not after" sat directly above the overlay, which
+# was declared after. A comment is not an ordering guarantee.
+#
+# We compare the byte offset of the overlay's declaration against each
+# interactive control's. `test/constellation_3d_controls_reachable_test.dart`
+# pins the same behaviour behaviourally; this catches a revert at the source
+# level, before anyone builds an APK.
+#
+# KNOWN LIMITATION, deliberately accepted: a raw `find()` offset scan cannot
+# distinguish a declaration from a mention of the same text. It is the
+# cheapest check that cannot silently pass on a missing widget (each needle
+# raises if it is absent), and the behavioural test covers the real hit path.
+# If this file is ever restructured so the ordering no longer appears in one
+# `Stack(children: [...])`, the "could not locate" branch fires rather than
+# quietly going green — that is the failure mode to preserve.
+# ---------------------------------------------------------------------------
+CANVAS = ROOT / "lib" / "screens" / "constellation_screen.dart"
+
+if not CANVAS.exists():
+    failures.append(
+        "lib/screens/constellation_screen.dart is missing. Invariant 10 "
+        "checks Stack child order there."
+    )
+else:
+    canvas_src = read(CANVAS)
+    # Matched on the widget name only, NOT on `Positioned.fill(child: ...` — that
+    # exact single-line shape was reformatted when the fix landed, and a needle
+    # pinned to it reported "the overlay is gone" instead of checking the order.
+    # A gate that breaks on formatting is a gate that gets "fixed" by reverting
+    # the formatting, which is how a gate stops gating.
+    OVERLAY = "RecoveryConstellation3DWidget("
+    overlay_at = canvas_src.find(OVERLAY)
+    if overlay_at == -1:
+        failures.append(
+            "The 3D overlay declaration (Positioned.fill(child: "
+            "RecoveryConstellation3DWidget) is gone from "
+            "lib/screens/constellation_screen.dart. If 3D mode was removed on "
+            "purpose, delete invariant 10 in this gate and in AGENTS.md in the "
+            "same commit — do not leave the gate dangling."
+        )
+    else:
+        # Each control is identified by a literal unique to its own
+        # declaration site, so the offsets cannot drift onto a comment or a
+        # different widget that happens to mention the same symbol.
+        controls = {
+            "3D view toggle": "label: _is3DView ? 'Switch to 2D view'",
+            "zoom slider": "value: _zoom,",
+            "focus info badge": "child: _buildFocusInfo(",
+            "sky name label": "widget.skyName != null",
+        }
+        for name, needle in sorted(controls.items()):
+            control_at = canvas_src.find(needle)
+            if control_at == -1:
+                failures.append(
+                    "Could not locate the %s declaration in "
+                    "lib/screens/constellation_screen.dart (searched for %r). "
+                    "Invariant 10 cannot verify Stack order, so it would pass "
+                    "without checking anything — a gate that cannot see is not "
+                    "a gate. Update the needle here." % (name, needle)
+                )
+            elif control_at < overlay_at:
+                failures.append(
+                    "STACK ORDER (invariant 10): the %s is declared BEFORE the "
+                    "opaque 3D overlay in lib/screens/constellation_screen.dart, "
+                    "so it is painted over and cannot be tapped while 3D mode is "
+                    "active. A Stack hit-tests its LAST child first — move the "
+                    "`if (_is3DView) Positioned.fill(...)` line to sit directly "
+                    "after the 2D canvas AnimatedBuilder and before every "
+                    "interactive control." % name
+                )
+
+
+# ---------------------------------------------------------------------------
+# 11. Firestore rules are ownership-scoped.
+#
+# `firestore/firestore.rules` shipped
+#
+#     match /sponsor_bundles/{docId} {
+#       allow read, write: if request.auth != null;
+#     }
+#
+# on a collection of clinical step-work bundles. `request.auth != null` is not
+# an authorisation check, it is a "is anyone signed in" check — so every
+# authenticated user could read, sign, and rewrite every bundle anyone else had
+# shared. It survived because nothing tested the rules and nothing in the Dart
+# client would have revealed it: the client only ever reads documents it just
+# created, so the missing boundary never produced a wrong value, only a
+# reachable one.
+#
+# Two things must hold, and the second is the one that is easy to get wrong:
+#
+#   a. No `allow` may be gated on `request.auth != null` ALONE. That expression
+#      is a session check and must never be the whole condition.
+#   b. Every `match` block over a collection holding user content must bind at
+#      least one path segment to `request.auth.uid`. A field-based check
+#      (`resource.data.ownerUid == request.auth.uid`) is NOT sufficient and is
+#      the trap: the document is written BY the caller, so the caller chooses
+#      that field. Only the path is not caller-chosen. This project has no Admin
+#      SDK, so a custom claim cannot be used either — which is precisely why the
+#      path is the partition.
+# ---------------------------------------------------------------------------
+RULES = ROOT / "firestore" / "firestore.rules"
+
+if not RULES.exists():
+    failures.append(
+        "firestore/firestore.rules is missing. Invariant 11 checks that the "
+        "cloud rules stay ownership-scoped."
+    )
+else:
+    rules_src = strip_comments(read(RULES))
+
+    # (a) An `allow` whose condition is exactly the session check.
+    #
+    # EXEMPT: `community_feeds`, whose read is intentionally shared — a Recovery
+    # Circle is the product, not an inbox, so requiring a per-user path would
+    # make the feed single-user. That collection's writes are constrained by the
+    # immutability pins in (b) instead, which is the meaningful boundary there:
+    # anyone may read the circle, nobody may rewrite anyone's post.
+    SHARED_READ_ONLY = {"community_feeds"}
+
+    for block in re.finditer(
+        r"(match\s+/([A-Za-z_][A-Za-z0-9_]*)/\{(\w+)\}\s*\{)(.*?)\n(\s*)\}",
+        rules_src,
+        re.S,
+    ):
+        root = block.group(2)
+        body = block.group(4)
+        if not re.search(r"allow\s+", body):
+            continue
+        if root in SHARED_READ_ONLY:
+            continue
+        for m in re.finditer(
+            r"allow\s+(?:read|write|create|update|delete)"
+            r"(?:\s*,\s*(?:read|write|create|update|delete))*"
+            r"\s*:\s*if\s+([^;{]+)",
+            body,
+        ):
+            condition = " ".join(m.group(1).split())
+            if condition == "request.auth != null":
+                line = (
+                    rules_src[
+                        : block.start(4) + m.start()
+                    ].count("\n")
+                    + 1
+                )
+                failures.append(
+                    "FIREBASE RULE at firestore/firestore.rules:%d (`/%s`) is "
+                    "gated on `request.auth != null` ALONE. That is a session "
+                    "check, not an authorisation check — it grants the operation "
+                    "to every signed-in user. Add an ownership condition (a path "
+                    "segment bound to `request.auth.uid`); do not rely on a "
+                    "document field, because the caller writes that field."
+                    % (line, root)
+                )
+
+    # (b) Per-collection requirements. Two shapes, because there are two kinds of
+# collection here, and conflating them would either over- or under-enforce:
+#
+#   PRIVATE  — content only the owner may touch. `sponsor_bundles`,
+#              `sponsorBundles`, `care_alerts`. MUST bind a path segment to
+#              `request.auth.uid`. A `resource.data.<field> == request.auth.uid`
+#              test is NOT accepted: for a document the caller itself created,
+#              the caller chose that field.
+#
+#   SHARED   — `community_feeds` is a feed, not an inbox. Reads are meant to be
+#              shared, so a path partition would be wrong (it would make the
+#              Recovery Circle single-user). What must be protected instead is
+#              authorship: no client may rewrite `authorAlias`, `body`, or
+#              moderation `status` on a post it does not own. There is no
+#              authorisable moderator claim in this project (`isModerator()`
+#              reads a SharedPreferences flag, invisible to rules), so the only
+#              safe posture is that those three are IMMUTABLE remotely.
+PRIVATE_COLLECTIONS = {
+    "sponsor_bundles": "clinical step-work bundles",
+    "sponsorBundles": "the sponsor inbox (clinical step-work bundles)",
+    "care_alerts": "distress signals",
+}
+IMMUTABLE_FEED_FIELDS = ("authorAlias", "body", "status")
+
+for block in re.finditer(
+    r"match\s+/([A-Za-z_][A-Za-z0-9_]*)/\{(\w+)\}\s*\{(.*?)\n\s*\}",
+    rules_src,
+    re.S,
+):
+    root, segment, body = block.group(1), block.group(2), block.group(3)
+    if not re.search(r"allow\s+(?:read|write|create|update|delete)", body):
+        continue
+
+    if root in PRIVATE_COLLECTIONS:
+        if ("%s == request.auth.uid" % segment) not in body:
+            failures.append(
+                "FIREBASE RULE: the `/%s/{%s}` block in "
+                "firestore/firestore.rules grants access without binding `%s` to "
+                "`request.auth.uid`. It holds %s, which is private, so the "
+                "partition must be the PATH. Checking "
+                "`resource.data.ownerUid == request.auth.uid` instead is not "
+                "equivalent: the caller writes that field." % (
+                    root, segment, segment, PRIVATE_COLLECTIONS[root])
+            )
+        # `allow read, write: if <auth-only>` is already caught above, but a
+        # `write` alias can smuggle the same thing past that pass.
+        if re.search(r"allow\s+(?:read\s*,\s*)?write\s*:\s*if\s+([^;{]+)", body):
+            for m2 in re.finditer(
+                r"allow\s+(?:read\s*,\s*)?write\s*:\s*if\s+([^;{]+)", body
+            ):
+                if "%s == request.auth.uid" % segment not in m2.group(1):
+                    failures.append(
+                        "FIREBASE RULE: `/%s/{%s}` grants `write` on a condition "
+                        "that does not include `%s == request.auth.uid`."
+                        % (root, segment, segment)
+                    )
+
+    elif root == "community_feeds":
+        if re.search(r"allow\s+update\s*:", body):
+            for field in IMMUTABLE_FEED_FIELDS:
+                pin = "request.resource.data.%s == resource.data.%s" % (field, field)
+                if pin not in body:
+                    failures.append(
+                        "FIREBASE RULE: `/community_feeds/{docId}` allows update "
+                        "without pinning `%s` (`%s` absent). Without it any "
+                        "signed-in user can rewrite a post's %s — for `status` "
+                        "that means approving or hiding anyone's post, including "
+                        "their own past moderation. Moderation is local-only by "
+                        "design (pet-store-rules C5) because there is no "
+                        "authorisable moderator claim."
+                        % (field, pin, field)
+                    )
 
 
 def main() -> int:
@@ -481,7 +825,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 9)
+    print("PASS: %d architecture invariants hold" % 11)
     return 0
 
 

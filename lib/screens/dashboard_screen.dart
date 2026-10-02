@@ -6,6 +6,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -323,7 +324,13 @@ Future<void> _handleWalk() async {
                   textColor: Theme.of(context).colorScheme.primary,
                   onPressed: () async {
                     await StepCounterService.instance.manuallyVerifyWalk();
-                    await _completeWalk();
+                    // The accessibility path, not the verified one. This used to
+                    // call `_completeWalk()`, which routes to
+                    // `logWalk(requireVerification: false)` — full walk-exempt
+                    // 15 Sparks AND one of the two daily walk slots, for a user
+                    // the pedometer could not verify. `logWalkManualFallback`
+                    // exists precisely for this and had no caller at all.
+                    await _completeWalk(isManual: true);
                   },
                 ),
               ),
@@ -344,9 +351,13 @@ Future<void> _handleWalk() async {
     }
   }
 
-  Future<void> _completeWalk() async {
+  Future<void> _completeWalk({bool isManual = false}) async {
     final before = ref.watch(dashboardDataProvider).pet?.sparks ?? 0;
-    await RecoveryPetService.logWalk(requireVerification: false);
+    if (isManual) {
+      await RecoveryPetService.logWalkManualFallback();
+    } else {
+      await RecoveryPetService.logWalk(requireVerification: false);
+    }
     await ConstellationService.addWalkStar(widget.database);
     await _refreshPet();
     if (!mounted) return;
@@ -356,7 +367,13 @@ Future<void> _handleWalk() async {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
         content: Text(
           after > before
-              ? 'Walk verified · +${after - before} Sparks'
+              ? isManual
+                  // Say what was actually granted. The manual path pays the
+                  // reduced 7-Spark capped rate, and announcing "+15" here —
+                  // or, worse, announcing the verified rate — misinforms the
+                  // user about their own economy.
+                  ? 'Walk logged · +${after - before} Sparks (manual)'
+                  : 'Walk verified · +${after - before} Sparks'
               : 'Walk appreciated · daily Sparks cap reached, see you tomorrow',
         ),
       ),
@@ -586,12 +603,22 @@ Future<void> _handleWalk() async {
     if (sponsor == null) return;
     if (!CommunityFeedService.remoteReady) return;
     try {
+      // Partitioned by the sender's uid in the path: `care_alerts/{uid}/alerts`.
+      // The old flat `care_alerts` collection was readable by every signed-in
+      // user, which means a distress signal — the most sensitive thing this app
+      // can emit — was world-readable to anyone who signed up. The rules now
+      // create-only, sender-scoped, and unreadable even by the sender.
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
       await FirebaseFirestore.instance
           .collection('care_alerts')
+          .doc(uid)
+          .collection('alerts')
           .doc('alert_${DateTime.now().millisecondsSinceEpoch}')
           .set({
         'sponsorCode': sponsor.pairingCode,
         'sponsorAlias': sponsor.alias,
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
         'triggeredAt': DateTime.now().millisecondsSinceEpoch,
         'type': 'sos_triggered',
       });

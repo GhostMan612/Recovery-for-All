@@ -107,10 +107,17 @@ final activeProfileProvider = FutureProvider.autoDispose((ref) async {
 /// reading and when the read throws. Any routing guard built on it would bounce
 /// a returning user into onboarding. Callers can now distinguish
 /// `isLoading` / `hasError` from a genuinely absent profile.
+///
+/// A `FutureProvider`, not a `Provider` over a FutureProvider, so a caller can
+/// `await ...future` directly. `SplashScreen` does exactly that: it must know
+/// the answer before it can route, and awaiting the provider's `.future` gives
+/// it the value without a second subscription or a loading callback. Reading it
+/// still yields `AsyncValue<bool>`, so the staleness test's type assertion
+/// still compiles — which is deliberate, because that assertion is the contract.
 final hasCompletedOnboardingProvider =
-    Provider.autoDispose<AsyncValue<bool>>((ref) {
-  final profileAsync = ref.watch(activeProfileProvider);
-  return profileAsync.whenData((profile) => profile != null);
+    FutureProvider.autoDispose<bool>((ref) async {
+  final profile = await ref.watch(activeProfileProvider.future);
+  return profile != null;
 });
 
 class ThemeNotifier extends Notifier<ThemePreference> {

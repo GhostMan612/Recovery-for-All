@@ -270,7 +270,12 @@ class SeventhTraditionScreen extends StatelessWidget {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.pink,
-                      foregroundColor: Colors.white,
+                      // onDomainAccent, not Colors.white: #F472B6 is a light
+                      // tint (contrast with white ~2.6:1, under the 4.5:1 AA
+                      // floor). `pink` is brightness-independent by design, so
+                      // a scheme role would be wrong too — onSurface flips to
+                      // near-white in dark mode, putting white back on pink.
+                      foregroundColor: AppColors.onDomainAccent,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     icon: const Icon(Icons.open_in_new_outlined, size: 20),

@@ -263,7 +263,18 @@ class _ChatBubble extends StatelessWidget {
               Text(
                 message.text,
                 style: TextStyle(
-                  color: message.isUser ? Colors.black : Colors.white,
+                  // onPrimary / onSurfaceVariant, not Colors.black / Colors.white.
+                  // Both branches were wrong in one brightness: white on
+                  // `surfaceContainer` is invisible in light mode, and black
+                  // on `primary` fails in dark mode where `primary` is a dark
+                  // tone. These are the roles the M3 scheme defines for this
+                  // pairing. (`onSurfaceContainer` would be the ideal role but
+                  // does not exist in this Flutter version, so `onSurfaceVariant`
+                  // is the closest available against a `surfaceContainer`
+                  // panel.)
+                  color: message.isUser
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 14,
                   height: 1.4,
                 ),
@@ -272,7 +283,16 @@ class _ChatBubble extends StatelessWidget {
               Text(
                 '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                 style: TextStyle(
-                  color: message.isUser ? Colors.black54 : Theme.of(context).colorScheme.outline,
+                  // onPrimaryContainer-ish: the timestamp sits on the same
+                  // bubble as the message, so it needs the same role at lower
+                  // emphasis. A literal `black54` was unreadable on the
+                  // primary bubble in dark mode.
+                  color: message.isUser
+                      ? Theme.of(context)
+                          .colorScheme
+                          .onPrimary
+                          .withValues(alpha: 0.7)
+                      : Theme.of(context).colorScheme.outline,
                   fontSize: 12,
                 ),
               ),

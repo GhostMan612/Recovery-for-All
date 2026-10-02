@@ -83,10 +83,23 @@ class _ChronicleShareCardState extends State<ChronicleShareCard> {
                   children: [
                     AvatarVisualLayer(pet: widget.pet, size: 60, compact: true),
                     const SizedBox(width: 16),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "Kin's Chronicle",
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        // Theme-driven on purpose. This widget is both the
+                        // on-screen preview AND the RepaintBoundary captured to
+                        // the shared PNG, so the preview must match the
+                        // artefact exactly — a fixed palette here would render a
+                        // preview the user never actually shares.
+                        //
+                        // `onSurface`, not Colors.white: the panel is
+                        // `surfaceContainer`, near-white in light mode. It was
+                        // `const`, so it could not read the theme at all.
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -105,8 +118,13 @@ class _ChronicleShareCardState extends State<ChronicleShareCard> {
           onPressed: _isSharing ? null : _shareChronicle,
           icon: _isSharing
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.ios_share, color: Colors.white),
-          label: Text(_isSharing ? 'Capturing...' : 'Share Chronicle', style: const TextStyle(color: Colors.white)),
+              // onPrimary, not Colors.white: the button fill is `primary`, a
+              // LIGHT tone in light mode.
+              : Icon(Icons.ios_share, color: Theme.of(context).colorScheme.onPrimary),
+          label: Text(
+            _isSharing ? 'Capturing...' : 'Share Chronicle',
+            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+          ),
           style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
         ),
       ],

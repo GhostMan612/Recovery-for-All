@@ -19,7 +19,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -350,15 +350,170 @@ class GgufModelService {
     return dir;
   }
 
+  /// Ceiling on the total bytes this feature may occupy.
+  ///
+  /// The catalog holds four models totalling ~4.6 GB. A user who downloads all
+  /// four fills a phone that also holds their journal, their images and the OS
+  /// itself, and the failure lands mid-transfer as an opaque ENOSPC. A budget
+  /// turns that into a decision made before the transfer starts.
+  ///
+  /// 3 GB is chosen against the target hardware rather than a round number: the
+  /// largest single model is 2.7 GB, so every catalog entry fits, and the two
+  /// most likely to be wanted together (Gemma 270M + Phi-4 Mini ≈ 2.6 GB) fit
+  /// with room to spare.
+  static const int storageBudgetBytes = 3 * 1024 * 1024 * 1024;
+
+  /// Slack reserved for the `.tmp` file coexisting with its final name during
+  /// the atomic rename, and for filesystem metadata.
+  static const int _writeSlackBytes = 64 * 1024 * 1024;
+
+  /// Total bytes of `.gguf` files currently in the model directory.
+  ///
+  /// Derived from the filesystem, not from the `gguf_downloaded_models_v1`
+  /// prefs set. Prefs can disagree with disk — a user clearing app storage
+  /// leaves the names behind, an interrupted download leaves a file without a
+  /// prefs entry — and budgeting against a stale set is how you blow the budget.
+  Future<int> _bytesUsedOnDisk() async {
+    final dir = await _modelDir();
+    var total = 0;
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final lower = entity.path.toLowerCase();
+      // A `.tmp` in flight counts too: it occupies space and no prefs entry
+      // names it, so excluding it is how two concurrent downloads each pass a
+      // check the pair cannot satisfy.
+      final isModel = lower.endsWith('.gguf') || lower.endsWith('.gguf.tmp');
+      if (!isModel) continue;
+      total += await entity.length();
+    }
+    return total;
+  }
+
+  /// Checks the download fits the budget, evicting other models if it does not.
+  ///
+  /// Returns an error message, or null when the download may proceed.
+  ///
+  /// NOTE ON WHY THIS IS A BUDGET AND NOT A FREE-SPACE PROBE: Dart's
+  /// `FileStat.stat(directory).size` reports the size of the *directory entry*
+  /// — 4096 bytes on ext4/f2fs — not the free space on the volume. An earlier
+  /// version of this file compared that 4096 against the model's size and threw
+  /// "Not enough free space: 241 needed, 0 MB available" on every device, which
+  /// blocked 100% of downloads while reading as a working safety check. Dart
+  /// exposes no cross-platform free-space API (`dart:io` has no
+  /// `statvfs`), and shelling out is not an option on Android, so a
+  /// self-imposed budget plus eviction is the honest mechanism: it is
+  /// enforceable, testable, and cannot silently mis-report.
+  ///
+  /// A genuinely full volume still surfaces as an error mid-transfer, so the
+  /// stream is also watched for ENOSPC — see [_isOutOfSpace].
+  Future<String?> _ensureBudget(
+    Directory dir,
+    GgufModelInfo model,
+    String targetPath,
+  ) async {
+    final needed = model.fileSizeBytes + _writeSlackBytes;
+
+    // The model already on disk does not count against the budget: replacing it
+    // needs no extra room beyond the slack.
+    var used = await _bytesUsedOnDisk();
+    final existing = File(targetPath);
+    if (await existing.exists()) used -= await existing.length();
+
+    if (used + needed <= storageBudgetBytes) return null;
+
+    // Evict other models, largest first, until it fits or nothing is left.
+    // Largest-first because one eviction should free the most room possible,
+    // minimising how many models the user loses to keep the one they asked for.
+    final others = <File>[];
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      if (!entity.path.toLowerCase().endsWith('.gguf')) continue;
+      if (entity.path == targetPath) continue;
+      others.add(entity);
+    }
+    others.sort((a, b) => b.lengthSync().compareTo(a.lengthSync()));
+
+    final prefs = await SharedPreferences.getInstance();
+    final downloaded = await getDownloadedModels();
+    var freed = 0;
+    for (final victim in others) {
+      if (used - freed + needed <= storageBudgetBytes) break;
+      final size = victim.lengthSync();
+      try {
+        await victim.delete();
+      } on FileSystemException {
+        // Could not remove it (still open, or the FS refused) — keep going and
+        // see whether a smaller victim frees enough.
+        continue;
+      }
+      freed += size;
+      // Keep the prefs mirror honest, or the model list shows a model whose
+      // file no longer exists — a state `isModelReady` already guards against,
+      // but only after a wasted round trip.
+      final id = victim.uri.pathSegments.last.replaceAll(RegExp(r'\.gguf$'), '');
+      downloaded.remove(id);
+      debugPrint('[gguf] evicted $id (${(size / (1024 * 1024)).round()} MB) '
+          'to make room for ${model.id}');
+    }
+
+    used -= freed;
+    if (used + needed <= storageBudgetBytes) {
+      await prefs.setString(
+          _keyDownloadedModels, jsonEncode(downloaded.toList()));
+      return null;
+    }
+
+    return 'Not enough storage: ${model.fileSizeMb} MB needed, and the '
+        '${(storageBudgetBytes / (1024 * 1024)).round()} MB budget has only '
+        '${((storageBudgetBytes - used) / (1024 * 1024)).round()} MB free. '
+        'Delete a downloaded model to free space.';
+  }
+
+  /// Whether [e] is an out-of-space failure from the write side.
+  ///
+  /// POSIX ENOSPC is errno 28 and EDQUOT is 122. `dart:io` surfaces the errno
+  /// through `FileSystemException.osError.errorCode`, which is why this cannot
+  /// be a substring match on `message`: the same condition reads as "No space
+  /// left on device", "Disk quota exceeded", or a bare "Cannot write" depending
+  /// on the platform and the FS driver.
+  bool _isOutOfSpace(Object e) {
+    if (e is! FileSystemException) return false;
+    final code = e.osError?.errorCode;
+    if (code == 28 || code == 122) return true;
+    final m = e.message.toLowerCase();
+    return m.contains('no space') || m.contains('quota exceeded');
+  }
+
+  /// Test seam for [_ensureBudget].
+  ///
+  /// Visible for testing because the alternative is a 2 GB download against a
+  /// live HTTP host in the test suite — which is why the previous version of
+  /// this check shipped broken with no test coverage: the only realistic test
+  /// was too expensive to write, so the check was reasoned about instead of
+  /// exercised. It returns the error message, or null when the download may
+  /// proceed; it does not itself perform a download.
+  @visibleForTesting
+  Future<String?> ensureBudgetForTest(
+    GgufModelInfo model,
+    String targetPath,
+  ) async {
+    final dir = await _modelDir();
+    return _ensureBudget(dir, model, targetPath);
+  }
+
 /// Downloads a model with streaming progress. Returns true on success.
   /// [onProgress] reports (downloaded, total). Cancel by setting
   /// [isCancelled] to true.
   ///
-  /// Free space is checked first. The header advertises "Storage management
-  /// (private app dir, not Downloads)" but there was none: no quota, no
-  /// free-space check, no eviction — and the four catalog entries total ~4.6 GB.
-  /// On a device with a few GB spare the download would fail part-way with a
-  /// filesystem error and surface to the user only as "try again later".
+  /// Storage is governed by [_ensureBudget]: a self-imposed ceiling on total
+  /// bytes in the model directory, with largest-first eviction of other models
+  /// to make room. The header advertised "Storage management (private app dir,
+  /// not Downloads)" while there was none of it — no quota, no eviction — and
+  /// the four catalog entries total ~4.6 GB.
+  ///
+  /// A genuinely full *volume* cannot be predicted from Dart, so the write
+  /// stream is also watched for ENOSPC and reported as such rather than as
+  /// "try again later".
   Future<bool> downloadModel(
     GgufModelInfo model, {
     void Function(int downloaded, int total)? onProgress,
@@ -373,57 +528,60 @@ class GgufModelService {
       final tmpFile = File('${dir.path}/${model.id}.gguf.tmp');
       if (tmpFile.existsSync()) await tmpFile.delete(); // clean stale temp
 
-      // Free-space check with headroom, before a multi-hundred-MB transfer.
-      try {
-        final stat = await FileStat.stat(dir.path);
-        // 256 MB of slack so the rename and the extract have room too.
-        const slack = 256 * 1024 * 1024;
-        if (stat.type == FileSystemEntityType.directory &&
-            stat.size < model.fileSizeBytes + slack) {
-          throw Exception(
-              'Not enough free space: ${model.fileSizeMb} needed, '
-              '${(stat.size / (1024 * 1024)).round()} MB available');
-        }
-      } on FileSystemException catch (e) {
-        // Stat unsupported on this platform — let the download proceed rather
-        // than blocking a user on a check we could not perform.
-        debugPrint('[gguf] free-space check skipped: ${e.message}');
-      }
+      final budgetError = await _ensureBudget(dir, model, file.path);
+      if (budgetError != null) throw Exception(budgetError);
 
       final client = http.Client();
-      final request =
-          http.Request('GET', Uri.parse(model.downloadUrl));
-      final response =
-          await client.send(request).timeout(const Duration(minutes: 30));
-
-      if (response.statusCode != 200) {
-        throw HttpException('Download failed: ${response.statusCode}');
-      }
-
-      final totalBytes = response.contentLength ?? model.fileSizeBytes;
-      final sink = tmpFile.openWrite();
-      var downloaded = 0;
-
       try {
-        await for (final chunk in response.stream) {
-          if (isCancelled?.call() ?? false) {
-            await sink.flush();
-            await sink.close();
-            if (tmpFile.existsSync()) await tmpFile.delete();
-            throw Exception('Download cancelled by user');
-          }
-          sink.add(chunk);
-          downloaded += chunk.length;
-          onProgress?.call(downloaded, totalBytes);
+        final request =
+            http.Request('GET', Uri.parse(model.downloadUrl));
+        final response =
+            await client.send(request).timeout(const Duration(minutes: 30));
+
+        if (response.statusCode != 200) {
+          throw HttpException('Download failed: ${response.statusCode}');
         }
-        await sink.flush();
-        await sink.close();
-      } catch (e) {
-        await sink.close();
-        if (tmpFile.existsSync()) await tmpFile.delete();
-        rethrow;
+
+        final totalBytes = response.contentLength ?? model.fileSizeBytes;
+        final sink = tmpFile.openWrite();
+        var downloaded = 0;
+
+        try {
+          await for (final chunk in response.stream) {
+            if (isCancelled?.call() ?? false) {
+              await sink.flush();
+              await sink.close();
+              if (tmpFile.existsSync()) await tmpFile.delete();
+              throw Exception('Download cancelled by user');
+            }
+            sink.add(chunk);
+            downloaded += chunk.length;
+            onProgress?.call(downloaded, totalBytes);
+          }
+          await sink.flush();
+          await sink.close();
+        } catch (e) {
+          await sink.close();
+          if (tmpFile.existsSync()) await tmpFile.delete();
+          // A full volume mid-transfer is the one storage failure the budget
+          // cannot predict. Report it as such — "No space left on device"
+          // instead of a bare ENOSPC string the user cannot act on.
+          if (_isOutOfSpace(e)) {
+            throw Exception(
+                'Ran out of storage part-way through the download '
+                '(${model.fileSizeMb} MB model). Free up device space and try '
+                'again; the partial file has been deleted.');
+          }
+          rethrow;
+        }
+      } finally {
+        // Every failure path above — bad status, a mid-stream drop, a user
+        // cancel, ENOSPC — used to leave this client open, leaking the socket
+        // on a transfer that may already have moved hundreds of MB. Cancelled
+        // downloads were the common case: the user backs out of a 2.7 GB
+        // model and the connection stays established.
+        client.close();
       }
-      client.close();
 
       // SHA-256 verification (Gap B).
       //

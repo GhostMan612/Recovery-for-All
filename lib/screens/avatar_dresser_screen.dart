@@ -255,8 +255,16 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                           onSelected: (_) => setState(() => _subFilter = null),
                           selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                           labelStyle: TextStyle(
+                            // onSurface, not Colors.white. The selected fill
+                            // is `primary` at 30% alpha composited over
+                            // `surfaceContainer`, so the effective background
+                            // is a light tint in light mode — white text on it
+                            // was invisible. `onSurface` contrasts with that
+                            // tint in both brightnesses, because the tint
+                            // tracks `surface` far more closely than it tracks
+                            // `primary`.
                             color: _subFilter == null
-                                ? Colors.white
+                                ? Theme.of(context).colorScheme.onSurface
                                 : Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
@@ -276,8 +284,10 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                             selectedColor:
                                 Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                             labelStyle: TextStyle(
+                              // onSurface, not Colors.white — same reasoning
+                              // as the 'All' chip above.
                               color: selected
-                                  ? Colors.white
+                                  ? Theme.of(context).colorScheme.onSurface
                                   : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),

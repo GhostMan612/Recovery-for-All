@@ -342,8 +342,14 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                           children: [
                             Text(
                               tutorial.title,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                // onSurface, not Colors.white. The panel is
+                                // `surfaceContainer`, which is near-white in
+                                // light mode, so the tutorial title rendered
+                                // invisible there — and being `const` it could
+                                // not read the theme at all, which is how it
+                                // survived so long.
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -378,8 +384,12 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
                   // Step text
                   Text(
                     step.text,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      // onSurface, not Colors.white — same reasoning as the
+                      // title: white on `surfaceContainer` is invisible in
+                      // light mode, and this is the body copy the user is
+                      // here to read.
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       height: 1.5,
                     ),
@@ -454,7 +464,12 @@ class _CompanionGuideOverlayState extends State<CompanionGuideOverlay>
           onPressed: isLastStep ? _completeTutorial : _nextStep,
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.black,
+            // onPrimary, not Colors.black. M3 primary is a light tone in light
+            // mode and a dark tone in dark mode, so a hardcoded black label is
+            // invisible in light mode — and a hardcoded white one would fail
+            // symmetrically in dark. This is invariant 9's exact case, and it
+            // had been missed because the two properties sat on adjacent lines.
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

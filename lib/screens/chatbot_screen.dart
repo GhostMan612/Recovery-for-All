@@ -491,7 +491,15 @@ $text
                               Text(
                                 message['text'] as String,
                                 style: TextStyle(
-                                  color: isUser ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                                  // onPrimary, not Colors.white. M3 primary is
+                                  // a LIGHT tone in dark theme and a dark tone
+                                  // in light theme, so a hardcoded white
+                                  // label is unreadable in light mode. This is
+                                  // the coach's own transcript — the single
+                                  // most-read surface in the app.
+                                  color: isUser
+                                      ? Theme.of(context).colorScheme.onPrimary
+                                      : Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               if (!isUser &&

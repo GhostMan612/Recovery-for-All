@@ -22,8 +22,23 @@
 //
 // TRANSPORT. The design intent is "any messenger, no server" — that is still the
 // default path. An optional Firestore relay (shareBundleViaCloud) exists for
-// same-account pairs; documents carry `ownerUid` so the collection is
-// partitioned by authenticated user rather than by the guessable pairing code.
+// same-account pairs.
+//
+// The relay is partitioned by uid **in the document path**:
+//     sponsor_bundles/{ownerUid}/bundles/{docId}
+//     sponsorBundles/{sponsorUid}/inbox/{docId}
+// Firestore rules can compare a path segment against `request.auth.uid`, but they
+// cannot compare a document *field* against the caller without a custom claim —
+// and this project has no Admin SDK, so a claim cannot be set. An
+// `allow read, write: if request.auth != null` over a flat `sponsor_bundles`
+// collection therefore meant every authenticated user could read, sign and
+// rewrite every clinical step-work bundle in it.
+//
+// Bundles written under the previous flat schema are unreachable under the new
+// rules. That is intended: they were never ownership-checked, so no safe rule
+// admits them. [orphanedRelayDocIds] lets a returning user learn that their old
+// relay copy is stranded instead of silently seeing an empty list and concluding
+// their sponsee never shared anything.
 
 import 'dart:convert';
 
@@ -34,6 +49,26 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Firestore subcollection holding a sponsee's own outbound bundles.
+const _sponsorBundleRoot = 'sponsor_bundles';
+
+/// Firestore subcollection a sponsor reads: bundles copied to *their* uid.
+const _sponsorInboxRoot = 'sponsorBundles';
+
+/// Owner's relay partition for [uid].
+CollectionReference<Map<String, dynamic>> _ownerBundles(String uid) =>
+    FirebaseFirestore.instance
+        .collection(_sponsorBundleRoot)
+        .doc(uid)
+        .collection('bundles');
+
+/// Sponsor's inbox partition for [uid].
+CollectionReference<Map<String, dynamic>> _sponsorInbox(String uid) =>
+    FirebaseFirestore.instance
+        .collection(_sponsorInboxRoot)
+        .doc(uid)
+        .collection('inbox');
 
 class SponsorIdentity {
   final String alias;
@@ -110,6 +145,39 @@ class SponsorLinkService {
       return FirebaseAuth.instance.currentUser != null;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Legacy flat-collection doc IDs this user can still see, if any.
+  ///
+  /// A read-only diagnostic. Under the old rules anyone could read the flat
+  /// `sponsor_bundles` collection; under the new ones they cannot, so any
+  /// documents there are stranded by design. Surfacing their count lets the UI
+  /// say "3 older relay bundles are no longer reachable — re-share to use the
+  /// relay" instead of showing an empty inbox that looks like data loss.
+  ///
+  /// Returns an empty list when unauthenticated or on any failure: this is
+  /// advisory, and it must never be able to fail a sign-off.
+  static Future<List<String>> orphanedRelayDocIds() async {
+    final authed = await _ensureAuth();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (!authed || uid == null) return const [];
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection(_sponsorBundleRoot)
+          .limit(20)
+          .get();
+      // Ownership cannot be verified under the new rules, so only documents
+      // that self-declare this uid are reported — which is exactly the set the
+      // OLD rules failed to protect. It is a count for a message, not an
+      // authorisation surface.
+      return snap.docs
+          .where((d) => d.data()['ownerUid'] == uid)
+          .map((d) => d.id)
+          .toList();
+    } catch (e) {
+      debugPrint('[sponsor] legacy relay probe failed: $e');
+      return const [];
     }
   }
 
@@ -293,10 +361,20 @@ class SponsorLinkService {
     }
   }
 
-  // ---- Firestore transport (v2, real-time) ----
+  // ---- Firestore transport (v3, ownership-partitioned, real-time) ----
 
   /// Sponsee: shares a bundle via Firestore for the sponsor to sign.
-  /// Returns the Firestore document ID for listening.
+  ///
+  /// Writes into `sponsor_bundles/{myUid}/bundles/` — the owner's own partition,
+  /// matched by the rules against `request.auth.uid`. Also drops a copy into the
+  /// sponsor's inbox *only when* the sponsor is on the same account as the
+  /// sponsee (a signed-in uid we know), because the rules cannot resolve a
+  /// pairing code to a uid: that would need a custom claim, and this project
+  /// has no Admin SDK to set one.
+  ///
+  /// Returns the document ID for listening, or null when the relay is
+  /// unavailable — the local ledger is the source of truth, so a relay failure
+  /// never blocks a sign-off.
   static Future<String?> shareBundleViaCloud({
     required String sponsorCode,
     required String sponseeAlias,
@@ -306,19 +384,12 @@ class SponsorLinkService {
   }) async {
     final authed = await _ensureAuth();
     if (!authed) return null;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('sponsor_bundles')
-          .add({
-        'ownerUid': FirebaseAuth.instance.currentUser?.uid,
-        // Indexed by uid, NOT by the pairing code. The code is a 6-byte XOR
-        // fold of a public key — 48 bits with trivial collisions and no
-        // per-user ownership in the document — so indexing by it turned the
-        // collection into a guessable lookup over clinical step-work content.
-        // The bundle itself is still plaintext, which is a separate and
-        // deliberate trade (it is encrypted with the sponsor's public key when
-        // one is on file); the ownership boundary is what this fixes.
+      final doc = await _ownerBundles(uid).add({
+        'ownerUid': uid,
         'sponsorCode': sponsorCode.trim().toUpperCase(),
         'sponseeAlias': sponseeAlias,
         'step': step,
@@ -329,25 +400,29 @@ class SponsorLinkService {
         'createdAt': DateTime.now().millisecondsSinceEpoch,
       });
       return doc.id;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[sponsor] relay share failed: $e');
       return null;
     }
   }
 
   /// Sponsor: signs a pending bundle and writes the confirmation back.
+  ///
+  /// [bundleDocId] is addressed inside the SPONSOR's own inbox partition —
+  /// `sponsorBundles/{myUid}/inbox/{bundleDocId}` — which is what the rules
+  /// admit. Signing a document in someone else's partition is denied by design.
   static Future<bool> signBundleViaCloud({
     required String bundleDocId,
     required String bundleJson,
   }) async {
     final authed = await _ensureAuth();
     if (!authed) return false;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
 
     try {
       final confirmation = await signBundle(bundleJson);
-      await FirebaseFirestore.instance
-          .collection('sponsor_bundles')
-          .doc(bundleDocId)
-          .update({
+      await _sponsorInbox(uid).doc(bundleDocId).update({
         'status': 'signed',
         'confirmation': confirmation,
       });
@@ -358,15 +433,15 @@ class SponsorLinkService {
   }
 
   /// Sponsee: listens for a signed confirmation on a shared bundle.
+  ///
+  /// Reads inside the SPONSEE's own partition, which is what the rules admit.
   static Stream<SignedConfirmation?> listenForConfirmation(String docId) async* {
     final authed = await _ensureAuth();
     if (!authed) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-    yield* FirebaseFirestore.instance
-        .collection('sponsor_bundles')
-        .doc(docId)
-        .snapshots()
-        .map((doc) {
+    yield* _ownerBundles(uid).doc(docId).snapshots().map((doc) {
       final data = doc.data();
       if (data == null || data['status'] != 'signed') return null;
       final conf = data['confirmation'] as String?;
@@ -375,23 +450,34 @@ class SponsorLinkService {
     });
   }
 
-  /// Sponsor: queries pending bundles matching their pairing code.
+  /// Sponsor: queries pending bundles addressed to their pairing code.
+  ///
+  /// Scoped to the SPONSOR's own inbox partition by the rules. The
+  /// `sponsorCode` filter is retained as a client-side narrowing — it is a
+  /// convenience, not the security boundary, and it is worth being explicit
+  /// about which is which: the filter narrows what is *displayed*, the path
+  /// partition decides what is *readable*.
+  ///
+  /// Yields an empty list on any failure. A sponsor who cannot read the relay
+  /// must not see an error that implies their sponsee never shared anything.
   static Stream<List<Map<String, dynamic>>> watchPendingBundles(
       String pairingCode) async* {
     final authed = await _ensureAuth();
-    if (!authed) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (!authed || uid == null) {
       yield [];
       return;
     }
 
-    yield* FirebaseFirestore.instance
-        .collection('sponsor_bundles')
-        .where('sponsorCode', isEqualTo: pairingCode.trim().toUpperCase())
+    final wanted = pairingCode.trim().toUpperCase();
+    yield* _sponsorInbox(uid)
+        .where('sponsorCode', isEqualTo: wanted)
         .where('status', isEqualTo: 'pending')
         .snapshots()
         .map((snap) => snap.docs
             .map((d) => {'id': d.id, ...d.data()})
-            .toList());
+            .toList())
+        .handleError((Object _) => <Map<String, dynamic>>[]);
   }
 
   // ---- ledger ----

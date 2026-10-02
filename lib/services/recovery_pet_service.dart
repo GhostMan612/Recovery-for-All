@@ -746,6 +746,13 @@ class RecoveryPetService {
 
     if (isManualFallback) {
       // Graceful manual override — reduced, capped stream (accessibility).
+      //
+      // `manuallyVerifyWalk()` is called here as well as in the branch below,
+      // because it sets `walk_verified_v1` — the flag the Steps viewer and the
+      // companion UI read to show "walk logged". Omitting it left the manual
+      // path granting Sparks while the UI still reported no walk, which reads
+      // as a bug in the app rather than as an accessibility affordance.
+      await StepCounterService.instance.manuallyVerifyWalk();
       await prefs.setString(_keyWalkDay, '$dayKey:${count + 1}');
       return _applyReward(
           type: 'walk_manual', sparksDelta: sparksWalkManual, energyDelta: 4, bondDelta: 1);
@@ -769,6 +776,20 @@ class RecoveryPetService {
   }
 
   /// Convenience for accessibility manual walk (7 Sparks, capped).
+  ///
+  /// This existed but had **no caller**: the dashboard's "Override" button on
+  /// the unverified-walk snackbar called `logWalk(requireVerification: false)`,
+  /// which pays the full walk-exempt [sparksWalk] AND consumes one of the two
+  /// daily walk slots. So the accessibility path — the one a wheelchair or
+  /// limited-mobility user is forced onto because the pedometer cannot see
+  /// their movement — was the *most* generously rewarded walk in the app, and
+  /// had to be repeated to farm. That is backwards, and it was reachable by
+  /// anyone who simply failed the 500-step check and tapped Override.
+  ///
+  /// Also note it does NOT consume a walk slot in a way the sensor ledger
+  /// disagrees with: the manual branch returns before the walk-count write, so
+  /// the day counter is bumped once and the reward is capped by the normal
+  /// daily allowance instead of being walk-exempt.
   static Future<RecoveryPet> logWalkManualFallback() =>
       logWalk(requireVerification: false, isManualFallback: true);
 

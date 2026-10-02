@@ -739,6 +739,37 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
               branchColor: Theme.of(context).colorScheme.primary,
             )),
           ),
+          // 3D view.
+          //
+          // ORDER IS LOAD-BEARING. A Stack hit-tests its LAST child first, so
+          // this opaque `Positioned.fill` surface must be declared BEFORE the
+          // toggle, not after it. With it last it painted over and swallowed
+          // every tap on the toggle: entering 3D mode was a ONE-WAY DOOR and
+          // the only way out was a full app restart.
+          //
+          // This is the second time this screen has been "fixed" by editing
+          // only the comment. The first attempt documented the correct
+          // ordering in prose directly above the wrong line and left the bug
+          // live, which is why the passing device pass was worthless: it
+          // rendered the IDENTICAL frame before and after the return tap
+          // (v_11 and v_12, both 66738 bytes) and that byte-identical result
+          // was read as success. Byte-identical across a tap is the signature
+          // of a tap that hit nothing.
+          //
+          // `test/constellation_3d_controls_reachable_test.dart` now pins this
+          // by tapping the toggle while the overlay is mounted. A comment is
+          // not a test; this is.
+          if (_is3DView)
+            Positioned.fill(
+              child: RecoveryConstellation3DWidget(
+                nodes: widget.nodes,
+                // Carried across so the slider below keeps meaning the same
+                // thing in both modes. Without these the slider is visible,
+                // draggable, and inert in 3D.
+                zoom: _zoom,
+                pan: _pan,
+              ),
+            ),
           // 3D view toggle
           Positioned(left: 16, top: 12, child: Material(
             color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.9),
@@ -769,30 +800,19 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
               offset: Offset(0, 20 * (1 - _focusController.value)),
               child: Material(color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.95), borderRadius: BorderRadius.circular(16), child: Padding(padding: EdgeInsets.all(16), child: _buildFocusInfo(widget.nodes[_focusedStarIndex!])),
             ))))),
-          // 3D view
-          //
-          // The opaque 3D surface is declared BEFORE the toggle and the slider,
-          // not after. A Stack hit-tests its LAST child first, so with the
-          // overlay last it sat on top of the toggle: entering 3D was a
-          // one-way door, and the only way out was a full app restart. The
-          // device pass that proved rotation rendered the identical frame
-          // before and after the "return" tap (v_11 and v_12 both 66738 bytes),
-          // which is the signature of a tap that hit nothing.
-          if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(nodes: widget.nodes)),
           // Zoom slider + sky name.
           //
-          // Also AFTER the 3D overlay, for the same reason: in 3D the slider was
-          // unreachable too, so it reported the wrong zoom instead of doing
-          // nothing at all.
+          // `bottom: 84` clears the extended "Add Star" FAB. `bottom: 12`
+          // used to sit this row underneath it: the FAB spans roughly
+          // 16..72dp from the bottom on the right half of the screen, so the
+          // right ~30% of the slider track was covered and could not be tapped
+          // or dragged at all. Discovered on hardware, not by reading — a tap
+          // intended for the slider opened the Add Star dialog instead. This
+          // clears it for any FAB width rather than for today's label.
           //
-          // `bottom: 12` used to put this row underneath the extended "Add Star"
-          // FAB: the FAB spans roughly 16..72dp from the bottom on the right
-          // half of the screen, so the right ~30% of the slider track was
-          // covered and could not be tapped or dragged at all. Discovered on
-          // hardware, not by reading — a tap intended for the slider opened the
-          // Add Star dialog instead. Sitting the row above the FAB clears it
-          // entirely, and it clears it for any FAB width rather than for
-          // today's label.
+          // The slider is declared AFTER the 3D overlay on purpose: see the
+          // ordering note above. It is visible in both modes, and in 3D it now
+          // drives the 3D projection instead of doing nothing.
           Positioned(left: 16, right: 16, bottom: 84, child: Row(children: [
             Icon(Icons.zoom_out, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
             Expanded(child: Slider(

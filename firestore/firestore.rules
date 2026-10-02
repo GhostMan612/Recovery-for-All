@@ -1,23 +1,200 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =====================================================================
+    // default deny
+    //
+    // MUST stay. `match /{document=**}` with `allow read, write: if false` is
+    // the backstop that makes every rule below *necessary*: Firestore rules are
+    // not first-match-wins in the way a reader assumes — any matching `allow`
+    // grants access regardless of where it appears — so this block, not its
+    // position, is what stops a newly added collection from being public.
+    //
+    // Read `firestore/firestore.rules` together with `tools/verify_invariants.py`
+    // invariant 11, which fails if any rule below regresses to a bare session
+    // check or stops binding a path segment to the caller's uid.
+    // =====================================================================
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // =====================================================================
+    // community feed — a SHARED feed
+    //
+    // Read access is deliberately shared across all signed-in users: a recovery
+    // circle is the product, not a private inbox. So unlike the collections
+    // below, this one does NOT partition by uid in the path, and it must not —
+    // doing so would make the feed single-user.
+    //
+    // What IS protected is authorship of content and moderation state, because
+    // both are writable by any client otherwise.
+    //
+    // NOTE the deliberate asymmetry with `sponsor_bundles`: the ownership test
+    // used in an `update` here is on `resource.data`, i.e. the ALREADY-STORED
+    // document — not on `request.resource.data`, which is caller-supplied. A
+    // field check is only meaningful for a field the caller did not get to
+    // choose on this write. Invariant 11 encodes that distinction.
+    // =====================================================================
     match /community_feeds/{docId} {
+
+      // Shared read. `docId` is an auto-id, so there is no owner to compare.
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.body.size() <= 480;
-      allow update: if request.auth != null;
+
+      // Create. Field names match `CommunityFeedService._mirrorOne`'s payload
+      // exactly: authorAlias, kind, body, shapeJson, needsSupport, status,
+      // strengthCount, proudCount, respectCount, createdAt.
+      //
+      // `body is string` first, on purpose: `request.resource.data.body.size()`
+      // on a MISSING key throws inside the rules engine, and the client sees
+      // PERMISSION_DENIED — which reads as a permissions bug rather than a
+      // validation bug, sending the user (and the next developer) to the wrong
+      // place.
+      //
+      // `status == 'visible'` forces moderation state at create. Without it a
+      // client could publish a post already marked approved and skip the queue.
+      allow create: if request.auth != null
+                    && request.resource.data.keys()
+                         .hasAll(['body', 'authorAlias', 'createdAt'])
+                    && request.resource.data.body is string
+                    && request.resource.data.body.size() > 0
+                    && request.resource.data.body.size() <= 480
+                    && request.resource.data.authorAlias is string
+                    && request.resource.data.authorAlias.size() > 0
+                    && request.resource.data.authorAlias.size() <= 32
+                    && request.resource.data.createdAt is int
+                    && request.resource.data.status == 'visible'
+                    && request.resource.data.strengthCount == 0
+                    && request.resource.data.proudCount == 0
+                    && request.resource.data.respectCount == 0;
+
+      // Update is restricted to the THREE reaction counters, and nothing else.
+      //
+      // The previous rule was `allow update: if request.auth != null`, which let
+      // any signed-in user rewrite `authorAlias` (the display name every post is
+      // attributed to), rewrite `body` on someone else's post, and set `status` —
+      // i.e. approve, hide, or un-flag any post in the feed. Moderation status
+      // has no authorisable remote claim in this project (`isModerator()` reads a
+      // SharedPreferences flag, which the caller controls and rules cannot see),
+      // so the correct rule is to deny remote status writes entirely. That
+      // matches the documented design in pet-store-rules C5: moderation is
+      // local-only "until networked moderation exists".
+      //
+      // `FieldValue.increment()` on one counter leaves the other document fields
+      // byte-identical, which is why requiring equality on all of them still
+      // admits reactions.
+      allow update: if request.auth != null
+                    && request.resource.data.authorAlias == resource.data.authorAlias
+                    && request.resource.data.kind == resource.data.kind
+                    && request.resource.data.body == resource.data.body
+                    && request.resource.data.shapeJson == resource.data.shapeJson
+                    && request.resource.data.needsSupport == resource.data.needsSupport
+                    && request.resource.data.status == resource.data.status
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && request.resource.data.strengthCount is int
+                    && request.resource.data.proudCount is int
+                    && request.resource.data.respectCount is int;
+
+      // No delete. Hiding is a status change owned by local moderation; a hard
+      // delete from any client would be unrecoverable for the author.
+      allow delete: if false;
     }
 
-    match /care_alerts/{docId} {
-      allow create: if request.auth != null;
+    // =====================================================================
+    // care alerts — PRIVATE by nature
+    //
+    // A care alert is a distress signal, so this must never be readable by any
+    // other user, not even another signed-in one. It is partitioned by the
+    // sender's uid IN THE PATH: `care_alerts/{uid}/alerts/{docId}`.
+    //
+    // The write is create-only and nobody may read it back — not even the
+    // sender. That is the point: an alert that the user can later re-read is an
+    // audit log they never consented to, and it duplicates a local Drift row.
+    // =====================================================================
+    match /care_alerts/{uid} {
+      allow create: if request.auth != null
+                    && uid == request.auth.uid
+                    && request.resource.data.createdAt is int;
+
+      // No read, update or delete — including for the owner.
       allow read, update, delete: if false;
     }
 
-    match /sponsor_bundles/{docId} {
-      allow read, write: if request.auth != null;
+    // =====================================================================
+    // sponsor bundles — PRIVATE, partitioned by uid IN THE PATH
+    //
+    //     sponsor_bundles/{ownerUid}/bundles/{docId}   the sponsee's outbound
+    //     sponsorBundles/{sponsorUid}/inbox/{docId}    the sponsor's inbox
+    //
+    // This collection carries clinical step-work content. It previously read
+    //
+    //     match /sponsor_bundles/{docId} {
+    //       allow read, write: if request.auth != null;
+    //     }
+    //
+    // which granted EVERY authenticated user read, sign and write over EVERY
+    // bundle anyone had ever shared — a total loss of the ownership boundary on
+    // the most sensitive content in the app.
+    //
+    // Why the uid is a PATH segment and not a field:
+    //   * rules CAN compare a path segment against `request.auth.uid`;
+    //   * rules CANNOT compare a document field against the caller without a
+    //     CUSTOM AUTH CLAIM, and this project has no Admin SDK or Cloud Function,
+    //     so no claim can be issued;
+    //   * the document is written BY the caller, so a self-declared `ownerUid`
+    //     field is chosen by the very party it is meant to constrain.
+    // The path is the only partition not chosen by the caller.
+    //
+    // KNOWN, DOCUMENTED LIMIT: genuine cross-account relay cannot work without
+    // an `sponsor_code` custom claim, because a sponsee cannot resolve a pairing
+    // code to the sponsor's uid. Until that claim exists, a bundle can only be
+    // read back by the uid that wrote it. The offline "any messenger, no server"
+    // path is unaffected and remains the primary design; the relay is optional.
+    // See blueprints/firebase-setup.md.
+    //
+    // Bundles written under the flat pre-partition schema are unreachable here
+    // by design: they were never ownership-checked, so no safe rule admits them.
+    // =====================================================================
+    match /sponsor_bundles/{ownerUid} {
+      allow create: if request.auth != null
+                    && ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.bundle is string
+                    && request.resource.data.sponsorCode is string;
+
+      allow read: if request.auth != null && ownerUid == request.auth.uid;
+
+      allow update, delete: if request.auth != null && ownerUid == request.auth.uid;
+    }
+
+    // The sponsor's own inbox. Only the addressed sponsor may read it, and only
+    // they may sign it — and signing may change `status` and `confirmation` and
+    // nothing else. Without that restriction a sponsee who somehow holds the doc
+    // id could mark their own bundle `signed` with a fabricated confirmation,
+    // which defeats the entire purpose of the Ed25519 signature.
+    match /sponsorBundles/{sponsorUid}/inbox/{docId} {
+      allow read: if request.auth != null && sponsorUid == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && sponsorUid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.bundle is string
+                    && request.resource.data.sponsorCode is string;
+
+      allow update: if request.auth != null
+                    && sponsorUid == request.auth.uid
+                    && resource.data.status == 'pending'
+                    && request.resource.data.status == 'signed'
+                    && request.resource.data.confirmation is string
+                    && request.resource.data.bundle == resource.data.bundle
+                    && request.resource.data.sponsorCode == resource.data.sponsorCode
+                    && request.resource.data.sponseeAlias == resource.data.sponseeAlias
+                    && request.resource.data.step == resource.data.step
+                    && request.resource.data.title == resource.data.title
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if request.auth != null && sponsorUid == request.auth.uid;
     }
   }
 }
