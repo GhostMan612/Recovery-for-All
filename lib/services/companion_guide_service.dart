@@ -38,42 +38,58 @@ class CompanionGuideService {
     final completed = (await _getCompletedTutorials()).toSet();
     final dismissed = (await _getDismissedTutorials()).toSet();
 
-    final tutorials = CompanionTutorialRegistry.getAll(userPathways: await _getUserPathways())
+    // Use the caller's pathways. The parameter used to be ignored and the
+    // service re-read the profile from prefs, so a caller that already knew the
+    // user's pathways (right after onboarding, before the profile was written)
+    // got a stale or empty filter.
+    final paths = userPathways.isNotEmpty
+        ? userPathways.toList()
+        : (await _getUserPathways()).toList();
+
+    final tutorials = CompanionTutorialRegistry.getAll(userPathways: paths)
         .where((t) => !completed.contains(t.id) && !dismissed.contains(t.id))
         .toList();
 
     if (tutorials.isEmpty) return null;
 
-    // Sort by priority (welcome first, then by id)
+    // `getAll` already returns priority order; this sort threw that away in
+    // favour of alphabetical, so lower-priority tutorials were offered first.
+    // Keep priority, pin only 'welcome' to the front.
     tutorials.sort((a, b) {
       if (a.id == 'welcome') return -1;
       if (b.id == 'welcome') return 1;
-      return a.id.compareTo(b.id);
+      final byPriority = b.priority.compareTo(a.priority);
+      return byPriority != 0 ? byPriority : a.id.compareTo(b.id);
     });
 
     return tutorials.firstOrNull;
+  }
+
+  static List<String> _stringListFrom(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      // toString(), not `as String`: one non-String element threw, and the
+      // catch returned [] — silently discarding ALL tutorial completion
+      // progress and replaying the overlay from the beginning.
+      return decoded.where((e) => e != null).map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<String>> _getCompletedTutorials() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('companion_guide_completed_v1');
     if (raw == null) return [];
-    try {
-      return (jsonDecode(raw) as List).map((e) => e as String).toList();
-    } catch (_) {
-      return [];
-    }
+    return _stringListFrom(raw);
   }
 
   static Future<Set<String>> _getDismissedTutorials() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('companion_guide_dismissed_v1');
     if (raw == null) return {};
-    try {
-      return (jsonDecode(raw) as List).map((e) => e as String).toSet();
-    } catch (_) {
-      return {};
-    }
+    return _stringListFrom(raw).toSet();
   }
 
   static Future<List<String>> _getUserPathways() async {

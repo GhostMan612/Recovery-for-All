@@ -46,6 +46,9 @@ class Counters extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+// v12: every watched query on these tables filters and/or orders by the indexed
+// columns. Without them each emission was a full scan plus a sort.
+@TableIndex(name: 'idx_journal_ts', columns: {#timestamp})
 @DataClassName('JournalEntry')
 class JournalEntries extends Table {
   TextColumn get id => text()();
@@ -58,6 +61,7 @@ class JournalEntries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_points_ts', columns: {#timestamp})
 @DataClassName('ConstellationPoint')
 class ConstellationPoints extends Table {
   TextColumn get id => text()();
@@ -83,6 +87,7 @@ class WeeklyGoals extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_checkin_ts', columns: {#timestamp})
 @DataClassName('WellnessCheckIn')
 class WellnessCheckIns extends Table {
   TextColumn get id => text()();
@@ -100,6 +105,8 @@ class WellnessCheckIns extends Table {
 
 /// Community "Recovery Circle" feed (Volume III /community_feeds).
 /// Privacy posture: alias-only, no location fields, no sober-time numbers.
+@TableIndex(name: 'idx_feed_status_created', columns: {#status, #createdAt})
+@TableIndex(name: 'idx_feed_flag', columns: {#flagCount})
 @DataClassName('FeedPost')
 class FeedPosts extends Table {
   TextColumn get id => text()();
@@ -153,6 +160,7 @@ class RecoveryPets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_pet_events_pet_ts', columns: {#petId, #timestamp})
 @DataClassName('PetEventRow')
 class PetEvents extends Table {
   TextColumn get id => text()();
@@ -166,6 +174,7 @@ class PetEvents extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_sync_peer_ts', columns: {#peerAlias, #timestamp})
 @DataClassName('FellowshipSync')
 class FellowshipSyncs extends Table {
   TextColumn get id => text()();
@@ -209,7 +218,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -254,6 +263,19 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             if (from < 11) {
               await m.createTable(activeRaids);
             }
+            // v12: indexes. The schema shipped with none, so every watched
+            // query that filtered or ordered on a column did a full scan plus
+            // a sort on tables that only grow. createIndex is idempotent in
+            // Drift, so this is safe to re-run.
+            if (from < 12) {
+              await m.createIndex(idxJournalTs);
+              await m.createIndex(idxCheckinTs);
+              await m.createIndex(idxFeedStatusCreated);
+              await m.createIndex(idxFeedFlag);
+              await m.createIndex(idxPetEventsPetTs);
+              await m.createIndex(idxSyncPeerTs);
+              await m.createIndex(idxPointsTs);
+            }
           });
           await customStatement('PRAGMA foreign_keys = ON');
         },
@@ -287,14 +309,17 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   Future<int> addJournalEntry(JournalEntry entry) =>
       into(journalEntries).insert(entry);
 
-  Stream<List<JournalEntry>> watchRecentJournals() {
+  Stream<List<JournalEntry>> watchRecentJournals({int limit = 100}) {
+    // "Recent" was in the name but there was no LIMIT — the fastest-growing
+    // table in the app was fully decoded on every write.
     return (select(journalEntries)
           ..orderBy([
             (t) => OrderingTerm(
                   expression: t.timestamp,
                   mode: OrderingMode.desc,
                 )
-          ]))
+          ])
+          ..limit(limit))
         .watch();
   }
 
@@ -313,17 +338,24 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   Stream<List<WeeklyGoal>> watchAllWeeklyGoals() => select(weeklyGoals).watch();
 
   Future<int> incrementWeeklyGoal(String id, {int by = 1}) async {
+    // Atomic increment in SQL. Two increments in the same frame both read
+    // currentCount = 2 and both wrote 3 — one was lost, and isCompleted was
+    // derived from the stale targetCount.
+    await customUpdate(
+      'UPDATE weekly_goals SET '
+      '  current_count = MIN(current_count + ?, 1073741824), '
+      '  is_completed = (current_count + ?) >= target_count '
+      'WHERE id = ?',
+      variables: [
+        Variable.withInt(by),
+        Variable.withInt(by),
+        Variable.withString(id),
+      ],
+      updates: {weeklyGoals},
+    );
     final rows =
         await (select(weeklyGoals)..where((tbl) => tbl.id.equals(id))).get();
-    if (rows.isEmpty) return 0;
-    final goal = rows.first;
-    final newCount = goal.currentCount + by;
-    return (update(weeklyGoals)..where((tbl) => tbl.id.equals(id))).write(
-      WeeklyGoalsCompanion(
-        currentCount: Value(newCount),
-        isCompleted: Value(newCount >= goal.targetCount),
-      ),
-    );
+    return rows.isEmpty ? 0 : rows.first.currentCount;
   }
 
   Future<int> resetAllWeeklyGoals() =>
@@ -375,6 +407,10 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   Future<int> addFeedPost(FeedPost post) => into(feedPosts).insert(post);
 
+  /// Single post read, for moderation paths and tests.
+  Future<FeedPost?> getFeedPost(String id) =>
+      (select(feedPosts)..where((t) => t.id.equals(id))).getSingleOrNull();
+
   /// Rule C3: newest first. There is deliberately no sober-time field to
   /// sort by — the feed cannot become a leaderboard.
   Stream<List<FeedPost>> watchVisibleFeed() {
@@ -405,31 +441,37 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   Future<void> reactToPost(String postId,
       {required String kind, int by = 1}) async {
-    final rows =
-        await (select(feedPosts)..where((tbl) => tbl.id.equals(postId))).get();
-    if (rows.isEmpty) return;
-    final post = rows.first;
-    final current = switch (kind) {
-      'strength' => post.strengthCount,
-      'proud' => post.proudCount,
-      _ => post.respectCount,
+    // Throw on an unknown kind instead of silently doing nothing. The two
+    // halves used to disagree: the `switch` read respectCount for anything
+    // unmatched, but the Companion used strict equality and so wrote three
+    // `Value.absent()` columns — an UPDATE that changed nothing, with the
+    // reaction evaporating and no error. A bad `kind` also reached Firestore as
+    // `'${kind}Count'`, desyncing local and cloud.
+    final column = switch (kind) {
+      'strength' => feedPosts.strengthCount,
+      'proud' => feedPosts.proudCount,
+      'respect' => feedPosts.respectCount,
+      _ => throw ArgumentError.value(
+          kind, 'kind', 'must be one of strength, proud, respect'),
     };
-    final next = (current + by).clamp(0, 1 << 30);
-    await (update(feedPosts)..where((tbl) => tbl.id.equals(postId))).write(
-      FeedPostsCompanion(
-        strengthCount: kind == 'strength' ? Value(next) : const Value.absent(),
-        proudCount: kind == 'proud' ? Value(next) : const Value.absent(),
-        respectCount: kind == 'respect' ? Value(next) : const Value.absent(),
-      ),
+    // One SQL statement: `SET <col> = <col> + ?`. A Dart read-modify-write
+    // lost concurrent reactions.
+    await customUpdate(
+      'UPDATE feed_posts SET ${column.name} = MIN(${column.name} + ?, 1073741824) WHERE id = ?',
+      variables: [Variable.withInt(by), Variable.withString(postId)],
+      updates: {feedPosts},
     );
   }
 
   Future<int> flagPost(String id) {
-    return (update(feedPosts)..where((tbl) => tbl.id.equals(id)))
-        .write(const FeedPostsCompanion(
-      flagCount: Value(1),
-      status: Value('pending'),
-    ));
+    // Increment, not assign. `flagCount: Value(1)` reset a post that 7 users
+    // had reported back down to 1, destroying the moderation signal that rule
+    // C5 depends on.
+    return customUpdate(
+      "UPDATE feed_posts SET flag_count = MIN(flag_count + 1, 1073741824), status = 'pending' WHERE id = ?",
+      variables: [Variable.withString(id)],
+      updates: {feedPosts},
+    );
   }
 
   Future<int> setPostStatus(String id, String status) {
@@ -440,7 +482,19 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   Future<int> deleteFeedPost(String id) =>
       (delete(feedPosts)..where((tbl) => tbl.id.equals(id))).go();
 
-  Stream<List<PetEventRow>> watchPetEvents(String petId) {
+  /// Targeted UPDATE for a single profile column. `saveProfile` replaces every
+  /// column from a snapshot the caller read earlier, so the settings screen
+  /// toggling one boolean could revert a concurrent write (onboarding finishing
+  /// `selectedGoals`, or the SOS service persisting `sponsorPhone`).
+  Future<int> setProfileBiometricLock(String id, bool enabled) =>
+      (update(profiles)..where((tbl) => tbl.id.equals(id))).write(
+        ProfilesCompanion(biometricLockEnabled: Value(enabled)),
+      );
+
+  Stream<List<PetEventRow>> watchPetEvents(String petId, {int limit = 50}) {
+    // LIMIT in SQL, not `.take(50)` in Dart. Callers were decoding the entire
+    // ledger on every single write and throwing most of it away — and the table
+    // is never pruned, so that cost grew without bound.
     return (select(petEvents)
           ..where((t) => t.petId.equals(petId))
           ..orderBy([
@@ -448,7 +502,8 @@ class RecoveryDatabase extends _$RecoveryDatabase {
                   expression: t.timestamp,
                   mode: OrderingMode.desc,
                 )
-          ]))
+          ])
+          ..limit(limit))
         .watch();
   }
 

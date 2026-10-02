@@ -295,7 +295,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                   onPressed: _saveReflection,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     minimumSize: const Size(double.infinity, 50),
                   ),
                   icon: const Icon(Icons.save_outlined),

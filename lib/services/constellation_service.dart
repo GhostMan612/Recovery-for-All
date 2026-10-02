@@ -10,12 +10,23 @@
 // matching addXxxStar() here so the constellation grows automatically.
 library;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../database/recovery_database.dart';
 import 'recovery_pet_service.dart';
 
 /// Adds constellation stars for recovery events that should auto-populate
-/// the user's sky. Each method is idempotent-safe (unique ID prefix per
-/// event type prevents duplicate stars from repeated calls).
+/// the user's sky.
+///
+/// IDEMPOTENCE. The class doc used to claim "unique ID prefix per event type
+/// prevents duplicate stars from repeated calls". That was never true: a unique
+/// *prefix* does not prevent duplicates, and every id carried a
+/// `millisecondsSinceEpoch` suffix that guaranteed a brand-new row. So the
+/// table grew without bound and a user could farm stars by tapping "attended a
+/// meeting" repeatedly. Ids are now deterministic per (type, day, nth-of-day),
+/// which makes repeats within a day collapse via the `_insert` catch while
+/// still allowing several honest stars of the same type on the same day.
+/// `addMilestoneStar` was already deterministic.
 class ConstellationService {
   ConstellationService._();
 
@@ -32,11 +43,38 @@ class ConstellationService {
     await _insert(db, id: id, title: '$counterLabel: $chipLabel', category: 'milestone');
   }
 
+/// Zero-padded `yyyy-MM-dd`. The unpadded form (`2026-3-1`) is a PREFIX of
+  /// `2026-3-10`, so every `startsWith(dayKey)` comparison across this codebase
+  /// was fragile — it happened to work only because time moves forward.
+  @visibleForTesting
+  static String dayKeyForTest([DateTime? when]) => _dayKey(when);
+
+  static String _dayKey([DateTime? when]) {
+    final d = when ?? DateTime.now();
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  /// The nth star of [type] on the given day, so the count is per-day rather
+  /// than globally.
+  static Future<int> _todayCount(RecoveryDatabase db, String type, String day) async {
+    final prefix = '${type}_$day';
+    final all = await db.getConstellationPoints();
+    var n = 0;
+    for (final p in all) {
+      if (p.id.startsWith('$prefix#')) n++;
+    }
+    return n;
+  }
+
   /// Add a journal-entry star.
   /// Called from journal_screen after logJournalEntry().
   static Future<void> addJournalStar(RecoveryDatabase db) async {
     final now = DateTime.now();
-    final id = 'journal_${now.year}_${now.month}_${now.day}_${now.millisecondsSinceEpoch}';
+    final day = _dayKey(now);
+    final n = await _todayCount(db, 'journal', day);
+    final id = 'journal_$day#$n';
     final label = 'Journal · ${now.month}/${now.day}/${now.year}';
     await _insert(db, id: id, title: label, category: 'mindfulness');
   }
@@ -45,7 +83,9 @@ class ConstellationService {
   /// Called from meeting_map_screen after logMeeting().
   static Future<void> addMeetingStar(RecoveryDatabase db, {String? meetingName}) async {
     final now = DateTime.now();
-    final id = 'meeting_${now.millisecondsSinceEpoch}';
+    final day = _dayKey(now);
+    final n = await _todayCount(db, 'meeting', day);
+    final id = 'meeting_$day#$n';
     final label = meetingName != null && meetingName.isNotEmpty
         ? 'Meeting: $meetingName'
         : 'Attended a meeting';
@@ -55,18 +95,19 @@ class ConstellationService {
   /// Add a weekly-goal completion star.
   /// Called from weekly_goals_screen after logGoalComplete().
   static Future<void> addGoalStar(RecoveryDatabase db, String goalTitle) async {
-    final now = DateTime.now();
-    final id = 'goal_${now.millisecondsSinceEpoch}';
-    await _insert(db, id: id, title: 'Goal: $goalTitle', category: 'service');
+    final day = _dayKey();
+    final n = await _todayCount(db, 'goal', day);
+    await _insert(db, id: 'goal_$day#$n', title: 'Goal: $goalTitle', category: 'service');
   }
 
   /// Add a walk-completed star.
   /// Called from dashboard_screen after logWalk().
   static Future<void> addWalkStar(RecoveryDatabase db) async {
     final now = DateTime.now();
-    final id = 'walk_${now.millisecondsSinceEpoch}';
+    final day = _dayKey(now);
+    final n = await _todayCount(db, 'walk', day);
     final label = 'Walk · ${now.month}/${now.day}';
-    await _insert(db, id: id, title: label, category: 'mindfulness');
+    await _insert(db, id: 'walk_$day#$n', title: label, category: 'mindfulness');
   }
 
   /// Add a trial-victory star.
@@ -75,12 +116,12 @@ class ConstellationService {
   static Future<void> addBattleWinStar({String? monsterName}) async {
     final db = RecoveryPetService.database;
     if (db == null) return;
-    final now = DateTime.now();
-    final id = 'trial_${now.millisecondsSinceEpoch}';
+    final day = _dayKey();
+    final n = await _todayCount(db, 'trial', day);
     final label = monsterName != null
         ? 'Trial: defeated $monsterName'
         : 'Trial victory';
-    await _insert(db, id: id, title: label, category: 'spiritual');
+    await _insert(db, id: 'trial_$day#$n', title: label, category: 'spiritual');
   }
 
   // ---- internal ----

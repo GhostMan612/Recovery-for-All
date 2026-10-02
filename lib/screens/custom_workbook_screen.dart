@@ -159,7 +159,7 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
                   ]),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(width: double.infinity, height: 46, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white), onPressed: _import, icon: const Icon(Icons.file_open_outlined), label: const Text('Import Workbook (PDF)', style: TextStyle(fontWeight: FontWeight.bold)))),
+                SizedBox(width: double.infinity, height: 46, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary), onPressed: _import, icon: const Icon(Icons.file_open_outlined), label: const Text('Import Workbook (PDF)', style: TextStyle(fontWeight: FontWeight.bold)))),
                 const SizedBox(height: 20),
                 if (_workbooks.isEmpty)
                   Container(

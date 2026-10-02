@@ -91,8 +91,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
 
-  DashboardLayout get _layout => ref.read(dashboardLayoutProvider);
-  MeetingRadiusState get _radius => ref.read(meetingRadiusProvider);
+  // Written by build() from `ref.watch(...)` subscriptions. Event handlers
+  // outside build (hide badge, restore, radius toggle) read these; build()
+  // itself must use the local captures so the subscription is registered.
+  late DashboardLayout _layout;
+  late MeetingRadiusState _radius;
 
   @override
   void initState() {
@@ -102,11 +105,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ref.watch(dashboardDataProvider);
     _loadSky();
     if (widget.isFirstLaunch) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openTutorialChatbot();
-      });
+      // A post-frame callback from initState fires BEFORE the Drift read that
+      // produces the pet completes, so `_openTutorialChatbot` saw pet == null
+      // and returned — the first-run tutorial never opened for anyone. build()
+      // below watches the same provider and re-watches it on the loading frame,
+      // so listen here instead and gate on the pet actually existing.
+      _showFirstRunTutorial = true;
     }
   }
+
+  bool _showFirstRunTutorial = false;
+  bool _tutorialShown = false;
 
   List<ToolCard> _ordered(
       List<ToolCard> cards, List<String> order, Set<String> hidden) {
@@ -143,10 +152,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   /// Pathway → fellowship families for meeting tailoring.
   Set<String>? _allowedFellowships() {
+    // One read, not three watches. This is called from a FutureBuilder builder
+    // (every Path-tab build) and from three async methods, so three `watch`
+    // calls meant three `Map.putIfAbsent` on the same key plus three re-parses
+    // of the profile JSON. `read` is correct: it is a one-shot read, and a
+    // `watch` issued outside build() is torn down on the next build anyway.
+    final paths = ref.read(dashboardDataProvider).paths;
     final set = <String>{};
-    if (ref.watch(dashboardDataProvider).paths.contains('12-Step (AA/NA)')) set.addAll({'AA', 'NA'});
-    if (ref.watch(dashboardDataProvider).paths.contains('Recovery Dharma')) set.add('Dharma');
-    if (ref.watch(dashboardDataProvider).paths.contains('Wellbriety')) set.add('Wellbriety');
+    if (paths.contains('12-Step (AA/NA)')) set.addAll({'AA', 'NA'});
+    if (paths.contains('Recovery Dharma')) set.add('Dharma');
+    if (paths.contains('Wellbriety')) set.add('Wellbriety');
     return set.isEmpty ? null : set;
   }
 
@@ -235,11 +250,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       'Struggling' => PetMoodX.sad,
       _ => PetMoodX.neutral,
     };
-    final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
+    // Read the delta from the notifier, not from the service. The old version
+    // called ensureHatched() twice and subtracted the two raw reads — ignoring
+    // the value _refreshPet() had just loaded into the provider, so a
+    // concurrent reward between the read and the write produced a wrong
+    // "+N Sparks" in the snackbar.
+    final sparksBefore = ref.read(dashboardDataProvider).pet?.sparks ?? 0;
     await RecoveryPetService.logCheckIn(mood: mood);
     await _refreshPet();
-    final sparksDelta =
-        (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
+    final sparksAfter = ref.read(dashboardDataProvider).pet?.sparks ?? sparksBefore;
+    final sparksDelta = sparksAfter - sparksBefore;
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -783,13 +803,17 @@ Future<void> _handleWalk() async {
 
   late final TutorialChatbotService _tutorialChatbot;
 
-  void _openTutorialChatbot() {
-    if (ref.watch(dashboardDataProvider).pet == null) return;
+  void _openTutorialChatbot(RecoveryPet? pet) {
+    // Read once, from the value the caller already has. `ref.watch` here was
+    // being called from an event handler, where the subscription is torn down
+    // on the next dashboard build anyway.
+    final target = pet ?? ref.read(dashboardDataProvider).pet;
+    if (target == null) return;
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => TutorialChatbotDialog(
-        pet: ref.watch(dashboardDataProvider).pet!,
+        pet: target,
         chatbotService: _tutorialChatbot,
         // Wired 2026-09-28. The dialog's close button calls `onClose`, and the
         // only call site never passed it, so the first-run tutorial's X was a
@@ -802,7 +826,23 @@ Future<void> _handleWalk() async {
 
   @override
   Widget build(BuildContext context) {
-    if (ref.watch(dashboardDataProvider).loading) {
+    final data = ref.watch(dashboardDataProvider);
+    // Subscribe to the two notifiers whose state the dashboard renders. They
+    // used to be `ref.read` getters, which registered no subscription, so
+    // hide/restore, drag-reorder and the radius filter all wrote state and
+    // repainted nothing.
+    _layout = ref.watch(dashboardLayoutProvider);
+    _radius = ref.watch(meetingRadiusProvider);
+
+    if (_showFirstRunTutorial && !_tutorialShown && !data.loading && data.pet != null) {
+      _tutorialShown = true;
+      _showFirstRunTutorial = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openTutorialChatbot(data.pet);
+      });
+    }
+
+    if (data.loading) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
@@ -839,7 +879,7 @@ Future<void> _handleWalk() async {
           IconButton(
             tooltip: 'Tutorial Guide',
             icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-            onPressed: _openTutorialChatbot,
+            onPressed: () => _openTutorialChatbot(data.pet),
           ),
           IconButton(
             tooltip: 'Settings',

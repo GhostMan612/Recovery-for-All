@@ -666,3 +666,60 @@ The most expensive mistake in this whole device-verification effort, and it cost
   measurement has to be a byte count, first establish the noise floor — take two
   screenshots of a provably static state and measure how much they differ. A
   metric you have not calibrated is not a verdict.
+
+---
+
+## L31 — Seven false negatives in one session, all the same mistake (Oct 30, 2026)
+
+The Moto G QA run produced seven confident wrong conclusions in a single
+session. Seven. Every one had the identical shape, and it is the most expensive
+pattern in this whole file — not because the bugs were subtle, but because the
+wrongness was so confident.
+
+- **What happened, in order.**
+  1. Grepped `dumpsys package` for a permission string → reported
+     `ACTIVITY_RECOGNITION: declared False`. It *is* declared, at
+     `AndroidManifest.xml:6`. `dumpsys` never renders that string verbatim.
+  2. Grepped `dumpsys` for a feature name → `step counter feature: ABSENT`. Same
+     mistake again, twenty minutes later.
+  3. Read SharedPreferences over an adb link that had already dropped → empty
+     string, reported as "prefs are absent".
+  4. Launched the app with `monkey` and never checked the output → never checked
+     whether the app was even running, then read `NONE` logcat lines as "the app
+     logged nothing".
+  5. `run-as cat` on a **1.19 MB** file over that link, silently truncated, fell
+     back to `head -c 4000`, parsed 20 keys out of the first 4 KB, found none of
+     mine, and I wrote **FAIL** in the output. The key was in the file. It was in
+     the *name census* I had already collected three lines above.
+  6. Anchored a grep on `name="daily_steps_date_v1"` when the Android plugin
+     prefixes every key with `flutter.` → `(absent)`.
+  7. Wrote a value regex matching `<int>` but not `<long>` → `(absent)` for a key
+     sitting right there.
+- **The structural cause.** In cases 1–4 I used an instrument whose output format
+  I had not established. In cases 5–7 I used an instrument whose *completeness* I
+  had not established. Both are the same error: **I ran a probe, got a clean
+  result, and reported the probe's output as a finding about the system.**
+- **Prevention rule (the law):** *validate the instrument before believing the
+  reading.* Concretely, before a probe's output may become a claim:
+  - **Is it the right artifact?** Read the merged manifest file, not
+    `dumpsys`. Read the DataStore/protobuf store, not the legacy XML, if the
+    plugin version moved. In case 5 I read 4 KB of a megabyte and never noticed.
+  - **Is it the right key name?** Confirm the plugin's prefix and storage format
+    (shared_preferences prefixes with `flutter.`; native doubles arrive as
+    `<double>`, not `<int>`/`<long>`).
+  - **Does an empty answer mean "absent" or "my query failed"?** Never print
+    `(absent)` for an empty result — make empty an error or explicitly
+    `UNKNOWN`. Case 5 should have been impossible to type.
+  - **Ground-truth it once.** When a probe says something surprising, confirm it
+    against a second, differently-shaped source before writing it down. In case
+    5 the name census was already ground truth and contradicted the value read.
+  - **Cross-check the census.** If I have listed the key names, a claim that a key
+    is absent is refuted by the list. Compare against what I already know.
+- **The meta-lesson.** L29 and L30 were about a *noisy instrument* (PNG byte
+  counts). L31 is about an *unvalidated* one — a strictly worse failure mode,
+  because a noisy instrument announces itself (26 bytes is implausibly small) and
+  a silent one does not. **A probe that has never been shown to work correctly on
+  a case where you already know the answer is not a probe, it is a guess with a
+  colon.** The tell in every one of these seven is the same: the result was
+  clean, plausible, and cheap, and I did not feel the least bit of uncertainty.
+  That feeling is the signal.

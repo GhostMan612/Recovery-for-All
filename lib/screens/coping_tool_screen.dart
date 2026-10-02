@@ -211,7 +211,7 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, minimumSize: const Size(double.infinity, 50)),
             icon: const Icon(Icons.check_circle_outline),
             label: const Text('Log This Session', style: TextStyle(fontSize: 16)),
           ),

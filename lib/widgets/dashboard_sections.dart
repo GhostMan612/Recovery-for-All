@@ -327,23 +327,37 @@ class SkyCrown extends StatelessWidget {
                 Positioned(
                   left: 12,
                   bottom: 10,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        skyName,
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                  child: ConstrainedBox(
+                    // Bounded width so the user-supplied sky name has
+                    // something to ellipsize against. Unbounded, a long name at
+                    // 2.0x scale wrapped to three lines and grew UPWARD from
+                    // bottom:10, covering most of the star canvas — the same
+                    // class of bug as the Phase 13 empty-state collision above,
+                    // and equally invisible to a RenderFlex-overflow assertion.
+                    constraints: const BoxConstraints(maxWidth: 200),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          skyName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${nodes.length} stars',
-                        style: TextStyle(
-                            color: scheme.onSurfaceVariant, fontSize: 11),
-                      ),
-                    ],
+                        Text(
+                          '${nodes.length} stars',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: scheme.onSurfaceVariant, fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               Positioned(

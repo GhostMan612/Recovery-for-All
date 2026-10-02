@@ -209,7 +209,7 @@ class _WorksheetsScreenState extends State<WorksheetsScreen> {
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
             onPressed: () {
               _save(entry.id, controllers.map((c) => c.text.trim()).toList());

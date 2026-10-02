@@ -131,7 +131,7 @@ class RecoveryPetCard extends StatelessWidget {
                       onPressed: onWalk,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       ),
                       child: const Text('Walk'),
                     ),

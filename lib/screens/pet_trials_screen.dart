@@ -194,7 +194,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white),
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary),
               onPressed: () => Navigator.pop(context),
               child: const Text('Begin'),
             ),
@@ -505,7 +505,7 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       ),
                       icon: const Icon(Icons.shield_outlined),
                       label: const Text('Begin Trial',

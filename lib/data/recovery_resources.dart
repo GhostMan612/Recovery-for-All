@@ -252,7 +252,10 @@ class RecoveryResources {
         links: [
           ResourceLink('Indigenous Peoples Task Force',
               'Harm reduction + cultural healing, Minneapolis · 612-870-1723',
-              'https://www.iptf.org/',
+              // iptf.org does not resolve (verified 2026-10-30). The agency's
+              // live site is indigenouspeoplestf.org — same organisation, same
+              // 612-870-1723 number, confirmed against the CDC NPIN listing.
+              'https://indigenouspeoplestf.org/',
               icon: Icons.spa_outlined),
           ResourceLink('Native American Community Clinic',
               'Whole-family health including culturally grounded SUD care · '

@@ -121,7 +121,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
                   onPressed: controller.text.trim().isEmpty
                       ? null
@@ -202,7 +202,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
                   minimumSize: const Size.fromHeight(48),
                 ),
                 icon: const Icon(Icons.phone_in_talk),

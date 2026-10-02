@@ -92,18 +92,36 @@ class OllamaService {
         'options': ?options,
       });
 
-    final response = await http.Client().send(request);
+    // Hoisted and closed in a finally. The inline `http.Client()` was never
+    // closed on any path — success, error, or early break of the await-for —
+    // so every streamed reply leaked a connection and its socket until the GC
+    // finalizer got round to it. On the error path the body was also never
+    // drained, so the connection could not be reused at all.
+    final client = http.Client();
+    try {
+      final response = await client.send(request);
 
-    if (response.statusCode == 200) {
-      final stream = response.stream.transform(utf8.decoder).transform(const LineSplitter());
-      await for (final line in stream) {
-        if (line.trim().isEmpty) continue;
-        final data = jsonDecode(line);
-        final content = data['message']['content'] as String;
-        yield content;
+      if (response.statusCode == 200) {
+        final stream = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+        await for (final line in stream) {
+          if (line.trim().isEmpty) continue;
+          try {
+            final data = jsonDecode(line);
+            final msg = data['message'];
+            if (msg is! Map) continue;
+            final content = msg['content'];
+            if (content is String && content.isNotEmpty) yield content;
+          } catch (_) {
+            // A partial or non-JSON keep-alive line must not kill the stream.
+          }
+        }
+      } else {
+        throw Exception('Ollama API stream error: ${response.statusCode}');
       }
-    } else {
-      throw Exception('Ollama API stream error: ${response.statusCode}');
+    } finally {
+      client.close();
     }
   }
 }

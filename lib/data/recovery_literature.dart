@@ -78,7 +78,11 @@ class RecoveryLiterature {
         LitLink('White Booklet', 'Short-form Basic Text excerpt — free online read',
             'https://www.na.org/?id=White%20Booklet'),
         LitLink('Just For Today — Daily Meditation', 'NA daily reading, free online',
-            'https://www.jftna.org/jft/'),
+            // Bare host, no /jft/ path: /jft and /jft/ both 404 on the www
+            // host (verified 2026-10-30), while the apex serves the daily
+            // meditation page directly. A dead link in a recovery app sends
+            // someone to a 404 mid-crisis.
+            'https://jftna.org/'),
         LitLink('NA Step Working Guide (Purchase Info)', 'Fellowship-approved workbook — print/eBook via NAWS catalog',
             'https://www.na.org/?id=Catalog'),
       ],

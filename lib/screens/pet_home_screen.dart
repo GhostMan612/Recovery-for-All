@@ -327,7 +327,7 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
                     onPressed: _openDresser,
                     icon: const Icon(Icons.checkroom_outlined),
@@ -465,6 +465,13 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                         button: true,
                         enabled: affordable,
                         label: '${species.label}. $costLabel',
+                        // excludeSemantics without this re-announces the two
+                        // Texts below, so TalkBack read the card twice. Safe
+                        // here because the only interactive descendant is the
+                        // InkWell, whose onTap is repeated below. (Do NOT do
+                        // this to CompanionSection — it holds real buttons.)
+                        excludeSemantics: true,
+                        onTap: affordable ? () => _adoptSpecies(species) : null,
                         child: InkWell(
                           onTap: affordable ? () => _adoptSpecies(species) : null,
                           borderRadius: BorderRadius.circular(14),
@@ -479,46 +486,64 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                               width: active ? 2 : 1,
                             ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ExcludeSemantics(
-                                  child: Text(species.emoji,
-                                      style: const TextStyle(fontSize: 30))),
-                              const SizedBox(height: 6),
-                              Text(species.label,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 4),
-                              Text(
-                                costLabel,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: active
-                                      ? Theme.of(context).colorScheme.primary
-                                      : affordable
-                                          ? Theme.of(context).colorScheme.tertiary
-                                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                                  fontSize: 12,
+                          // mainAxisSize.min + Flexible on the unbounded-text child. This Column
+                            // lives in a hard SizedBox(height: 128); at 2.0x
+                            // text scale 'Needs 75% bond' wrapped to two lines
+                            // and the sum was ~196px, so RenderFlex overflowed
+                            // every time — invisible at 1.0x, which is why the
+                            // 3x2x4x3 scale matrix stayed green (L14).
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: ExcludeSemantics(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(species.emoji,
+                                          style: const TextStyle(fontSize: 30)),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                Text(species.label,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      costLabel,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: active
+                                            ? Theme.of(context).colorScheme.primary
+                                            : affordable
+                                                ? Theme.of(context).colorScheme.tertiary
+                                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
+                      );
                     },
                   ),
                 ),
                 const SizedBox(height: 20),
                 Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Wearing Today',
+                alignment: Alignment.centerLeft,
+                child: Text('Wearing Today',
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,

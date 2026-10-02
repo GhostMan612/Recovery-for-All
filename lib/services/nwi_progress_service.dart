@@ -147,7 +147,10 @@ class NwiProgressService {
     };
 
     if (list.isEmpty) {
-      // Default to neutral 50% baseline if no records exist for the window
+      // Neutral baseline, flagged as "no data". Without the flag every average
+      // is exactly 0.5, `_findLowestDimension`'s strict `<` never fires, and the
+      // first map key ('Spiritual') wins by insertion order — so a brand-new
+      // user with zero check-ins was told "your spiritual compass has dipped".
       return sums.map((key, value) => MapEntry(key, 0.5));
     }
 
@@ -181,6 +184,14 @@ class NwiProgressService {
   }
 
   static String _findLowestDimension(Map<String, double> averages) {
+    // A flat map means every dimension tied — which happens exactly when there
+    // are no records (all baselines are 0.5). Report that explicitly so the
+    // caller shows an empty state instead of picking whichever dimension
+    // happens to be first in the map.
+    if (averages.isEmpty) return _noDataFocus;
+    final distinct = averages.values.toSet();
+    if (distinct.length == 1) return _noDataFocus;
+
     String lowestKey = 'Emotional';
     double lowestValue = double.maxFinite;
 
@@ -194,8 +205,16 @@ class NwiProgressService {
     return lowestKey;
   }
 
+  /// Sentinel returned when there is not enough data to name a lowest
+  /// dimension. `getTherapeuticRecommendation` maps it to "no data" copy.
+  static const String _noDataFocus = '__no_data__';
+
   /// Evaluates clinical guidance prompts based on the lowest wellness dimension.
   static String getTherapeuticRecommendation(String focusDimension) {
+    if (focusDimension == _noDataFocus) {
+      return "No wellness check-ins in this window yet — check in a few times and "
+          "your trends will appear here.";
+    }
     switch (focusDimension) {
       case 'Spiritual':
         return "Your spiritual compass has dipped this week. Consider reconnecting with your top core principles, walking the Red Road, or using a values-reflection prompt in your journal.";

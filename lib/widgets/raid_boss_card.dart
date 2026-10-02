@@ -87,7 +87,11 @@ class RaidBossCard extends StatelessWidget {
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDefeated ? Theme.of(context).colorScheme.outlineVariant : Theme.of(context).colorScheme.error,
-                foregroundColor: Colors.white,
+                // Paired role, not Colors.white: `error` is a light tone in
+                // dark theme and a dark tone in light theme.
+                foregroundColor: isDefeated
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                    : Theme.of(context).colorScheme.onError,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),

@@ -296,13 +296,20 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
       );
       return;
     }
+    final sponsor = await SponsorLinkService.registeredSponsor();
+    final hasKey = sponsor != null && sponsor.publicKeyB64.isNotEmpty;
     final ok = await SponsorLinkService.verifyConfirmation(confirmation, bundle);
     if (!ok) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Signature check failed — ask your sponsor to re-sign.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(hasKey
+            // Verify now fails closed when no key is on file, so this branch
+            // needs to distinguish "cannot verify" from "did not verify" —
+            // otherwise every code-only pairing reads as a forged signature.
+            ? 'Signature check failed — ask your sponsor to re-sign.'
+            : 'No sponsor public key on file, so this signature cannot be '
+                'verified. Ask your sponsor to re-share their key.'),
+      ));
       return;
     }
     await SponsorLinkService.recordSignOff(

@@ -88,7 +88,7 @@ class NextMeetingCard extends StatelessWidget {
             const SizedBox(width: 8),
             FilledButton(
               onPressed: onFindMeetings,
-              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
               child: const Text('Find'),
             ),
           ],

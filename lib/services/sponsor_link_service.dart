@@ -20,7 +20,10 @@
 //   5. Sponsee pastes the confirmation → signature is verified against the
 //      stored sponsor public key → step is cryptographically signed off.
 //
-// Transport is any messenger. Firestore is never involved.
+// TRANSPORT. The design intent is "any messenger, no server" — that is still the
+// default path. An optional Firestore relay (shareBundleViaCloud) exists for
+// same-account pairs; documents carry `ownerUid` so the collection is
+// partitioned by authenticated user rather than by the guessable pairing code.
 
 import 'dart:convert';
 
@@ -28,6 +31,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -152,16 +156,21 @@ class SponsorLinkService {
 
   static bool isValidPairingCodeFormat(String code) {
     final cleaned = code.trim().toUpperCase().replaceAll(' ', '');
-    if (cleaned.length != 11 || !cleaned.contains('-')) return false;
+    if (cleaned.length != 11) return false;
     final parts = cleaned.split('-');
-    if (parts[1].length != 2) return false;
-    for (final ch in (parts[0] + parts[1]).split('')) {
-      if (!_checksumAlphabet.contains(ch) && ch != '-' &&
-          !RegExp(r'[a-zA-Z0-9]').hasMatch(ch)) {
-        return false;
-      }
-    }
-    return true;
+    if (parts.length != 2) return false;
+    if (parts[0].length != 8 || parts[1].length != 2) return false;
+    // The old third clause was `!RegExp(r'[a-zA-Z0-9]').hasMatch(ch)`, which is
+    // UNANCHORED — for any alphanumeric character it returns true, making the
+    // whole `&&` chain unsatisfiable and the loop body unreachable. The
+    // function therefore accepted ANY 11-character string containing a '-',
+    // and registerSponsor gates only on this, so arbitrary pasted text was
+    // stored as the sponsor's identity. Anchor the test.
+    final bodyIsBase64Url =
+        RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(parts[0]);
+    final checksumIsAlphabet =
+        parts[1].split('').every(_checksumAlphabet.contains);
+    return bodyIsBase64Url && checksumIsAlphabet;
   }
 
   // ---- sponsee device: register sponsor ----
@@ -220,7 +229,13 @@ class SponsorLinkService {
     final hash = await _hashBundle(bundleJson);
     final keyPair = await _algo.newKeyPairFromSeed(
         base64Decode(keyPairData).sublist(0, 32));
-    final signature = await _algo.sign(utf8.encode(hash), keyPair: keyPair);
+    // signString, not sign: verifyConfirmation below calls verifyString, which
+    // hashes its input internally. Signing utf8.encode(hash) but verifying
+    // `hash` (which gets re-hashed) means the two sides compute different
+    // messages — so the moment a public key IS on file, every genuine
+    // signature fails. Currently masked by the empty-key branch below; fixed
+    // together with it.
+    final signature = await _algo.signString(hash, keyPair: keyPair);
     final confirmation = SignedConfirmation(
       stepNumber: _stepFromBundle(bundleJson),
       contentHashB64: hash,
@@ -242,10 +257,14 @@ class SponsorLinkService {
     if (hash != confirmation.contentHashB64) return false;
     final publicKeyB64 = sponsor.publicKeyB64;
     if (publicKeyB64.isEmpty) {
-      // Code-only pairing: hash match + code match on the alias record is
-      // the v1 trust level. Signature verification upgrades when the
-      // sponsor's full public key arrives with a signed bundle.
-      return true;
+      // No key on file means NO signature can be verified. This used to
+      // `return true`, so verification reduced to "does the hash match" — and
+      // that hash travels in the clear alongside the bundle, so anyone who has
+      // seen a bundle could mint a confirmation this accepted. registerSponsor
+      // always wrote an empty key, which meant the Ed25519 branch below was
+      // unreachable and every pairing was code-only. Fail closed instead.
+      debugPrint('[sponsor] no sponsor public key on file — cannot verify signature');
+      return false;
     }
     try {
       final pub = SimplePublicKey(base64Decode(publicKeyB64),
@@ -292,6 +311,14 @@ class SponsorLinkService {
       final doc = await FirebaseFirestore.instance
           .collection('sponsor_bundles')
           .add({
+        'ownerUid': FirebaseAuth.instance.currentUser?.uid,
+        // Indexed by uid, NOT by the pairing code. The code is a 6-byte XOR
+        // fold of a public key — 48 bits with trivial collisions and no
+        // per-user ownership in the document — so indexing by it turned the
+        // collection into a guessable lookup over clinical step-work content.
+        // The bundle itself is still plaintext, which is a separate and
+        // deliberate trade (it is encrypted with the sponsor's public key when
+        // one is on file); the ownership boundary is what this fixes.
         'sponsorCode': sponsorCode.trim().toUpperCase(),
         'sponseeAlias': sponseeAlias,
         'step': step,
@@ -376,9 +403,23 @@ class SponsorLinkService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyLedger);
-    final ledger = raw == null
-        ? <Map<String, dynamic>>[]
-        : (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    // Parse defensively. `ledger()` below wraps the identical expression in a
+    // try/catch, so this was known to throw — a truncated value (interrupted
+    // write, older schema) made recordSignOff throw out to the UI, so the user
+    // could never record a sign-off again without clearing app data. Meanwhile
+    // ledger() silently returned {} and showed "no sign-offs" for work that
+    // HAD been recorded.
+    List<Map<String, dynamic>> ledger = <Map<String, dynamic>>[];
+    if (raw != null) {
+      try {
+        ledger = (jsonDecode(raw) as List)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+      } catch (_) {
+        debugPrint('[sponsor] ledger unreadable; starting a fresh one');
+        ledger = <Map<String, dynamic>>[];
+      }
+    }
     ledger.removeWhere((e) => e['step'] == stepNumber);
     ledger.add({
       'step': stepNumber,

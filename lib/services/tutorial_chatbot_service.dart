@@ -95,31 +95,50 @@ class TutorialChatbotService {
   Future<void> sendMessage(String text) async {
     _addUserMessage(text);
 
-    // Simple keyword-based responses (can be enhanced with ML later)
-    final response = _generateResponse(text.toLowerCase());
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulate thinking
-    _addBotMessage(response);
+    // Serialise sends. Two messages within the 500 ms "thinking" delay used to
+    // interleave — the second reply was appended first, so the transcript read
+    // "…you? / answer to Q2 / answer to Q1". Chain through one future.
+    final run = _queue.then((_) async {
+      final response = _generateResponse(text.toLowerCase());
+      await Future.delayed(const Duration(milliseconds: 500));
+      _addBotMessage(response);
+    });
+    _queue = run.catchError((_) {});
+    return run;
   }
+
+  Future<void> _queue = Future<void>.value();
 
   String _generateResponse(String input) {
     // Feature-specific responses
-    if (input.contains('meeting') || input.contains('aa') || input.contains('na') || input.contains('find room')) {
+    // Whole-token matching. `contains('na')` matched "can", "name", "final",
+    // "plan" and "change"; `contains('star')` matched "start"/"restart";
+    // `contains('kin')` matched "thinking"/"skin". Because this branch is
+    // checked first, "how do I change my alias?" was answered with the Meeting
+    // Finder — in the onboarding bot, where the questions are shortest.
+    final tokens = input
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((t) => t.isNotEmpty)
+        .toSet();
+    bool has(String needle) => tokens.contains(needle);
+
+    if (has('meeting') || has('meetings') || has('aa') || has('na') || input.contains('find room')) {
       return 'The Meeting Finder shows rooms near you — AA, NA, Dharma, LifeRing, WFS, CR, SMART, and more. '
           'Tap the map pin on the dashboard, or go to Path tab → Meeting Finder. '
           'You can filter by fellowship, adjust radius, and save favorites.';
     }
-    if (input.contains('journal') || input.contains('diary') || input.contains('write')) {
+    if (has('journal') || has('diary') || has('write')) {
       return 'Your Encrypted Journal is PIN-protected — only you can read it. '
           'Tap the lock icon on the dashboard, or Library tab → Private Journal. '
           'Write freely; it locks automatically when you leave.';
     }
-    if (input.contains('pet') || input.contains('companion') || input.contains('kin')) {
+    if (has('pet') || has('companion') || has('kin')) {
       return 'Your companion grows with you — Sparks, Bond, Mood, Energy. '
           'Tap the pet on the dashboard to open Pet Home. '
           'Check in, take walks, do quests to earn Sparks. '
           'Sparks buy outfits in the Dresser. Resting means "I\'m here when you are" — never abandoned.';
     }
-    if (input.contains('constellation') || input.contains('star') || input.contains('sky')) {
+    if (has('constellation') || has('star') || has('stars') || has('sky')) {
       return 'Every milestone adds a star to your constellation — day chips, step work, goals, meetings. '
           'Tap a star to remember. Pinch to zoom, drag to orbit in 3D. '
           'Dashboard has the crown; tap it for the full screen.';

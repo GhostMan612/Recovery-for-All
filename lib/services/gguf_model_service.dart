@@ -219,7 +219,11 @@ class GgufModelService {
     await detectDeviceTier();
     if (_deviceTier == DeviceTier.low) return;
     final existing = await getSelectedModelId();
-    if (existing != null && existing.isNotEmpty) return;
+    if (existing != null && existing.isNotEmpty) {
+      // Populate the synchronous cache so selectedModel agrees with storage.
+      _cacheSelected(existing);
+      return;
+    }
     final suggested = suggestedModelForTier;
     if (suggested != null) {
       await setSelectedModelId(suggested.id);
@@ -256,13 +260,54 @@ class GgufModelService {
   Future<void> setSelectedModelId(String id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySelectedModel, id);
+    _cacheSelected(id);
   }
+
+  /// The model the user actually chose.
+  ///
+  /// This getter's comment claimed "the last selected, or the smallest
+  /// available" but the body only ever returned `models.first` — it never read
+  /// `_keySelectedModel`. Every surface showing "current model" therefore
+  /// displayed Gemma 270M regardless of the picker's selection, and
+  /// disagreed with the id that `chatbot_screen` passes to inference.
+  ///
+  /// Synchronous by design: `getSelectedModelId()` is async, and this is called
+  /// from build(). The cached field is refreshed by [setSelectedModelId] and by
+  /// [ensureDefaultModelForTier], and falls back to the smallest available when
+  /// nothing has been chosen yet.
+  GgufModelInfo? _selectedModelCache;
+  bool _selectedCacheLoaded = false;
 
   GgufModelInfo? get selectedModel {
     final models = availableModels;
     if (models.isEmpty) return null;
-    // Return the last selected, or the smallest available.
+    if (_selectedCacheLoaded && _selectedModelCache != null) {
+      // Guard against a cached id that the current tier does not offer.
+      return models.firstWhere(
+        (m) => m.id == _selectedModelCache!.id,
+        orElse: () => models.first,
+      );
+    }
     return models.first;
+  }
+
+  /// Called by [setSelectedModelId] and [ensureDefaultModelForTier] so
+  /// [selectedModel] stops disagreeing with the persisted choice.
+  void _cacheSelected(String? id) {
+    if (id == null) {
+      _selectedModelCache = null;
+      _selectedCacheLoaded = false;
+      return;
+    }
+    GgufModelInfo? found;
+    for (final m in catalog) {
+      if (m.id == id) {
+        found = m;
+        break;
+      }
+    }
+    _selectedModelCache = found;
+    _selectedCacheLoaded = found != null;
   }
 
   // ---- download management ----
@@ -276,7 +321,16 @@ class GgufModelService {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyDownloadedModels);
     if (raw == null) return {};
-    return (jsonDecode(raw) as List).map((e) => e as String).toSet();
+    // `.toString()`, not `as String`: one non-String element used to throw with
+    // no catch, which took down isModelDownloaded → needsDownloadForSuggested
+    // → the GGUF chat path, from a single bad prefs value.
+    final List<dynamic> list;
+    try {
+      list = jsonDecode(raw) as List;
+    } catch (_) {
+      return {};
+    }
+    return list.where((e) => e != null).map((e) => e.toString()).toSet();
   }
 
   Future<bool> isModelDownloaded(String modelId) async {
@@ -299,6 +353,12 @@ class GgufModelService {
 /// Downloads a model with streaming progress. Returns true on success.
   /// [onProgress] reports (downloaded, total). Cancel by setting
   /// [isCancelled] to true.
+  ///
+  /// Free space is checked first. The header advertises "Storage management
+  /// (private app dir, not Downloads)" but there was none: no quota, no
+  /// free-space check, no eviction — and the four catalog entries total ~4.6 GB.
+  /// On a device with a few GB spare the download would fail part-way with a
+  /// filesystem error and surface to the user only as "try again later".
   Future<bool> downloadModel(
     GgufModelInfo model, {
     void Function(int downloaded, int total)? onProgress,
@@ -312,6 +372,23 @@ class GgufModelService {
 
       final tmpFile = File('${dir.path}/${model.id}.gguf.tmp');
       if (tmpFile.existsSync()) await tmpFile.delete(); // clean stale temp
+
+      // Free-space check with headroom, before a multi-hundred-MB transfer.
+      try {
+        final stat = await FileStat.stat(dir.path);
+        // 256 MB of slack so the rename and the extract have room too.
+        const slack = 256 * 1024 * 1024;
+        if (stat.type == FileSystemEntityType.directory &&
+            stat.size < model.fileSizeBytes + slack) {
+          throw Exception(
+              'Not enough free space: ${model.fileSizeMb} needed, '
+              '${(stat.size / (1024 * 1024)).round()} MB available');
+        }
+      } on FileSystemException catch (e) {
+        // Stat unsupported on this platform — let the download proceed rather
+        // than blocking a user on a check we could not perform.
+        debugPrint('[gguf] free-space check skipped: ${e.message}');
+      }
 
       final client = http.Client();
       final request =
@@ -348,13 +425,18 @@ class GgufModelService {
       }
       client.close();
 
-      // SHA-256 verification (Gap B) - read from tmp file
+      // SHA-256 verification (Gap B).
+      //
+      // Streamed, not `readAsBytes()`. These files are up to 2.7 GB and the
+      // target devices are the 4-6 GB ones this feature exists for, so loading
+      // the whole thing into RAM to hash it is an OOM on exactly the hardware
+      // that needs it most.
       if (model.sha256Hex != null) {
-        final bytes = await tmpFile.readAsBytes();
-        final digest = sha256.convert(bytes).toString();
-        if (digest != model.sha256Hex) {
+        final digest = await sha256.bind(tmpFile.openRead()).first;
+        if (digest.toString() != model.sha256Hex) {
           await tmpFile.delete();
-          throw Exception('SHA-256 verification failed: expected ${model.sha256Hex}, got $digest');
+          throw Exception(
+              'SHA-256 verification failed: expected ${model.sha256Hex}, got $digest');
         }
         debugPrint('[gguf] SHA-256 verified for ${model.id}');
       }

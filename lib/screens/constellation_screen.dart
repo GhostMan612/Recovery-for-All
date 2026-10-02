@@ -141,12 +141,17 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     });
   }
 
-  void _onPointsChanged(List<ConstellationPoint> points) {
-    final nodes = _phyllotaxisNodes(points);
-    if (!mounted) return;
-    setState(() {
-      _nodes = nodes;
-    });
+  /// Structural equality on the fields the canvas and the 3D widget read.
+  /// List identity is useless here because `_phyllotaxisNodes` allocates a new
+  /// list on every call.
+  static bool _sameNodes(List<ConstellationNode3D>? a, List<ConstellationNode3D> b) {
+    if (a == null || a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i], y = b[i];
+      if (x.id != y.id || x.title != y.title || x.category != y.category) return false;
+      if (x.timestamp != y.timestamp) return false;
+    }
+    return true;
   }
 
   // ------------------------------------------------------------------
@@ -210,11 +215,17 @@ class _ConstellationScreenState extends State<ConstellationScreen> {
     return [for (final row in grid) row.join()].join('\n');
   }
 
-  int _spanNights(List<ConstellationNode3D> nodes) =>
-      ((nodes.last.timestamp.millisecondsSinceEpoch -
-              nodes.first.timestamp.millisecondsSinceEpoch) /
-          86400000)
-      .floor();
+  /// `_phyllotaxisNodes` groups by category, it does not sort by time, so
+  /// `nodes.first`/`.last` were the oldest milestone and the newest spiritual
+  /// star — not the extremes. That under-reported the span and could go
+  /// negative when the newest milestone predated the oldest step_work. The
+  /// result is shared to the public Recovery Circle feed, so a wrong number
+  /// leaves the device. Sort, then take the extremes.
+  int _spanNights(List<ConstellationNode3D> nodes) {
+    if (nodes.length < 2) return 0;
+    final ts = nodes.map((n) => n.timestamp.millisecondsSinceEpoch).toList()..sort();
+    return ((ts.last - ts.first) / 86400000).floor().clamp(0, 1 << 30);
+  }
 
   Future<void> _shareShape() async {
     final nodes = _nodes;
@@ -439,10 +450,17 @@ ${nodes.length} stars over $spanDays nights
           if (snapshot.connectionState == ConnectionState.waiting && _nodes == null) {
             return const AppLoadingState();
           }
+// Derive synchronously rather than scheduling a post-frame setState: the
+          // previous version called setState from a callback scheduled on
+          // EVERY build, and _phyllotaxisNodes returns a fresh list each call,
+          // so the comparison never matched and the screen rebuilt at 60 fps
+          // forever. Sync derivation means this only rebuilds when the points
+          // themselves changed.
           if (snapshot.hasData) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _onPointsChanged(snapshot.data!);
-            });
+            final derived = _phyllotaxisNodes(snapshot.data!);
+            if (!_sameNodes(_nodes, derived)) {
+              _nodes = derived;
+            }
           }
           final nodes = _nodes ?? [];
           if (nodes.isEmpty) {
@@ -728,6 +746,12 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
             child: Semantics(
               button: true,
               label: _is3DView ? 'Switch to 2D view' : 'Switch to 3D view',
+              // Without excludeSemantics the label above is concatenated with
+              // the visible '3D View'/'2D View' Text, so TalkBack announced
+              // "Switch to 3D view, 3D View". Safe here — the only interactive
+              // descendant is the InkWell, whose onTap is repeated below.
+              excludeSemantics: true,
+              onTap: _toggle3DView,
               child: InkWell(onTap: _toggle3DView, borderRadius: BorderRadius.circular(12), child: Container(
                 constraints: const BoxConstraints(minHeight: 48),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -781,14 +805,17 @@ class _ConstellationCanvasState extends State<_ConstellationCanvas> with TickerP
       Row(children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
         const SizedBox(width: 10),
-        Expanded(child: Text(node.title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+        // maxLines is required for ellipsis to do anything; without it the title wraps
+        // to as many lines as it needs and the badge grows down over the 3D
+        // toggle and the zoom slider.
+        Expanded(child: Text(node.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold))),
         IconButton(icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), size: 20), onPressed: _clearFocus),
       ]),
       const SizedBox(height: 8),
       Text('${node.category} · ${node.timestamp.day}/${node.timestamp.month}/${node.timestamp.year}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: ElevatedButton.icon(onPressed: () { _clearFocus(); widget.onStarTap(widget.nodes.indexOf(node)); }, icon: const Icon(Icons.info_outline, size: 18), label: const Text('Details'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.black))),
+        Expanded(child: ElevatedButton.icon(onPressed: () { _clearFocus(); widget.onStarTap(widget.nodes.indexOf(node)); }, icon: const Icon(Icons.info_outline, size: 18), label: const Text('Details'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary))),
         const SizedBox(width: 8),
         Expanded(child: OutlinedButton.icon(onPressed: () { _clearFocus(); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Quick actions coming soon'))); }, icon: const Icon(Icons.star_border, size: 18), label: const Text('Quick Action'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
       ]),

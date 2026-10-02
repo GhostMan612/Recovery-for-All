@@ -11,6 +11,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/dashboard_providers.dart';
 import '../core/providers.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/app_primitives.dart';
@@ -218,13 +219,13 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _toggleBiometric(bool want) async {
+    // Targeted single-column update. saveProfile() replaces every column from a
+    // snapshot read above, so a concurrent write (onboarding finishing
+    // selectedGoals, or the SOS service persisting sponsorPhone) was silently
+    // reverted by toggling one boolean.
+    const profileId = 'active_user_profile';
     if (!want) {
-      final profile = await widget.database.getProfile('active_user_profile');
-      if (profile != null) {
-        await widget.database.saveProfile(
-          profile.copyWith(biometricLockEnabled: false),
-        );
-      }
+      await widget.database.setProfileBiometricLock(profileId, false);
       if (!mounted) return;
       setState(() => _biometricEnabled = false);
       return;
@@ -244,12 +245,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
         return;
       }
-      final profile = await widget.database.getProfile('active_user_profile');
-      if (profile != null) {
-        await widget.database.saveProfile(
-          profile.copyWith(biometricLockEnabled: true),
-        );
-      }
+      await widget.database.setProfileBiometricLock(profileId, true);
       if (!mounted) return;
       setState(() => _biometricEnabled = true);
     } catch (_) {
@@ -278,14 +274,17 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _resetDashboardLayout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('dashboard_tool_order_v1');
-    await prefs.remove('dashboard_library_order_v1');
-    await prefs.remove('dashboard_hidden_tools_v1');
-    await prefs.remove('dashboard_hidden_library_v1');
+    // Go through the notifier. Removing the four keys directly left
+    // dashboardLayoutProvider — a non-autoDispose Notifier — alive holding the
+    // old order, so the next saveToolOrder re-persisted the order the user had
+    // just reset, and nothing repainted until a full process restart (which is
+    // what "reopen to see" was really asking for). It also duplicated the four
+    // key literals, exactly the partial-rename desync verify_invariants.py
+    // exists to catch.
+    await ref.read(dashboardLayoutProvider.notifier).resetAll();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dashboard layout reset — reopen to see.')));
+        const SnackBar(content: Text('Dashboard layout reset.')));
   }
 
   Future<void> _changeJournalPin() async {

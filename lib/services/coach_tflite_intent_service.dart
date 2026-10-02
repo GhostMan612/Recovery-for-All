@@ -19,6 +19,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
+import 'hardware_tier_service.dart';
 import 'recovery_coach_service.dart';
 
 class CoachTfliteIntentService {
@@ -36,9 +37,7 @@ class CoachTfliteIntentService {
   static bool forceKeywordOnly = false;
   static const String _keyForceKeyword = 'coach_tflite_force_keyword_v1';
   static int minFreeRamMb = 1024;
-  static bool _available = false;
-  static bool _loadAttempted = false;
-
+static bool _available = false;
   /// Load persisted forceKeywordOnly before first use (call at app boot).
   static Future<void> loadPersistedForceKeyword() async {
     try {
@@ -86,9 +85,16 @@ class CoachTfliteIntentService {
 
   static bool get isAvailable => _available;
 
-  static Future<void> loadModel() async {
-    if (_loadAttempted) return;
-    _loadAttempted = true;
+  static Future<void>? _inFlightLoad;
+  static Future<void> loadModel() {
+    // Share one in-flight load. The old `if (_loadAttempted) return;` fired
+    // BEFORE the awaits, so any caller racing the first load (including the
+    // first `classify` from the chatbot) saw `_available == false` and silently
+    // fell back to keywords for that message.
+    return _inFlightLoad ??= _loadModelOnce();
+  }
+
+  static Future<void> _loadModelOnce() async {
     // Respect persisted opt-out even if caller never called loadPersistedForceKeyword.
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -97,6 +103,14 @@ class CoachTfliteIntentService {
     } catch (_) {}
     if (forceKeywordOnly) {
       debugPrint('CoachTflite: forceKeywordOnly active — skipping model load');
+      return;
+    }
+    // The documented low-RAM gate was never wired: the header promises "or the
+    // device is low-RAM" and `minFreeRamMb` exists for exactly that, but
+    // nothing ever read it, so a TFLite interpreter was still loaded on the
+    // 2 GB devices HardwareTierService exists to protect.
+    if (HardwareTierService.isLowEnd) {
+      debugPrint('CoachTflite: low-RAM device — skipping model load');
       return;
     }
     try {
@@ -205,6 +219,7 @@ class CoachTfliteIntentService {
     _interpreter?.close();
     _interpreter = null;
     _available = false;
-    _loadAttempted = false;
+    // Drop the shared in-flight load so a later call can retry.
+    _inFlightLoad = null;
   }
 }

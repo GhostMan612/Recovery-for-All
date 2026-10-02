@@ -6,9 +6,12 @@
 // lib/services/meeting_finder_service.dart
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/minnesota_pathway_meetings.dart';
@@ -464,6 +467,7 @@ class MeetingFinderService {
       if (filtered.isNotEmpty) sources = filtered;
     }
     final all = <String, RecoveryMeeting>{};
+    var sourcesOk = 0;
 
     for (final url in sources) {
       try {
@@ -475,22 +479,30 @@ class MeetingFinderService {
         if (response.statusCode != 200) continue;
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is! List) continue;
+        var parsed = 0;
         for (final m in parseTsmlFeed(decoded,
             fellowship: fellowshipForSource(url))) {
           all[m.id] = m;
+          parsed++;
         }
+        if (parsed > 0) sourcesOk++;
       } catch (_) {
         // One bad source must not sink the others.
       }
     }
 
     final meetings = all.values.toList();
-    if (meetings.isNotEmpty) {
+    // Coverage gate. On flaky/offline wifi it is normal for only one or two of
+    // a dozen directories to answer; previously that partial result replaced a
+    // good cache and the stamp was refreshed, so the app reported a fresh,
+    // 95%-missing directory for 24 hours. Only overwrite when we got at least
+    // half the sources, or when we are topping up a cache that is itself small.
+    final halfSources = (sources.length / 2).ceil();
+    final keepOldCache = meetings.isEmpty ||
+        (sourcesOk < halfSources && sourcesOk < sources.length);
+    if (!keepOldCache && meetings.isNotEmpty) {
+      await _writeCacheBlob(jsonEncode([for (final m in meetings) m.toJson()]));
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _keyCache,
-        jsonEncode([for (final m in meetings) m.toJson()]),
-      );
       await prefs.setInt(
         _keyCacheStamp,
         DateTime.now().millisecondsSinceEpoch,
@@ -641,44 +653,82 @@ class MeetingFinderService {
   }
 
   static int? _firstDay(dynamic day) {
-    if (day is int && day >= 0 && day <= 6) return day;
-    if (day is List && day.isNotEmpty) {
-      final v = day.first;
-      if (v is int && v >= 0 && v <= 6) return v;
-      if (v is String) return int.tryParse(v);
+    // Every path must pass the 0..6 range guard. The string branches used to
+    // return int.tryParse directly, so a feed sending "7" produced
+    // dayIndex == 7, which later indexed _weekdays[7] and threw RangeError.
+    int? bounded(dynamic v) {
+      final n = v is int ? v : (v is String ? int.tryParse(v) : null);
+      if (n == null || n < 0 || n > 6) return null;
+      return n;
     }
-    if (day is String) return int.tryParse(day);
+    if (day is int || day is String) return bounded(day);
+    if (day is List && day.isNotEmpty) return bounded(day.first);
     return null;
   }
 
+  /// Parses "H:mm" or "h:mm AM/PM" into 24-hour minutes.
+  /// Returns null when unparseable or out of range.
+  ///
+  /// The old version only understood 24-hour input: `7:00 PM` parsed as
+  /// h=7, and because 7 < 12 it was labelled AM *and* scheduled at 07:00, so
+  /// an evening meeting showed as a morning one and could never go live.
+  static int? _minutesOf(String? hhmm) {
+    if (hhmm == null) return null;
+    final raw = hhmm.trim();
+    final match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*([AaPp])\.?[Mm]\.?$',
+    ).firstMatch(raw);
+    int h;
+    int m;
+    if (match != null) {
+      h = int.parse(match.group(1)!);
+      m = int.parse(match.group(2)!);
+      final isPm = match.group(3)!.toLowerCase() == 'p';
+      if (h < 1 || h > 12 || m > 59) return null;
+      h = h % 12 + (isPm ? 12 : 0);
+    } else {
+      final parts = raw.split(':');
+      final parsedH = int.tryParse(parts[0].trim());
+      final parsedM = parts.length > 1 ? int.tryParse(parts[1].trim()) : 0;
+      h = parsedH ?? -1;
+      m = parsedM ?? 0;
+      if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    }
+    return h * 60 + m;
+  }
+
   static String? _formatTime(String? hhmm) {
-    if (hhmm == null || hhmm.length < 4) return null;
-    final parts = hhmm.split(':');
-    final h = int.tryParse(parts[0]);
-    final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    if (h == null || h > 23) return null;
+    final minutes = _minutesOf(hhmm);
+    if (minutes == null) return null;
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
     final suffix = h >= 12 ? 'PM' : 'AM';
     final h12 = h % 12 == 0 ? 12 : h % 12;
     return '$h12:${m.toString().padLeft(2, '0')} $suffix';
   }
 
-  static int? _parseMinutes(String? hhmm) {
-    if (hhmm == null) return null;
-    final parts = hhmm.split(':');
-    final h = int.tryParse(parts[0]);
-    final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    if (h == null || h > 23) return null;
-    return h * 60 + m;
-  }
+  static int? _parseMinutes(String? hhmm) => _minutesOf(hhmm);
+
+  // ---- test seams over the three private parsers above ------------------
+  // The day-index RangeError and the 12-hour-AM misread were both invisible to
+  // the analyzer because each private helper was internally consistent.
+
+  @visibleForTesting
+  static int? firstDayForTest(dynamic day) => _firstDay(day);
+
+  @visibleForTesting
+  static int? parseMinutesForTest(String? hhmm) => _minutesOf(hhmm);
+
+  @visibleForTesting
+  static String? formatTimeForTest(String? hhmm) => _formatTime(hhmm);
 
   // ------------------------------------------------------------------
   // Cache + helpers
   // ------------------------------------------------------------------
 
   Future<List<RecoveryMeeting>> _cachedMeetings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyCache);
-    if (raw == null) return const <RecoveryMeeting>[];
+    final raw = await _readCacheBlob();
+    if (raw == null || raw.isEmpty) return const <RecoveryMeeting>[];
     try {
       final list = jsonDecode(raw) as List;
       return list
@@ -687,6 +737,60 @@ class MeetingFinderService {
     } catch (_) {
       return const <RecoveryMeeting>[];
     }
+  }
+
+  /// Directory of the file-backed cache.
+  ///
+  /// The cache used to live in SharedPreferences, where it measured 1,188,794
+  /// bytes on a real Moto G — 99.7% of the entire prefs file, in one key. The
+  /// shared_preferences plugin parses that whole XML on first read, so every
+  /// cold start parsed 1.19 MB of XML to fetch a theme preference, and every
+  /// refresh rewrote all of it atomically. It is now a file under the app's
+  /// documents directory; only the cheap freshness stamp stays in prefs.
+  static Future<Directory> _cacheDir() async {
+    final base = await getApplicationDocumentsDirectory();
+    final dir = Directory('${base.path}/meeting_cache');
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir;
+  }
+
+  static Future<File> _cacheFile() async =>
+      File('${(await _cacheDir()).path}/meetings.json');
+
+  /// Reads the cache, migrating the legacy SharedPreferences blob on first hit.
+  static Future<String?> _readCacheBlob() async {
+    try {
+      final f = await _cacheFile();
+      if (f.existsSync()) {
+        final s = await f.readAsString();
+        if (s.isNotEmpty) return s;
+      }
+    } catch (_) {
+      // fall through to the legacy path
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final legacy = prefs.getString(_keyCache);
+    if (legacy == null || legacy.isEmpty) return null;
+    // Migrate so the megabyte stops being parsed on every cold start.
+    try {
+      await (await _cacheFile()).writeAsString(legacy, flush: true);
+      await prefs.remove(_keyCache);
+      debugPrint('[meeting_cache] migrated ${legacy.length} bytes out of prefs');
+    } catch (_) {
+      // A failed migration is harmless; the legacy value is still readable.
+    }
+    return legacy;
+  }
+
+  static Future<void> _writeCacheBlob(String contents) async {
+    // Write-then-rename so a crash mid-write cannot leave a truncated cache
+    // that then fails jsonDecode and reads as "no meetings offline".
+    final dir = await _cacheDir();
+    final tmp = File('${dir.path}/meetings.json.tmp');
+    final target = await _cacheFile();
+    await tmp.writeAsString(contents, flush: true);
+    if (target.existsSync()) target.deleteSync();
+    await tmp.rename(target.path);
   }
 
   /// Public accessor for widgets (R27). Returns cached meetings without network.

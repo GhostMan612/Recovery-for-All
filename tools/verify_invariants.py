@@ -346,6 +346,116 @@ if interp_hits:
     )
 
 
+# ---------------------------------------------------------------------------
+# INVARIANT 8 — riverpod single-owner: dashboardDataProvider owns pet state.
+#
+# AGENTS.md claimed this rule "is enforced, not merely documented", and for a
+# while the gate did not check it. It was a prose rule only, and the violation
+# existed: dashboard_screen.dart called RecoveryPetService.ensureHatched()
+# directly (twice, to compute a Sparks delta) instead of reading the notifier.
+#
+# WHY a gate. A second owner is invisible to the analyzer and to every test: the
+# service is a valid static call from a valid place. The failure mode is a
+# split-brain read — the notifier's value and the raw service value disagree
+# after any refresh, and the delta is computed from the stale one.
+#
+# The screen may still navigate to pet screens, and may legitimately call
+# ensureHatched() during first-run bootstrap before the provider has produced a
+# value. What it must not do is read the pet back out to compute state the
+# notifier already owns.
+# ---------------------------------------------------------------------------
+PET_OWNER_ALLOWED_CALLERS = {
+    # The notifier's own loader.
+    "core/dashboard_providers.dart",
+    # The service itself, and the widgets that render a pet handed to them.
+    "services/recovery_pet_service.dart",
+    "widgets/recovery_pet_card.dart",
+    "widgets/dashboard_sections.dart",
+    "widgets/skill_tree_modal.dart",
+}
+
+# Pushed-route and non-widget callers legitimately call ensureHatched() before a
+# ProviderScope of the right kind is available, or to read a single stat for a
+# one-off write. The rule that actually matters is narrower and is the one the
+# original violation broke: the DASHBOARD — the screen that both watches the
+# provider and renders its pet — must not read the pet back out of the service.
+PET_OWNER_ENFORCED_CALLERS = {"screens/dashboard_screen.dart"}
+
+owner_violations = []
+for path in sorted(LIB.rglob("*.dart")):
+    rel = path.relative_to(LIB).as_posix()
+    if rel in PET_OWNER_ALLOWED_CALLERS or rel not in PET_OWNER_ENFORCED_CALLERS:
+        continue
+    text = strip_comments(read(path))
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if "ensureHatched" not in line:
+            continue
+        # A private `_pet` field is the other half of the same rule.
+        if re.search(r"RecoveryPet\??\s+_pet\b", line):
+            owner_violations.append(
+                "%s:%d: private `_pet` field — dashboardDataProvider owns pet state"
+                % (path.relative_to(ROOT).as_posix(), lineno)
+            )
+        # Read-back for state the notifier owns.
+        if re.search(r"=\s*\(?\s*await\s+RecoveryPetService\.ensureHatched", line) or \
+           re.search(r"await\s+RecoveryPetService\.ensureHatched\(\)\s*\.", line):
+            owner_violations.append(
+                "%s:%d: reads pet state back out of the service instead of the "
+                "notifier" % (path.relative_to(ROOT).as_posix(), lineno)
+            )
+
+if owner_violations:
+    failures.append(
+        "PET-STATE SINGLE OWNER (invariant 8). dashboardDataProvider is the only "
+        "owner of pet state; a screen reading it from RecoveryPetService is a "
+        "split-brain source: "
+        + " || ".join(owner_violations)
+        + " -- read `ref.watch(dashboardDataProvider).pet` instead."
+    )
+
+
+# ---------------------------------------------------------------------------
+# INVARIANT 9 — no `Colors.white` / `Colors.black` used as a paired foreground.
+#
+# The colour gate catches `Color(0x…)` literals and retired AppColors names, but
+# a foreground that is hardcoded white against `colorScheme.primary` slips
+# straight past it. M3 palettes flip tone with brightness: `primary` is a light
+# tone in dark theme and a dark tone in light theme, so `Colors.white` on
+# `primary` is correct in one brightness and unreadable in the other. The worst
+# instance was the unverified step count in walk_tracking_dialog, drawn white on
+# colorScheme.surface — invisible in the default light palette until the user
+# passed 500 steps.
+#
+# Only flag a hardcoded foreground when a colorScheme background appears in the
+# SAME statement, because a white icon on an avatar or inside a canvas painter is
+# a legitimate constant, not a tone mismatch.
+# ---------------------------------------------------------------------------
+HARD_FG = re.compile(
+    r"foregroundColor:\s*Colors\.(white|black)\b", re.IGNORECASE
+)
+SCHEME_BG = re.compile(r"backgroundColor:\s*Theme\.of\(context\)\.colorScheme\.")
+
+paired_fg = []
+for path in sorted(LIB.rglob("*.dart")):
+    if path.name.endswith(".g.dart"):
+        continue
+    text = strip_comments(read(path))
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if HARD_FG.search(line) and SCHEME_BG.search(line):
+            paired_fg.append(
+                "%s:%d: %s"
+                % (path.relative_to(ROOT).as_posix(), lineno, line.strip()[:110])
+            )
+
+if paired_fg:
+    failures.append(
+        "PAIRED FOREGROUND MUST BE A colorScheme ROLE (invariant 9). M3 primary "
+        "and error flip tone with brightness, so a hardcoded white/black "
+        "foreground is unreadable in one mode. Use onPrimary / onError / "
+        "onSurface: " + " || ".join(paired_fg)
+    )
+
+
 def main() -> int:
     for note in notes:
         print("NOTE: %s" % note)
@@ -360,7 +470,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 7)
+    print("PASS: %d architecture invariants hold" % 9)
     return 0
 
 

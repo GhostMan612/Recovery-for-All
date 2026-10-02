@@ -222,9 +222,30 @@ class MeetingRadiusNotifier extends Notifier<MeetingRadiusState> {
         prefs.getDouble(MeetingRadiusKeys.radiusMiles),
       ),
     );
-    if (restored.hasFix || !restored.enforce) {
+    // Gate on having *anything worth restoring*. The old condition
+    // (`hasFix || !enforce`) discarded the whole object — including the user's
+    // chosen radius — whenever there was no location fix AND filtering was on.
+    // That is the state of every fresh install and of every user who declined
+    // location permission, so a 25-mile radius set on the map read back as the
+    // 2-mile default for the whole session.
+    final radiusChanged =
+        restored.radiusMiles != MeetingRadiusPrefs.defaultRadiusMiles;
+    if (restored.hasFix || !restored.enforce || radiusChanged) {
       state = restored;
     }
+  }
+
+  /// Record a fresh location fix. `MeetingRadiusLogic.cacheLocation` writes
+  /// prefs directly, so the notifier kept serving its app-start value (usually
+  /// no fix at all) for the rest of the session and the meeting card silently
+  /// showed statewide results with no tier label. One owner, one value.
+  Future<void> setFix(double lat, double lng, int atMs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(MeetingRadiusPrefs.latKey, lat);
+    await prefs.setDouble(MeetingRadiusPrefs.lngKey, lng);
+    await prefs.setInt(MeetingRadiusPrefs.timeKey, atMs);
+    if (!ref.mounted) return;
+    state = state.copyWith(lat: lat, lng: lng, cachedAtMs: atMs);
   }
 
   Future<void> setEnforce(bool value) async {

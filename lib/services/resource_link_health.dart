@@ -51,13 +51,25 @@ class ResourceLinkHealth {
     if (raw != null) {
       try {
         final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        _cache = decoded.map((url, v) => MapEntry(
-              url,
-              LinkHealth(
-                ok: v['ok'] as bool?,
-                checkedAtMs: v['at'] as int? ?? 0,
-              ),
-            ));
+        // Parse per entry. The old `decoded.map(... as bool?)` threw on the
+        // FIRST entry with an unexpected type, and the catch wiped the whole
+        // cache — so one hand-edited or older-schema value made every link
+        // report "never checked" and triggered a full re-verify.
+        final parsed = <String, LinkHealth>{};
+        decoded.forEach((url, v) {
+          try {
+            if (v is! Map) return;
+            final ok = v['ok'];
+            final at = v['at'];
+            parsed[url] = LinkHealth(
+              ok: ok is bool ? ok : null,
+              checkedAtMs: at is int ? at : 0,
+            );
+          } catch (_) {
+            // Skip only the malformed entry.
+          }
+        });
+        _cache = parsed;
       } catch (_) {
         _cache = {};
       }

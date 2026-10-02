@@ -89,7 +89,12 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
                 Text(
                   '$_steps',
                   style: TextStyle(
-                    color: _verified ? Theme.of(context).colorScheme.tertiary : Colors.white,
+                    // onSurface, not Colors.white: this sits on colorScheme.surface, which is
+                    // near-white in light theme, so the unverified step count
+                    // was invisible until the user passed 500 steps.
+                    color: _verified
+                        ? Theme.of(context).colorScheme.tertiary
+                        : Theme.of(context).colorScheme.onSurface,
                     fontSize: 48,
                     fontWeight: FontWeight.bold,
                   ),
@@ -134,9 +139,15 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
               children: [
                 Icon(Icons.timer_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  'Time: ${_formatDuration(_elapsed)}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500),
+                // Flexible: a non-flexible Row child is laid out at intrinsic
+                // width BEFORE any Expanded sibling, so at 2.5x+ text scale this
+                // threw a horizontal RenderFlex overflow (Phase 13's exact bug).
+                Flexible(
+                  child: Text(
+                    'Time: ${_formatDuration(_elapsed)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
@@ -152,6 +163,10 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
         ],
       ),
       actions: [
+        // Both used to have byte-identical bodies, so tapping "Cancel" expecting to
+        // back out silently ended the walk and burned a cap-exempt walk event.
+        // Cancel now dismisses without ending tracking; Stop Walk is the only
+        // control that ends it.
         TextButton(
           onPressed: () async {
             if (widget.onStop != null) {
@@ -161,16 +176,13 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
             }
             if (context.mounted) Navigator.pop(context, false);
           },
-            child: Text('Stop Walk', style: TextStyle(color: AppColors.dangerSoft)),
+          child: Text('Stop Walk', style: TextStyle(color: AppColors.dangerSoft)),
         ),
         TextButton(
-          onPressed: () async {
-            if (widget.onStop != null) {
-              await widget.onStop!();
-            } else {
-              await StepCounterService.instance.stopWalkTracking();
-            }
-            if (context.mounted) Navigator.pop(context, false);
+          onPressed: () {
+            // Dismiss only. Tracking continues in the background; the user can
+            // return to the card and press Stop Walk when they are done.
+            Navigator.pop(context, false);
           },
           child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
@@ -183,7 +195,7 @@ class WalkTrackingDialogState extends State<WalkTrackingDialog> {
               : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Colors.black,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             disabledBackgroundColor: Theme.of(context).colorScheme.outlineVariant,
             disabledForegroundColor: Theme.of(context).colorScheme.outline,
           ),

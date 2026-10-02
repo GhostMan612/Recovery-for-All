@@ -10,6 +10,13 @@ import '../services/meeting_finder_service.dart';
 
 class MeetingRadiusPrefs {
   MeetingRadiusPrefs._();
+  // Aliases of the three key names above. `MeetingRadiusNotifier` referenced
+  // MeetingRadiusKeys.lat/lng/time, which do not exist — the restore path could
+  // not have compiled if it were reached, and silently never was. These point
+  // at the single owner of each string so the two spellings cannot drift.
+  static const String lat = latKey;
+  static const String lng = lngKey;
+  static const String time = timeKey;
   static const String latKey = 'last_known_location_lat_v1';
   static const String lngKey = 'last_known_location_lng_v1';
   static const String timeKey = 'last_known_location_time_v1';

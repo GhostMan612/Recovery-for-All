@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -519,7 +520,18 @@ class RecoveryPetService {
           }
           return pet;
         }
-      } catch (_) {}
+      } catch (e) {
+        // A DB ERROR is not the same as "there is no pet yet". Falling through
+        // to the legacy-prefs branch on an error meant that when the encrypted
+        // DB could not be opened (cold start, key not yet available) and the
+        // legacy key was also absent — the normal state for any R28-migrated
+        // user — a brand-new 100-energy / 0-spark pet was created and written
+        // OVER the existing row. Irreversible loss of Sparks, Bond, level and
+        // unlocked items. Rethrow instead: a caller can retry, but nobody can
+        // silently manufacture a default pet over real data.
+        developer.log('[pet] Drift read failed; refusing to fabricate a pet: $e');
+        rethrow;
+      }
     }
     // 2. Fallback to legacy prefs (migration path)
     final prefs = await SharedPreferences.getInstance();
@@ -760,12 +772,25 @@ class RecoveryPetService {
   static Future<RecoveryPet> logWalkManualFallback() =>
       logWalk(requireVerification: false, isManualFallback: true);
 
+  /// Step-count milestone (1000, 2500, …). Its own stream: NOT cap-exempt (so
+  /// it cannot be farmed past the daily allowance by a burst of milestones) and
+  /// NOT walk-counted (so hitting a step goal does not consume one of the two
+  /// walks per day). Calling [logWalk] here would have done both.
+  static Future<RecoveryPet> logStepMilestone(int milestone) => _applyReward(
+        type: 'step_milestone',
+        sparksDelta: 5,
+        energyDelta: 2,
+        bondDelta: 1,
+        meta: '{"milestone":$milestone}',
+      );
+
   static Future<RecoveryPet> _applyReward({
     String type = 'reward',
     int sparksDelta = 0,
     int energyDelta = 0,
     int bondDelta = 0,
     PetMoodX? mood,
+    String? meta,
   }) async {
     final pet = await ensureHatched();
 
@@ -788,9 +813,14 @@ class RecoveryPetService {
             grantedSparks.clamp(0, dailyEarnCap - earned);
       }
       final prefs = await SharedPreferences.getInstance();
+      // Record what was ACTUALLY granted, not what was requested. Writing
+      // `sparksDelta` here inflated the ledger past the cap, so every later
+      // non-exempt action that day saw `earned >= dailyEarnCap` and paid
+      // zero — the user permanently lost the remainder of their allowance.
+      // A fully-capped action grants nothing and must not touch the ledger.
       await prefs.setString(
         _keyEarnDay,
-        '${_todayKey()}:${earned + sparksDelta}',
+        '${_todayKey()}:${earned + grantedSparks}',
       );
     }
 
@@ -798,21 +828,14 @@ class RecoveryPetService {
     // bonus (capped stream — quests are app actions, not exempt).
     final questBonus = await _consumeQuestBonus(type);
 
-    final updated = RecoveryPet(
-      id: pet.id,
-      name: pet.name,
+    // copyWith — the raw constructor would reset anything added to RecoveryPet
+    // later without a matching line here (this is how pathLevel/pathXp were
+    // silently zeroed by two other call sites).
+    final updated = pet.copyWith(
       energy: (pet.energy + energyDelta).clamp(0, 100),
       bond: (pet.bond + bondDelta).clamp(0, 100),
-      mood: mood ?? pet.mood,
+      mood: mood,
       sparks: pet.sparks + grantedSparks + questBonus,
-      unlockedItems: pet.unlockedItems,
-      equippedOutfit: pet.equippedOutfit,
-      speciesId: pet.speciesId,
-      equippedSlots: pet.equippedSlots,
-      lastFedAt: pet.lastFedAt,
-      createdAt: pet.createdAt,
-      pathLevel: pet.pathLevel,
-      pathXp: pet.pathXp,
     );
     // R28 atomic: pet + event in one drift transaction (crash-safe)
     final totalSparks = grantedSparks + questBonus;
@@ -823,11 +846,17 @@ class RecoveryPetService {
           await db.upsertPet(rowFromPet(updated));
           await db.addPetEvent(
             PetEventRow(
-              id: 'pet_event_${DateTime.now().millisecondsSinceEpoch}_${(totalSparks * 31 + type.length) % 9973}',
+              // Unique per event. The old id mixed a millisecond stamp with a
+              // small modulo of the payload, so two same-type events with the
+              // same Sparks value in the same millisecond collided on the
+              // primary key and the audit row was silently dropped by the
+              // catch below.
+              id: 'pet_event_${DateTime.now().microsecondsSinceEpoch}_$type',
               petId: defaultPetId,
               eventType: type,
               sparksDelta: totalSparks,
               timestamp: DateTime.now().millisecondsSinceEpoch,
+              metaJson: meta,
             ),
           );
         });
@@ -906,20 +935,10 @@ class RecoveryPetService {
     } else {
       slots['last_equipped'] = itemId;
     }
-    final updated = RecoveryPet(
-      id: pet.id,
-      name: pet.name,
-      energy: pet.energy,
-      bond: pet.bond,
-      mood: pet.mood,
-      sparks: pet.sparks,
-      unlockedItems: pet.unlockedItems,
-      equippedOutfit: pet.equippedOutfit,
-      speciesId: pet.speciesId,
-      equippedSlots: slots,
-      lastFedAt: pet.lastFedAt,
-      createdAt: pet.createdAt,
-    );
+    // copyWith, NOT the raw constructor: RecoveryPet's constructor defaults
+    // pathLevel/pathXp to 1/0, so rebuilding by hand silently reset Trials
+    // progress every time a cosmetic was equipped.
+    final updated = pet.copyWith(equippedSlots: slots);
     await save(updated);
     return updated;
   }
@@ -1006,15 +1025,9 @@ class RecoveryPetService {
     }
     final species = PetSpeciesCatalog.byId(speciesId);
     final cost = pet.speciesId == speciesId ? 0 : species.unlockSparks;
-    final updated = RecoveryPet(
-      id: pet.id,
-      name: pet.name,
-      energy: pet.energy,
-      bond: pet.bond,
-      mood: pet.mood,
+    // copyWith so pathLevel/pathXp survive — see equipCosmetic above.
+    final updated = pet.copyWith(
       sparks: pet.sparks - cost,
-      unlockedItems: pet.unlockedItems,
-      equippedOutfit: pet.equippedOutfit,
       equippedSlots: {
         ...pet.equippedSlots,
         CosmeticCategory.body.name: species.bodyItemId,
@@ -1022,7 +1035,6 @@ class RecoveryPetService {
       },
       speciesId: species.id,
       lastFedAt: DateTime.now().millisecondsSinceEpoch,
-      createdAt: pet.createdAt,
     );
     await save(updated);
     await _recordEvent('species_${species.id}', 0);

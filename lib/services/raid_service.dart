@@ -3,6 +3,8 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'package:drift/drift.dart' show Value;
+
 import '../database/recovery_database.dart';
 import 'recovery_pet_service.dart';
 
@@ -37,8 +39,17 @@ class RaidService {
     }
     final nowDt = DateTime.now();
     if (_isWeekend(nowDt)) {
+      // Deterministic id keyed on the weekend window. The old id used
+      // microsecondsSinceEpoch, and getActiveRaid is called on every dashboard
+      // open AND on every journal/check-in/gratitude via XpEngineService — so
+      // three actions on a Saturday created three independent 1000-HP bosses,
+      // each with its own contribution split. Re-inserting the same id is a
+      // no-op conflict, so this is idempotent per weekend.
+      final raidId = 'raid_weekend_${_weekendEndTime(nowDt)}';
+      final existing = await db.getActiveRaidById(raidId);
+      if (existing != null && existing.currentHp > 0) return existing;
       final raid = ActiveRaid(
-        id: 'raid_${DateTime.now().microsecondsSinceEpoch}',
+        id: raidId,
         bossName: weekendBoss,
         maxHp: defaultMaxHp,
         currentHp: defaultMaxHp,
@@ -52,26 +63,47 @@ class RaidService {
   }
 
   static Future<ActiveRaid?> dealDamage(RecoveryDatabase db, String raidId, int damage) async {
-    final raid = await db.getActiveRaidById(raidId);
-    if (raid == null) return null;
-    if (raid.currentHp <= 0) return raid;
-    final newHp = (raid.currentHp - damage).clamp(0, raid.maxHp);
-    final updated = raid.copyWith(currentHp: newHp, userContribution: raid.userContribution + damage);
-    await db.updateActiveRaid(updated);
-    if (newHp <= 0) {
+    // Inside a transaction. The old version read the row, subtracted in Dart, and
+    // wrote the whole row back with `replace` — two concurrent strikes both
+    // read currentHp = 1000, both wrote 900, and one hit was silently lost
+    // (and userContribution under-reported forever). A transaction makes the
+    // read-modify-write atomic; note that `updateActiveRaid`'s `replace` is
+    // still a full-row write, so the read must not escape the transaction.
+    final result = await db.transaction(() async {
+      final rows = await (db.select(db.activeRaids)
+            ..where((t) => t.id.equals(raidId)))
+          .get();
+      if (rows.isEmpty) return null;
+      final raid = rows.first;
+      if (raid.currentHp <= 0) return raid;
+
+      final newHp = (raid.currentHp - damage).clamp(0, raid.maxHp);
+      final applied = raid.currentHp - newHp;
+      final updated = await (db.update(db.activeRaids)
+            ..where((t) => t.id.equals(raidId)))
+          .writeReturning(ActiveRaidsCompanion(
+        currentHp: Value(newHp),
+        userContribution: Value(raid.userContribution + applied),
+      ));
+      return updated.isEmpty
+          ? raid.copyWith(currentHp: newHp)
+          : updated.first;
+    });
+    if (result == null) return null;
+    if (result.currentHp <= 0) {
       final pet = await RecoveryPetService.ensureHatched();
       final withXp = pet.copyWith(pathXp: pet.pathXp + victoryXp);
       final leveled = RecoveryPetService.evaluateLevel(withXp);
       await RecoveryPetService.save(leveled);
       await db.addPetEvent(PetEventRow(
-        id: 'pet_event_${DateTime.now().millisecondsSinceEpoch}_raid',
+        id: 'pet_event_${DateTime.now().microsecondsSinceEpoch}_raid',
         petId: RecoveryPetService.defaultPetId,
         eventType: 'raid_victory',
         sparksDelta: 0,
         timestamp: DateTime.now().millisecondsSinceEpoch,
-        metaJson: '{"boss":"${raid.bossName}","xp":$victoryXp}',
+        metaJson: '{"boss":"${result.bossName}","xp":$victoryXp}',
       ));
     }
-    return updated;
+    return result;
   }
 }

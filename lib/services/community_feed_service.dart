@@ -119,6 +119,8 @@ class CommunityFeedService {
     late StreamController<List<FeedPost>> controller;
     late StreamSubscription<List<FeedPost>> localSub;
     StreamSubscription<List<FeedPost>>? remoteSub;
+    // Hoisted so onCancel can reach it — see the anonymous-auth race below.
+    var cancelled = false;
 
     controller = StreamController<List<FeedPost>>(
       onListen: () {
@@ -130,8 +132,13 @@ class CommunityFeedService {
           onError: (Object _) => controller.add(latestLocal),
         );
 
+        // Anonymous auth can take a second or two. If the user leaves the screen
+        // inside that window, onCancel already ran with remoteSub == null, and
+        // this continuation then created a live Firestore subscription that
+        // nothing would ever cancel — a permanently-active listener per visit.
+        // The hoisted `cancelled` flag closes that race.
         _ensureAuth().then((authenticated) {
-          if (!authenticated) return;
+          if (!authenticated || cancelled) return;
           remoteSub = remote.listen(
             (list) {
               latestRemote = list;
@@ -155,6 +162,7 @@ class CommunityFeedService {
         remoteSub?.resume();
       },
       onCancel: () async {
+        cancelled = true;
         await localSub.cancel();
         await remoteSub?.cancel();
       },
@@ -266,7 +274,17 @@ class CommunityFeedService {
         .get();
   }
 
+  static const Set<String> _reactionKinds = {'strength', 'proud', 'respect'};
+
   Future<void> react(String postId, {required String kind, int by = 1}) async {
+    // Validate BEFORE both writes. reactToPost now throws on an unknown kind,
+    // and the cloud field name was built as '${kind}Count' with no check at
+    // all — so an unrecognised kind incremented a bogus Firestore field while
+    // the local write silently changed nothing: a guaranteed desync.
+    if (!_reactionKinds.contains(kind)) {
+      debugPrint('[circle] ignoring unknown reaction kind "$kind"');
+      return;
+    }
     await database.reactToPost(postId, kind: kind, by: by);
 
     final authed = await _ensureAuth();
@@ -285,9 +303,35 @@ class CommunityFeedService {
     }
   }
 
-  Future<void> flag(String postId) => database.flagPost(postId);
+  /// Mirror a moderation action to Firestore. Both of these previously wrote
+  /// only to the local Drift row, so a post that a user hid or flagged stayed
+  /// fully visible to everyone else in the Recovery Circle indefinitely —
+  /// the remote feed merges on `status != 'visible'`.
+  Future<void> flag(String postId) async {
+    await database.flagPost(postId);
+    await _mirrorStatus(postId, 'pending');
+  }
 
-  Future<void> approve(String postId) => database.setPostStatus(postId, 'visible');
+  Future<void> approve(String postId) async {
+    await database.setPostStatus(postId, 'visible');
+    await _mirrorStatus(postId, 'visible');
+  }
 
-  Future<void> hide(String postId) => database.setPostStatus(postId, 'hidden');
+  Future<void> hide(String postId) async {
+    await database.setPostStatus(postId, 'hidden');
+    await _mirrorStatus(postId, 'hidden');
+  }
+
+  Future<void> _mirrorStatus(String postId, String status) async {
+    final authed = await _ensureAuth();
+    if (!authed) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection(remoteCollection)
+          .doc(postId)
+          .update({'status': status});
+    } catch (e) {
+      debugPrint('[circle] Cloud status sync failed ($status): $e');
+    }
+  }
 }

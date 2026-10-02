@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** October 30, 2026 (UI/UX program COMPLETE — **all 17 phases shipped**. The Oct tester round is **fully device-verified on the LG B160V**: all four reported fixes reproduce as fixed, plus the SOS sheet and all three palettes. Hardware testing then found **three real defects the test suite could not catch** — the constellation zoom stranded off-centre stars (§7a), the zoom slider sat **underneath the Add Star FAB** so its right third was untappable, and the 3D view was silent to screen readers. All three are **fixed, tested and re-verified on the device**, including pan on a sky genuinely wider than the canvas. Suite at **488**, analyze clean, all five gates green. Process lessons worth more than the fixes: L25 (never tap in a resized screenshot's coordinate space), L26 (assert the app is foreground before every tap), **L27 (the unit of compliance is the plan, not the call)**, **L29 (a byte-identical screenshot means nothing happened — not that the control is broken; two passes were invalidated by a stale APK)**, and L28 (two wrong tests before one caught a real bug).)
+**Last updated:** October 30, 2026, later (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~30 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop** in the constellation screen, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, and a `Colors.white`-on-`primary` foreground that was invisible in one theme. Suite at **511** (23 new), analyze clean, **nine** invariants green, all links alive. The governing lesson is **L31**: seven false negatives in one session, every one from trusting an unvalidated probe — and L31 is the reason the fixes above were found at all.)
 **Purpose:** THE first file a fresh session reads. Everything needed to
 resume without losing progress. Update it at every session end.
 
@@ -214,27 +214,36 @@ resume without losing progress. Update it at every session end.
 
 ## 4 · Human-side queue (agent cannot do these)
 
-1. Rebuild + smoke-test everything from rounds 1–2 (fresh GPS fix via
-   recenter button, constellation slider/pinch, GGUF downloads with
-   corrected URLs, journal PIN setup flow, quest card on Pet Home)
-2. GGUF on-device QA matrix (`gguf-feasibility.md` §5)
-3. Release (non-debug) rebuild validation of llama.cpp `.so` set
-4. Re-publish `firestore/firestore.rules` in Firebase console
-5. **Android debug build verified** — agent gates pass; human builds in Android Studio for device testing
+1. GGUF **download + load + latency** matrix on the Moto G — the gate is now
+   open and the app is installed (`versionCode 10`), so this is the only
+   remaining executable QA item. ~241 MB for Gemma 270M. Plan:
+   `docs/qa/gguf_qa.md`.
+2. **The 500-step walk award** — the sensor chain is *proven* on the Moto G
+   (`step_sensor_offset_v1 = 120`), so only the physical walk remains: carry
+   the phone ~5 min. Plan: `docs/qa/step_counter_qa.md`.
+3. Re-publish `firestore/firestore.rules` in Firebase console.
+4. Re-publish Firestore rules **after** the audit added `ownerUid` to
+   `sponsor_bundles` — the rules must partition by `request.auth.uid` or the
+   new field is decorative.
+5. Play upload of `+10` + questionnaire + publication. Human-owned.
 
 ### Boxed — hardware or account-gated, NOT open work
-These are **not** unfinished features and must not be re-queued as bugs. Each is
-blocked by something outside the repo, and the blocker is named:
 
 | Item | Blocked by | Note |
 |---|---|---|
-| GGUF on-device QA matrix | **RAM gate** | `isLowEnd` is true on the B160V (2.75 GB), so the GGUF path is gated OFF and *cannot* be exercised there by design. Needs the Moto G 2025 (4-8 GB). Test plan is complete: `docs/qa/gguf_qa.md`. |
-| Step-counter / pedometer QA | **no sensor** | The B160V has no step sensor, so real-movement walk verification cannot run on it. Needs the Moto G. Test plan complete: `docs/qa/step_counter_qa.md`. |
-| iOS / Apple App Store release | **no Mac + $99/yr** | Windows-only dev env; iOS builds need macOS/Xcode. Full spec + unbox checklist in `roadmap-v2.md`. |
+| iOS / Apple App Store release | **no Mac + $99/yr** | Windows-only dev env. Full spec + unbox checklist in `roadmap-v2.md`. |
+| Firebase rules publish | **console access** | No Firebase CLI credentials in this env. |
+
+**Both previously-hardware-blocked items are now unblocked and were partly closed
+on the Moto G 2025** (`ZT4222BMWN`, USB):
+
+| Item | Before | Now |
+|---|---|---|
+| GGUF path | gated OFF everywhere (`isLowEnd` true on the B160V's 2.75 GB) | **`[hardware] totalRamGb=3.56 isLowEnd=false`** against a 3.0 GB threshold — path is live. All four catalog URLs return HTTP 200. Model download itself not yet run. |
+| Step counter | no sensor on the B160V | **`flutter.step_sensor_offset_v1 = 120`** in SharedPreferences — a real cumulative count off the MTK sensor. sensor → pedometer plugin → Dart → prefs is proven. Only the 500-step threshold needs a human walking. |
 
 The honest summary: **every feature is shipped.** What remains is verification
-that requires hardware or an account this environment does not have. Do not
-open a new feature thread in response to a blocked QA item.
+that requires a human with a phone and a Play account.
 
 ### Deferred pet items (with reasons — do not silently drop)
 - **Pet-card share**: RepaintBoundary→share_plus; low risk, unscheduled.

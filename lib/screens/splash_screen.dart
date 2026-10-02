@@ -199,7 +199,7 @@ class _SplashScreenState extends State<SplashScreen>
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(
                       horizontal: 28, vertical: 14),
                 ),
@@ -302,7 +302,7 @@ class _SplashScreenState extends State<SplashScreen>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _continueOffline,
-                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
                           child: const Text('Continue'),
                         ),
                       ),

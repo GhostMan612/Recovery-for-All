@@ -66,26 +66,34 @@ class GgufInferenceService {
   }) async {
     if (!_isLoaded || _llama == null || _busy) return null;
     _busy = true;
+    // Cancellation is cooperative. `Future.timeout` does NOT stop the underlying
+    // computation, so the old version left an orphaned `await for` still
+    // pulling tokens out of the native context while `finally` had already
+    // released `_busy`. The next generate() then called setPrompt() on a context
+    // an orphan was mutating, and unload() could dispose() it underneath — a
+    // native use-after-free (a process crash, not a Dart exception), reachable
+    // on any mid-range phone for 256 tokens.
+    var cancelled = false;
+    final timer = Timer(timeout, () {
+      cancelled = true;
+      debugPrint('[gguf] generation timed out after $timeout');
+    });
     try {
       _llama!.setPrompt(prompt);
       final buffer = StringBuffer();
       var tokenCount = 0;
 
-      // Timeout the entire generation; fallback to scripted coach on expiry.
-      await Future<void>(() async {
-        await for (final token in _llama!.generateText()) {
-          buffer.write(token);
-          tokenCount++;
-          // Yield to event loop every 15 tokens — keeps watchdog happy
-          // and lets UI remain responsive on 4 GB Moto G 2025.
-          if (tokenCount % 15 == 0) {
-            await Future<void>.delayed(Duration.zero);
-          }
-          if (tokenCount >= maxTokens) break;
+      await for (final token in _llama!.generateText()) {
+        if (cancelled) break;
+        buffer.write(token);
+        tokenCount++;
+        // Yield to event loop every 15 tokens — keeps watchdog happy
+        // and lets UI remain responsive on 4 GB Moto G 2025.
+        if (tokenCount % 15 == 0) {
+          await Future<void>.delayed(Duration.zero);
         }
-      }).timeout(timeout, onTimeout: () {
-        debugPrint('[gguf] generation timed out after $timeout');
-      });
+        if (tokenCount >= maxTokens) break;
+      }
 
       final result = buffer.toString().trim();
       debugPrint('[gguf] generated $tokenCount tokens, ${result.length} chars');
@@ -94,6 +102,7 @@ class GgufInferenceService {
       debugPrint('[gguf] generation failed: $e');
       return null;
     } finally {
+      timer.cancel();
       _busy = false;
     }
   }

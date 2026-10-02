@@ -160,18 +160,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             maxTokens: 256,
           );
 
-          // Safety check on model output
+          // Safety check on model output. The input-side guardrail above is a
+          // *recall* filter — it catches known phrases. That is not enough for
+          // free-form model text reaching a user in recovery, so the reply is
+          // additionally required to be non-empty after trimming, and it is
+          // never allowed to be the last word: a crisis-worded reply is
+          // discarded and falls through to the scripted coach below.
           if (ggufResponse != null) {
+            final trimmed = ggufResponse.trim();
             final outputCheck =
-                SafetyGuardrailService.assessInput(ggufResponse);
-            if (outputCheck.isCrisisTriggered) {
+                SafetyGuardrailService.assessInput(trimmed);
+            if (outputCheck.isCrisisTriggered || trimmed.isEmpty) {
               ggufResponse = null; // Model generated something unsafe — discard
+            } else {
+              ggufResponse = trimmed;
             }
           }
         }
       }
 
       if (ggufResponse != null) {
+        if (!mounted) return;
         setState(() {
           _messages.add({
             'sender': 'bot',
@@ -191,6 +200,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               : await RecoveryCoachService.replyFromIntent(modelIntent);
 
       if (coachReply.isCrisis) {
+        if (!mounted) return;
         setState(() {
           _messages.add({
             'sender': 'bot',
@@ -237,6 +247,7 @@ $text
       );
       await widget.database.addJournalEntry(journal);
 
+      if (!mounted) return;
       setState(() {
         _messages.add({
           'sender': 'bot',
@@ -247,6 +258,7 @@ $text
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _messages.add({
           'sender': 'bot',
@@ -316,8 +328,18 @@ $text
 
   Future<void> _launch988() async {
     final uri = Uri.parse('tel:988');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    // This is the primary button on the crisis gate. It must never be a
+    // silent no-op: on a device with no dialer handler, or where policy blocks
+    // tel:, canLaunchUrl/launchUrl return false and the user would see
+    // nothing happen at the exact moment they asked for help.
+    final launched =
+        await canLaunchUrl(uri) ? await launchUrl(uri) : false;
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No dialer available — please call 988 directly.'),
+        ),
+      );
     }
   }
 
@@ -358,7 +380,7 @@ $text
                 onPressed: _launch988,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -551,7 +573,7 @@ $text
                                 onPressed: _startGgufDownload,
                                 icon: const Icon(Icons.download, size: 18),
                                 label: Text('Download ${_suggestedModel!.fileSizeMb}'),
-                                style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+                                style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
                               ),
                             ),
                             const SizedBox(width: 8),

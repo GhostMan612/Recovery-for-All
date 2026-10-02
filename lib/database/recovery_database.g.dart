@@ -5432,6 +5432,34 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     this,
   );
   late final $ActiveRaidsTable activeRaids = $ActiveRaidsTable(this);
+  late final Index idxJournalTs = Index(
+    'idx_journal_ts',
+    'CREATE INDEX idx_journal_ts ON journal_entries (timestamp)',
+  );
+  late final Index idxPointsTs = Index(
+    'idx_points_ts',
+    'CREATE INDEX idx_points_ts ON constellation_points (timestamp)',
+  );
+  late final Index idxCheckinTs = Index(
+    'idx_checkin_ts',
+    'CREATE INDEX idx_checkin_ts ON wellness_check_ins (timestamp)',
+  );
+  late final Index idxPetEventsPetTs = Index(
+    'idx_pet_events_pet_ts',
+    'CREATE INDEX idx_pet_events_pet_ts ON pet_events (pet_id, timestamp)',
+  );
+  late final Index idxFeedStatusCreated = Index(
+    'idx_feed_status_created',
+    'CREATE INDEX idx_feed_status_created ON feed_posts (status, created_at)',
+  );
+  late final Index idxFeedFlag = Index(
+    'idx_feed_flag',
+    'CREATE INDEX idx_feed_flag ON feed_posts (flag_count)',
+  );
+  late final Index idxSyncPeerTs = Index(
+    'idx_sync_peer_ts',
+    'CREATE INDEX idx_sync_peer_ts ON fellowship_syncs (peer_alias, timestamp)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5448,6 +5476,13 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     feedPosts,
     fellowshipSyncs,
     activeRaids,
+    idxJournalTs,
+    idxPointsTs,
+    idxCheckinTs,
+    idxPetEventsPetTs,
+    idxFeedStatusCreated,
+    idxFeedFlag,
+    idxSyncPeerTs,
   ];
 }
 

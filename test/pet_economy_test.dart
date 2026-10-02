@@ -189,9 +189,12 @@ group('ensureHatched idle decay (Drift-backed)', () {
       await RecoveryPetService.logGrounding();
       pet = await RecoveryPetService.ensureHatched();
       expect(pet.sparks, 180);
-      // …while the audit ledger keeps counting honest effort
-      // (exempt walks never touched it).
-      expect(await RecoveryPetService.earnedToday(), 20 * 8);
+      // …and the ledger records what was ACTUALLY GRANTED, not what was asked
+      // for. It previously wrote `earned + sparksDelta`, so the 19th grounding
+      // (which granted 6 of 8) and the 20th (which granted 0) both inflated
+      // the ledger by the full 8 — leaving it at 160 for 150 real Sparks, and
+      // making the cap bite early for the rest of the day.
+      expect(await RecoveryPetService.earnedToday(), 150);
     });
 
     test('partial grant right under the cap', () async {
@@ -235,7 +238,7 @@ group('ensureHatched idle decay (Drift-backed)', () {
       final pet = await RecoveryPetService.logMeeting();
       expect(pet.sparks, 158,
           reason: '+8 meeting Sparks land on top of a full cap');
-      expect(await RecoveryPetService.earnedToday(), 152,
+      expect(await RecoveryPetService.earnedToday(), 150,
           reason: 'exempt rewards never consume the daily allowance');
     });
 
@@ -249,7 +252,7 @@ group('ensureHatched idle decay (Drift-backed)', () {
       final pet = await RecoveryPetService.logWalk(requireVerification: false);
       expect(pet.sparks, 165,
           reason: '+15 walk Sparks land on top of a full cap');
-      expect(await RecoveryPetService.earnedToday(), 152,
+      expect(await RecoveryPetService.earnedToday(), 150,
           reason: 'exempt rewards never consume the daily allowance');
     });
   });

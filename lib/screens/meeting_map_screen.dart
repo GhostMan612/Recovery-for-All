@@ -712,7 +712,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white),
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary),
                   icon: const Icon(Icons.directions_outlined),
                   label: const Text('Get Directions'),
                   onPressed: () {

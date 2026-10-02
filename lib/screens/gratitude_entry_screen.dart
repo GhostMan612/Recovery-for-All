@@ -197,7 +197,7 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
                   onPressed: _isSaving ? null : _saveEntry,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),

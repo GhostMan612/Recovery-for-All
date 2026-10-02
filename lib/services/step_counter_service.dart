@@ -41,11 +41,18 @@ class StepCounterService {
   int? _rawSensorValue;
   int? _lastRawStep;
   DateTime? _lastValidatedTime;
+  bool _initialized = false;
 
   static const Duration _stepDebounce = Duration(milliseconds: 380);
   static const int _minStepIntervalMs = 380;
 
   Future<void> initialize() async {
+    // No double-init guard existed. A second call overwrote both subscription
+    // fields WITHOUT cancelling the previous pair, so the first leaked for the
+    // process lifetime and both ran _onStepCount — doubling every step event
+    // and racing each other on _lastRawStep/_sensorOffset across their awaits.
+    if (_initialized) return;
+    _initialized = true;
     final prefs = await SharedPreferences.getInstance();
     _lastStepCount = prefs.getInt('last_step_count') ?? 0;
 
@@ -76,7 +83,18 @@ class StepCounterService {
     developer.log('[step_counter] Initialized with $_lastStepCount steps');
   }
 
+  // `void … async` with no try/catch: any throw from SharedPreferences inside
+  // became an unhandled async error, and the auto-verify call at the end was
+  // fire-and-forget out of the same body.
   void _onStepCount(StepCount event) async {
+    try {
+      await _handleStepCount(event);
+    } catch (e, st) {
+      developer.log('[step_counter] step handling failed: $e\n$st');
+    }
+  }
+
+  Future<void> _handleStepCount(StepCount event) async {
     final now = DateTime.now();
     final incoming = event.steps;
     _rawSensorValue = incoming;
@@ -196,7 +214,8 @@ class StepCounterService {
     if (_isTrackingWalk && _initialSensorSteps != null) {
       final currentWalk = (incoming - _initialSensorSteps!).clamp(0, 1 << 30);
       if (currentWalk >= minStepsForWalk && _autoVerifyEnabled) {
-        _autoVerifyWalk();
+        // Awaited, not fire-and-forget.
+        await _autoVerifyWalk();
       }
     }
   }
@@ -267,7 +286,13 @@ class StepCounterService {
   }
 
   Future<void> _awardStepMilestoneSparks(int milestone) async {
-    await RecoveryPetService.logWalk(requireVerification: false);
+    // A dedicated stream. This used to call logWalk(), which is (a) CAP-EXEMPT
+    // — so crossing 1000 steps paid the full 15-Spark walk award instead of
+    // the 5 this log line claims — and (b) walk-counted, so it consumed one of
+    // the 2 walks/day. On top of that, stopWalkTracking paid ANOTHER 15 for the
+    // same steps, and initialize() re-fired every milestone at or below the
+    // current count in one pass (previousSteps defaults to 0).
+    await RecoveryPetService.logStepMilestone(milestone);
     developer.log('[step_counter] Awarded $sparksPerMilestone Sparks for $milestone steps milestone');
   }
 
@@ -314,6 +339,15 @@ class StepCounterService {
   }
 
   Future<bool> stopWalkTracking() async {
+    // Capture the evidence BEFORE clearing the tracking flag. The old order
+    // set `_isTrackingWalk = false` first, and every fallback below called
+    // getCurrentWalkSteps(), which short-circuits to 0 once that flag is
+    // false — so both fallback branches produced 0 steps and `verified` was
+    // effectively always false. The `if (stepsSinceStart < 0)` guard was also
+    // unreachable, because .clamp(0, …) had already forced the value >= 0.
+    final initialSteps = _initialSensorSteps;
+    final startTime = _walkStartTime;
+    final wasTracking = _isTrackingWalk;
     _isTrackingWalk = false;
 
     try {
@@ -322,15 +356,20 @@ class StepCounterService {
 
     final prefs = await SharedPreferences.getInstance();
     int stepsSinceStart = 0;
-    if (_rawSensorValue != null && _initialSensorSteps != null) {
-      stepsSinceStart = (_rawSensorValue! - _initialSensorSteps!).clamp(0, 1 << 30);
-    } else if (_initialSensorSteps != null) {
-      stepsSinceStart = (_lastStepCount - _initialSensorSteps!).clamp(0, 1 << 30);
-      if (stepsSinceStart < 0) stepsSinceStart = getCurrentWalkSteps();
-    } else {
-      stepsSinceStart = getCurrentWalkSteps();
+    if (_rawSensorValue != null && initialSteps != null) {
+      // The only sound basis: both values are raw cumulative sensor readings.
+      stepsSinceStart = (_rawSensorValue! - initialSteps).clamp(0, 1 << 30);
+    } else if (initialSteps != null && wasTracking) {
+      // Fallback mixes a since-midnight daily count with a since-boot sensor
+      // baseline; clamp and accept that it can under-report rather than
+      // pretending to a precision it does not have.
+      stepsSinceStart = (_lastStepCount - initialSteps).clamp(0, 1 << 30);
     }
-    final elapsed = DateTime.now().difference(_walkStartTime ?? DateTime.now());
+    // A walk with no start timestamp cannot satisfy the 30-minute window, so
+    // `elapsed` must not silently be Duration.zero (which always passed).
+    final elapsed = startTime == null
+        ? walkTimeWindow + const Duration(seconds: 1)
+        : DateTime.now().difference(startTime);
 
     final verified = stepsSinceStart >= minStepsForWalk && elapsed <= walkTimeWindow;
     await prefs.setBool('walk_verified_v1', verified);

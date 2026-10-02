@@ -16,13 +16,15 @@
 // capped and never targets the OSM endpooint aggressively (small zoom band,
 // hard tile ceiling, sequential-ish fetching).
 
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show SynchronousFuture;
+import 'package:flutter/foundation.dart'
+    show SynchronousFuture, debugPrint, visibleForTesting;
 
 import 'package:flutter/painting.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -87,9 +89,81 @@ class MapTileCache {
       ).timeout(const Duration(seconds: 12));
       if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
       await file.writeAsBytes(res.bodyBytes, flush: true);
+      _scheduleEviction();
       return file;
     } catch (_) {
       return null;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Eviction
+  // ------------------------------------------------------------------
+  //
+  // There was none. Every pan wrote new z_x_y.png files and nothing was ever
+  // deleted — no LRU, no byte budget, no layer cap — and prefetchPack adds up to
+  // 800 more per call. A session of map use across zoom levels accumulated
+  // thousands of files until the OS began failing app writes. The header's
+  // "storage management" claim was about the directory choice only.
+
+  /// Total cache budget. Tiles are ~10-40 KB, so 150 MB is a few thousand of
+  /// them — ample for offline MN packs, bounded enough to be invisible.
+  static const int maxCacheBytes = 150 * 1024 * 1024;
+
+  static int _bytesSinceSweep = 0;
+  static bool _sweepRunning = false;
+
+  /// Called after each successful write; does a real sweep only every ~8 MB so
+  /// the directory walk never runs per tile.
+  static void _scheduleEviction() {
+    _bytesSinceSweep += 1;
+    if (_bytesSinceSweep < 512) return;
+    _bytesSinceSweep = 0;
+    unawaited(evictIfNeeded());
+  }
+
+  /// Deletes least-recently-modified tiles until the cache fits [maxCacheBytes].
+  static Future<int> evictIfNeeded({int budget = maxCacheBytes}) async {
+    final dir = _cacheDir;
+    if (dir == null || _sweepRunning) return 0;
+    _sweepRunning = true;
+    try {
+      if (!dir.existsSync()) return 0;
+      final files = <File>[];
+      var total = 0;
+      for (final layer in dir.listSync()) {
+        if (layer is! Directory) continue;
+        for (final f in layer.listSync()) {
+          if (f is File && f.path.endsWith('.png')) {
+            files.add(f);
+            total += f.lengthSync();
+          }
+        }
+      }
+      if (total <= budget) return 0;
+      // Oldest-modified first: that is the least-recently-*used* proxy we
+      // have without touching every read.
+      files.sort((a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()));
+      var freed = 0;
+      var removed = 0;
+      for (final f in files) {
+        if (total <= budget) break;
+        final len = f.lengthSync();
+        try {
+          f.deleteSync();
+          total -= len;
+          freed += len;
+          removed++;
+        } catch (_) {
+          // Skip anything we cannot remove and keep going.
+        }
+      }
+      debugPrint('[mapcache] evicted $removed tile(s), freed ${freed ~/ 1024} KB');
+      return removed;
+    } catch (_) {
+      return 0;
+    } finally {
+      _sweepRunning = false;
     }
   }
 
@@ -212,12 +286,26 @@ class TilePrefetch {
     final n = 1 << zoom;
     double lngToX(double lng) => (lng + 180) / 360 * n;
     double latToY(double lat) {
-      final rad = lat * math.pi / 180;
-      return (1 - math.log(math.tan(rad) + 1 / math.cos(rad)) / math.pi) / 2 * n;
+      // Clamp to the Mercator limit. Above ~85.05° the argument of log() goes
+      // negative, log returns NaN, and NaN.floor() throws
+      // UnsupportedError — reachable by panning north, and by any prefetch
+      // whose `lat + dLat` crossed 85° (easy at radiusKm ~500 near lat 84).
+      // The clamp below could not save it because it was applied AFTER floor.
+      const maxLat = 85.05112878;
+      final safe = lat.clamp(-maxLat, maxLat);
+      final rad = safe * math.pi / 180;
+      final v = (1 -
+              math.log(math.tan(rad) + 1 / math.cos(rad)) / math.pi) /
+          2 *
+          n;
+      return v.isFinite ? v : 0.0;
     }
 
     final dLat = radiusKm / 111.32;
-    final dLng = radiusKm / (111.32 * math.cos(lat * math.pi / 180));
+    // cos() -> ~0 at the poles, which sent dLng to infinity and blew up the
+    // tile range into an enormous loop. Cap the expansion.
+    final cosLat = math.cos(lat.clamp(-89.0, 89.0) * math.pi / 180).abs();
+    final dLng = (radiusKm / (111.32 * cosLat)).clamp(0.0, 360.0);
     final x0 = lngToX(lng - dLng).floor();
     final x1 = lngToX(lng + dLng).floor();
     final y0 = latToY(lat + dLat).floor();
@@ -229,6 +317,16 @@ class TilePrefetch {
       yMax: y1.clamp(0, n - 1),
     );
   }
+
+  /// Test seam over [tileRange] — the NaN/floor crash lived inside it.
+  @visibleForTesting
+  static ({int xMin, int xMax, int yMin, int yMax}) tileRangeForTest({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required int zoom,
+  }) =>
+      tileRange(lat: lat, lng: lng, radiusKm: radiusKm, zoom: zoom);
 
   /// Downloads the tile pack for [zooms] around a center. Returns the number
   /// of tiles secured. [onProgress] reports (done, total). Cancel by flipping

@@ -18,19 +18,33 @@ class XpEngineService {
 
   static Future<void> processAction(BuildContext context, RecoveryDatabase db, String actionType) async {
     final xp = _xpMap[actionType] ?? 10;
-    final petBefore = await RecoveryPetService.ensureHatched();
-    final levelBefore = petBefore.pathLevel;
-    final withXp = petBefore.copyWith(pathXp: petBefore.pathXp + xp);
-    final leveled = RecoveryPetService.evaluateLevel(withXp);
-    await RecoveryPetService.save(leveled);
-    await db.addPetEvent(PetEventRow(
-      id: 'pet_event_${DateTime.now().millisecondsSinceEpoch}_${actionType.hashCode.abs() % 9973}',
-      petId: RecoveryPetService.defaultPetId,
-      eventType: 'xp_$actionType',
-      sparksDelta: 0,
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      metaJson: '{"xp":$xp}',
-    ));
+    // R28's guarantee — "pet + event in ONE drift transaction (crash-safe)" —
+    // did not cover this path. It did two separate writes with no transaction,
+    // and `save()` is a full-row `insertOnConflictUpdate` from a snapshot read
+    // outside the write. So (a) a process death between the two granted XP with
+    // no audit event, and (b) a concurrent reward — journal and check-in
+    // landing in the same frame — overwrote the other's sparks/pathXp outright.
+    // Both writes now happen in one transaction with the row re-read inside it.
+    final outcome = await db.transaction(() async {
+      await RecoveryPetService.ensureHatched();
+      final row = await db.getPet(RecoveryPetService.defaultPetId);
+      if (row == null) return (pet: await RecoveryPetService.ensureHatched(), leveled: false);
+      final before = RecoveryPetService.petFromRow(row);
+      final withXp = before.copyWith(pathXp: before.pathXp + xp);
+      final next = RecoveryPetService.evaluateLevel(withXp);
+      await db.upsertPet(RecoveryPetService.rowFromPet(next));
+      await db.addPetEvent(PetEventRow(
+        id: 'pet_event_${DateTime.now().microsecondsSinceEpoch}_xp_$actionType',
+        petId: RecoveryPetService.defaultPetId,
+        eventType: 'xp_$actionType',
+        sparksDelta: 0,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        metaJson: '{"xp":$xp}',
+      ));
+      return (pet: next, leveled: next.pathLevel > before.pathLevel);
+    });
+    final leveled = outcome.pet;
+    final didLevelUp = outcome.leveled;
     String raidSuffix = '';
     try {
       final raid = await RaidService.getActiveRaid(db);
@@ -42,7 +56,6 @@ class XpEngineService {
         }
       }
     } catch (_) {}
-    final didLevelUp = leveled.pathLevel > levelBefore;
     final levelSuffix = didLevelUp ? ' • LEVEL UP! Lv ${leveled.pathLevel}' : '';
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

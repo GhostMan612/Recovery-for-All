@@ -174,7 +174,7 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               onPressed: _saving ? null : _save,
               child: _saving
