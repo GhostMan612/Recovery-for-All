@@ -219,11 +219,14 @@ architecture is Phase 9's job. Phase 8 did not add or move a destination.
 511/511** (was 300/300 through the tester-bug round, 488 before the structural
 audit, +23 regression tests from `test/audit_regressions_test.dart` and
 `test/indexedstack_staleness_test.dart`).
-`verify_invariants.py` now enforces **nine** invariants — 7 is missing-brace
+`verify_invariants.py` now enforces **eleven** invariants — 7 is missing-brace
 interpolation (added after device testing found the app bar shipping the
 literal text `"Welcome, DashboardScree…"`, proved with
 `python tools/selftest_invariant7.py`, 10/10); 8 is the pet-state single owner;
-9 is the paired-foreground colourScheme role.
+9 is the paired-foreground colourScheme role; 10 is constellation `Stack` child
+order, added after the 3D view turned out to be a one-way door (see L32); and 11
+is Firestore-rule ownership, added after `firestore/firestore.rules` shipped
+`allow read, write: if request.auth != null` over clinical step-work bundles.
 
 **All four Oct fixes are device-verified** on the LG B160V: nav order, meeting
 radius ("198 meetings · 2 mi" in the header, one meeting 2.0 mi away on the
@@ -233,8 +236,8 @@ Forest, OLED Pitch) are verified too, and the 3D view now is as well. Onboarding
 was completed by hand on the device. **Nothing in this program is unverified on
 hardware any more.**
 
-That pass then found **three real remaining defects**, none of which any test
-could see — the same class of bug the tester originally filed, three more times:
+That pass then found **four real remaining defects**, none of which any test
+could see — the same class of bug the tester originally filed, four more times:
 
 1. **Zoom stranded stars.** The thumb and the canvas shared one `_zoom`
    correctly, but zoom scaled *position about the canvas centre* only, star size
@@ -249,9 +252,20 @@ could see — the same class of bug the tester originally filed, three more time
 3. **The 3D view emitted no semantics at all** — drawn entirely with canvas
    calls — so a screen-reader user got an unlabelled region. Same class as the
    Wellness Check-In. Now labelled with the star count and the gesture.
+4. **The 3D view was a one-way door.** The opaque `Positioned.fill` 3D surface
+   was declared *after* the 3D toggle in the `Stack`, and a Stack hit-tests its
+   LAST child first — so in 3D mode the toggle could not be tapped and the only
+   way out was an app restart. This is the third and worst instance of the
+   pattern L32 describes: the file carried a comment describing the correct
+   ordering directly above the wrong line, and the device pass "verifying" the
+   3D view rendered the byte-identical frame before and after the return tap
+   (`v_11` and `v_12`, both 66738 bytes) and read that as a pass. Byte-identical
+   output across a tap is the signature of a tap that hit nothing. Fixed by
+   reordering, pinned by invariant 10 plus
+   `test/constellation_3d_controls_reachable_test.dart`.
 
-Suite was at 488 when these three were verified (now **511** after the Oct 30
-structural audit; nine invariants). Confirmed on hardware: the same track tap
+Suite was at 488 when these four were verified (now **511** after the Oct 30
+structural audit; ten invariants). Confirmed on hardware: the same track tap
 that used to lose the star now leaves it centred and larger; pan moves a
 seven-star sky that is genuinely wider than the canvas, and low zoom re-centres
 it. The 3D view renders and rotates — and, as of the audit batch, can now also

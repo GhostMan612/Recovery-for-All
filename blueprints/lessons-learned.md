@@ -723,3 +723,69 @@ wrongness was so confident.
   colon.** The tell in every one of these seven is the same: the result was
   clean, plausible, and cheap, and I did not feel the least bit of uncertainty.
   That feeling is the signal.
+
+---
+
+## L32 — The comment described the fix, so I stopped looking (Oct 2026)
+
+`lib/screens/constellation_screen.dart` declared the opaque
+`Positioned.fill` 3D surface **after** the 3D toggle in a `Stack`. A Stack
+hit-tests its LAST child first, so in 3D mode the toggle could not be tapped:
+entering 3D was a one-way door and the only exit was an app restart.
+
+- **What made it survive.** The file carried, immediately above the wrong line:
+
+  ```dart
+  // The opaque 3D surface is declared BEFORE the toggle and the slider,
+  // not after. A Stack hit-tests its LAST child first, so with the
+  // overlay last it sat on top of the toggle: entering 3D was a
+  // one-way door, and the only way out was a full app restart.
+  if (_is3DView) Positioned.fill(child: RecoveryConstellation3DWidget(...)),
+  ```
+
+  A perfect description of a fix that had never been applied. I read it, agreed
+  with it, and moved on — twice, in two separate sessions. The comment was not a
+  note about the code; it was a *summary of my own previous conclusion about the
+  code*, sitting where a reader looks for a description of the code.
+
+- **And the device pass confirmed it.** The 3D verification rendered `v_11` and
+  `v_12` before and after tapping "return". Both were **66738 bytes**. I recorded
+  that as the 3D view working. Byte-identical output across a tap is the
+  signature of a tap that hit nothing — L30 already said PNG byte counts are a
+  noisy instrument, and I used it anyway, reading noise as signal.
+
+- **The structural cause, which is the whole point.** This is not carelessness
+  about ordering. It is that **a prose claim about behaviour is
+  indistinguishable, to a reader, from the behaviour** — and the prose was
+  *more* legible than the code. `Positioned.fill` on its own line does not say
+  "this paints over the control above it"; a four-line comment saying so does,
+  and reads as authoritative. Documentation *about* a fix is evidence that the
+  fix was considered. It is not evidence that it was applied.
+
+- **Prevention rule (the law):**
+  1. **A comment claiming a behavioural guarantee must not be the only witness
+     to it.** Pair it with a gate or a test, or delete the claim. Anything a
+     comment asserts about runtime behaviour is a test that has not been written.
+  2. **When a comment says a bug is fixed, verify the bug is fixed — from the
+     code or a test, never from the comment.** If you find yourself reading a
+     comment to decide whether work remains, you have already decided wrongly.
+  3. **Prefer orderings that cannot be got wrong.** `Positioned.fill` before the
+     controls is invisible to a reader; `Positioned.fill` last is a trap. When a
+     layout depends on declaration order, the dependency deserves a *machine
+     check* — invariant 10 — because it is exactly the kind of fact prose
+     silently gets wrong.
+  4. **Identical results across an interaction are a failure, not a pass.** A tap
+     that changes nothing should raise a question, never confirm one.
+  5. **Corollary for the gates themselves:** a gate is only as good as the cases
+     it can see. Invariant 9 stated "same physical line" and four real
+     unreadable-white-on-light-panel bugs sat on *adjacent* lines. When you widen
+     a gate, ask what it was blind to and why nobody noticed — in this case the
+     answer was that a whole screen (Community Resources) rendered its link
+     titles invisibly in light mode, and every earlier review looked at it in
+     dark mode.
+
+- **The meta-lesson.** L31 was about trusting an unvalidated instrument. L32 is
+  the same error aimed at *my own writing*: a summary I had produced is not
+  evidence, and the more authoritative it sounds, the more dangerous it is. When
+  a bug has been written up, the next session inherits a conclusion — and the
+  strongest thing it inherits is the illusion that the work is finished.
