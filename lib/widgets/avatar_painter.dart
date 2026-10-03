@@ -17,6 +17,218 @@ import 'package:flutter/material.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 
+/// Tail silhouette vocabulary. Each is a different curve, not a different
+/// colour, because a tail is a large fraction of a small animal's outline.
+enum TailStyle { bushy, flat, plume, whip, puff, short, none }
+
+/// Per-species silhouette parameters. Fractions of the canvas, not pixels, so a
+/// portrait and a full avatar at any size agree.
+///
+/// PUBLIC because [AvatarPainter.speciesShapes] is public — a private type in a
+/// public API is a real leak: any caller inspecting a shape has to reach for
+/// `dynamic` or guess. The alternative (making the map private) would hide the
+/// shape contract that `test/species_vector_art_test.dart` exists to pin.
+class SpeciesShape {
+  final double bodyWidth;
+  final double bodyHeight;
+  final double earHeight;
+  final double earWidth;
+
+  /// Ear splay in radians. Negative leans the ears inward (canine), positive
+  /// outward (squirrel).
+  final double earTilt;
+  final TailStyle tail;
+
+  const SpeciesShape({
+    required this.bodyWidth,
+    required this.bodyHeight,
+    required this.earHeight,
+    required this.earWidth,
+    required this.earTilt,
+    required this.tail,
+  });
+}
+
+/// Catalog portrait of a companion species, drawn as vector art.
+///
+/// Replaces the emoji the species picker used to show. The tester was explicit:
+/// *"the avatars for the recovery pet… we absolutely NEED custom generated
+/// stuff for that, not the emoji icons."* The composite avatar was already
+/// painted, but the picker showed `species.emoji` — a glyph from the system
+/// font, so it looked different on every device, carried no species silhouette,
+/// and rendered as tofu or a monochrome box on the builds most likely to need
+/// the reduced-motion path.
+///
+/// This is deliberately a SEPARATE painter from [AvatarPainter] rather than a
+/// flag on it. A catalog portrait has no `RecoveryPet`: no equipped cosmetics,
+/// no bond, no mood. Threading a synthetic pet through the full painter to draw
+/// a silhouette would couple two things that have no business being coupled.
+class SpeciesPortraitPainter extends CustomPainter {
+  final String speciesId;
+  final Color? accent;
+
+  const SpeciesPortraitPainter({required this.speciesId, this.accent});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    if (s <= 0) return;
+    final centre = Offset(size.width / 2, size.height / 2);
+    final shape = AvatarPainter.shapeFor(speciesId);
+    final palette =
+        AvatarPainter.speciesColors[speciesId] ?? AvatarPainter.speciesColors['ember_kit']!;
+    final base = palette[0];
+    final shade = palette[1];
+    final highlight = palette[2];
+
+    // Tail first, so the body overlaps its root and the join is invisible.
+    _paintTail(canvas, centre, s, shape, base, shade);
+
+    // Ears behind the head so the head's edge reads as continuous.
+    _paintEars(canvas, centre, s, shape, base, shade);
+
+    // Body: a rounded superellipse, wide for otter/wolf, tall for hare.
+    final bodyRect = Rect.fromCenter(
+      center: Offset(centre.dx, centre.dy + s * 0.06),
+      width: s * shape.bodyWidth,
+      height: s * shape.bodyHeight,
+    );
+    canvas.drawPath(
+      _roundedBlob(bodyRect),
+      Paint()..color = base,
+    );
+    // Belly highlight — gives the flat blob volume without an outline.
+    canvas.drawPath(
+      _roundedBlob(
+        Rect.fromCenter(
+          center: Offset(centre.dx, centre.dy + s * 0.16),
+          width: s * shape.bodyWidth * 0.56,
+          height: s * shape.bodyHeight * 0.46,
+        ),
+      ),
+      Paint()..color = highlight.withValues(alpha: 0.55),
+    );
+
+    // Face. Two eyes and a muzzle, all vector — the thing that makes it read as
+    // a creature rather than an egg.
+    final eyeY = centre.dy - s * 0.02;
+    final eyeDx = s * shape.bodyWidth * 0.17;
+    final eyeR = s * 0.045;
+    for (final sign in const [-1.0, 1.0]) {
+      canvas.drawCircle(
+        Offset(centre.dx + eyeDx * sign, eyeY),
+        eyeR,
+        Paint()..color = shade,
+      );
+      // Catchlight — one pixel, and the face comes alive.
+      canvas.drawCircle(
+        Offset(centre.dx + eyeDx * sign - eyeR * 0.3, eyeY - eyeR * 0.35),
+        eyeR * 0.34,
+        Paint()..color = highlight,
+      );
+    }
+
+    // Muzzle, species-tinted rather than neutral.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(centre.dx, centre.dy + s * 0.11),
+        width: s * shape.bodyWidth * 0.26,
+        height: s * 0.07,
+      ),
+      Paint()..color = highlight.withValues(alpha: 0.8),
+    );
+
+    if (accent != null) {
+      canvas.drawCircle(
+        Offset(centre.dx, centre.dy + s * 0.10),
+        s * 0.022,
+        Paint()..color = accent!,
+      );
+    }
+  }
+
+  void _paintEars(Canvas canvas, Offset centre, double s,
+      SpeciesShape shape, Color base, Color shade) {
+    if (shape.earHeight <= 0.01) return; // loon: no ears by design
+    final earW = s * shape.earWidth;
+    final earH = s * shape.earHeight;
+    final headTop = centre.dy - s * shape.bodyHeight * 0.5;
+    final dx = s * shape.bodyWidth * 0.26;
+
+    for (final sign in const [-1.0, 1.0]) {
+      final pivot = Offset(centre.dx + dx * sign, headTop + earH * 0.18);
+      canvas.save();
+      canvas.translate(pivot.dx, pivot.dy);
+      canvas.rotate(shape.earTilt * sign);
+      final path = Path()
+        ..moveTo(-earW * 0.5, 0)
+        ..quadraticBezierTo(0, -earH * 0.9, earW * 0.5, 0)
+        ..close();
+      canvas.drawPath(path, Paint()..color = base);
+      // Inner ear in the shade tone keeps the ear legible on a light palette.
+      final inner = Path()
+        ..moveTo(-earW * 0.22, 0)
+        ..quadraticBezierTo(0, -earH * 0.6, earW * 0.22, 0)
+        ..close();
+      canvas.drawPath(inner, Paint()..color = shade.withValues(alpha: 0.5));
+      canvas.restore();
+    }
+  }
+
+  void _paintTail(Canvas canvas, Offset centre, double s,
+      SpeciesShape shape, Color base, Color shade) {
+    if (shape.tail == TailStyle.none) return;
+    final root = Offset(centre.dx + s * shape.bodyWidth * 0.42,
+        centre.dy + s * 0.16);
+    final len = s * (shape.tail == TailStyle.whip ? 0.46 : 0.34);
+    final w = s * (shape.tail == TailStyle.whip
+        ? 0.05
+        : shape.tail == TailStyle.short
+            ? 0.10
+            : 0.20);
+
+    final path = Path()..moveTo(root.dx, root.dy);
+    switch (shape.tail) {
+      case TailStyle.bushy:
+      case TailStyle.plume:
+        path.cubicTo(root.dx + len * 0.5, root.dy - w,
+            root.dx + len, root.dy - w * 0.4,
+            root.dx + len * 0.92, root.dy + w * 0.25);
+      case TailStyle.flat:
+      case TailStyle.short:
+        path.cubicTo(root.dx + len * 0.5, root.dy + w * 0.2,
+            root.dx + len * 0.8, root.dy + w * 0.1,
+            root.dx + len, root.dy + w * 0.35);
+      case TailStyle.whip:
+        path.cubicTo(root.dx + len * 0.6, root.dy - w,
+            root.dx + len * 0.9, root.dy - w * 1.6,
+            root.dx + len, root.dy - w * 2.6);
+      case TailStyle.puff:
+        path.cubicTo(root.dx + len * 0.6, root.dy - w * 0.8,
+            root.dx + len, root.dy - w * 0.6,
+            root.dx + len * 0.85, root.dy + w * 0.1);
+      case TailStyle.none:
+        break;
+    }
+
+    path.cubicTo(root.dx + len * 0.8, root.dy + w * 0.9,
+        root.dx + len * 0.2, root.dy + w * 0.7, root.dx, root.dy);
+    path.close();
+    canvas.drawPath(path, Paint()..color = shade);
+  }
+
+  /// A rounded superellipse — the body shape shared by every species.
+  static Path _roundedBlob(Rect rect) {
+    final r = Radius.circular(rect.shortestSide * 0.46);
+    return Path()
+      ..addRRect(RRect.fromRectAndRadius(rect, r));
+  }
+
+  @override
+  bool shouldRepaint(covariant SpeciesPortraitPainter oldDelegate) =>
+      oldDelegate.speciesId != speciesId || oldDelegate.accent != accent;
+}
+
 class AvatarPainter extends CustomPainter {
   final RecoveryPet pet;
 
@@ -24,13 +236,109 @@ class AvatarPainter extends CustomPainter {
 
   // ---- palettes ----
 
-  static const Map<String, List<Color>> _speciesColors = {
+  /// Species palette as `[base, shade, highlight]`.
+  ///
+  /// PUBLIC, not private: [SpeciesPortraitPainter] reuses exactly this map so a
+  /// companion's catalog thumbnail cannot drift from the colour of the same
+  /// creature once it is adopted. Two copies of a palette is two chances to
+  /// ship an Ember Kit that is orange in the picker and red once hatched.
+  static const Map<String, List<Color>> speciesColors = {
     'ember_kit': [Color(0xFFF59E0B), Color(0xFFC2410C), Color(0xFFFDE68A)],
     'tide_kin': [Color(0xFF38BDF8), Color(0xFF0369A1), Color(0xFFBAE6FD)],
     'moss_sprite': [Color(0xFF34D399), Color(0xFF047857), Color(0xFFD1FAE5)],
     'star_whelp': [Color(0xFF818CF8), Color(0xFF4338CA), Color(0xFFE0E7FF)],
     'sovereign_linx': [Color(0xFF475569), Color(0xFF1E293B), Color(0xFFFCD34D)],
+    'riverglass_otter': [Color(0xFF2DD4BF), Color(0xFF0F766E), Color(0xFFCCFBF1)],
+    'prairie_ember_hare': [Color(0xFFFB923C), Color(0xFF9A3412), Color(0xFFFED7AA)],
+    'north_star_loon': [Color(0xFF38BDF8), Color(0xFF1E3A8A), Color(0xFFBAE6FD)],
   };
+
+  /// Backwards-compatible private alias, so the existing body of this painter
+  /// keeps working unchanged.
+  static const Map<String, List<Color>> _speciesColors = speciesColors;
+
+  /// Shape parameters per species: body width, height and ear geometry.
+  ///
+  /// This is what makes the species *look* different rather than merely being
+  /// tinted differently — a tester reading the species picker saw eight emoji
+  /// glyphs standing in for eight creatures that all painted as the same
+  /// rounded blob. Silhouette is the strongest recognition cue a 2D avatar has,
+  /// so it varies first and colour second.
+  static const Map<String, SpeciesShape> speciesShapes = {
+    // Fox/canine: wide cheeks, tall pointed ears.
+    'ember_kit': SpeciesShape(
+      bodyWidth: 0.78,
+      bodyHeight: 0.80,
+      earHeight: 0.30,
+      earWidth: 0.20,
+      earTilt: -0.30,
+      tail: TailStyle.bushy,
+    ),
+    // Otter: low and long, small round ears.
+    'tide_kin': SpeciesShape(
+      bodyWidth: 0.88,
+      bodyHeight: 0.70,
+      earHeight: 0.09,
+      earWidth: 0.13,
+      earTilt: 0.0,
+      tail: TailStyle.flat,
+    ),
+    // Squirrel/sprite: compact, tall ears, plume tail.
+    'moss_sprite': SpeciesShape(
+      bodyWidth: 0.70,
+      bodyHeight: 0.76,
+      earHeight: 0.22,
+      earWidth: 0.12,
+      earTilt: 0.15,
+      tail: TailStyle.plume,
+    ),
+    // Wolf: broad chest, tall ears, long tail.
+    'star_whelp': SpeciesShape(
+      bodyWidth: 0.86,
+      bodyHeight: 0.88,
+      earHeight: 0.34,
+      earWidth: 0.18,
+      earTilt: -0.14,
+      tail: TailStyle.bushy,
+    ),
+    // Cat: narrow, very tall ears, long whip tail.
+    'sovereign_linx': SpeciesShape(
+      bodyWidth: 0.72,
+      bodyHeight: 0.82,
+      earHeight: 0.36,
+      earWidth: 0.16,
+      earTilt: -0.05,
+      tail: TailStyle.whip,
+    ),
+    'riverglass_otter': SpeciesShape(
+      bodyWidth: 0.86,
+      bodyHeight: 0.68,
+      earHeight: 0.08,
+      earWidth: 0.12,
+      earTilt: 0.0,
+      tail: TailStyle.flat,
+    ),
+    'prairie_ember_hare': SpeciesShape(
+      bodyWidth: 0.68,
+      bodyHeight: 0.74,
+      // Hare ears are the species' whole silhouette.
+      earHeight: 0.62,
+      earWidth: 0.10,
+      earTilt: 0.06,
+      tail: TailStyle.puff,
+    ),
+    'north_star_loon': SpeciesShape(
+      bodyWidth: 0.80,
+      bodyHeight: 0.84,
+      earHeight: 0.05,
+      earWidth: 0.10,
+      earTilt: 0.0,
+      tail: TailStyle.short,
+    ),
+  };
+
+  static SpeciesShape shapeFor(String speciesId) =>
+      speciesShapes[speciesId] ?? speciesShapes['ember_kit']!;
 
   static const Map<String, Color> _auraColors = {
     'aura_warm': Color(0xFFF59E0B),

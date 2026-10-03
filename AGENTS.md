@@ -253,13 +253,35 @@ python tools/verify_invariants.py                           # architecture invar
 - **Feed**: `CommunityFeedService` = local Drift always + Firestore mirror
   when Firebase is up. Guardrails C1–C5 in `blueprints/pet-store-rules.md`
   are enforced in code + tests (`test/community_feed_service_test.dart`).
+  Remote moderation writes are **local-only by design** (C5): there is no
+  authorisable moderator claim, so the rules deny remote `status` writes.
+- **Fellowship handshake**: `fellowship_sync_screen.dart` — QR code carrying
+  `{alias, ts}`, scanned to record a `fellowship_syncs` row and grant 50 XP
+  **through `XpEngineService.grantXp`** (transactional, raid-damaging, one
+  audit event). `ts` is a 10-minute expiry; `getAllFellowshipSyncs()` renders
+  the history. It is **one-directional and unverifiable** — neither party proves
+  anything, and XP is farmable by varying an alias — which is documented as an
+  open design gap, not shipped as a solved feature. Pinned by
+  `test/fellowship_handshake_test.dart`.
 - **Coach**: scripted brain (`recovery_coach_service.dart`) is the floor;
   `coach_tflite_intent_service.dart` (optional TFLite) sits between crisis
   keywords and the keyword fallback. Safety order in `chatbot_screen.dart`:
   guardrail → crisis keywords → model → keywords. Never reorder.
 - **Pet**: Drift primary (`recovery_pet_service.dart` + `recovery_database.dart` v9) — `recovery_pets` + `pet_events` with atomic `transaction{upsertPet+addPetEvent}` (R28), prefs dual-write fallback for migration. Sparks daily cap 150 (milestones, meetings, walks exempt), walk cap 2/day, milestone rewards cap-exempt.
 - **Avatar**: `avatar_painter.dart` paints the creature (vector, no emoji in
-  the composite); Lottie aura/mood underlays from `assets/lottie/` (now `.lottie` DotLottie zip, thermal-gated via `HardwareTierService.isLowEnd` on <3GB — enforced by `test/aura_lottie_assets_test.dart` + `hardware_tier_service_test.dart`).
+  the composite); `SpeciesPortraitPainter` in the same file draws catalog
+  portraits for the species picker. Species drives **silhouette first, colour
+  second** (`speciesShapes` + `speciesColors`) — a species that differs only in
+  hue is one creature with a recolour, and
+  `test/species_vector_art_test.dart` fails on it. Emoji survive ONLY in the
+  dresser grid as item thumbnails, which is a deliberate exception and a known
+  open gap (see `blueprints/avatar-art-spec.md`). Lottie aura/mood underlays
+  from `assets/lottie/` (`.lottie` DotLottie zip, thermal-gated via
+  `HardwareTierService.isLowEnd` on <3GB — enforced by
+  `test/aura_lottie_assets_test.dart` + `hardware_tier_service_test.dart`).
+  The reduced-motion / low-end branch renders the static painted creature with a
+  `CustomPainter` glow and **no** emoji, because that path is for devices least
+  able to render a system glyph.
 - **Tailoring doctrine**: onboarding choices (goals/paths/tools JSON in the
   profile) drive dashboard cards, meeting fellowships, and downloads.
   Minnesota-first: fallbacks center Twin Cities; MN feeds first; other

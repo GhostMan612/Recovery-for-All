@@ -18,6 +18,9 @@ class NextMeetingCard extends StatelessWidget {
   final VoidCallback? onOpenMap;
   final VoidCallback? onFindMeetings;
 
+  /// Show the "press and hold to switch the distance filter" affordance.
+  final bool showRadiusHint;
+
   const NextMeetingCard({
     super.key,
     this.meeting,
@@ -25,6 +28,7 @@ class NextMeetingCard extends StatelessWidget {
     this.tierLabel,
     this.onOpenMap,
     this.onFindMeetings,
+    this.showRadiusHint = false,
   });
 
   /// Pure selector: picks live or next today from cached meetings.
@@ -140,6 +144,29 @@ class NextMeetingCard extends StatelessWidget {
           if (tierLabel != null) ...[
             const SizedBox(height: 4),
             Text(tierLabel!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
+          // The radius control is a LONG-PRESS on the card. That is
+          // undiscoverable by construction — no affordance, no icon, no tooltip
+          // — and the card's own label used to say "Statewide" with no
+          // explanation, so a tester filed "shows statewide meetings instead of
+          // local 2-mile meetings" and there was nothing on screen pointing at
+          // the setting responsible. A visible line of copy is the cheapest fix
+          // that does not require redesigning the card.
+          if (showRadiusHint) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.my_location, size: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Press and hold this card to switch the distance filter',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 10.5),
+                    maxLines: 2,
+                  ),
+                ),
+              ],
+            ),
           ],
           if (m.address.isNotEmpty) ...[
             const SizedBox(height: 2),

@@ -53,18 +53,81 @@ void main() {
     expect(calculateSortScore(-4, 0), -4.0);
   });
 
-  test('applyRadiusTiers null location returns all statewide', () {
+  // ---- The tester bug: "shows statewide meetings instead of local 2-mile" ----
+  //
+  // Two independent defects produced it, and the label being null hid both:
+  //
+  //   1. The dashboard gated the radius filter on `isCacheFresh(cachedAtMs)`,
+  //      a 24-hour window. A fix older than a day meant no filtering at all.
+  //   2. When the filter was skipped, `tierLabel` stayed null — so the card
+  //      showed the entire state with nothing on screen to explain it.
+  //
+  // A home does not move 300 miles in a day, so a day-old fix is still the right
+  // basis for "within 2 mi". These pin the window and the label together,
+  // because fixing only one leaves the bug reproducible through the other.
+
+  group('radius staleness window', () {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    test('null is never usable', () {
+      expect(isLocationUsableForRadius(null), isFalse);
+    });
+
+    test('a fix from 2 days ago IS usable for a radius', () {
+      // This is the exact case the 24h window rejected. It is the difference
+      // between a tester seeing their own neighbourhood and seeing the state.
+      expect(isLocationUsableForRadius(now - const Duration(days: 2).inMilliseconds),
+          isTrue);
+    });
+
+    test('a fix from 3 weeks ago is still usable', () {
+      expect(isLocationUsableForRadius(now - const Duration(days: 21).inMilliseconds),
+          isTrue);
+    });
+
+    test('a fix older than 30 days is rejected', () {
+      expect(isLocationUsableForRadius(now - const Duration(days: 31).inMilliseconds),
+          isFalse);
+    });
+
+    test('the radius window is deliberately LONGER than isCacheFresh', () {
+      // If these ever converge again, the two questions have been conflated and
+      // the daily false negative returns.
+      final twoDays = now - const Duration(days: 2).inMilliseconds;
+      expect(isCacheFresh(twoDays), isFalse);
+      expect(isLocationUsableForRadius(twoDays), isTrue);
+    });
+  });
+
+  test('applyRadiusTiers null location returns all statewide, and SAYS WHY', () {
     final ms = [_m(id: 'a', lat: 44.9778, lng: -93.2650), _m(id: 'b', lat: 46.0, lng: -93.0)];
     final r = applyRadiusTiers(ms, null);
     expect(r.meetings, hasLength(2));
-    expect(r.tierLabel, 'Statewide');
+    // The bare word "Statewide" was the whole user-facing explanation, and a
+    // tester reading the card had no way to tell that a *setting* was
+    // responsible for meetings they could not walk to.
+    expect(r.tierLabel, contains('Statewide'));
+    expect(r.tierLabel, contains('no location'));
+  });
+
+  test('applyRadiusTiers distinguishes "filter off" from "no location"', () {
+    final ms = [_m(id: 'a', lat: 45.0778, lng: -93.2650)];
+    final off = applyRadiusTiers(ms, _ref, enforceRadius: false);
+    expect(off.tierLabel, contains('radius filter off'));
+    final unknown = applyRadiusTiers(ms, null);
+    expect(unknown.tierLabel, contains('no location'));
+    // A filter that is ON but has no fix must not claim the filter is off —
+    // that would send the user to toggle a setting that is already correct.
+    expect(unknown.tierLabel, isNot(contains('filter off')));
+    // And a null location must never read as "we know where you are".
+    expect(unknown.tierLabel, isNot(contains('filter off')));
   });
 
   test('applyRadiusTiers enforceRadius false returns all statewide', () {
     final ms = [_m(id: 'a', lat: 45.0778, lng: -93.2650)];
     final r = applyRadiusTiers(ms, _ref, enforceRadius: false);
     expect(r.meetings, hasLength(1));
-    expect(r.tierLabel, 'Statewide');
+    expect(r.tierLabel, contains('Statewide'));
   });
 
   // The two tests below used to assert the tier cascade (Nearby -> Regional ->
@@ -84,7 +147,7 @@ void main() {
     final r = applyRadiusTiers([near, regional, wider, far], _ref,
         radiusMiles: 30);
     expect(r.meetings.map((m) => m.id), ['near', 'regional']);
-    expect(r.tierLabel, 'Within 30.0 mi');
+    expect(r.tierLabel, contains('Within 30.0 mi'));
   });
 
   test('applyRadiusTiers returns EMPTY, not statewide, when nothing is in range',
@@ -93,7 +156,7 @@ void main() {
     final r = applyRadiusTiers([far], _ref, radiusMiles: 2);
     expect(r.meetings, isEmpty,
         reason: 'a 2-mile search must never fall back to showing the whole state');
-    expect(r.tierLabel, contains('No meetings within'));
+    expect(r.tierLabel, contains('Nothing within'));
   });
 
   test('applyRadiusTiers default radius is 2 miles, not a wide tier', () {
@@ -101,7 +164,19 @@ void main() {
     final sevenMiles = _m(id: 'seven', lat: 45.0778, lng: -93.2650);
     final r = applyRadiusTiers([sevenMiles], _ref);
     expect(r.meetings, isEmpty);
-    expect(r.tierLabel, 'No meetings within 2.0 mi — widen the radius to see more');
+    expect(r.tierLabel, contains('Nothing within 2.0 mi'));
+    // The empty-state label must name the control, because the radius is a
+    // long-press on this very card and there is otherwise no way to find it.
+    expect(r.tierLabel, contains('hold this card'));
+  });
+
+  test('applyRadiusTiers has NO label when there is nothing to filter', () {
+    // An empty input is a distinct state from "nothing in range"; a label on an
+    // empty card is noise, and "No meetings within 2 mi" would be a lie when the
+    // filter never ran.
+    final r = applyRadiusTiers(const [], _ref);
+    expect(r.meetings, isEmpty);
+    expect(r.tierLabel, isNull);
   });
 
   test('applyRadiusTiers drops no-coord meetings instead of surfacing them', () {

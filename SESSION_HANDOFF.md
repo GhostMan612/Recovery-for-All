@@ -4,6 +4,38 @@
 
 **Release state:** the Play upload questionnaire is **complete** and the app is **awaiting approval for public publishing**. Device verification of the current source is owned by the user and has not been run for this batch.
 
+**Tester round (Oct 30, hardware).** Three findings, all closed in code:
+1. **Walk logger WORKS** on the Moto G — verified, including on legacy builds.
+2. **"Happening now" showed statewide meetings, not 2-mile.** Three stacked
+   causes: nothing acquired a location fix on dashboard load (`_resolveLocation`
+   was only called from tile taps), the radius filter was gated on a **24-hour**
+   cache window, and when the filter was skipped `tierLabel` stayed `null` so the
+   card gave no reason. Now `_primeLocationForRadius()` runs once per mount, a
+   radius-specific `isLocationUsableForRadius` allows 30 days, and every branch
+   produces a label ("Statewide — no location yet" / "radius filter off"). The
+   card also shows a visible long-press affordance, which was previously
+   undiscoverable.
+3. **Fellowship handshake "does nothing".** The +50 XP was real but invisible:
+   written via a raw `save()`, read by a one-shot `Notifier` snapshot, on an
+   `IndexedStack` that never rebuilds. Also: the scanner was never stopped so
+   `DetectionSpeed.normal` re-fired every frame and "Already synced…" overwrote
+   the success message; `ts` was written and read by nothing; the grant bypassed
+   `XpEngineService` so it was non-transactional and never hit a raid;
+   `getAllFellowshipSyncs()` had zero call sites; the pet event rendered as
+   "Kin remembers a moment of care." All fixed, and the feature now has a
+   visible history. **Still unverified and unfixable in code: it is one-directional
+   and proves nothing** — see `blueprints/pet-store-rules.md` and L33.
+
+**Pet art.** The composite avatar was already vector-painted, but the species
+picker showed `species.emoji` and the reduce-motion fallback rendered an aura
+**emoji** — on precisely the devices least able to draw a glyph, contradicting
+the widget's own "Zero emoji in the composite" contract. Now
+`SpeciesPortraitPainter` draws the picker from `AvatarPainter`'s shared
+`speciesShapes`/`speciesColors`, and the static branch is glyph-free.
+Pinned by `test/species_vector_art_test.dart`. **Still emoji:** the dresser grid
+thumbnails (~90 cosmetics) — deliberate today, and the largest remaining art
+surface.
+
 **Firestore rules — READ BEFORE PUBLISHING.** `firestore/firestore.rules` was
 restructured and the console copy is stale. The old
 `match /sponsor_bundles/{docId} { allow read, write: if request.auth != null; }`

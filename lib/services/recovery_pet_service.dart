@@ -440,7 +440,14 @@ class RecoveryPetService {
     'embersmith': 'embersmith'
   };
 
-  static void bindDatabase(RecoveryDatabase database) {
+  /// Binds the Drift database.
+  ///
+  /// Nullable so a test can restore the previous binding in `tearDown`;
+  /// `main.dart` is the only production caller and always passes a real
+  /// database. A non-nullable parameter would force every test that rebinds to
+  /// leave the service pointing at a closed database after the suite ended,
+  /// failing an unrelated later file.
+  static void bindDatabase(RecoveryDatabase? database) {
     _db = database;
   }
 

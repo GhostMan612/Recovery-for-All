@@ -789,3 +789,64 @@ entering 3D was a one-way door and the only exit was an app restart.
   evidence, and the more authoritative it sounds, the more dangerous it is. When
   a bug has been written up, the next session inherits a conclusion — and the
   strongest thing it inherits is the illusion that the work is finished.
+
+---
+
+## L33 — "It doesn't do anything" was four bugs and a lie in the docs (Oct 2026)
+
+A tester reported the QR fellowship handshake "doesn't do anything, even after
+doing the handshake". It did something. Four things were broken underneath, and
+the one I would have checked first was not one of them.
+
+- **What the tester saw:** a snackbar, then the dashboard unchanged.
+- **What was true:** +50 XP was written to an encrypted Drift row, correctly,
+  and would still be there weeks later.
+
+- **Bug 1 — the reward was invisible by construction.** The handshake wrote the
+  pet through `RecoveryPetService.save()` (a full-row write). The dashboard
+  reads pet state from `DashboardDataNotifier`, a plain `Notifier` whose
+  `build()` runs **once**. There was no stream subscription, and
+  `RecoveryPetService.watchPetStream()` — the reactive bridge that exists for
+  exactly this — had **zero call sites**. The nav shell is an `IndexedStack`, so
+  returning from the pushed screen rebuilt nothing. The XP bar showed the old
+  value until a process restart.
+  - **Prevention:** *a write nobody reads is not a feature.* When a screen
+    updates data that a live view holds, the write and the invalidation are one
+    change or it is a bug. `watchPetStream` existing and unused is the tell: grep
+    for a reactive primitive before assuming any view subscribes.
+- **Bug 2 — the success message was destroyed in under a second.**
+  `MobileScannerController` defaults to `DetectionSpeed.normal`, a **continuous**
+  stream, not a one-shot. The screen only ever disposed the controller. So while
+  the peer's QR stayed in frame, `_handleScanned` re-ran every frame, the 24h
+  cooldown then tripped, and **"Already synced with X in the last 24 hours"** —
+  a failure message — spammed over the success the user had just been shown.
+  This is what actually produced the report. The feature worked; its own
+  feedback destroyed the evidence.
+  - **Prevention:** *stop the producer when you consume one item.* Any
+    stream-with-a-consumer-arity-of-one needs an explicit stop, and the lock has
+    to be held across the post-handle delay — here `_isProcessing` was cleared
+    *before* `await Future.delayed(2s)`, so the lock protected nothing.
+- **Bug 3 — a written-but-unread field.** `ts` was generated, put in the QR, and
+  read by nothing, so a code photographed a year ago still completed a
+  handshake — while the card said *"tap refresh to rotate"*, implying an expiry
+  that did not exist. A field that exists in a payload is a claim about that
+  payload. Either read it or stop shipping it.
+- **Bug 4 — the result was recorded, then discarded.**
+  `getAllFellowshipSyncs()` had zero call sites from the day the table was
+  created; `xpAwarded` was never read; and the pet event matched no case in
+  either `_memoryLine` switch, so a peer connection rendered as the catch-all
+  **"Kin remembers a moment of care."** There were **no tests at all**.
+  - **Prevention:** *for any write, name the read.* If you cannot point at the
+    code that will display it, the feature has no observable outcome and a
+    tester will file it as "does nothing" — accurately.
+
+- **The meta-lesson.** "Does nothing" is not a UI complaint. It is the report of
+  a **missing link between a write and a read**, and it can hide behind four
+  independent defects that each look cosmetic on their own. When a feature is
+  reported inert, trace the data end to end — write, invalidation, read,
+  display — before touching the surface that was blamed. I would have "fixed"
+  the snackbar and shipped the same nothing.
+
+- **Still true, and not fixable in code.** The handshake is **one-directional
+  and verifies nothing**: neither party proves anything, and XP is farmable by
+  varying an alias. That is a *product* gap, documented rather than hidden.

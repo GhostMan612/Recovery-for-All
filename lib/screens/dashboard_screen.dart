@@ -105,6 +105,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // dashboardDataProvider loads profile + pet + raid on first watch.
     ref.watch(dashboardDataProvider);
     _loadSky();
+    unawaited(_primeLocationForRadius());
     if (widget.isFirstLaunch) {
       // A post-frame callback from initState fires BEFORE the Drift read that
       // produces the pet completes, so `_openTutorialChatbot` saw pet == null
@@ -115,7 +116,66 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  bool _showFirstRunTutorial = false;
+  /// Acquires one location fix on dashboard load so the radius filter can run.
+///
+/// The "within 2 mi" meeting card is a shipped feature with a long-press
+/// control, and it could not work on a fresh install: `_resolveLocation()` was
+/// only ever called from a tile tap, the locate-me button, and the meeting map.
+/// Nothing acquired a fix at startup, so `meetingRadiusProvider.lat` stayed
+/// null, `hasFix` was false, and the card listed the whole state forever — with
+/// no label explaining why. A tester filed precisely that.
+///
+/// One attempt per dashboard mount, deliberately not per rebuild: this is a
+/// permission prompt and a GPS fix, and re-requesting it from `build()` would
+/// hammer both.
+///
+/// Failure is expected and must be silent here — permission denial returns the
+/// Twin Cities fallback, and the card then says "no location yet", which is the
+/// honest state. The card's own label is the user-facing surface for this.
+/// Asks the platform for a real fix, or null when it cannot provide one.
+///
+/// Returns null — never the neutral fallback — because this feeds the radius
+/// filter. `_resolveLocation` deliberately returns Twin Cities when permission
+/// is denied (correct for centering a map), but persisting that as the user's
+/// location would make every radius query measure from Minneapolis regardless of
+/// where the user actually is, and the card would then confidently report
+/// "within 2 mi" about the wrong city. Separating the two is the only way to
+/// tell "denied" from "genuinely in Minneapolis".
+Future<(double, double)?> _tryAcquireFix() async {
+  try {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    final pos = await Geolocator.getCurrentPosition(
+      locationSettings:
+          const LocationSettings(accuracy: LocationAccuracy.medium),
+    ).timeout(const Duration(seconds: 8));
+    return (pos.latitude, pos.longitude);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _primeLocationForRadius() async {
+  final radius = ref.read(meetingRadiusProvider);
+  if (radius.lat != null &&
+      radius.lng != null &&
+      isLocationUsableForRadius(radius.cachedAtMs)) {
+    return; // already have a usable fix; do not wake the GPS
+  }
+  final fix = await _tryAcquireFix();
+  if (fix == null || !mounted) return;
+  await ref
+      .read(meetingRadiusProvider.notifier)
+      .setFix(fix.$1, fix.$2, DateTime.now().millisecondsSinceEpoch);
+}
+
+bool _showFirstRunTutorial = false;
   bool _tutorialShown = false;
 
   List<ToolCard> _ordered(
@@ -1074,20 +1134,34 @@ Future<void> _handleWalk() async {
                   if (tail.isNotEmpty) filtered = tail;
                 }
                 var display = filtered;
-                String? tierLabel;
-                final cacheUsable = _radius.enforce &&
-                    _radius.lat != null &&
-                    _radius.lng != null &&
-                    isCacheFresh(_radius.cachedAtMs);
-                if (cacheUsable) {
-                  final userLoc = ll.LatLng(_radius.lat!, _radius.lng!);
-                  final tiered = applyRadiusTiers(
-                    filtered,
-                    userLoc,
-                    radiusMiles: _radius.radiusMiles,
-                  );
+                // Always produce a label. The radius filter used to be applied
+                // only when a location fix was BOTH present and less than 24h
+                // old, and when it was skipped `tierLabel` stayed null — so the
+                // card quietly listed every meeting in the state with nothing on
+                // screen to say the filter had not run. That is the bug a tester
+                // filed as "shows statewide meetings instead of local 2-mile".
+                //
+                // Now the filter decision and the explanation are the same
+                // branch, so "why am I seeing statewide" is always answerable.
+                final hasFix = _radius.lat != null && _radius.lng != null;
+                final usable = hasFix &&
+                    isLocationUsableForRadius(_radius.cachedAtMs);
+                final userLoc =
+                    hasFix ? ll.LatLng(_radius.lat!, _radius.lng!) : null;
+                final tiered = applyRadiusTiers(
+                  filtered,
+                  userLoc,
+                  radiusMiles: _radius.radiusMiles,
+                  enforceRadius: _radius.enforce,
+                );
+                final tierLabel = tiered.tierLabel;
+                // Only re-sort by distance when we actually have somewhere to
+                // sort from; sorting a statewide list by distance-from-nothing
+                // is meaningless, and `sortMeetings` needs a real `LatLng`.
+                if (usable && userLoc != null) {
                   display = sortMeetings(tiered.meetings, userLoc, DateTime.now());
-                  tierLabel = tiered.tierLabel;
+                } else {
+                  display = tiered.meetings;
                 }
                 final pick = display.isEmpty
                     ? null
@@ -1099,6 +1173,11 @@ Future<void> _handleWalk() async {
                     snapshot: snapshot,
                     pick: pick,
                     tierLabel: tierLabel,
+                    // The hint is most valuable exactly when the filter is NOT
+                    // doing what the user expects — otherwise it is noise on a
+                    // card that is already correct.
+                    showRadiusHint: !_radius.enforce ||
+                        (tierLabel?.startsWith('Statewide') ?? false),
                     onOpenMap: pick == null ? null : _openMeetingMap,
                     onFindMeetings: _openMeetingMap,
                     onRetry: () => setState(() {}),
@@ -1147,8 +1226,18 @@ Future<void> _handleWalk() async {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      FellowshipSyncScreen(database: widget.database),
+                  builder: (_) => FellowshipSyncScreen(
+                    database: widget.database,
+                    // The dashboard's pet state is a one-shot snapshot in a plain
+                    // `Notifier`, and the shell is an `IndexedStack`, so
+                    // returning from this screen rebuilds nothing. Without this
+                    // the +50 XP was written to the database and the XP bar kept
+                    // showing the old value until a process restart — which is
+                    // precisely what a tester reported as "it doesn't do
+                    // anything, even after doing the handshake".
+                    onSynced: () =>
+                        ref.read(dashboardDataProvider.notifier).refreshPet(),
+                  ),
                 ),
               ),
             ),

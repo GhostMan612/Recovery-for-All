@@ -76,6 +76,10 @@ class MeetingSpotlight extends StatelessWidget {
   final VoidCallback? onFindMeetings;
   final VoidCallback? onRetry;
 
+  /// Forwarded to [NextMeetingCard] — see its doc for why the radius control
+  /// needed a visible affordance.
+  final bool showRadiusHint;
+
   const MeetingSpotlight({
     super.key,
     required this.snapshot,
@@ -84,6 +88,7 @@ class MeetingSpotlight extends StatelessWidget {
     this.onOpenMap,
     this.onFindMeetings,
     this.onRetry,
+    this.showRadiusHint = false,
   });
 
   @override
@@ -120,6 +125,7 @@ class MeetingSpotlight extends StatelessWidget {
       tierLabel: tierLabel,
       onOpenMap: onOpenMap,
       onFindMeetings: onFindMeetings,
+      showRadiusHint: showRadiusHint,
     );
   }
 }

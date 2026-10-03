@@ -83,6 +83,14 @@ class _MemoryWallScreenState extends State<MemoryWallScreen> {
         return 'Kin remembers a star added to your sky.';
       case 'meeting':
         return 'Kin remembers a room you walked into.';
+      // `xp_fellowship_sync` is what XpEngineService writes — the old code wrote
+      // a raw `fellowship_sync` event, which matched no case here and rendered
+      // as the generic "a moment of care", throwing away the one fact that made
+      // the event interesting. Both spellings are handled because the raw event
+      // is already in existing users' databases.
+      case 'fellowship_sync':
+      case 'xp_fellowship_sync':
+        return 'Kin remembers being connected with someone.';
       case 'walk':
         return 'Kin remembers moving together.';
       case 'wellness':

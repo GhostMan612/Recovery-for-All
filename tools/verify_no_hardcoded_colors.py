@@ -39,7 +39,16 @@ TOKEN_FILE = "core/theme/app_colors.dart"
 ALLOWLIST = {
     # Illustration/avatar species, aura, and clothing palettes are
     # intentionally theme-independent (Phase 3 special rule).
-    "widgets/avatar_painter.dart": 93,
+    #
+    # The cap is an EXACT count, not a ceiling, and raising it is a deliberate
+    # act: it means "I have looked at every literal in this file and each one is
+    # art direction, not a theme mistake." It went 93 -> 116 when
+    # `SpeciesPortraitPainter` added eight species palettes and four species
+    # that previously had no entry at all (riverglass_otter,
+    # prairie_ember_hare, north_star_loon were in the catalog but had no palette,
+    # so they silently fell back to ember_kit). Do not round it up "to be safe" —
+    # an inflated cap is how a real theme regression becomes invisible here.
+    "widgets/avatar_painter.dart": 116,
     "widgets/avatar_visual_layer.dart": None,
     "core/theme/app_colors.dart": None,
     # Asset-internal / domain status scales retained as named tokens.

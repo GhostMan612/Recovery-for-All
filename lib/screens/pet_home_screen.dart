@@ -17,6 +17,7 @@ import '../core/dashboard_providers.dart';
 import '../database/recovery_database.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/avatar_painter.dart';
 import '../widgets/avatar_visual_layer.dart';
 import '../widgets/recovery_pet_card.dart';
 import 'avatar_dresser_screen.dart';
@@ -59,6 +60,13 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
     'grounding': 'Grounding practice',
     'walk': 'Took a walk',
     'reward': 'Care action',
+    // The fellowship handshake wrote a `fellowship_sync` event from day one and
+    // it matched nothing here, so it surfaced as the catch-all "Care action" —
+    // a peer connection presented as a generic care tap. `xp_fellowship_sync`
+    // is the spelling XpEngineService now writes; both are listed because the
+    // older event is already in existing users' databases.
+    'fellowship_sync': 'Fellowship handshake',
+    'xp_fellowship_sync': 'Fellowship handshake',
   };
 
   @override
@@ -508,10 +516,26 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                               children: [
                                 Flexible(
                                   child: ExcludeSemantics(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(species.emoji,
-                                          style: const TextStyle(fontSize: 30)),
+                                    // Vector portrait, not `species.emoji`.
+                                    //
+                                    // A tester filed this explicitly: the
+                                    // companion avatars need custom art, not
+                                    // emoji glyphs. The composite avatar was
+                                    // already painted by `AvatarPainter`, but
+                                    // the picker showed a system emoji — which
+                                    // looks different on every device, carries
+                                    // no species silhouette, and is exactly what
+                                    // a low-end or reduce-motion build is least
+                                    // able to render.
+                                    //
+                                    // `SpeciesPortraitPainter` reuses
+                                    // AvatarPainter's own species palettes and
+                                    // shapes, so a thumbnail cannot drift from
+                                    // the creature the user actually gets.
+                                    child: CustomPaint(
+                                      painter:
+                                          SpeciesPortraitPainter(speciesId: species.id),
+                                      size: const Size(44, 44),
                                     ),
                                   ),
                                 ),

@@ -223,6 +223,14 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // No emoji here. This path is for reduce-motion users and low-end
+            // devices — and an emoji is precisely what they may NOT be able to
+            // render (system emoji fonts vary by device and some Android builds
+            // ship a monochrome or missing glyph), so falling back to one made
+            // the *reduced* path the least reliable one. It also contradicted
+            // this widget's own contract, stated at the class declaration:
+            // "Zero emoji in the composite." The static aura below plus the
+            // painted creature is fully deterministic and needs no ticker.
             if (widget.showAura)
               CustomPaint(
                 size: Size.square(widget.size * 0.98),
@@ -230,13 +238,6 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
                   color: AvatarPainter.auraColorFor(_equippedAuraId),
                 ),
               ),
-            // Static emoji fallback — bypasses Lottie ticker entirely.
-            Center(
-              child: Text(
-                AvatarVisualLayer.displayEmoji(widget.pet.slot(CosmeticCategory.aura)),
-                style: TextStyle(fontSize: widget.size * 0.85),
-              ),
-            ),
             CustomPaint(
               size: Size.square(widget.size),
               painter: AvatarPainter(widget.pet),
