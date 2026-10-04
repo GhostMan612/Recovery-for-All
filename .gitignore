@@ -103,6 +103,19 @@ fastlane/.env*
 *service-account*.json
 play-key.json
 
+# Firebase admin/service-account keys. The Firebase CLI writes its downloaded
+# admin key as camelCase `serviceAccountKey.json`, which `*service-account*.json`
+# above does NOT match — that glob needs the hyphen. So the single most likely
+# name for a key in this project was not ignored, verified with `git
+# check-ignore` rather than assumed. A downloaded key carries `"private_key_id"`
+# and `"private_key"` and grants admin read/write on Firestore.
+serviceAccountKey.json
+**/serviceAccountKey.json
+firebase-adminsdk-*.json
+firebase-service-key.json
+firebase_key.json
+firebase-key.json
+
 # Archived upstream copy (do not analyze/build from this)
 Recovery-for-All-main/
 
