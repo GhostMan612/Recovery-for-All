@@ -12,10 +12,10 @@
 // deploys it.
 //
 // The rationale for this note is a real `//` comment above, NOT a `"//"` KEY.
-// A `"//"` key is exactly the shape that made `C:\Call-Dad\opencode.json`
-// invalid and stopped every session from starting, and it is not a comment to
-// every JSON parser. firebase.json is JSONC and firebase-tools reads `//`
-// comments; it does not need the abuse.
+// A `"//"` key is not a comment to any parser that is not specifically
+// forgiving, and firebase.json is read by more than one tool. It is the exact
+// shape that has made other JSON/JSONC configs fail to load outright, and it is
+// how a file that looks commented turns out to have an invalid key in it.
 {
   "firestore": {
     "rules": "firestore/firestore.rules"

@@ -38,8 +38,6 @@ python tools/verify_no_hardcoded_colors.py                 # standing UI gate (m
 python tools/verify_invariants.py                           # 13 architecture invariants (must exit 0)
 python tools/selftest_invariant7.py                         # proves the gate above CAN fail (must exit 0)
 python tools/verify_resources.py                            # only if a URL actually changed
-python C:\Call-Dad\tools\validate_opencode_config.py        # Call-Dad only: opencode.json must load
-python C:\Call-Dad\tools\validate_opencode_config.py --self-test   # ... and prove the checker can fail
 ```
 
 - **`tools/selftest_invariant7.py` is a gate, not a debug script.** A checker
@@ -47,18 +45,6 @@ python C:\Call-Dad\tools\validate_opencode_config.py --self-test   # ... and pro
   `verify_invariants.py`; if you ever change the invariant 7 regex, it is the
   only thing standing between you and a silently-broken gate. It prints its
   known-unflaggable shapes as `gap` lines — that is expected output.
-
-- **`C:\Call-Dad` has its own gate, and it is not optional.** That project's
-  `opencode.json` once carried a note as a `"//"` KEY inside `permission.bash`.
-  Every key there is a permission rule whose value must be
-  `ask`/`allow`/`deny`, so the config was rejected whole and **no session could
-  start** — while `flutter build`, `flutter test` and every unit test in the
-  repo passed, because the failure only exists inside the opencode app.
-  `C:\Call-Dad\tools\validate_opencode_config.py` checks it against the
-  published schema and parses JSONC (the schema declares `allowComments: true`),
-  and `--self-test` feeds it five deliberately invalid configs that it must
-  reject — because a green PASS from a checker that cannot go red is worse than
-  no gate. Note the script lives in the **Call-Dad** repo, not here.
 
 - **⛔ SHELL DISCIPLINE — THE RULE THAT MATTERS MOST. Restated after being
   violated repeatedly; it is not a preference, it is a hard gate.**

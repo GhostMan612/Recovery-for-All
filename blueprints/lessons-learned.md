@@ -1016,11 +1016,12 @@ goes wrong twice.
 ### The near-miss worth recording
 
 While writing `firebase.json` I first put the rationale in as a **`"//"` KEY** —
-the exact shape that had made `C:\Call-Dad\opencode.json` unparseable earlier in
-the same session. The CLI happened to tolerate it, so the deploy succeeded and
-nothing went red. It was still wrong: a key named `//` is not a comment to any
-parser that is not specifically forgiving, and `firebase.json` is read by more
-than one tool.
+the same anti-pattern that had just bitten me in another project that session,
+where an `opencode.json` carrying a note as a `"//"` key was rejected whole and
+stopped every session from starting. The CLI happened to tolerate it, so the
+deploy succeeded and nothing went red. It was still wrong: a key named `//` is
+not a comment to any parser that is not specifically forgiving, and
+`firebase.json` is read by more than one tool.
 
 - **The law:** when you have just fixed a "this file's shape was invalid" bug,
   the *shape* is the thing under suspicion, not just the instance of it. Reach
