@@ -175,12 +175,34 @@ class PetEvents extends Table {
 }
 
 @TableIndex(name: 'idx_sync_peer_ts', columns: {#peerAlias, #timestamp})
+@TableIndex(name: 'idx_sync_key_ts', columns: {#peerKeyB64, #timestamp})
 @DataClassName('FellowshipSync')
 class FellowshipSyncs extends Table {
   TextColumn get id => text()();
   TextColumn get peerAlias => text()();
   IntColumn get timestamp => integer()();
   IntColumn get xpAwarded => integer()();
+
+  /// The peer's Ed25519 PUBLIC key, base64. Nullable because rows written
+  /// before the attestation protocol have none.
+  ///
+  /// This is the field that makes the 24-hour cooldown meaningful. The old
+  /// cooldown was keyed on `peerAlias`, which is a string the PEER CHOOSES —
+  /// so "BrightOak" became "BrightOak2" and the limit did not apply, and XP was
+  /// farmable at an arbitrary rate. A public key is not caller-forgeable in the
+  /// same way, so the limit now keys on something the peer cannot rename.
+  TextColumn get peerKeyB64 => text().nullable()();
+
+  /// 1 when BOTH sides signed a nonce pair for this handshake, 0 otherwise.
+  ///
+  /// Int rather than bool because Drift stores bools as int and a migration
+  /// default is clearer as `0`. Read it as `sync.attested == 1`.
+  IntColumn get attested =>
+      integer().withDefault(const Constant(0))();
+
+  /// Which side of the exchange this device was on for this row:
+  /// 'inviter' | 'invitee'. Null for pre-attestation rows.
+  TextColumn get role => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -218,7 +240,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -275,6 +297,22 @@ class RecoveryDatabase extends _$RecoveryDatabase {
               await m.createIndex(idxPetEventsPetTs);
               await m.createIndex(idxSyncPeerTs);
               await m.createIndex(idxPointsTs);
+            }
+            // v13: fellowship attestation. `fellowship_syncs` grew the three
+            // columns the mutual challenge/response needs — the peer's public
+            // key, whether BOTH sides signed, and which side this device was on
+            // — plus an index on (peer_key, timestamp).
+            //
+            // `addColumn` with a default is what makes this safe on a real
+            // device: SQLite backfills existing rows with the declared default,
+            // so every historical handshake reads as `attested = 0` /
+            // `peerKeyB64 = NULL` instead of becoming unreadable. Nullable
+            // columns are added without a default and read back as null.
+            if (from < 13) {
+              await m.addColumn(fellowshipSyncs, fellowshipSyncs.peerKeyB64);
+              await m.addColumn(fellowshipSyncs, fellowshipSyncs.attested);
+              await m.addColumn(fellowshipSyncs, fellowshipSyncs.role);
+              await m.createIndex(idxSyncKeyTs);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -516,6 +554,28 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   Future<List<FellowshipSync>> getRecentFellowshipSyncsForPeer(String peerAlias, int sinceMs) {
     return (select(fellowshipSyncs)
           ..where((t) => t.peerAlias.equals(peerAlias) & t.timestamp.isBiggerThanValue(sinceMs)))
+        .get();
+  }
+
+  /// Cooldown lookup keyed on the peer's PUBLIC KEY.
+  ///
+  /// This replaces the alias lookup as the primary dedupe, because the alias is
+  /// peer-supplied text: "BrightOak" -> "BrightOak2" defeated the 24-hour limit
+  /// completely. A public key cannot be renamed without regenerating the
+  /// install's identity, so the limit now applies to who you are, not to what
+  /// you typed.
+  ///
+  /// Returns rows for the same key only. Handshakes recorded before the
+  /// attestation protocol have a null key and are invisible here — which is why
+  /// [getRecentFellowshipSyncsForPeer] is still called alongside it: a user who
+  /// synced yesterday under the old protocol must not be able to bank a second
+  /// XP grant for the same person today just because the old row has no key.
+  Future<List<FellowshipSync>> getRecentFellowshipSyncsForPeerKey(
+      String peerKeyB64, int sinceMs) {
+    return (select(fellowshipSyncs)
+          ..where((t) =>
+              t.peerKeyB64.equals(peerKeyB64) &
+              t.timestamp.isBiggerThanValue(sinceMs)))
         .get();
   }
 

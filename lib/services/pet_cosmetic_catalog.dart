@@ -4,6 +4,15 @@
 // ============================================================
 
 // lib/services/pet_cosmetic_catalog.dart
+//
+// DATA ONLY. Deliberately holds no art of any kind.
+//
+// It used to carry a `String? emoji` per item and a `presetEmojis` map, which
+// meant the visual identity of a cosmetic lived in a data file as a font
+// codepoint. That is now `CosmeticArt` in lib/widgets/cosmetic_icon_painter.dart,
+// where the shape is real geometry and `test/cosmetic_vector_art_test.dart`
+// proves no two items in a category collide. Adding an emoji here would
+// reintroduce the exact thing that was removed.
 
 enum CosmeticCategory {
   body,
@@ -59,8 +68,15 @@ class PetCosmetic {
   final String? seasonId;
   final int? availableFromMs;
   final int? availableUntilMs;
-  final String? emoji;
 
+  /// REMOVED. This used to carry the emoji shown in the dresser grid.
+  ///
+  /// A tester asked for "custom generated stuff… not the emoji icons", and a
+  /// glyph that a *data record* carries cannot be replaced by art without
+  /// touching every row: the visual identity lives in
+  /// `CosmeticArt._glyphs`, keyed by id. Keeping the field would have left a
+  /// second, unused source of truth for how an item looks — and the next person
+  /// would reasonably reach for it again.
   const PetCosmetic({
     required this.id,
     required this.label,
@@ -72,7 +88,6 @@ class PetCosmetic {
     this.seasonId,
     this.availableFromMs,
     this.availableUntilMs,
-    this.emoji,
   });
 
   bool get isSeasonal => seasonId != null;
@@ -192,20 +207,20 @@ class PetCosmeticCatalog {
     PetCosmetic(id: 'aura_ember', label: 'Ember Ring', category: CosmeticCategory.aura, subcategory: 'glow', cost: 70, requiredBond: 0.4),
     PetCosmetic(id: 'aura_starfield', label: 'Starfield', category: CosmeticCategory.aura, subcategory: 'glow', cost: 110, requiredBond: 0.6),
     PetCosmetic(id: 'aura_sovereign', label: 'Sovereign Radiance', category: CosmeticCategory.aura, subcategory: 'glow', cost: 180, requiredBond: 0.85),
-    PetCosmetic(id: 'season_solstice_crown', label: 'Solstice Crown', category: CosmeticCategory.headwear, subcategory: 'seasonal', cost: 40, requiredBond: 0.1, seasonId: 'winter_solstice', availableFromMs: 1734307200000, availableUntilMs: 1735689600000, emoji: '❄️'),
-    PetCosmetic(id: 'season_solstice_cloak', label: 'Solstice Cloak', category: CosmeticCategory.top, subcategory: 'seasonal', cost: 55, requiredBond: 0.15, seasonId: 'winter_solstice', availableFromMs: 1734307200000, availableUntilMs: 1735689600000, emoji: '🌨️'),
-    PetCosmetic(id: 'season_equinox_bloom', label: 'Equinox Bloom', category: CosmeticCategory.accessory, subcategory: 'seasonal', cost: 35, requiredBond: 0.1, seasonId: 'spring_equinox', availableFromMs: 1741737600000, availableUntilMs: 1743465600000, emoji: '🌸'),
-    PetCosmetic(id: 'season_harvest_lantern', label: 'Harvest Lantern', category: CosmeticCategory.accessory, subcategory: 'seasonal', cost: 45, requiredBond: 0.15, seasonId: 'autumn_harvest', availableFromMs: 1759276800000, availableUntilMs: 1761955200000, emoji: '🎃'),
-    PetCosmetic(id: 'season_newyear_spark', label: 'New Year Spark', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 60, requiredBond: 0.2, seasonId: 'new_year', availableFromMs: 1735689600000, availableUntilMs: 1737331200000, emoji: '🎆'),
-    PetCosmetic(id: 'season_always_comet', label: 'Comet Trail', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 0, requiredBond: 0, free: true, seasonId: 'launch', emoji: '☄️'),
-    PetCosmetic(id: 'starter_glow_dup', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '✨'),
-    PetCosmetic(id: 'basic_shell_dup', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '🐚'),
-    PetCosmetic(id: 'neon_grid_aura_dup', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2, emoji: '🟦'),
-    PetCosmetic(id: 'tactical_streetwear_dup', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3, emoji: '🧥'),
-    PetCosmetic(id: 'cbt_deflector_shield_dup', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35, emoji: '🛡️'),
-    PetCosmetic(id: 'sovereign_mantle_dup', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8, emoji: '👑'),
-    PetCosmetic(id: 'cyber_monk_robes_dup', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85, emoji: '🥋'),
-    PetCosmetic(id: 'ethereal_wings_dup', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9, emoji: '🪽'),
+    PetCosmetic(id: 'season_solstice_crown', label: 'Solstice Crown', category: CosmeticCategory.headwear, subcategory: 'seasonal', cost: 40, requiredBond: 0.1, seasonId: 'winter_solstice', availableFromMs: 1734307200000, availableUntilMs: 1735689600000),
+    PetCosmetic(id: 'season_solstice_cloak', label: 'Solstice Cloak', category: CosmeticCategory.top, subcategory: 'seasonal', cost: 55, requiredBond: 0.15, seasonId: 'winter_solstice', availableFromMs: 1734307200000, availableUntilMs: 1735689600000),
+    PetCosmetic(id: 'season_equinox_bloom', label: 'Equinox Bloom', category: CosmeticCategory.accessory, subcategory: 'seasonal', cost: 35, requiredBond: 0.1, seasonId: 'spring_equinox', availableFromMs: 1741737600000, availableUntilMs: 1743465600000),
+    PetCosmetic(id: 'season_harvest_lantern', label: 'Harvest Lantern', category: CosmeticCategory.accessory, subcategory: 'seasonal', cost: 45, requiredBond: 0.15, seasonId: 'autumn_harvest', availableFromMs: 1759276800000, availableUntilMs: 1761955200000),
+    PetCosmetic(id: 'season_newyear_spark', label: 'New Year Spark', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 60, requiredBond: 0.2, seasonId: 'new_year', availableFromMs: 1735689600000, availableUntilMs: 1737331200000),
+    PetCosmetic(id: 'season_always_comet', label: 'Comet Trail', category: CosmeticCategory.aura, subcategory: 'seasonal', cost: 0, requiredBond: 0, free: true, seasonId: 'launch'),
+    PetCosmetic(id: 'starter_glow_dup', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true),
+    PetCosmetic(id: 'basic_shell_dup', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true),
+    PetCosmetic(id: 'neon_grid_aura_dup', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2),
+    PetCosmetic(id: 'tactical_streetwear_dup', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3),
+    PetCosmetic(id: 'cbt_deflector_shield_dup', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35),
+    PetCosmetic(id: 'sovereign_mantle_dup', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8),
+    PetCosmetic(id: 'cyber_monk_robes_dup', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85),
+    PetCosmetic(id: 'ethereal_wings_dup', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9),
   ];
 
   static List<String> get freeIds =>
@@ -267,12 +282,6 @@ class PetCosmeticCatalog {
     },
   };
 
-  static const Map<String, String> presetEmojis = {
-    'pathwalker': '🥾',
-    'tidekeeper': '🌊',
-    'embersmith': '🔥',
-  };
-
   static const Map<String, String> presetReactions = {
     'pathwalker': 'Ready for the long road.',
     'tidekeeper': 'Soft as the shore.',
@@ -321,14 +330,14 @@ class PetCosmeticCatalog {
   }
 
   static const List<PetCosmetic> hatcheryTierItems = [
-    PetCosmetic(id: 'starter_glow', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '✨'),
-    PetCosmetic(id: 'basic_shell', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true, emoji: '🐚'),
-    PetCosmetic(id: 'neon_grid_aura', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2, emoji: '🟦'),
-    PetCosmetic(id: 'tactical_streetwear', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3, emoji: '🧥'),
-    PetCosmetic(id: 'cbt_deflector_shield', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35, emoji: '🛡️'),
-    PetCosmetic(id: 'sovereign_mantle_hatchery', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8, emoji: '👑'),
-    PetCosmetic(id: 'cyber_monk_robes', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85, emoji: '🥋'),
-    PetCosmetic(id: 'ethereal_wings', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9, emoji: '🪽'),
+    PetCosmetic(id: 'starter_glow', label: 'Starter Glow', category: CosmeticCategory.aura, subcategory: 'starter', cost: 0, requiredBond: 0, free: true),
+    PetCosmetic(id: 'basic_shell', label: 'Basic Shell', category: CosmeticCategory.body, subcategory: 'starter', cost: 0, requiredBond: 0, free: true),
+    PetCosmetic(id: 'neon_grid_aura', label: 'Neon Grid Aura', category: CosmeticCategory.aura, subcategory: 'neon', cost: 60, requiredBond: 0.2),
+    PetCosmetic(id: 'tactical_streetwear', label: 'Tactical Streetwear', category: CosmeticCategory.top, subcategory: 'tactical', cost: 85, requiredBond: 0.3),
+    PetCosmetic(id: 'cbt_deflector_shield', label: 'CBT Deflector Shield', category: CosmeticCategory.accessory, subcategory: 'shield', cost: 100, requiredBond: 0.35),
+    PetCosmetic(id: 'sovereign_mantle_hatchery', label: 'Sovereign Mantle', category: CosmeticCategory.top, subcategory: 'sovereign', cost: 280, requiredBond: 0.8),
+    PetCosmetic(id: 'cyber_monk_robes', label: 'Cyber-Monk Robes', category: CosmeticCategory.top, subcategory: 'monk', cost: 320, requiredBond: 0.85),
+    PetCosmetic(id: 'ethereal_wings', label: 'Ethereal Wings', category: CosmeticCategory.accessory, subcategory: 'wings', cost: 400, requiredBond: 0.9),
   ];
 }
 
@@ -338,7 +347,6 @@ class CosmeticItem {
   final String category;
   final int cost;
   final String subcategory;
-  final String? emoji;
   final bool isSeasonal;
   final bool free;
   const CosmeticItem({
@@ -347,7 +355,6 @@ class CosmeticItem {
     required this.category,
     required this.cost,
     required this.subcategory,
-    this.emoji,
     this.isSeasonal = false,
     this.free = false,
   });

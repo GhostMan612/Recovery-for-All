@@ -5,10 +5,10 @@
 
 // lib/widgets/avatar_visual_layer.dart
 //
-// Companion rendering: species creature base + cosmetic emoji stack.
+// Companion rendering: species creature base + cosmetic layer stack.
 // Auras play a Lottie loop when one ships for the equipped aura id;
-// everything degrades to static emoji when assets are missing or the user
-// prefers reduced motion.
+// everything degrades to the static painted glow when assets are missing or the
+// user prefers reduced motion.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -21,8 +21,10 @@ import '../services/recovery_pet_service.dart';
 import 'avatar_painter.dart';
 
 /// Companion rendering: Lottie aura + Lottie mood underlay + a fully
-/// PAINTED vector creature (AvatarPainter). Zero emoji in the composite —
-/// emoji survive only in the dresser grid as item thumbnails.
+/// PAINTED vector creature (AvatarPainter). There is no emoji anywhere in this
+/// widget — including the reduced-motion branch — and none left in the
+/// companion's other surfaces: item thumbnails come from `CosmeticIconPainter`
+/// and mood faces from `PetMoodGlyphPainter`.
 class AvatarVisualLayer extends StatefulWidget {
   final RecoveryPet pet;
   final double size;
@@ -37,7 +39,8 @@ class AvatarVisualLayer extends StatefulWidget {
     this.compact = false,
   });
 
-  /// Equipped aura id -> bundled Lottie loop. Unmapped ids fall back to emoji.
+  /// Equipped aura id -> bundled Lottie loop. An unmapped id falls back to the
+  /// painted glow in `_SimpleGlowPainter`, never to a glyph.
   /// DotLottie (.lottie zip) — lottie ^3.1 parses both .json and .lottie.
   static const Map<String, String> _auraLottie = {
     'aura_warm': 'assets/lottie/aura_warm.lottie',
@@ -67,53 +70,6 @@ class AvatarVisualLayer extends StatefulWidget {
     }
     _compositionCache[asset] = composition;
     return composition;
-  }
-
-  static String emojiForCosmetic(String? id) {
-    if (id == null) return '✨';
-    const map = <String, String>{
-      'body_soft_glow': '🌟', 'body_ember': '🔥', 'body_tide': '🌊',
-      'body_moss': '🌿', 'body_starlit': '✨', 'body_sovereign': '👑',
-      'skin_pearl': '🤍', 'skin_amber': '🧡', 'skin_slate': '🩶',
-      'skin_rose': '💗', 'skin_jade': '💚', 'skin_obsidian': '🖤',
-      'skin_aurora': '🌈',
-      'face_calm': '😌', 'face_bright': '😊', 'face_soft': '🙂',
-      'face_fierce': '😤', 'face_dream': '😴',
-      'hair_short_wave': '💇', 'hair_crop': '✂️', 'hair_long_flow': '💇‍♀️',
-      'hair_bun': '🎀', 'hair_braids': '🪢', 'hair_flame': '🔥',
-      'top_tee_plain': '👕', 'top_hoodie_soft': '🧥', 'top_tank': '🎽',
-      'top_flannel': '🧥', 'top_jacket_dawn': '🧥', 'top_cloak_forest': '🧙',
-      'top_robe_river': '👘', 'top_armor_light': '🛡️',
-      'top_sovereign_mantle': '👑',
-      'bottom_shorts': '🩳', 'bottom_joggers': '👖', 'bottom_jeans': '👖',
-      'bottom_skirt_flow': '👗',
-      'shoes_bare': '🦶', 'shoes_sneakers': '👟', 'shoes_sandals': '🩴',
-      'shoes_boots_trail': '🥾', 'shoes_boots_storm': '⛈️',
-      'shoes_slippers_home': '🥿', 'shoes_kicks_neon': '⚡',
-      'shoes_sovereign': '✨',
-      'head_none': '🚫', 'head_beanie': '🧢', 'head_cap': '🧢',
-      'head_bandana': '🎽', 'head_hood': '🧥', 'head_crown_leaf': '🍃',
-      'head_crown_star': '⭐', 'head_halo_soft': '😇',
-      'jewelry_none': '🚫', 'jewelry_band_simple': '💍',
-      'jewelry_pendant_seed': '🌱', 'jewelry_pendant_wave': '🌊',
-      'jewelry_earring_dot': '💠', 'jewelry_earring_moon': '🌙',
-      'jewelry_ring_bond': '💞', 'jewelry_chain_star': '⭐',
-      'jewelry_crest_sovereign': '⚜️',
-      'acc_none': '🚫', 'acc_bag_day': '🎒', 'acc_scarf': '🧣',
-      'acc_glasses': '👓', 'acc_watch': '⌚', 'acc_lantern': '🏮',
-      'acc_staff_path': '🪄', 'acc_wings_soft': '🪽',
-      'aura_none': '🚫', 'aura_warm': '☀️', 'aura_calm_blue': '💧',
-      'aura_forest': '🌲', 'aura_ember': '🔥', 'aura_starfield': '🌌',
-      'aura_sovereign': '💫',
-      'season_solstice_crown': '❄️', 'season_solstice_cloak': '🌨️',
-      'season_equinox_bloom': '🌸', 'season_harvest_lantern': '🎃',
-      'season_newyear_spark': '🎆', 'season_always_comet': '☄️',
-    };
-    return map[id] ?? '✨';
-  }
-
-  static String displayEmoji(String? id) {
-    return emojiForCosmetic(id);
   }
 
   @override

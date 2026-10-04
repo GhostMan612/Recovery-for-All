@@ -12,6 +12,7 @@ import '../database/recovery_database.dart';
 import '../core/motion/app_motion.dart';
 import '../core/theme/app_colors.dart';
 import '../services/recovery_pet_service.dart';
+import '../widgets/cosmetic_icon_painter.dart';
 import '../widgets/themed_background.dart';
 import '../widgets/avatar_visual_layer.dart';
 import 'avatar_dresser_screen.dart';
@@ -915,7 +916,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final id = presets[index];
-                final emoji = PetCosmeticCatalog.presetEmojis[id] ?? '✨';
+                // The preset's icon is a real item FROM that preset's own
+                // outfit, not a decorative glyph. The three emoji that used to
+                // sit here (a boot, a wave, a flame) corresponded to nothing the
+                // catalogue contains, so the picker advertised art the player
+                // would never own.
+                final iconItemId =
+                    CosmeticArt.presetIconItem[id] ?? 'body_soft_glow';
+                final iconItem = PetCosmeticCatalog.byId(iconItemId);
                 final reaction = PetCosmeticCatalog.presetReactions[id] ?? 'A steady presence.';
                 final selected = _selectedPreset == id;
                 return InkWell(
@@ -940,7 +948,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(emoji, style: const TextStyle(fontSize: 32)),
+                        // SizedBox, not Text: the picker must render identically on a device whose
+                        // system font has no glyph for what it used to ask for.
+                        SizedBox(
+                          height: 36,
+                          width: 36,
+                          child: CustomPaint(
+                            painter: CosmeticIconPainter(
+                              itemId: iconItemId,
+                              item: iconItem,
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(

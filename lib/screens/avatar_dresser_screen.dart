@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_visual_layer.dart';
+import '../widgets/cosmetic_icon_painter.dart';
 import '../widgets/themed_background.dart';
 
 class AvatarDresserScreen extends StatefulWidget {
@@ -326,8 +327,6 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                             _pet.unlockedItems.contains(item.id);
                         final status =
                             RecoveryPetService.unlockStatus(_pet, item.id);
-                        final emoji = item.emoji ??
-                            AvatarVisualLayer.displayEmoji(item.id);
 
                         return Semantics(
                           button: true,
@@ -351,7 +350,21 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(emoji, style: const TextStyle(fontSize: 28)),
+                                // Vector art, not a font glyph. This grid was
+                                // the last surface still rendering an emoji per
+                                // item, and it is the surface a player scrolls
+                                // for the longest, so it is the worst place to
+                                // ship system-font art that differs per device.
+                                SizedBox(
+                                  height: 34,
+                                  width: 34,
+                                  child: CustomPaint(
+                                    painter: CosmeticIconPainter(
+                                      itemId: item.id,
+                                      item: item,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
                                 Text(
                                   item.label,

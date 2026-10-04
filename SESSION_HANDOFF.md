@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** October 30, 2026, latest (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~40 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance; equipping a cosmetic silently reset earned Trials XP; a Drift read error fabricated a default pet over real data), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop**, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, a **plaintext chronicle written into the encrypted journal column**, and a **GGUF free-space check that compared a 4096-byte directory entry against a 241 MB model — blocking 100% of model downloads** while reading as a working safety check. A **documentation audit** then found ~34 doc↔code contradictions, including a schema version stated as v9 (it is **v12**) and a build rule that forbade builds the user had pre-authorized. Suite at **511**, analyze clean, **eleven** invariants green, all links alive. Governing lessons: **L31** (a probe that has never been shown to work on a case where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*) and **L32** (*a comment describing a fix is not the fix* — the 3D one-way door shipped alongside prose claiming it was already fixed).
+**Last updated:** October 30, 2026, latest (UI/UX program COMPLETE — **all 17 phases shipped**; the Oct tester round is device-verified on the LG B160V, and the **Moto G 2025 unblocked the two remaining hardware-gated items**: `[hardware] totalRamGb=3.56 isLowEnd=false` against a 3.0 GB threshold, plus real `step_count`/`step_detector` sensors and a **proven** sensor→plugin→Dart→prefs chain. A full structural audit then found and fixed **~40 real defects** the analyzer cannot see — data loss (the daily Spark ledger recorded *requested* rather than *granted*, permanently eating the user's allowance; equipping a cosmetic silently reset earned Trials XP; a Drift read error fabricated a default pet over real data), lost updates from unsynchronised read-modify-writes, an **infinite 60 fps rebuild loop**, a **1.19 MB meeting cache in SharedPreferences**, **zero database indexes**, dead dashboard controls from `ref.read` in `build()`, a first-run tutorial that never opened, an unverifiable sponsor signature that returned `true`, a **plaintext chronicle written into the encrypted journal column**, and a **GGUF free-space check that compared a 4096-byte directory entry against a 241 MB model — blocking 100% of model downloads** while reading as a working safety check. A **documentation audit** then found ~34 doc↔code contradictions, including a schema version stated as v9 (it is **v13**) and a build rule that forbade builds the user had pre-authorized. A second pass closed the **last emoji surface** (all ~90 dresser cosmetics, the preset picker, the Wearing Today chips and three mood readouts are now vector-painted, with `PetCosmetic.emoji`/`PetMoodX.emoji`/`presetEmojis` **deleted**) and turned the **fellowship handshake into a three-leg Ed25519 nonce challenge/response** whose 24-hour cooldown is keyed on the peer's public key instead of a peer-chosen alias. Suite at **567**, analyze clean, **thirteen** invariants green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
 
 **Release state:** the Play upload questionnaire is **complete** and the app is **awaiting approval for public publishing**. Device verification of the current source is owned by the user and has not been run for this batch.
 
@@ -23,18 +23,42 @@
    `XpEngineService` so it was non-transactional and never hit a raid;
    `getAllFellowshipSyncs()` had zero call sites; the pet event rendered as
    "Kin remembers a moment of care." All fixed, and the feature now has a
-   visible history. **Still unverified and unfixable in code: it is one-directional
-   and proves nothing** — see `blueprints/pet-store-rules.md` and L33.
+   visible history. **The follow-on gap is now closed too:** the exchange used
+   to be one-directional AND the 24-hour cooldown was keyed on the peer-chosen
+   alias, so `BrightOak` → `BrightOak2` reset the limit and the XP was farmable.
+   See the fellowship section below and L34.
 
-**Pet art.** The composite avatar was already vector-painted, but the species
-picker showed `species.emoji` and the reduce-motion fallback rendered an aura
-**emoji** — on precisely the devices least able to draw a glyph, contradicting
-the widget's own "Zero emoji in the composite" contract. Now
-`SpeciesPortraitPainter` draws the picker from `AvatarPainter`'s shared
-`speciesShapes`/`speciesColors`, and the static branch is glyph-free.
-Pinned by `test/species_vector_art_test.dart`. **Still emoji:** the dresser grid
-thumbnails (~90 cosmetics) — deliberate today, and the largest remaining art
-surface.
+**Fellowship handshake — mutual, signed, and still honestly labelled.**
+`FellowshipAttestationService` runs a three-leg Ed25519 exchange over a
+per-install key in secure storage (`fellowship_id_*`, deliberately NOT shared
+with `SponsorLinkService`'s signing key). A offers `nonceA`; B verifies A's
+signature and answers with `nonceB` + `echo: nonceA`; A verifies and confirms,
+echoing `nonceB`; B verifies. A handshake is recorded and paid **only after a
+signature over both nonces**, and the screen verifies strictly before it grants —
+invariant 13 fails the build if those two lines are reordered, because a valid
+code produces identical rows either way and no behavioural test can see it. The
+cooldown reads `fellowship_syncs.peerKeyB64` (Drift **v13** added `peerKeyB64`,
+`attested`, `role`), with the alias lookup retained alongside it so pre-protocol
+rows still block a second grant today.
+**What it is NOT:** identity verification. There is no server and no third
+party, so this proves *contemporaneous presence between two keys*. One person
+with two phones can complete an exchange with themselves; a reinstall is a new
+key. What it buys is a real cost on farming and an audit trail that means
+something. Do not describe it as proving who someone is.
+
+**Pet art — the last emoji surface is gone.** The composite avatar and the
+species picker were already vector-painted; `cosmetic_icon_painter.dart` now
+paints all ~90 dresser cosmetics, the starter-preset picker, the "Wearing Today"
+chips and the mood faces (`CosmeticIconPainter`, `PetMoodGlyphPainter`).
+`PetCosmetic.emoji`, `PetMoodX.emoji` and `presetEmojis` are **deleted, not
+deprecated**, and invariant 12 fails the build if any return. Identity is
+`CosmeticGlyph(shape, rays, stack, ring)` — **silhouette first, colour second**,
+matching the species doctrine — and `test/cosmetic_vector_art_test.dart` proves
+no two items in a category share both a signature and a colour, so the
+replacement cannot be 40 identical icons in 108 places. Colour is identity only
+in the two declared colourway subcategories (`skin/tone`, `hair/color`). The
+preset picker now shows an item from its own outfit rather than three emoji that
+corresponded to nothing in the catalogue. See L35.
 
 **Firestore rules — READ BEFORE PUBLISHING.** `firestore/firestore.rules` was
 restructured and the console copy is stale. The old
@@ -95,7 +119,7 @@ resume without losing progress. Update it at every session end.
   fallback → unknown redirect.
 - **PowerShell 5.1 corrupts UTF-8** — never round-trip source through
   `Get-Content | Set-Content`; use file tools or Python utf-8.
-- **Drift schema v12** - bump `schemaVersion` + migration block +
+- **Drift schema v13** - bump `schemaVersion` + migration block +
   build_runner; never hand-edit `.g.dart`.
 - **SQLCipher pin**: sqlite3 ^2.9.4 + sqlcipher_flutter_libs 0.6.8;
   drift 2.34 blocked by design until sqlite3 3.x migration path.

@@ -18,20 +18,19 @@ enum PetMoodX {
   happy('Happy'),
   neutral('Neutral'),
   sad('Sad');
-  
+
   final String label;
   const PetMoodX(this.label);
 
-  String get emoji {
-    switch (this) {
-      case PetMoodX.happy:
-        return '😊';
-      case PetMoodX.neutral:
-        return '🙂';
-      case PetMoodX.sad:
-        return '🥺';
-    }
-  }
+  /// REMOVED. This used to return an emoji per mood, drawn as a `Text` glyph on
+  /// the pet card and twice on the pet home screen — including inside the
+  /// "Meet {name}!" headline.
+  ///
+  /// A face is drawn by `PetMoodGlyphPainter`
+  /// (lib/widgets/cosmetic_icon_painter.dart) instead: real geometry, identical
+  /// on every device, and it cannot render as tofu on the low-end builds that
+  /// the reduced-motion path exists for. The text [label] remains, because a
+  /// screen reader needs words and a painter does not provide them.
 
   static PetMoodX fromName(String name) {
     return PetMoodX.values.firstWhere(
@@ -169,7 +168,6 @@ class PetSpecies {
   final String id;
   final String label;
   final String tagline;
-  final String emoji;
 
   /// Catalog body form applied when this species is adopted.
   final String bodyItemId;
@@ -183,7 +181,6 @@ class PetSpecies {
     required this.id,
     required this.label,
     required this.tagline,
-    required this.emoji,
     required this.bodyItemId,
     required this.defaultAuraId,
     required this.unlockSparks,
@@ -198,7 +195,6 @@ class PetSpeciesCatalog {
       id: emberKitId,
       label: 'Ember Kit',
       tagline: 'A warm little flame that never burns out.',
-      emoji: '🦊',
       bodyItemId: 'body_ember',
       defaultAuraId: 'aura_warm',
       unlockSparks: 0,
@@ -208,7 +204,6 @@ class PetSpeciesCatalog {
       id: 'tide_kin',
       label: 'Tide Kin',
       tagline: 'Soft as the shore, steady as the moon.',
-      emoji: '🦦',
       bodyItemId: 'body_tide',
       defaultAuraId: 'aura_calm_blue',
       unlockSparks: 40,
@@ -218,7 +213,6 @@ class PetSpeciesCatalog {
       id: 'moss_sprite',
       label: 'Moss Sprite',
       tagline: 'Grows a little every single day.',
-      emoji: '🐿️',
       bodyItemId: 'body_moss',
       defaultAuraId: 'aura_forest',
       unlockSparks: 55,
@@ -228,7 +222,6 @@ class PetSpeciesCatalog {
       id: 'star_whelp',
       label: 'Star Whelp',
       tagline: 'Carries its own night sky.',
-      emoji: '🐺',
       bodyItemId: 'body_starlit',
       defaultAuraId: 'aura_starfield',
       unlockSparks: 90,
@@ -238,7 +231,6 @@ class PetSpeciesCatalog {
       id: 'sovereign_linx',
       label: 'Sovereign Lynx',
       tagline: 'Quiet dignity earned over miles.',
-      emoji: '🐈‍⬛',
       bodyItemId: 'body_sovereign',
       defaultAuraId: 'aura_sovereign',
       unlockSparks: 150,
@@ -248,7 +240,6 @@ class PetSpeciesCatalog {
       id: 'riverglass_otter',
       label: 'Riverglass Otter',
       tagline: 'Plays through every season.',
-      emoji: '🦦',
       bodyItemId: 'body_tide',
       defaultAuraId: 'aura_calm_blue',
       unlockSparks: 70,
@@ -258,7 +249,6 @@ class PetSpeciesCatalog {
       id: 'prairie_ember_hare',
       label: 'Prairie Ember Hare',
       tagline: 'Quick heart, warm burrow.',
-      emoji: '🐰',
       bodyItemId: 'body_ember',
       defaultAuraId: 'aura_warm',
       unlockSparks: 120,
@@ -268,7 +258,6 @@ class PetSpeciesCatalog {
       id: 'north_star_loon',
       label: 'North Star Loon',
       tagline: 'Minnesota\'s state bird carries its own compass.',
-      emoji: '🦆',
       bodyItemId: 'body_starlit',
       defaultAuraId: 'aura_starfield',
       unlockSparks: 200,

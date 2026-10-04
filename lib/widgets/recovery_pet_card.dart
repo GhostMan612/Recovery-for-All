@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../services/recovery_pet_service.dart';
 import 'avatar_visual_layer.dart';
+import 'cosmetic_icon_painter.dart';
 
 class RecoveryPetCard extends StatelessWidget {
   final RecoveryPet pet;
@@ -29,11 +30,11 @@ class RecoveryPetCard extends StatelessWidget {
     // Nap-and-welcome tone: absence is never punished, return is celebrated.
     final hoursAway =
         (DateTime.now().millisecondsSinceEpoch - pet.lastFedAt) / 3600000.0;
-    final statusLine = pet.isResting
+final statusLine = pet.isResting
         ? (hoursAway >= 30
             ? 'Napping · glad you are back ✨'
             : 'Resting · I am here when you are')
-        : '${pet.mood.emoji} ${pet.mood.label}';
+        : pet.mood.label;
 
     return Material(
       color: Colors.transparent,
@@ -75,16 +76,38 @@ class RecoveryPetCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          statusLine,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 13,
+                        // The mood FACE is a painted glyph next to the words. It
+                        // was a `Text` containing a system emoji, which is a
+                        // font dependency on the one card that must always
+                        // render. The label stays in the tree for screen
+                        // readers, so nothing is announced less than before.
+                        Row(
+                          children: [
+                            SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CustomPaint(
+                                painter: PetMoodGlyphPainter(
+                                  mood: pet.mood,
+                                  resting: pet.isResting,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                statusLine,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(

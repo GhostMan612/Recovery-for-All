@@ -811,6 +811,194 @@ for block in re.finditer(
                     )
 
 
+# ---------------------------------------------------------------------------
+# 12. The companion's art is VECTOR, not system emoji.
+#
+# A tester filed: "the avatars for the recovery pet... we absolutely NEED custom
+# generated stuff for that. not the emoji icons." The composite creature was
+# already painted and the species picker was converted, but the DRESSER GRID, the
+# starter-preset picker, the "Wearing Today" chips and three mood readouts still
+# rendered font glyphs -- and the `emoji` field that fed them lived in the DATA
+# file, so the visual identity of a cosmetic was a codepoint in
+# `pet_cosmetic_catalog.dart`.
+#
+# Why a gate. Every other check in this repo passes happily with an emoji in the
+# tree: an emoji is valid Dart, renders in `flutter test` (the test font has
+# glyphs), and cannot break a layout the analyzer can see. It is a font
+# DEPENDENCY that varies per device and renders as tofu on exactly the low-end
+# builds the reduced-motion path exists for. So the whole class is invisible to
+# every other gate, which is the definition of needing one.
+#
+# Two parts, because there were two ways back in:
+#   a. no identifier from the removed emoji surface may be referenced, and
+#   b. no companion DATA file may declare a glyph.
+# (b) matters most. Re-adding `"emoji": "..."` to the catalogue would put a
+# second, competing source of truth for how an item looks back in place, and the
+# next person would reasonably reach for it.
+#
+# KNOWN LIMIT, deliberately accepted: this is a scan for the identifiers that
+# were removed, not a scan for all non-ASCII text. A NEW emoji introduced under
+# a fresh name would pass. Catching that needs a judgement call about which
+# codepoints are art (the UI legitimately uses '·', '✦', '—'), and a gate that
+# cries wolf about typography gets switched off.
+# ---------------------------------------------------------------------------
+COMPANION_ART_FILES = [
+    "widgets/avatar_visual_layer.dart",
+    "screens/avatar_dresser_screen.dart",
+    "screens/pet_home_screen.dart",
+    "screens/onboarding_screen.dart",
+    "widgets/recovery_pet_card.dart",
+]
+# Removed identifiers. `displayEmoji`/`emojiForCosmetic` were the lookup,
+# `presetEmojis` the preset map, and `.emoji` / `mood.emoji` the fields.
+REMOVED_ART = re.compile(
+    r"displayEmoji|emojiForCosmetic|presetEmojis|\.emoji\b|species\.emoji"
+)
+# Data files that must stay art-free.
+COMPANION_DATA_FILES = [
+    "services/pet_cosmetic_catalog.dart",
+    "services/recovery_pet_service.dart",
+]
+
+art_hits = []
+for rel in COMPANION_ART_FILES:
+    path = LIB / rel
+    if not path.exists():
+        failures.append(
+            "lib/%s is missing. Invariant 12 checks the companion art surfaces "
+            "there; if the screen moved, update this gate." % rel
+        )
+        continue
+    for lineno, line in enumerate(strip_comments(read(path)).splitlines(), 1):
+        if REMOVED_ART.search(line):
+            art_hits.append("lib/%s:%d: %s" % (rel, lineno, line.strip()[:100]))
+
+for rel in COMPANION_DATA_FILES:
+    path = LIB / rel
+    if not path.exists():
+        failures.append("lib/%s is missing. Invariant 12 checks it." % rel)
+        continue
+    text = strip_comments(read(path))
+    if re.search(r"String\s+emoji\b|emoji\s*:", text):
+        art_hits.append(
+            "lib/%s declares an emoji field/literal. The visual identity of a "
+            "cosmetic is a silhouette in CosmeticArt (widgets/"
+            "cosmetic_icon_painter.dart); a glyph in the data file is a second "
+            "source of truth for the same question." % rel
+        )
+
+if art_hits:
+    failures.append(
+        "COMPANION ART MUST BE VECTOR (invariant 12). These render a system font "
+        "glyph as artwork, which varies per device and is tofu on the low-end "
+        "builds that need the reduced-motion path most: " + " || ".join(art_hits)
+    )
+
+# The art must also EXIST, or deleting the emoji leaves a blank grid.
+ICON_PAINTER = LIB / "widgets" / "cosmetic_icon_painter.dart"
+if not ICON_PAINTER.exists():
+    failures.append(
+        "lib/widgets/cosmetic_icon_painter.dart is missing. Invariant 12 "
+        "removed the emoji fallback; without this painter the dresser grid, the "
+        "preset picker and the Wearing Today chips have nothing to draw."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 13. The fellowship reward is downstream of its signature check.
+#
+# The handshake paid 50 XP for scanning a QR carrying `{alias, ts}`. That is one
+# directional (only the scanner was rewarded) and its 24-hour cooldown was keyed
+# on the ALIAS, which the peer chooses -- so "BrightOak" -> "BrightOak2" reset
+# the limit and the XP was farmable at an arbitrary rate.
+#
+# `FellowshipAttestationService` now signs a nonce pair with a per-install
+# Ed25519 key, so both sides hold a signature from the other before either is
+# paid. That guarantee lives or dies on ONE property of the screen: the verify
+# call must come before the reward. A reorder compiles, passes every behavioural
+# test (a valid code produces identical rows either way), and silently restores
+# the exploit. Nothing else in the build catches it.
+#
+# Hence a gate on statement order. Comments are stripped first, because both the
+# screen and this file DESCRIBE the ordering in prose that contains the very
+# identifiers being searched for.
+# ---------------------------------------------------------------------------
+SYNC_SCREEN = LIB / "screens" / "fellowship_sync_screen.dart"
+
+if not SYNC_SCREEN.exists():
+    failures.append(
+        "lib/screens/fellowship_sync_screen.dart is missing. Invariant 13 "
+        "checks that the reward is downstream of the signature check there."
+    )
+else:
+    sync_src = strip_comments(read(SYNC_SCREEN))
+
+    # The scanner path, by brace balance, so a helper method's copy of a name
+    # cannot satisfy or trip the check.
+    def _handler_body(src):
+        start = src.find("Future<void> _handleScanned")
+        if start == -1:
+            return None
+        open_at = src.find("{", start)
+        depth = 0
+        for i in range(open_at, len(src)):
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return src[open_at : i + 1]
+        return None
+
+    body = _handler_body(sync_src)
+    if body is None:
+        failures.append(
+            "Could not locate `_handleScanned` (or its braces are unbalanced) "
+            "in lib/screens/fellowship_sync_screen.dart. Invariant 13 cannot "
+            "check the verify/reward order, so it would pass without checking "
+            "anything -- a gate that cannot see is not a gate. Update the "
+            "needle here."
+        )
+    else:
+        verify_at = body.find("FellowshipAttestationService.verify")
+        reward_at = body.find("_completeHandshake")
+        if verify_at == -1:
+            failures.append(
+                "FELLOWSHIP REWARD WITHOUT VERIFICATION (invariant 13): "
+                "_handleScanned no longer calls FellowshipAttestationService."
+                "verify, so a code with no signature would be scanned, recorded "
+                "and paid. Either the attestation call was removed or this gate "
+                "needs a new needle."
+            )
+        elif reward_at == -1:
+            failures.append(
+                "FELLOWSHIP REWARD WITHOUT VERIFICATION (invariant 13): "
+                "_handleScanned no longer calls _completeHandshake. Update this "
+                "gate's needle if the reward path was renamed."
+            )
+        elif verify_at > reward_at:
+            failures.append(
+                "FELLOWSHIP REWARD BEFORE VERIFICATION (invariant 13): in "
+                "_handleScanned the handshake is recorded and paid before its "
+                "signature is checked. Either order compiles, both produce "
+                "identical rows for a valid code, and no behavioural test can "
+                "see it -- but it silently restores the exploit invariant 13 "
+                "was added for. Move the verify call above the reward."
+            )
+
+    # The cooldown must not be keyed on the peer-chosen alias alone.
+    if "getRecentFellowshipSyncsForPeerKey" not in sync_src:
+        failures.append(
+            "FELLOWSHIP COOLDOWN KEYED ON A CALLER-CHOSEN STRING (invariant "
+            "13): lib/screens/fellowship_sync_screen.dart no longer calls "
+            "getRecentFellowshipSyncsForPeerKey. The alias is chosen by the "
+            "peer, so keying the 24-hour limit on it means renaming defeats "
+            "the limit. This is the same trap as the Firestore field-ownership "
+            "rule in invariant 11: only the peer's public key is not "
+            "renamable."
+        )
+
+
 def main() -> int:
     for note in notes:
         print("NOTE: %s" % note)
@@ -825,7 +1013,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 11)
+    print("PASS: %d architecture invariants hold" % 13)
     return 0
 
 

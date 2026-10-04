@@ -1,0 +1,6 @@
+{
+  "//": "Minimal, and deliberately ONLY firestore rules. This file is what makes `firebase deploy --only firestore:rules` possible at all: without it the CLI refuses with 'Not in a Firebase app directory'. Nothing else is declared on purpose -- no hosting, no functions, no emulator config -- because declaring a target that is not deployed is how a config starts lying about what exists. Add a section only in the same commit that deploys it.",
+  "firestore": {
+    "rules": "firestore/firestore.rules"
+  }
+}

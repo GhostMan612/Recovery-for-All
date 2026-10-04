@@ -847,6 +847,93 @@ the one I would have checked first was not one of them.
   display — before touching the surface that was blamed. I would have "fixed"
   the snackbar and shipped the same nothing.
 
-- **Still true, and not fixable in code.** The handshake is **one-directional
-  and verifies nothing**: neither party proves anything, and XP is farmable by
-  varying an alias. That is a *product* gap, documented rather than hidden.
+- **Now closed, and the part I would still call a product gap.** The handshake was
+  **one-directional and verified nothing**: neither party proved anything, and
+  the 24-hour cooldown was keyed on the peer-chosen ALIAS, so `BrightOak` →
+  `BrightOak2` defeated it and the XP was farmable at an arbitrary rate. That is
+  fixed by `FellowshipAttestationService` — a three-leg Ed25519 nonce
+  challenge/response over a per-install key, with the cooldown keyed on the
+  peer's public key. What it is **not** is identity verification: with no server
+  there is no third party, so it proves contemporaneous presence between two
+  keys, and one person with two phones can still do it to themselves. See L34.
+
+---
+
+## L34 — A caller-chosen string is never a security key (Oct 2026)
+
+- **What happened:** the fellowship handshake's 24-hour cooldown read
+  `getRecentFellowshipSyncsForPeer(safeAlias, cutoff)`. The alias arrives in the
+  QR payload, i.e. **the peer chooses it**. So the limit was bypassed by editing
+  four characters. The same class of bug as invariant 11's Firestore rule, in a
+  completely different subsystem: a check against a value the *caller* writes
+  verifies nothing about the caller.
+  - The alias was already defensively sanitised (bounded to 40 chars, control
+    characters stripped) because it reaches the database and a SnackBar. So the
+    code had *considered* the alias untrusted as a **display** string, and then
+    used the same untrusted string as an **identity** key one function later.
+    Sanitising for injection is not validating for identity, and passing the same
+    check off as both is how it slips through.
+- **Root cause:** no rule distinguished "value I must not trust" from "value I
+  may key on". Aliases are legitimately user-chosen and renamable — that is the
+  feature. Anything whose correctness depends on a name being stable is built on
+  a value the product explicitly lets you change.
+- **Fix:** each install now holds an Ed25519 keypair in secure storage
+  (`fellowship_id_*`), the handshake signs a nonce pair, and the cooldown reads
+  `fellowship_syncs.peerKeyB64`. The alias lookup is **retained** alongside it,
+  for rows written before the protocol existed — dropping it would have let
+  anyone who synced yesterday bank a second grant today.
+- **Prevention — the law:** *before keying a limit, a cache, or an ownership
+  check on a field, ask who writes it.* If the answer is "the other party, or the
+  user", it cannot be the key. This is the same sentence as invariant 11 and it
+  now appears in both places on purpose.
+  - Corollary for reviews: a field that is validated for **X** (injection,
+  length) is not thereby validated for **Y** (identity, uniqueness, stability).
+  Look for one field carrying two unrelated jobs.
+
+---
+
+## L35 — 108 emoji replaced by one axis, and the check that makes it real (Oct 2026)
+
+A tester asked for "custom generated stuff… not the emoji icons". The dresser
+grid alone held ~90 system glyphs. The naive fix — draw 90 icons — is where this
+goes wrong twice.
+
+- **What happened (twice, in different forms).**
+  1. **A fallback that hides.** Replacing `Text(emoji)` with
+     `CustomPaint(painter: CosmeticIconPainter(itemId: id))` and a
+     `spec[id] ?? someDefaultShape` inside the painter passes every "is there
+     still an emoji?" check and produces 40 identical icons in 108 places. A
+     missing entry is not visible; it is *invisible by design*.
+  2. **Art direction that becomes noise.** Colouring all 108 items individually
+     is ~200 more literals to review, none of which a player can read at 24dp.
+     It also quietly breaks the project's own rule — species are **silhouette
+     first, colour second**, and per-item colour is how you get eight creatures
+     that differ only in hue.
+- **Root cause:** uniqueness is a *property over a set*, and eyeballing 108 rows
+  in 11 tabs is not a check. It is a review that will pass the week it is written.
+- **Fix:** make the identity a small orthogonal tuple —
+  `CosmeticGlyph(shape, rays, stack, ring)` — where each modifier changes the
+  outline in a way the others cannot, so the signature space is large enough for
+  a 14-item category to be collision-free by construction. Colour stays
+  per-category, except in the two subcategories where colour *is* the product
+  (`skin/tone`, `hair/color`), and those are declared in
+  `CosmeticArt.colourwaySubcategories` so a third cannot appear without art.
+  Then **assert it**:
+  `test/cosmetic_vector_art_test.dart` fails if any two items in a category
+  share both a signature and a colour, and if a same-signature pair is not in a
+  declared colourway subcategory.
+- **Prevention — the law:** *a fallback is not coverage.* Every mapping you add
+  needs a completeness assertion over the real input set, not a default that
+  keeps the code running. And when you replace N items of art, ask how a reader
+  would know item 71 differs from item 72 — if the answer is "it has a different
+  colour", the work is not finished.
+- **The deletion is the deliverable.** `PetCosmetic.emoji`, `PetMoodX.emoji` and
+  `presetEmojis` are **gone**, not deprecated, and invariant 12 fails the build if
+  any of them come back. Deprecating leaves two sources of truth for one
+  question, and the next person reaches for the one that still compiles. Same
+  reason `PresetEmojis` was *not* kept as a fallback map.
+- **A glyph in a DATA file is worse than a glyph in a view.** The emoji lived in
+  `pet_cosmetic_catalog.dart` — the catalogue — because that is where the item
+  rows are, and putting art in the data made "how does this item look" a field
+  on the record. `CosmeticArt` is keyed by id and lives in `widgets/`, so the
+  art and the record cannot drift into disagreeing.

@@ -1180,7 +1180,19 @@ Future<void> _handleWalk() async {
                         (tierLabel?.startsWith('Statewide') ?? false),
                     onOpenMap: pick == null ? null : _openMeetingMap,
                     onFindMeetings: _openMeetingMap,
-                    onRetry: () => setState(() {}),
+                    // Retry used to be `() => setState(() {})`, which only
+                    // rebuilt the FutureBuilder with the SAME (usually null) fix.
+                    // Acquisition happens exactly once, in initState, so a user
+                    // whose first attempt lost the 8s GPS race - or whose
+                    // permission dialog was still open when initState ran - was
+                    // pinned to "Statewide - no location yet" for the life of the
+                    // app, behind a Retry button that provably did nothing. Re-run
+                    // the acquisition instead; the `ref.watch` above rebuilds the
+                    // card as soon as the fix lands.
+                    onRetry: () {
+                      unawaited(_primeLocationForRadius());
+                      setState(() {});
+                    },
                   ),
                 );
               },

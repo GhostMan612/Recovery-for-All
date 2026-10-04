@@ -50,6 +50,13 @@ ALLOWLIST = {
     # an inflated cap is how a real theme regression becomes invisible here.
     "widgets/avatar_painter.dart": 116,
     "widgets/avatar_visual_layer.dart": None,
+    # Companion cosmetic + mood art. Pure geometry painting: 11 category
+    # palettes (fill + accent each = 22), 12 declared colourway colours for
+    # `skin/tone` and `hair/color`, 1 black for the colourway blend, 2 for the
+    # shared fallback palette (written once, not inlined per use site), and 4
+    # for the mood faces. The count is an EXACT reviewed total, not a ceiling --
+    # see the note on avatar_painter above before raising it.
+    "widgets/cosmetic_icon_painter.dart": 41,
     "core/theme/app_colors.dart": None,
     # Asset-internal / domain status scales retained as named tokens.
     "screens/journal_screen.dart": 0,
@@ -103,6 +110,7 @@ FILL_FOREGROUND = re.compile(
 # Files that draw with Canvas/Paint. White and black there are art direction.
 PAINTER_FILES = {
     "widgets/avatar_painter.dart",
+    "widgets/cosmetic_icon_painter.dart",
     "widgets/trial_monster_painter.dart",
     "screens/constellation_canvas_3d.dart",
     "widgets/companion_guide_overlay.dart",

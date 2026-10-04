@@ -4738,8 +4738,48 @@ class $FellowshipSyncsTable extends FellowshipSyncs
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _peerKeyB64Meta = const VerificationMeta(
+    'peerKeyB64',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, peerAlias, timestamp, xpAwarded];
+  late final GeneratedColumn<String> peerKeyB64 = GeneratedColumn<String>(
+    'peer_key_b64',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attestedMeta = const VerificationMeta(
+    'attested',
+  );
+  @override
+  late final GeneratedColumn<int> attested = GeneratedColumn<int>(
+    'attested',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    peerAlias,
+    timestamp,
+    xpAwarded,
+    peerKeyB64,
+    attested,
+    role,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4781,6 +4821,27 @@ class $FellowshipSyncsTable extends FellowshipSyncs
     } else if (isInserting) {
       context.missing(_xpAwardedMeta);
     }
+    if (data.containsKey('peer_key_b64')) {
+      context.handle(
+        _peerKeyB64Meta,
+        peerKeyB64.isAcceptableOrUnknown(
+          data['peer_key_b64']!,
+          _peerKeyB64Meta,
+        ),
+      );
+    }
+    if (data.containsKey('attested')) {
+      context.handle(
+        _attestedMeta,
+        attested.isAcceptableOrUnknown(data['attested']!, _attestedMeta),
+      );
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    }
     return context;
   }
 
@@ -4806,6 +4867,18 @@ class $FellowshipSyncsTable extends FellowshipSyncs
         DriftSqlType.int,
         data['${effectivePrefix}xp_awarded'],
       )!,
+      peerKeyB64: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}peer_key_b64'],
+      ),
+      attested: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attested'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      ),
     );
   }
 
@@ -4820,11 +4893,34 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
   final String peerAlias;
   final int timestamp;
   final int xpAwarded;
+
+  /// The peer's Ed25519 PUBLIC key, base64. Nullable because rows written
+  /// before the attestation protocol have none.
+  ///
+  /// This is the field that makes the 24-hour cooldown meaningful. The old
+  /// cooldown was keyed on `peerAlias`, which is a string the PEER CHOOSES —
+  /// so "BrightOak" became "BrightOak2" and the limit did not apply, and XP was
+  /// farmable at an arbitrary rate. A public key is not caller-forgeable in the
+  /// same way, so the limit now keys on something the peer cannot rename.
+  final String? peerKeyB64;
+
+  /// 1 when BOTH sides signed a nonce pair for this handshake, 0 otherwise.
+  ///
+  /// Int rather than bool because Drift stores bools as int and a migration
+  /// default is clearer as `0`. Read it as `sync.attested == 1`.
+  final int attested;
+
+  /// Which side of the exchange this device was on for this row:
+  /// 'inviter' | 'invitee'. Null for pre-attestation rows.
+  final String? role;
   const FellowshipSync({
     required this.id,
     required this.peerAlias,
     required this.timestamp,
     required this.xpAwarded,
+    this.peerKeyB64,
+    required this.attested,
+    this.role,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4833,6 +4929,13 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
     map['peer_alias'] = Variable<String>(peerAlias);
     map['timestamp'] = Variable<int>(timestamp);
     map['xp_awarded'] = Variable<int>(xpAwarded);
+    if (!nullToAbsent || peerKeyB64 != null) {
+      map['peer_key_b64'] = Variable<String>(peerKeyB64);
+    }
+    map['attested'] = Variable<int>(attested);
+    if (!nullToAbsent || role != null) {
+      map['role'] = Variable<String>(role);
+    }
     return map;
   }
 
@@ -4842,6 +4945,11 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
       peerAlias: Value(peerAlias),
       timestamp: Value(timestamp),
       xpAwarded: Value(xpAwarded),
+      peerKeyB64: peerKeyB64 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(peerKeyB64),
+      attested: Value(attested),
+      role: role == null && nullToAbsent ? const Value.absent() : Value(role),
     );
   }
 
@@ -4855,6 +4963,9 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
       peerAlias: serializer.fromJson<String>(json['peerAlias']),
       timestamp: serializer.fromJson<int>(json['timestamp']),
       xpAwarded: serializer.fromJson<int>(json['xpAwarded']),
+      peerKeyB64: serializer.fromJson<String?>(json['peerKeyB64']),
+      attested: serializer.fromJson<int>(json['attested']),
+      role: serializer.fromJson<String?>(json['role']),
     );
   }
   @override
@@ -4865,6 +4976,9 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
       'peerAlias': serializer.toJson<String>(peerAlias),
       'timestamp': serializer.toJson<int>(timestamp),
       'xpAwarded': serializer.toJson<int>(xpAwarded),
+      'peerKeyB64': serializer.toJson<String?>(peerKeyB64),
+      'attested': serializer.toJson<int>(attested),
+      'role': serializer.toJson<String?>(role),
     };
   }
 
@@ -4873,11 +4987,17 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
     String? peerAlias,
     int? timestamp,
     int? xpAwarded,
+    Value<String?> peerKeyB64 = const Value.absent(),
+    int? attested,
+    Value<String?> role = const Value.absent(),
   }) => FellowshipSync(
     id: id ?? this.id,
     peerAlias: peerAlias ?? this.peerAlias,
     timestamp: timestamp ?? this.timestamp,
     xpAwarded: xpAwarded ?? this.xpAwarded,
+    peerKeyB64: peerKeyB64.present ? peerKeyB64.value : this.peerKeyB64,
+    attested: attested ?? this.attested,
+    role: role.present ? role.value : this.role,
   );
   FellowshipSync copyWithCompanion(FellowshipSyncsCompanion data) {
     return FellowshipSync(
@@ -4885,6 +5005,11 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
       peerAlias: data.peerAlias.present ? data.peerAlias.value : this.peerAlias,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       xpAwarded: data.xpAwarded.present ? data.xpAwarded.value : this.xpAwarded,
+      peerKeyB64: data.peerKeyB64.present
+          ? data.peerKeyB64.value
+          : this.peerKeyB64,
+      attested: data.attested.present ? data.attested.value : this.attested,
+      role: data.role.present ? data.role.value : this.role,
     );
   }
 
@@ -4894,13 +5019,24 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
           ..write('id: $id, ')
           ..write('peerAlias: $peerAlias, ')
           ..write('timestamp: $timestamp, ')
-          ..write('xpAwarded: $xpAwarded')
+          ..write('xpAwarded: $xpAwarded, ')
+          ..write('peerKeyB64: $peerKeyB64, ')
+          ..write('attested: $attested, ')
+          ..write('role: $role')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, peerAlias, timestamp, xpAwarded);
+  int get hashCode => Object.hash(
+    id,
+    peerAlias,
+    timestamp,
+    xpAwarded,
+    peerKeyB64,
+    attested,
+    role,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4908,7 +5044,10 @@ class FellowshipSync extends DataClass implements Insertable<FellowshipSync> {
           other.id == this.id &&
           other.peerAlias == this.peerAlias &&
           other.timestamp == this.timestamp &&
-          other.xpAwarded == this.xpAwarded);
+          other.xpAwarded == this.xpAwarded &&
+          other.peerKeyB64 == this.peerKeyB64 &&
+          other.attested == this.attested &&
+          other.role == this.role);
 }
 
 class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
@@ -4916,12 +5055,18 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
   final Value<String> peerAlias;
   final Value<int> timestamp;
   final Value<int> xpAwarded;
+  final Value<String?> peerKeyB64;
+  final Value<int> attested;
+  final Value<String?> role;
   final Value<int> rowid;
   const FellowshipSyncsCompanion({
     this.id = const Value.absent(),
     this.peerAlias = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.xpAwarded = const Value.absent(),
+    this.peerKeyB64 = const Value.absent(),
+    this.attested = const Value.absent(),
+    this.role = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FellowshipSyncsCompanion.insert({
@@ -4929,6 +5074,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
     required String peerAlias,
     required int timestamp,
     required int xpAwarded,
+    this.peerKeyB64 = const Value.absent(),
+    this.attested = const Value.absent(),
+    this.role = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        peerAlias = Value(peerAlias),
@@ -4939,6 +5087,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
     Expression<String>? peerAlias,
     Expression<int>? timestamp,
     Expression<int>? xpAwarded,
+    Expression<String>? peerKeyB64,
+    Expression<int>? attested,
+    Expression<String>? role,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4946,6 +5097,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
       if (peerAlias != null) 'peer_alias': peerAlias,
       if (timestamp != null) 'timestamp': timestamp,
       if (xpAwarded != null) 'xp_awarded': xpAwarded,
+      if (peerKeyB64 != null) 'peer_key_b64': peerKeyB64,
+      if (attested != null) 'attested': attested,
+      if (role != null) 'role': role,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4955,6 +5109,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
     Value<String>? peerAlias,
     Value<int>? timestamp,
     Value<int>? xpAwarded,
+    Value<String?>? peerKeyB64,
+    Value<int>? attested,
+    Value<String?>? role,
     Value<int>? rowid,
   }) {
     return FellowshipSyncsCompanion(
@@ -4962,6 +5119,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
       peerAlias: peerAlias ?? this.peerAlias,
       timestamp: timestamp ?? this.timestamp,
       xpAwarded: xpAwarded ?? this.xpAwarded,
+      peerKeyB64: peerKeyB64 ?? this.peerKeyB64,
+      attested: attested ?? this.attested,
+      role: role ?? this.role,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4981,6 +5141,15 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
     if (xpAwarded.present) {
       map['xp_awarded'] = Variable<int>(xpAwarded.value);
     }
+    if (peerKeyB64.present) {
+      map['peer_key_b64'] = Variable<String>(peerKeyB64.value);
+    }
+    if (attested.present) {
+      map['attested'] = Variable<int>(attested.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4994,6 +5163,9 @@ class FellowshipSyncsCompanion extends UpdateCompanion<FellowshipSync> {
           ..write('peerAlias: $peerAlias, ')
           ..write('timestamp: $timestamp, ')
           ..write('xpAwarded: $xpAwarded, ')
+          ..write('peerKeyB64: $peerKeyB64, ')
+          ..write('attested: $attested, ')
+          ..write('role: $role, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5460,6 +5632,10 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     'idx_sync_peer_ts',
     'CREATE INDEX idx_sync_peer_ts ON fellowship_syncs (peer_alias, timestamp)',
   );
+  late final Index idxSyncKeyTs = Index(
+    'idx_sync_key_ts',
+    'CREATE INDEX idx_sync_key_ts ON fellowship_syncs (peer_key_b64, timestamp)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5483,6 +5659,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     idxFeedStatusCreated,
     idxFeedFlag,
     idxSyncPeerTs,
+    idxSyncKeyTs,
   ];
 }
 
@@ -7888,6 +8065,9 @@ typedef $$FellowshipSyncsTableCreateCompanionBuilder =
       required String peerAlias,
       required int timestamp,
       required int xpAwarded,
+      Value<String?> peerKeyB64,
+      Value<int> attested,
+      Value<String?> role,
       Value<int> rowid,
     });
 typedef $$FellowshipSyncsTableUpdateCompanionBuilder =
@@ -7896,6 +8076,9 @@ typedef $$FellowshipSyncsTableUpdateCompanionBuilder =
       Value<String> peerAlias,
       Value<int> timestamp,
       Value<int> xpAwarded,
+      Value<String?> peerKeyB64,
+      Value<int> attested,
+      Value<String?> role,
       Value<int> rowid,
     });
 
@@ -7925,6 +8108,21 @@ class $$FellowshipSyncsTableFilterComposer
 
   ColumnFilters<int> get xpAwarded => $composableBuilder(
     column: $table.xpAwarded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get peerKeyB64 => $composableBuilder(
+    column: $table.peerKeyB64,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attested => $composableBuilder(
+    column: $table.attested,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7957,6 +8155,21 @@ class $$FellowshipSyncsTableOrderingComposer
     column: $table.xpAwarded,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get peerKeyB64 => $composableBuilder(
+    column: $table.peerKeyB64,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attested => $composableBuilder(
+    column: $table.attested,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FellowshipSyncsTableAnnotationComposer
@@ -7979,6 +8192,17 @@ class $$FellowshipSyncsTableAnnotationComposer
 
   GeneratedColumn<int> get xpAwarded =>
       $composableBuilder(column: $table.xpAwarded, builder: (column) => column);
+
+  GeneratedColumn<String> get peerKeyB64 => $composableBuilder(
+    column: $table.peerKeyB64,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attested =>
+      $composableBuilder(column: $table.attested, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
 }
 
 class $$FellowshipSyncsTableTableManager
@@ -8022,12 +8246,18 @@ class $$FellowshipSyncsTableTableManager
                 Value<String> peerAlias = const Value.absent(),
                 Value<int> timestamp = const Value.absent(),
                 Value<int> xpAwarded = const Value.absent(),
+                Value<String?> peerKeyB64 = const Value.absent(),
+                Value<int> attested = const Value.absent(),
+                Value<String?> role = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FellowshipSyncsCompanion(
                 id: id,
                 peerAlias: peerAlias,
                 timestamp: timestamp,
                 xpAwarded: xpAwarded,
+                peerKeyB64: peerKeyB64,
+                attested: attested,
+                role: role,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8036,12 +8266,18 @@ class $$FellowshipSyncsTableTableManager
                 required String peerAlias,
                 required int timestamp,
                 required int xpAwarded,
+                Value<String?> peerKeyB64 = const Value.absent(),
+                Value<int> attested = const Value.absent(),
+                Value<String?> role = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FellowshipSyncsCompanion.insert(
                 id: id,
                 peerAlias: peerAlias,
                 timestamp: timestamp,
                 xpAwarded: xpAwarded,
+                peerKeyB64: peerKeyB64,
+                attested: attested,
+                role: role,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

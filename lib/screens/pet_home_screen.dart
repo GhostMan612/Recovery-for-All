@@ -19,6 +19,7 @@ import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/avatar_painter.dart';
 import '../widgets/avatar_visual_layer.dart';
+import '../widgets/cosmetic_icon_painter.dart';
 import '../widgets/recovery_pet_card.dart';
 import 'avatar_dresser_screen.dart';
 import 'memory_wall_screen.dart';
@@ -172,7 +173,7 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: 'Meet ${pet.name}! ✦${pet.sparks} Sparks · ${pet.bond}% Bond · ${pet.mood.emoji} ${pet.mood.label}',
+          text: 'Meet ${pet.name}! ✦${pet.sparks} Sparks · ${pet.bond}% Bond · ${pet.mood.label}',
         ),
       );
     } catch (e) {
@@ -290,11 +291,30 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                               fontSize: 24,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(
-                        pet.isResting
-                            ? 'Resting · here when you are'
-                            : '${pet.mood.emoji} ${pet.mood.label}',
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+                      // Painted mood face beside the words, never a font glyph.
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 14,
+                            width: 14,
+                            child: CustomPaint(
+                              painter: PetMoodGlyphPainter(
+                                mood: pet.mood,
+                                resting: pet.isResting,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            pet.isResting
+                                ? 'Resting · here when you are'
+                                : pet.mood.label,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontSize: 13),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -595,16 +615,36 @@ class _PetHomeScreenState extends ConsumerState<PetHomeScreen> {
                               pet.equippedSlots[category.name]!);
                           if (item == null) return const SizedBox.shrink();
                           return Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
                             decoration: BoxDecoration(
                               color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                             ),
-                            child: Text('${item.emoji ?? '✦'} ${item.label}',
-                                style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 12)),
+                            // The icon carries the item's identity and the text
+                            // carries its name: previously the name was prefixed
+                            // with a system emoji from the catalogue, so this row
+                            // depended on a font the device may not have.
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CustomPaint(
+                                    painter: CosmeticIconPainter(
+                                      itemId: item.id,
+                                      item: item,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(item.label,
+                                    style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontSize: 12)),
+                              ],
+                            ),
                           );
                         }),
                   ],
