@@ -13,8 +13,12 @@ second owner, and it gated the 500-Spark ability off that stale copy), the
 notifier read the pet exactly once so a Spark awarded anywhere left the whole
 dashboard stale, and the gate's own `_pet` check sat under an
 `ensureHatched` guard that made it impossible to fire. All three fixed and
-gated. Suite at **639**, analyze clean, **thirteen** invariants
-green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
+gated. The last declared-unverified surface — the avatar dresser at large text
+— turned out to hold **three** real overflows (grid cells at 1.5x/2.0x, a long
+pet name, and a wide Spark total whose cause was 60 lines away from where it was
+reported); all fixed, pinned at a pinned 360dp surface so the test cannot pass
+for the wrong reason (L40). Suite at **645**, analyze clean,
+**thirteen** invariants green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
 
 **Release state:** the Play upload questionnaire is **complete** and the app is
 **awaiting approval for public publishing**. A signed `1.0.0+10` release AAB is

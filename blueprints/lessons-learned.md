@@ -1135,3 +1135,59 @@ not a comment to any parser that is not specifically forgiving, and
   is wrong.** So do not review components — trace the data. Ask "who writes this,
   who reads this, and what happens between those two moments" rather than
   "is this file well written".
+
+---
+
+## L40 — the avatar dresser clipped at 1.5x, and the default test surface hid it (Oct 2026)
+
+- **What happened:** added a multi-scale text test for the cosmetic grid — the
+  last declared-unverified surface. It found **three** real RenderFlex overflows:
+  12px at 2.0x and 14px at 1.5x in the grid cells, a 28px overflow of the whole
+  header from a long pet name, and a 65px overflow from a large Spark total.
+- **The trap that would have made this test decorative, and which nearly did:**
+  **the default widget-test surface is 800dp WIDE.** That makes a
+  `crossAxisCount: 3` grid cell 252dp, which leaves ~130dp of slack — so a test
+  written without pinning a screen size passes while every real phone clips. The
+  group only means anything at 360x640dp, and that constraint is now stated at
+  the top of the file so the next person does not "simplify" it away. A test that
+  passes for the wrong reason is worse than no test, because it looks like
+  coverage.
+- **`pumpAndSettle` is the wrong tool here.** `AvatarVisualLayer` runs a
+  continuous animation, so there is no settled frame and `pumpAndSettle` just
+  times out with `pumpAndSettle timed out`, which reads like a harness bug and
+  not like an overflow. Two bounded `pump()`s are correct: layout, and therefore
+  any overflow, happens on the first frame.
+- **`takeException()` hides the only useful part of a layout error.** It returns
+  the one-line summary and discards the creator chain. Capturing
+  `FlutterErrorDetails` through `FlutterError.onError` (restoring the previous
+  handler in a `finally`, or the binding stays deaf for the rest of the suite)
+  is what turns "overflowed by 65 pixels" into "overflowed by 65 pixels, in the
+  `Column` at `avatar_dresser_screen.dart:196`". Without that I would have been
+  guessing which of two candidates was at fault. The helper is now permanent, so
+  a future red run names its own culprit.
+- **The fix was three separate overflows with three different causes**, which is
+  the point — "the grid overflows" was never one bug:
+  1. **Grid cells.** A fixed `childAspectRatio: 0.85` cannot be correct at both
+     1.0x and 2.0x. Cells now grow with the capped text scale, and the portrait
+     inside is `Flexible` so it is the thing that yields — text is never clipped.
+  2. **Long pet name.** The header `Column` is NOT scrollable, because the
+     `Expanded(TabBarView)` beneath it needs a bounded height. So the portrait
+     shrinks with the text scale (150dp → 110dp at 1.6x, measured 40px of relief
+     against a 28px overflow) and the name is bounded to two lines.
+  3. **Wide Spark total.** This is the one worth remembering. `Expanded` protects
+     the *flex* child only; the Spark readout beside it is laid out at INTRINSIC
+     width **first**. So "999999✦" takes the width, the title is left too narrow,
+     the title *wraps*, and because the header cannot scroll that extra line
+     becomes a **65px overflow at the bottom of the screen** — an error whose
+     cause is nowhere near where it is reported. This is the same law as the
+     Phase 13 `CompanionSection` bug: read the *reported* location and the
+     *actual* cause are different widgets.
+- **Prevention — the law:** *an unbounded Text inside a fixed-height container is
+  an overflow waiting for data.* Both text fixes were `maxLines` + ellipsis, and
+  in both cases the content is derived — a Spark total and a cosmetic cost are
+  numbers formatted from data, and a pet name is user input. "It is short today"
+  is not a layout constraint. Pair every such Text with a bound, and if it
+  genuinely must be unbounded, give its container a way to scroll.
+- And the standing one: **a fixed `childAspectRatio` is a claim that the user's
+  font size will not change.** Test at 1.0/1.5/2.0 at a real phone width, or
+  do not claim the layout holds.

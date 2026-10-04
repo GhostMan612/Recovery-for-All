@@ -176,6 +176,17 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
   Widget build(BuildContext context) {
     final subs = RecoveryPetService.subcategoriesOf(_currentCategory);
 
+    // One text scale for the whole screen, computed once. The header below and
+    // the grid both have to respond to it, and they have to agree: a header that
+    // keeps its full-height avatar while the grid shrinks is how you fix a
+    // 12px clip and create a 28px one.
+    //
+    // Capped at 1.6x. Beyond that the extra height stops buying useful space and
+    // just pushes the grid further off-screen; the user's own setting is not
+    // ours to second-guess past the point of diminishing returns.
+    final rawScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final textScale = rawScale < 1.0 ? 1.0 : (rawScale > 1.6 ? 1.6 : rawScale);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ThemedBackground(
@@ -198,6 +209,20 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                         widget.onboardingMode
                             ? 'Shape your avatar'
                             : 'Avatar dresser',
+                        // One line, ellipsized. This is the whole trap of this
+                        // header: `Expanded` protects the *flex* child, but a
+                        // non-flexible Spark readout beside it is laid out at
+                        // INTRINSIC width first, so a wide total ("999999✦")
+                        // takes the space before the title gets any. The title
+                        // then wraps, and because the header Column is not
+                        // scrollable — it has an Expanded(TabBarView) under it
+                        // that needs a bounded height — that extra line shows up
+                        // as a 65px overflow at the bottom of the screen.
+                        //
+                        // A short fixed title truncating is right; a tall header
+                        // is not.
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 18,
@@ -216,9 +241,21 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                   ],
                 ),
               ),
-              AvatarVisualLayer(pet: _pet, size: 150),
+              // The header Column is NOT scrollable — it has an Expanded(TabBarView) beneath
+              // it, which needs a bounded height — so when the user's text grows,
+              // something has to give. The portrait yields: it shrinks as the
+              // text scale rises, which measured 40px of relief at 1.6x against
+              // the 28px overflow a long pet name produced at 2x.
+              AvatarVisualLayer(
+                  pet: _pet, size: 150.0 - 40.0 * (textScale - 1.0)),
               Text(
                 _pet.name,
+                textAlign: TextAlign.center,
+                // The name is user-supplied, so its length is not ours to bound.
+                // Two lines with an ellipsis is what stops a long name from
+                // pushing the portrait and the tab bar off the screen.
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
@@ -309,14 +346,21 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                           .where((i) => i.subcategory == _subFilter)
                           .toList();
                     }
+                    // A fixed `childAspectRatio` is only correct at ONE text
+                    // scale. These cells hold a fixed 34dp painted icon plus two
+                    // lines of text, so at 1.5x/2.0x the content outgrows the
+                    // cell: measured overflow was 14px at 1.5x and 12px at 2.0x
+                    // on a 360dp phone (lessons-learned L14 — a card in a
+                    // fixed-aspect-ratio grid needs a multi-scale test, and
+                    // reading the code is not enough). `textScale` is the
+                    // screen-wide value computed at the top of this build.
                     return GridView.builder(
                       padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
-                        childAspectRatio: 0.85,
+                        childAspectRatio: 0.85 / textScale,
                       ),
                       itemCount: items.length,
                       itemBuilder: (context, index) {
@@ -355,13 +399,20 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                                 // item, and it is the surface a player scrolls
                                 // for the longest, so it is the worst place to
                                 // ship system-font art that differs per device.
-                                SizedBox(
-                                  height: 34,
-                                  width: 34,
-                                  child: CustomPaint(
-                                    painter: CosmeticIconPainter(
-                                      itemId: item.id,
-                                      item: item,
+                                //
+                                // Flexible so this is the child that yields when
+                                // a large text scale leaves the cell too short
+                                // for both text lines. Text is never the thing
+                                // that gets clipped.
+                                Flexible(
+                                  child: SizedBox(
+                                    height: 34,
+                                    width: 34,
+                                    child: CustomPaint(
+                                      painter: CosmeticIconPainter(
+                                        itemId: item.id,
+                                        item: item,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -389,6 +440,15 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
                                           : (item.free || item.cost == 0
                                               ? 'Free'
                                               : '${item.cost}✦'),
+                                  // A cell has a fixed height, so an unbounded
+                                  // status line wraps until the column
+                                  // overflows. `${item.cost}✦` is short for
+                                  // every current cosmetic, but it is a number
+                                  // formatted from data — a four- or five-digit
+                                  // value must ellipsize, not push the cell.
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: equipped
                                         ? Theme.of(context).colorScheme.primary
