@@ -27,6 +27,18 @@ built and signature-verified at
 upload candidate and supersedes every `+9` reference below. Device
 verification of the current source is owned by the user and has not been run for
 this batch.
+- **🟢 Fresh CLEAN release build, verified (this session).** `flutter clean` was
+  run first and the previous AAB confirmed **deleted** before rebuilding, so this
+  is not a re-emission of an earlier artifact — that check is the whole point,
+  because a build directory can be stale in ways nothing complains about. 1053s
+  from scratch, 129.5 MB, then verified on all three axes:
+  | question | answer |
+  |---|---|
+  | Whose key? | `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery` — **not** `CN=Android Debug` |
+  | Does it verify? | `jar verified.` (with the expected self-signed PKIX warning) |
+  | Is it the current code? | `PRAGMA table_info(`, `Avatar dresser` and `dashboardDataProvider` all **found** inside `base/lib/arm64-v8a/libapp.so` in the signed AAB |
+  Manifest: `com.recoveryforall`, versionCode **10**, versionName **1.0.0**. All
+  six llama/ggml libs plus `libsqlcipher.so` present in arm64-v8a.
 
 **Tester round (Oct 30, hardware).** Three findings, all closed in code:
 1. **Walk logger WORKS** on the Moto G — verified, including on legacy builds.
