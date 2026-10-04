@@ -6,10 +6,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/dashboard_providers.dart';
 import '../core/theme/app_colors.dart';
 import '../services/feedback_service.dart';
+// Imported for the `RecoveryPet` TYPE only. This screen must not read pet
+// state from the service — see the class doc below — but the type is declared
+// there, and `dashboardDataProvider` hands back that same type.
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart' show appReduceMotion;
 import '../widgets/trial_monster_painter.dart';
@@ -63,16 +68,29 @@ class _Pop {
   _Pop(this.text, this.color, this.y, this.opacity);
 }
 
-class PetTrialsScreen extends StatefulWidget {
+/// A `ConsumerStatefulWidget` on purpose. This screen used to be a plain
+/// `StatefulWidget` holding its own `RecoveryPet? _pet`, populated by calling
+/// `RecoveryPetService.ensureHatched()` in `initState`.
+///
+/// That was a second live copy of the same row, and it is a copy of a value
+/// that changes: `_buildLobby` gates an ability on `(_pet?.sparks ?? 0) ~/ 100
+/// >= 5`. A one-shot read in `initState` meant the 500-Sparks ability stayed
+/// locked for anyone who earned the 500th Spark anywhere else in the app, with
+/// no way to re-read it — the navigation shell keeps destinations alive in an
+/// `IndexedStack`, so this screen is not torn down and rebuilt either.
+///
+/// Reading `dashboardDataProvider` makes the duplicate impossible: one owner,
+/// and it updates itself.
+class PetTrialsScreen extends ConsumerStatefulWidget {
   const PetTrialsScreen({super.key});
 
   @override
-  State<PetTrialsScreen> createState() => _PetTrialsScreenState();
+  ConsumerState<PetTrialsScreen> createState() => _PetTrialsScreenState();
 }
 
-class _PetTrialsScreenState extends State<PetTrialsScreen>
+class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     with TickerProviderStateMixin {
-  RecoveryPet? _pet;
+  RecoveryPet? get _pet => ref.watch(dashboardDataProvider).pet;
   _BattleState? _battle;
   bool _busy = false;
   late AnimationController _breath;
@@ -133,7 +151,6 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
       setState(() => _shakeX = math.sin(t * math.pi * 6) * 10 * decay);
     });
     _flash.addListener(() => setState(() => _hitFlash = 1 - _flash.value));
-    _load();
     _maybeShowTutorial();
   }
 
@@ -244,12 +261,6 @@ class _PetTrialsScreenState extends State<PetTrialsScreen>
     setState(() => _lunge = 14);
     await Future<void>.delayed(const Duration(milliseconds: 120));
     if (mounted) setState(() => _lunge = 0);
-  }
-
-  Future<void> _load() async {
-    final pet = await RecoveryPetService.ensureHatched();
-    if (!mounted) return;
-    setState(() => _pet = pet);
   }
 
   Future<int> _battlesToday() async {

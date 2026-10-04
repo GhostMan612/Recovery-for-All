@@ -187,6 +187,16 @@ python tools/verify_resources.py                            # only if a URL actu
      `addColumn(peerKeyB64)` + `createIndex(idxSyncKeyTs)` from the v13 block
      turns it red in 3 places. A test that has never been observed failing is
      not evidence of anything — same law as `selftest_invariant7.py`.
+  3. **Cover the WHOLE chain, not just the newest hop.** `onUpgrade` is one
+     function holding **twelve** `if (from < N)` blocks. The second group in
+     that file seeds a **v1** database and upgrades it to v13 in one launch,
+     which is the path a first-release install takes and the only thing that
+     executes the other eleven blocks. It asserts the four v1 tables keep their
+     rows, the seven migration-created tables appear, all eight indexes are
+     built, nullable columns come back `null` (the v3→v6 shape) and
+     `counters.daily_cost` comes back `0.0` (added-with-default backfill), and
+     that `recovery_pets` is **writable** — a column-presence check cannot tell
+     you the table accepts what the real code writes.
 - **GGUF native libs are prebuilt and committed.**
   `android/app/src/main/jniLibs/arm64-v8a/*.so` (libllama, libggml, libggml-base,
   libggml-cpu, libmtmd, libllama-common) were built from llama.cpp source with
@@ -246,13 +256,18 @@ python tools/verify_resources.py                            # only if a URL actu
   When a rule changes on purpose, update the gate and this file in the same
   commit.
 - **Eight known gaps in those gates, so do not trust them blindly.** Invariant 8
-  scans `lib/screens/dashboard_screen.dart` only — three other screens still
-  hold a private `_pet`. Invariant 9 pairs by statement and by a ±12-line
-  window, so a fill declared more than 12 lines from its text still slips past,
-  and a raw colour inside a `CustomPainter` is intentionally not flagged (white
-  on a canvas is a constant, not a tone mismatch). Invariant 10 compares byte
-  offsets, so it cannot distinguish a declaration from a mention of the same
-  text; the behavioural test
+  scans every `lib/screens/*.dart` for a private `RecoveryPet` field and now
+  exempts only `PET_OWNER_LOCAL_EDIT_BUFFERS` (`avatar_dresser_screen`, which
+  edits a pet handed in by the caller and pops it back, so it never reads the
+  database); its second half — the dashboard reading pet state back out of
+  `RecoveryPetService` — is still scoped to `dashboard_screen.dart` alone, and
+  `constellation_screen.dart` legitimately writes through the service, relying on
+  the notifier's stream subscription to stay current. Invariant 9 pairs by
+  statement and by a ±12-line window, so a fill declared more than 12 lines from
+  its text still slips past, and a raw colour inside a `CustomPainter` is
+  intentionally not flagged (white on a canvas is a constant, not a tone
+  mismatch). Invariant 10 compares byte offsets, so it cannot distinguish a
+  declaration from a mention of the same text; the behavioural test
   `test/constellation_3d_controls_reachable_test.dart` covers the real hit path.
   Invariant 11 is a static scan of the rules text, not a rules-unit-test — it
   catches the two shapes that shipped, and cannot prove the absence of every
@@ -366,12 +381,32 @@ python tools/verify_resources.py                            # only if a URL actu
   surface.
 - **Navigation shell** (Phase 9): `DashboardDestination` in
   `dashboard_providers.dart` is the single source of truth for the four
-  destinations AND the Android back target. The shell uses an
-  `IndexedStack`, so every destination stays alive; a persistent body must
-  therefore be told to refresh explicitly (`SettingsScreenState.refreshState()`
-  via a `GlobalKey`) rather than relying on `initState`. Pet state has ONE
-  owner, `dashboardDataProvider`; never re-add a private `_pet` field or a
-  second `ensureHatched()` call in a screen.
+  destinations AND the Android back target. The shell uses an `IndexedStack`, so
+  every destination stays alive; a persistent body must therefore be told to
+  refresh explicitly (`SettingsScreenState.refreshState()` via a `GlobalKey`)
+  rather than relying on `initState`. This is why the pet-owner rule below
+  matters so much: a destination that stays alive for the whole session is also
+  a screen that never re-reads anything on its own.
+- **Pet state has ONE owner, `dashboardDataProvider`** — and the owner is
+  **live**: `DashboardDataNotifier.build()` subscribes to
+  `RecoveryPetService.watchPetStream()`, so a Spark awarded anywhere in the app
+  reaches the dashboard without anyone remembering to call `setPet`. It is not
+  just single-owner, it is single-*source*; never re-add a private `_pet` field
+  or a second `ensureHatched()` read in a screen, and never add a
+  `copyWith` that swallows an explicit null. `DashboardDataState.copyWith` uses
+  an `_unset` sentinel precisely so `copyWith(pet: null)` can actually clear the
+  pet; the obvious `pet ?? this.pet` makes clearing impossible and only fails
+  when something needs to do it.
+  `PET_OWNER_LOCAL_EDIT_BUFFERS` in `verify_invariants.py` is the one documented
+  exception: `avatar_dresser_screen` keeps a local copy because the pet arrives
+  as a constructor argument and is popped back to the caller, so it never reads
+  the database and cannot disagree with anything.
+  The `get _pet => ref.watch(...)` shape is read from event handlers as well as
+  from `build` (`pet_home_screen._adoptSpecies` spends Sparks through it), which
+  is safe on flutter_riverpod 3.4.3 — `ref.watch` outside `build` returns the
+  current value without registering a dependency, and `build` registers its own.
+  `test/dashboard_pet_liveness_test.dart` pins both halves of that, because a
+  Riverpod upgrade that tightened it would otherwise crash on tap in the field.
 - **M3 theme engine** (Phase 2): `lib/core/theme/app_colors.dart` holds
   `AppColors.themeDataFor(ThemePreference, Brightness)` for 3 palettes × 2
   brightness. `AppColors` top-level statics are DELETED; only

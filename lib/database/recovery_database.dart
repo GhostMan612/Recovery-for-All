@@ -251,33 +251,37 @@ class RecoveryDatabase extends _$RecoveryDatabase {
           await customStatement('PRAGMA foreign_keys = OFF');
           await transaction(() async {
             if (from < 2) {
-              await m.addColumn(profiles, profiles.selectedValues);
+              await _addColumnIfMissing(m, profiles, profiles.selectedValues);
               await m.createTable(weeklyGoals);
             }
             if (from < 3) {
               await m.createTable(wellnessCheckIns);
             }
             if (from < 4) {
-              await m.addColumn(profiles, profiles.sponsorPhone);
-              await m.addColumn(profiles, profiles.customHelpPhone);
+              await _addColumnIfMissing(m, profiles, profiles.sponsorPhone);
+              await _addColumnIfMissing(m, profiles, profiles.customHelpPhone);
             }
             if (from < 5) {
               await m.createTable(recoveryPets);
               await m.createTable(petEvents);
             }
             if (from < 6) {
-              await m.addColumn(profiles, profiles.personalityJson);
+              await _addColumnIfMissing(
+                  m, profiles, profiles.personalityJson);
             }
             if (from < 7) {
               await m.createTable(feedPosts);
             }
             if (from < 8) {
-              await m.addColumn(counters, counters.dailyCost);
+              await _addColumnIfMissing(m, counters, counters.dailyCost);
             }
             if (from < 9) {
-              await m.addColumn(recoveryPets, recoveryPets.equippedSlotsJson);
-              await m.addColumn(recoveryPets, recoveryPets.pathLevel);
-              await m.addColumn(recoveryPets, recoveryPets.pathXp);
+              await _addColumnIfMissing(
+                  m, recoveryPets, recoveryPets.equippedSlotsJson);
+              await _addColumnIfMissing(
+                  m, recoveryPets, recoveryPets.pathLevel);
+              await _addColumnIfMissing(
+                  m, recoveryPets, recoveryPets.pathXp);
             }
             if (from < 10) {
               await m.createTable(fellowshipSyncs);
@@ -309,9 +313,12 @@ class RecoveryDatabase extends _$RecoveryDatabase {
             // `peerKeyB64 = NULL` instead of becoming unreadable. Nullable
             // columns are added without a default and read back as null.
             if (from < 13) {
-              await m.addColumn(fellowshipSyncs, fellowshipSyncs.peerKeyB64);
-              await m.addColumn(fellowshipSyncs, fellowshipSyncs.attested);
-              await m.addColumn(fellowshipSyncs, fellowshipSyncs.role);
+              await _addColumnIfMissing(
+                  m, fellowshipSyncs, fellowshipSyncs.peerKeyB64);
+              await _addColumnIfMissing(
+                  m, fellowshipSyncs, fellowshipSyncs.attested);
+              await _addColumnIfMissing(
+                  m, fellowshipSyncs, fellowshipSyncs.role);
               await m.createIndex(idxSyncKeyTs);
             }
           });
@@ -321,6 +328,38 @@ class RecoveryDatabase extends _$RecoveryDatabase {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+
+  /// Adds [column] to [table], unless the table already has that column.
+  ///
+  /// This is not defensive coding for its own sake; it fixes a live bug.
+  ///
+  /// `Migrator.createTable` builds a table from its CURRENT drift definition.
+  /// So the `if (from < 5)` block that creates `recovery_pets` already produces
+  /// a table containing the three columns that `if (from < 9)` then tries to
+  /// add. Every install upgrading from v1-v8 therefore hit
+  /// `SqliteException: duplicate column name: equipped_slots_json`; the
+  /// surrounding transaction rolled back; and the encrypted database would not
+  /// open AT ALL — no profile, no journal, nothing readable — until the user
+  /// cleared app data, which destroys every one of those rows.
+  ///
+  /// `fellowship_syncs` had the identical shape (created at v10, three columns
+  /// added at v13), so the breakage was not limited to old pets.
+  ///
+  /// The reason no test caught it: every other test in the repo opens a fresh
+  /// database, so only `onCreate` ever ran and `onUpgrade` was never executed
+  /// even once. Found by `test/schema_migration_test.dart`, whose v1 group is
+  /// the only test that traverses blocks 2 through 12.
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn<Object> column,
+  ) async {
+    final existing = await customSelect(
+      'PRAGMA table_info(${table.actualTableName})',
+    ).get();
+    if (existing.any((r) => r.read<String>('name') == column.name)) return;
+    await m.addColumn(table, column);
+  }
 
   Future<int> saveProfile(Profile profile) =>
       into(profiles).insertOnConflictUpdate(profile);

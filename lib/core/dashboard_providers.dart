@@ -15,6 +15,7 @@
 // Ephemeral interaction state (edit mode, tap-debounce timestamps) deliberately
 // stays local to the widget — it is meaningless anywhere else.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -319,16 +320,24 @@ class DashboardDataState {
     this.loading = true,
   });
 
+  /// Sentinel that separates "argument omitted" from "explicitly set to null".
+  ///
+  /// This was `pet: pet ?? this.pet`, which means `copyWith(pet: null)` was a
+  /// silent no-op: there was no way to ever CLEAR the pet. That is invisible
+  /// until something needs to clear it — and now the notifier subscribes to the
+  /// pet row, so a deleted pet row has to be able to clear it.
+  static const Object _unset = Object();
+
   DashboardDataState copyWith({
-    Profile? profile,
-    RecoveryPet? pet,
-    ActiveRaid? raid,
+    Object? profile = _unset,
+    Object? pet = _unset,
+    Object? raid = _unset,
     bool? loading,
   }) {
     return DashboardDataState(
-      profile: profile ?? this.profile,
-      pet: pet ?? this.pet,
-      raid: raid ?? this.raid,
+      profile: identical(profile, _unset) ? this.profile : profile as Profile?,
+      pet: identical(pet, _unset) ? this.pet : pet as RecoveryPet?,
+      raid: identical(raid, _unset) ? this.raid : raid as ActiveRaid?,
       loading: loading ?? this.loading,
     );
   }
@@ -356,9 +365,39 @@ class DashboardDataState {
 }
 
 class DashboardDataNotifier extends Notifier<DashboardDataState> {
+  StreamSubscription<RecoveryPet?>? _petSub;
+
   @override
   DashboardDataState build() {
     _load();
+
+    // The "single owner" of pet state has to be LIVE, or it is not an owner at
+    // all — it is a snapshot that goes stale the first time somebody writes.
+    //
+    // Before this subscription, `pet` was read exactly once in `_load()` and
+    // then only changed if some caller remembered to come back and call
+    // setPet/refreshPet. Any write that went straight to
+    // RecoveryPetService left the entire dashboard showing the pre-write value
+    // until the process restarted. The concrete case: a brand-new user has an
+    // empty sky, taps the seed card in Constellation, `logStar` awards Sparks
+    // in the database — and the dashboard spark counter does not move, because
+    // nobody told it. That is the split-brain this "single owner" was supposed
+    // to prevent; it just moved the staleness from two owners to one stale one.
+    //
+    // `watchPetStream()` is Drift's watch on the pet row and reads the same
+    // singleton `_db` that `_load()` already used, so this adds liveness
+    // without changing WHICH database is consulted.
+    //
+    // A null emission is ignored rather than applied. It means "no pet row",
+    // which `_load()` already represents as its own null pet, and honouring it
+    // would let a stream that cannot reach a database (the `_db == null`
+    // fallback, used under test) wipe a pet that `setPet` had just delivered.
+    _petSub = RecoveryPetService.watchPetStream().listen((pet) {
+      if (!ref.mounted || pet == null) return;
+      state = state.copyWith(pet: pet);
+    });
+    ref.onDispose(() => _petSub?.cancel());
+
     return const DashboardDataState();
   }
 

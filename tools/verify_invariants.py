@@ -390,23 +390,85 @@ PET_OWNER_ALLOWED_CALLERS = {
 # one-off write. The rule that actually matters is narrower and is the one the
 # original violation broke: the DASHBOARD — the screen that both watches the
 # provider and renders its pet — must not read the pet back out of the service.
+#
+# Two separate rules, because they fail differently and neither is implied by
+# the other:
+#
+#   A. No SCREEN may keep its own `RecoveryPet` state. If a screen calls
+#      ensureHatched() and parks the result in a field, that is a second copy of
+#      the row. The dashboard notifier is the only owner; a screen reads it.
+#   B. A screen that WATCHES dashboardDataProvider must not also call
+#      ensureHatched(), because then it is reading the same row twice by two
+#      routes and the two can disagree.
+#
+# B is enforced over every screen. A is enforced over every screen too, with one
+# documented exception below.
+#
+# HISTORY — this rule was claimed by AGENTS.md as "enforced, not merely
+# documented" while being substantially decorative. It scanned exactly one file
+# (dashboard_screen.dart), and its private-`_pet`-field check was DEAD CODE: the
+# `if "ensureHatched" not in line: continue` guard above it meant a field
+# DECLARATION line, which never mentions ensureHatched, could never be examined.
+# So the check that was supposed to catch a second owner could not fire, and
+# pet_trials_screen.dart shipped holding `RecoveryPet? _pet` all along.
 PET_OWNER_ENFORCED_CALLERS = {"screens/dashboard_screen.dart"}
+
+# A local working copy is fine ONLY when the pet arrived as a constructor
+# argument and is handed back to the caller — that is an edit buffer, not a
+# second owner: it never reads the database, so it cannot disagree with anything.
+# avatar_dresser_screen edits cosmetics locally and pops the result back.
+PET_OWNER_LOCAL_EDIT_BUFFERS = {
+    "screens/avatar_dresser_screen.dart",
+}
+
+# Screens allowed to call ensureHatched() as a one-off write. These are writers
+# or pushed routes, not owners; they must not also hold a private pet field, and
+# rule A below is what holds them to that.
+PET_OWNER_ALLOWED_CALLERS = {
+    # The notifier's own loader.
+    "core/dashboard_providers.dart",
+    # The service itself, and the widgets that render a pet handed to them.
+    "services/recovery_pet_service.dart",
+    "widgets/recovery_pet_card.dart",
+    "widgets/dashboard_sections.dart",
+    "widgets/skill_tree_modal.dart",
+    # Writers. constellation_screen seeds a first star via logStar, which awards
+    # Sparks through the service; it is a write path, not an owner. The notifier
+    # now watches the pet row, so this cannot leave the dashboard stale.
+    "screens/constellation_screen.dart",
+}
 
 owner_violations = []
 for path in sorted(LIB.rglob("*.dart")):
     rel = path.relative_to(LIB).as_posix()
+
+    # RULE A — no screen keeps its own RecoveryPet state.
+    if rel.startswith("screens/") and rel not in PET_OWNER_LOCAL_EDIT_BUFFERS:
+        text = strip_comments(read(path))
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if not re.search(r"RecoveryPet\??\s+_pet\b", line):
+                continue
+            # A GETTER is the fixed form and is exactly what we want:
+            #   RecoveryPet? get _pet => ref.watch(dashboardDataProvider).pet;
+            if re.search(r"get\s+_pet\b", line):
+                continue
+            # A named constructor parameter is the caller handing us a pet, not
+            # us taking ownership of one.
+            if re.search(r"\bthis\._pet\b|\brequired\s+.*\bpet\b", line):
+                continue
+            owner_violations.append(
+                "%s:%d: private `_pet` field — dashboardDataProvider owns pet "
+                "state; use `RecoveryPet? get _pet => "
+                "ref.watch(dashboardDataProvider).pet;`" %
+                (path.relative_to(ROOT).as_posix(), lineno)
+            )
+
     if rel in PET_OWNER_ALLOWED_CALLERS or rel not in PET_OWNER_ENFORCED_CALLERS:
         continue
     text = strip_comments(read(path))
     for lineno, line in enumerate(text.splitlines(), start=1):
         if "ensureHatched" not in line:
             continue
-        # A private `_pet` field is the other half of the same rule.
-        if re.search(r"RecoveryPet\??\s+_pet\b", line):
-            owner_violations.append(
-                "%s:%d: private `_pet` field — dashboardDataProvider owns pet state"
-                % (path.relative_to(ROOT).as_posix(), lineno)
-            )
         # Read-back for state the notifier owns.
         if re.search(r"=\s*\(?\s*await\s+RecoveryPetService\.ensureHatched", line) or \
            re.search(r"await\s+RecoveryPetService\.ensureHatched\(\)\s*\.", line):
@@ -418,8 +480,8 @@ for path in sorted(LIB.rglob("*.dart")):
 if owner_violations:
     failures.append(
         "PET-STATE SINGLE OWNER (invariant 8). dashboardDataProvider is the only "
-        "owner of pet state; a screen reading it from RecoveryPetService is a "
-        "split-brain source: "
+        "owner of pet state, and it now WATCHES the pet row, so a screen that "
+        "keeps its own copy is both a split-brain source and needlessly stale: "
         + " || ".join(owner_violations)
         + " -- read `ref.watch(dashboardDataProvider).pet` instead."
     )

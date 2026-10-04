@@ -1080,3 +1080,58 @@ not a comment to any parser that is not specifically forgiving, and
     index turned this one red in 3 places. A test never observed failing is not
     evidence — that is the same law as `selftest_invariant7.py`, applied to
     ordinary tests.
+
+---
+
+## L39 — "single owner" was a stale snapshot wearing an enforcement badge (Oct 2026)
+
+- **What happened:** invariant 8 exists to keep `dashboardDataProvider` the one
+  owner of pet state. Fixing the migration test made me go looking at the
+  screens, and found three things stacked on top of each other:
+  1. **`pet_trials_screen` was a second owner.** A plain `StatefulWidget` with
+     `RecoveryPet? _pet`, filled in `initState` via
+     `RecoveryPetService.ensureHatched()`. And it is not a cosmetic duplicate —
+     `_buildLobby` gates an ability on `(_pet?.sparks ?? 0) ~/ 100 >= 5`. So the
+     500-Sparks ability stayed locked for anyone who earned the 500th Spark
+     anywhere else, with no way to re-read it.
+  2. **The owner's `_pet` check was dead code.** The gate scanned
+     `dashboard_screen.dart` only, and inside it the "private `_pet` field"
+     check sat *underneath* a `if "ensureHatched" not in line: continue` guard.
+     A field DECLARATION line never mentions `ensureHatched`, so the check that
+     was supposed to catch a second owner was structurally unable to fire. It
+     could only ever be reached by a line containing both, which is not a
+     declaration.
+  3. **The "owner" was a one-shot read.** `DashboardDataNotifier.build()` called
+     `_load()`, which read the pet once. After that the state only changed if
+     somebody remembered to call `setPet`. So even the one owner went stale.
+- **Why it matters more than it looks:** AGENTS.md said this rule was "enforced,
+  not merely documented". It was neither, in two independent ways at once. The
+  declared known gap even admitted the scan was one file — while the prose
+  claimed enforcement. **A gate that is mostly decorative is worse than no gate,
+  because it converts "is this checked?" into "yes" and stops anyone looking.**
+- **The fix, in the right order:**
+  - Make the owner **live** — subscribe it to `RecoveryPetService.watchPetStream()`
+    (which existed, unused) inside `build()`, with `ref.onDispose` to cancel.
+    This is the load-bearing change: it makes *every* current and future writer
+    correct automatically. Patching constellation and trials individually would
+    have left the same trap waiting for the next screen that awards a Spark.
+  - `DashboardDataState.copyWith` was `pet ?? this.pet`, so `copyWith(pet: null)`
+    was a silent no-op — **there was no way to clear the pet at all.** Needed a
+    sentinel before the stream could ever clear a deleted row.
+  - Make `pet_trials_screen` a `Consumer` reading the notifier.
+  - Broaden the gate to every `lib/screens/*.dart`, with the dead guard fixed,
+    and one documented exemption for `avatar_dresser_screen` (the pet arrives as
+    a constructor arg and is popped back — an edit buffer, not an owner).
+- **Prevention — the law:** *an exemption list in an architecture gate must have
+  a written reason attached, or it is just a hole with a comment.* And when you
+  widen a static check from one file to all files, **check what the old scoping
+  was accidentally hiding** — that is how `pet_trials_screen` surfaced. A narrow
+  gate hides its own violations in the files it excludes.
+- **The meta-lesson, and the one worth stealing:** this whole class of bug was
+  invisible because every individual fact was defensible. A `StatefulWidget`
+  reading the pet is normal Flutter. A `Notifier` reading once in `build()` is
+  normal Riverpod. A gate scoped to the one file where the original bug lived is
+  normal "fix the thing that broke". **Each piece is idiomatic; the composition
+  is wrong.** So do not review components — trace the data. Ask "who writes this,
+  who reads this, and what happens between those two moments" rather than
+  "is this file well written".

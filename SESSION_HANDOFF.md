@@ -6,8 +6,14 @@ suite, because every drift test opens a fresh in-memory database and therefore
 only ever runs `onCreate` — so the path every existing user takes on first
 launch after an update was untested. That is the same bug class as the v3→v6
 journal-PIN lockout that shipped to real users. Now covered by
-`test/schema_migration_test.dart` (v12→v13 on a populated DB, itself proven to
-go red — see L38). Suite at **623**, analyze clean, **thirteen** invariants
+`test/schema_migration_test.dart` (v12→v13 AND v1→v13, i.e. all twelve
+blocks, itself proven to go red — see L38), and it turned up two live bugs in
+invariant 8 itself (see L39): `pet_trials_screen` held its own `RecoveryPet` (a
+second owner, and it gated the 500-Spark ability off that stale copy), the
+notifier read the pet exactly once so a Spark awarded anywhere left the whole
+dashboard stale, and the gate's own `_pet` check sat under an
+`ensureHatched` guard that made it impossible to fire. All three fixed and
+gated. Suite at **639**, analyze clean, **thirteen** invariants
 green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
 
 **Release state:** the Play upload questionnaire is **complete** and the app is
