@@ -1029,3 +1029,54 @@ not a comment to any parser that is not specifically forgiving, and
   the one that happens to work in the tool you happen to have installed. And if
   a fix passes because a tool was lenient, that is not evidence the fix is
   right; it is a warning that the next tool will not be lenient.
+
+---
+
+## L38 — 612 tests, and `onUpgrade` had never run once (Oct 2026)
+
+- **What happened:** asked whether the repo was bug-free, I went looking for the
+  highest-risk unproven path and grepped for `onUpgrade`, `MigrationStrategy`,
+  `schemaVersion` across `test/`. **Zero hits.** Not one test in 612 exercised a
+  schema migration.
+  The reason is structural and completely reasonable-looking: every drift test
+  opens `NativeDatabase.memory()`, which is empty, so drift runs `onCreate`.
+  `onUpgrade` is the other branch. So the suite covered *building a new
+  database* and had **no coverage at all** of *upgrading an existing one* —
+  which is the only thing an existing user ever does.
+- **Why it matters here specifically:** this project has already shipped a
+  migration that bricked a feature. v3→v6 left the journal PIN hash/salt keys
+  **present but empty**, so `hasPin()` returned true and every unlock attempt
+  failed — real users locked out of their own journals. It passed review, it
+  passed analyze, it passed the suite, because the suite could not run that code
+  even once.
+- **Root cause:** "green tests" was being read as "the code works". What the
+  suite actually certifies is narrower: *the creation path works, and the code
+  is type-correct*. Nobody wrote down which branch each test was exercising, so
+  the uncovered branch was invisible rather than known-missing.
+- **Fix:** `test/schema_migration_test.dart`. Two decisions matter more than the
+  test itself:
+  1. **No hand-written v12 DDL.** The obvious approach — paste the old `CREATE
+     TABLE` — creates a second source of truth that stops matching the real
+     schema, and then the test exercises a database the app never had. Instead
+     drift builds the authoritative schema and the test subtracts exactly what
+     the `if (from < N)` block adds, then sets `PRAGMA user_version = 12`. The
+     subtraction is the inverse of the migration, so the two cannot drift apart
+     quietly: add a column to v13 and the DROPs stop matching and it fails loud.
+  2. **v12 is the right target**, because v13 is the version that just shipped,
+     so v12 is what essentially every real install is sitting on.
+  It also asserts the things a column-presence check misses: that journal
+  ciphertext is **byte-identical** afterwards, that the **v12 alias index
+  survives** (a migration that quietly drops an index still passes every
+  functional test), and that the **retained legacy alias cooldown still blocks**
+  a pre-protocol peer — because if migrating broke that lookup, a user who
+  synced yesterday banks a second +50 XP today.
+- **Prevention — the law:** *enumerate the branches, then check each one is
+  executed somewhere.* For any system with more than one entry path — `onCreate`
+  vs `onUpgrade`, online vs offline, success vs failure, new row vs legacy row —
+  name the branches and ask which tests reach them. A green suite describes the
+  branches it covers, not the code.
+  - Corollary: when you add a test to a gate you already have, **break the thing
+    it is meant to catch and confirm it goes red.** Removing the v13 column and
+    index turned this one red in 3 places. A test never observed failing is not
+    evidence — that is the same law as `selftest_invariant7.py`, applied to
+    ordinary tests.

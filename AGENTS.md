@@ -30,7 +30,7 @@ to run once the plan is finished, not a checklist to work through.
 ```bash
 flutter pub get
 flutter analyze                 # must stay at zero issues
-flutter test                    # host tests; drift tests use NativeDatabase.memory
+flutter test                    # host tests; most drift tests use NativeDatabase.memory
 dart run build_runner build --delete-conflicting-outputs   # after ANY schema edit
 dart run flutter_launcher_icons                            # after icon config/asset changes
 python tools/generate_code_package.py                      # after code changes (see below)
@@ -170,6 +170,23 @@ python tools/verify_resources.py                            # only if a URL actu
    build_runner. Never edit `recovery_database.g.dart` by hand. v9 added
    `recovery_pets.equippedSlotsJson`/`pathLevel`/`pathXp` for the R28 atomic pet
    migration; v12's migration block is the template for adding an index.
+- **Every schema bump must come with a migration test, and the test must be
+  shown to go red.** `test/schema_migration_test.dart` covers v12→v13 on a
+  *populated* database. Until it existed, `onUpgrade` had **zero** coverage,
+  because every other test opens a fresh in-memory database and therefore only
+  ever runs `onCreate` — so the code path every existing user executes on first
+  launch after an update was never executed by the suite. That is not
+  hypothetical: v3→v6 left journal PIN keys present-but-empty and locked real
+  users out of their own journals.
+  Two rules make it useful rather than decorative:
+  1. **No hand-written old DDL.** The test lets Drift build the authoritative
+     current schema and then subtracts exactly what the `if (from < N)` block
+     adds, so the old schema cannot rot into a second source of truth that no
+     longer matches reality. It sets `PRAGMA user_version` to fake the version.
+  2. **Break the migration on purpose and confirm the test fails.** Removing
+     `addColumn(peerKeyB64)` + `createIndex(idxSyncKeyTs)` from the v13 block
+     turns it red in 3 places. A test that has never been observed failing is
+     not evidence of anything — same law as `selftest_invariant7.py`.
 - **GGUF native libs are prebuilt and committed.**
   `android/app/src/main/jniLibs/arm64-v8a/*.so` (libllama, libggml, libggml-base,
   libggml-cpu, libmtmd, libllama-common) were built from llama.cpp source with
