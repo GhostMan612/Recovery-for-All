@@ -628,9 +628,15 @@ the gate will fail and Phase 10 forbids it.
   stale rebuild. All six prebuilt llama/ggml libs and `libsqlcipher.so` are
   present in the arm64-v8a slice; they are far smaller there than on disk
   because release builds run `strip`, which is expected.
-  **⚠ versionCode is still 10, the same as the earlier +10 build.** Play will
-  not accept a re-upload of an already-used versionCode, so if +10 was ever
-  uploaded this must go out as **+11** (`pubspec.yaml` version) before release.
+  **✅ versionCode 10 is correct — no bump needed (human-confirmed Oct 2026).**
+  The highest AAB ever uploaded to Play is **+8**, live in Closed Testing. So
+  +10 clears it and nothing has been burned. An earlier note here warned that
+  `10` would have to become `+11` because it matched the previous local build's
+  code; that was reasoning from a build directory, not from release history.
+  Play's constraint is against a versionCode that has been *uploaded*, not one
+  that has been *built*, and locally-built +9 and +10 were never uploaded.
+  Do not renumber downwards either — going back to +9 would gain nothing and
+  only makes the next upload's number lower for no benefit.
   `build/` is gitignored, so re-verify the file exists before referencing it,
   and do not trust any artifact name remembered from an earlier session.
 - **🟢 DEVICE VERIFIED (Oct round, LG B160V, versionCode 9, debug APK, font_scale
