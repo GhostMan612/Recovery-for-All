@@ -242,10 +242,12 @@ order, added after the 3D view turned out to be a one-way door (see L32); and 11
 is Firestore-rule ownership, added after `firestore/firestore.rules` shipped
 `allow read, write: if request.auth != null` over clinical step-work bundles.
 
-> **Superseded: it is THIRTEEN now, and the suite is 645.** 12 forbids companion
-> surfaces re-introducing a system emoji as artwork, and 13 requires the
+> **Superseded: it is FOURTEEN now, and the suite is 645.** 12 forbids companion
+> surfaces re-introducing a system emoji as artwork, 13 requires the
 > fellowship reward to be unreachable before attestation and keys the 24-hour
-> cooldown on the peer's public key. Invariant 7 also turned out to cover only
+> cooldown on the peer's public key, and 14 forbids a release build from silently
+> falling back to the debug signing key — a fix that shipped *after* this UI work
+> and is unrelated to it. Invariant 7 also turned out to cover only
 > the *unambiguous* missing-brace shapes — see L36 — which is why the
 > `KNOWN_GAPS` block in `selftest_invariant7.py` is load-bearing rather than
 > decorative. Current numbers live in `SESSION_HANDOFF.md`.

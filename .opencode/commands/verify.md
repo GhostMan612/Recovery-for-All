@@ -1,5 +1,5 @@
 ---
-description: Run every gate at the end of a task — analyze, tests, color, architecture invariants, invariant self-test, code package
+description: Run every gate at the end of a task — analyze, tests, color, architecture invariants, invariant self-tests, code package
 ---
 Run every gate in this order and report a compact summary. Filter output to
 failures only — this is a token-conservation command.
@@ -32,7 +32,7 @@ cheaper and is what actually catches the errors.
    invariant 9's job.
 
 4. `python tools/verify_invariants.py`
-   Must exit 0. Enforces the **thirteen** architecture invariants:
+   Must exit 0. Enforces the **fourteen** architecture invariants:
 
    1. a single `databaseProvider` override in `main.dart`
    2. exactly one `SosTile` implementation, and `_showSosSheet` still reachable
@@ -60,15 +60,26 @@ cheaper and is what actually catches the errors.
    12. no companion surface re-introduces a system emoji as artwork, and no
       companion **data** file declares a glyph (`PetCosmetic.emoji`,
       `PetMoodX.emoji`, `presetEmojis` are deleted, not deprecated)
-   13. the fellowship reward is unreachable before
-      `FellowshipAttestationService.verify`, and its 24-hour cooldown is keyed on
-      the peer's **public key**, never the peer-chosen alias
+13. the fellowship reward is unreachable before
+       `FellowshipAttestationService.verify`, and its 24-hour cooldown is keyed on
+       the peer's **public key**, never the peer-chosen alias
+   14. the release build cannot silently fall back to the **debug** signing key.
+       `android/app/build.gradle.kts` must detect a release task from
+       `gradle.startParameter.taskNames` and `throw GradleException` when the
+       keystore is missing, while the debug build keeps its debug fallback. A
+       debug fallback is correct for debug and wrong for release, and one `if`
+       cannot serve both — that is why the build reads its own task name.
 
    **Known gaps — do not trust blindly, and do not "fix" a regex to close one.**
-   Invariant 8 scans `dashboard_screen.dart` only (three other screens still
-   hold a private `_pet`); invariant 9 pairs by statement and by a ±12-line
-   window, so a fill more than 12 lines from its text slips past, and a raw
-   colour inside a `CustomPainter` is deliberately not flagged; invariant 10
+   Invariant 8 scans every `lib/screens/*.dart` for a private `RecoveryPet` field
+   and now exempts only `PET_OWNER_LOCAL_EDIT_BUFFERS` (`avatar_dresser_screen`,
+   which edits a caller-supplied pet and pops it back, so it never reads the
+   database); its *second* half — the dashboard reading pet state back out of
+   `RecoveryPetService` — is still scoped to `dashboard_screen.dart` alone, and
+   `constellation_screen.dart` legitimately writes through the service, relying
+   on the notifier's stream to stay current; invariant 9 pairs by statement and by
+   a ±12-line window, so a fill more than 12 lines from its text slips past, and a
+   raw colour inside a `CustomPainter` is deliberately not flagged; invariant 10
    compares byte offsets, so it cannot tell a declaration from a mention of the
    same text — the behavioural half is
    `test/constellation_3d_controls_reachable_test.dart`; invariant 11 is a
@@ -77,6 +88,15 @@ cheaper and is what actually catches the errors.
    it does not forbid non-ASCII text because the UI legitimately uses `·`, `✦`,
    `—`; invariant 13 compares byte offsets within one method and checks two
    needles, so a helper that grants XP from elsewhere would not be seen.
+   **Invariant 14 is a text check on a build file, and it says so itself.** It
+   proves the guard is present and that a `throw` sits *inside* the guarded
+   branch — it requires the literal `if (RELEASE_VARIANT_REQUESTED)`, because a
+   rule that merely greps for the flag name and for `GradleException` passes both
+   `if (false) { throw … }` and `val ignored = GradleException(…)`, which are the
+   original bug wearing a hat. It still cannot execute Gradle, so it cannot prove
+   the throw is on the path actually taken, and it cannot detect a keystore that
+   exists but holds the wrong key. **Only the build proves those** — see the
+   signing note at the end of this file.
    **Invariant 7 covers only the unambiguous subset and cannot be widened** —
    `'$modelId.gguf'` (a file extension) and the real bug
    `'$role.wire|$alias|$nonceA'` are the same token shape, only one of which is
@@ -95,12 +115,22 @@ cheaper and is what actually catches the errors.
    this to make a run cleaner.
    Also run `tools/selftest_invariant7.py` after touching the invariant 7 regex.
 
-6. `python tools/generate_code_package.py`
+6. `python tools/selftest_invariant14.py`
+   Must exit 0, and must run in the **same batch** as gate 4. Invariant 14 guards
+   a *decision in a build file*, which is exactly the kind of rule that gets
+   reverted by accident while someone fixes something unrelated nearby — that is
+   how the silent debug-signing fallback shipped. Its negative control strips
+   every code line and leaves only the prose comments: if that passes, the rule
+   is matching a comment instead of the behaviour.
+   Also run it after touching `check_release_signing` in `verify_invariants.py`
+   or the signing block in `android/app/build.gradle.kts`.
+
+7. `python tools/generate_code_package.py`
    Regenerates `blueprints/recovery_all_code.md` from `lib/`. Not a pass/fail
    gate, but it must be re-run whenever any `lib/` file changed, or the
    generated code package silently goes stale.
 
-7. `python tools/verify_resources.py` — **only if a URL actually changed.**
+8. `python tools/verify_resources.py` — **only if a URL actually changed.**
    All links must be alive. Skip it otherwise; it is a network round trip.
 
 Report: one line per gate (status + key number), then any failures with
@@ -110,7 +140,23 @@ Report: one line per gate (status + key number), then any failures with
 `flutter build appbundle --release`, and signed release bundles via
 `android/key.properties` + `upload-keystore.jks`. Do not re-ask. But builds still
 belong in the **end-of-plan batch**, not mid-plan — pre-authorized is not
-"whenever". After a release build, verify the signature rather than assuming it:
-`jarsigner -verify -verbose:summary build\app\outputs\bundle\release\app-release.aab`
-must print `s = signature was verified`. `build/` is gitignored, so re-verify the
-artifact exists before anyone references it by name.
+"whenever".
+
+**After a release build, read the SIGNER — do not trust the exit code.**
+`jarsigner` is not on PATH; it lives at
+`C:\android\Android Studio\jbr\bin\jarsigner.exe`. Run
+`jarsigner -verify -verbose -certs build\app\outputs\bundle\release\app-release.aab`
+and read the identity. It must be
+`CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery`, **never**
+`CN=Android Debug`. A debug-signed release builds cleanly and prints
+`jar verified.` — the signature is genuinely valid, just not yours — so
+"it built" and "it verified" together prove nothing about *whose* key was used.
+The PKIX "certificate chain is invalid" warning beside `jar verified.` is
+expected for a self-signed upload key and is harmless.
+
+Then prove the artifact contains the code you think it does. Find a string
+literal unique to the change (e.g. `PRAGMA table_info(`) and grep for it inside
+`base/lib/arm64-v8a/libapp.so` in the signed `.aab`. A build directory can be
+stale in ways nothing complains about, and "rebuilt from current source" is a
+claim, not an observation. `build/` is gitignored, so re-verify the artifact
+exists before anyone references it by name.

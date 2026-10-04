@@ -45,9 +45,11 @@ for name in sorted(os.listdir(bp_dir)):
     if name.endswith(".md") and name != "recovery_all_code.md":
         TARGETS.append((f"blueprints/{name}", "markdown"))
 
-# Sprint plan + project notes.
+# Project notes. SPRINT_PLAN.md used to be listed here and has since been
+# removed -- it no longer exists, and the os.path.exists guard below made it a
+# silent no-op that still read as though the sprint plan were a live input.
 for rel, tag in [("SESSION_HANDOFF.md", "markdown"),
-                 ("SPRINT_PLAN.md", "markdown"), ("CLAUDE.md", "markdown")]:
+                 ("CLAUDE.md", "markdown")]:
     if os.path.exists(os.path.join(ROOT, rel)):
         TARGETS.append((rel, tag))
 

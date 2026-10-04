@@ -121,16 +121,29 @@ Do not install software, modify system settings, or write to new locations outsi
 ### 4.1 Cold start (every session, in order)
 1. Read `AGENTS.md`
 2. Read THIS file (`RULES.md`)
-3. Read `blueprints/roadmap-v2.md` → current tier
-4. Check `blueprints/SPRINT_PLAN.md` status block for latest state (historical; gitignored)
+3. Read `SESSION_HANDOFF.md` §3/§7 → current state and next moves
+4. Read `blueprints/roadmap-v2.md` → current tier, **if it exists**. It is
+   gitignored: present on this machine, absent from a fresh clone. If it is
+   missing, that is the expected state, not an error — do not go looking for a
+   substitute, and do not treat its absence as "no plan".
+   `blueprints/SPRINT_PLAN.md` used to be listed here. **It no longer exists.**
+   Do not reference it; a doc index that points at nothing is worse than no
+   index, because it reads as authoritative.
 
 ### 4.2 Session end (every session)
 1. Finish the entire plan first. No shell ran during it (§1.5, `AGENTS.md` SHELL DISCIPLINE).
-2. **Then**, in one batched shell block: `flutter analyze` + `flutter test` + `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py` + **`python tools/selftest_invariant7.py`**. That last one is not optional — it is the only thing that proves the invariant checker can go red, and it is where invariant 7's provable blind spot is declared. Skip it and the checker is decoration.
+2. **Then**, in one batched shell block: `flutter analyze` + `flutter test` + `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py` + **`python tools/selftest_invariant7.py`** + **`python tools/selftest_invariant14.py`**. Neither self-test is optional — they are the only things that prove the invariant checkers can go red, and `selftest_invariant7.py` is where invariant 7's provable blind spot is declared. Skip them and the checkers are decoration. Invariant 14's needs the second spot most: it guards a *decision in a build file*, which is exactly what gets reverted by accident while someone fixes something nearby — that is how the silent debug-signing fallback shipped.
 3. Run `python tools/generate_code_package.py`
 4. Tick relevant `blueprints/*.md` checklists
 5. Device checklist, if the plan called for one — also batched into the same end pass
-6. Commit code by explicit path with a descriptive message
+6. After any **release** build, read the signer CN from
+   `C:\android\Android Studio\jbr\bin\jarsigner.exe -verify -verbose -certs`. It
+   must be `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery`, never
+   `CN=Android Debug`. `jar verified.` proves the signature is valid, not whose
+   key made it. Then grep a literal unique to your change inside
+   `base/lib/arm64-v8a/libapp.so` in the `.aab` to prove the artifact is not
+   stale.
+7. Commit code by explicit path with a descriptive message
 
 ### 4.3 Verification law
 No feature is *reported done* until `flutter analyze` reports zero issues AND `flutter test` passes — and those two numbers are collected **once, at the end**, not per feature. Evidence before status flips; the evidence is a single end-of-plan run, and a run is only meaningful if it is the one that closes the plan. Mid-plan runs produce stale signal that must then be re-derived, and they are what turns a three-day plan into a three-day wait.

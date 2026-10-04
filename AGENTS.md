@@ -18,14 +18,21 @@ explicit-path commits) and **§5 Build Boundary** are binding:
   below for when it runs. Builds still happen only in the end-of-plan batch —
   authorization to build is not permission to build mid-plan. Release signing
   keys are never committed; `build/` is gitignored.
-  **A missing release keystore silently produces a DEBUG-signed release.**
-  `android/app/build.gradle.kts` ends with
+  **A missing release keystore USED TO silently produce a DEBUG-signed
+  release.** This is fixed and gated (invariant 14), but the manual check below
+  is still required, so the history matters. The line used to read
   `signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else
   signingConfigs.getByName("debug")` — and a debug-signed bundle builds cleanly
   and passes `jarsigner -verify`. So "it built and it verified" does **not**
-  prove the upload key was used. After any release build, confirm the signer
-  identity explicitly: it must be
-  `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery`, never
+  prove the upload key was used. `android/app/build.gradle.kts` now computes
+  `RELEASE_VARIANT_REQUESTED` from `gradle.startParameter.taskNames` and
+  `throw`s a `GradleException` when a release build has no keystore; the debug
+  build keeps its debug fallback, because release keys are gitignored and a fresh
+  clone must still be able to build debug. Do **not** relax that throw back to a
+  `logger.warn` — a warning is not a refusal, and it is invisible anyway because
+  Flutter filters Gradle warnings unless you pass `--verbose`.
+  Even so, after any release build, confirm the signer identity explicitly: it
+  must be `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery`, never
   `CN=Android Debug`. Also note `jarsigner` is not on `PATH` — it lives at
   `C:\android\Android Studio\jbr\bin\jarsigner.exe` — and a self-signed upload
   key always prints a harmless PKIX "certificate chain is invalid" warning
@@ -289,7 +296,10 @@ python tools/verify_resources.py                            # only if a URL actu
   cannot prove the throw is on the path actually taken, and cannot detect a
   keystore that exists but holds the wrong key. Only the build proves that —
   which is why §5 still requires reading the signer identity.
-- **Eight known gaps in those gates, so do not trust them blindly.** Invariant 8
+- **Known gaps in those gates, so do not trust them blindly.** Deliberately not
+  given a count: the number went stale the moment a rule was added, twice, and a
+  wrong count reads as authoritative in a way the detailed text does not.
+  Invariant 8
   scans every `lib/screens/*.dart` for a private `RecoveryPet` field and now
   exempts only `PET_OWNER_LOCAL_EDIT_BUFFERS` (`avatar_dresser_screen`, which
   edits a pet handed in by the caller and pops it back, so it never reads the
@@ -309,7 +319,16 @@ python tools/verify_resources.py                            # only if a URL actu
   a newly-named emoji would pass; it also does not forbid non-ASCII text,
   because the UI legitimately uses `·`, `✦` and `—`. Invariant 13 compares byte
   offsets within one method and checks two needles, so a helper that grants XP
-  from somewhere else would not be seen. **Invariant 7 covers only the
+  from somewhere else would not be seen. **Invariant 14 is a text check on a
+  build file**, and its own selftest states the limits out loud: it requires the
+  literal `if (RELEASE_VARIANT_REQUESTED)` and a `throw` *inside* that branch,
+  because a rule that merely greps for the flag name and for `GradleException`
+  passes both `if (false) { throw … }` and `val ignored = GradleException(…)` —
+  the original bug wearing a hat. It still cannot execute Gradle, so it cannot
+  prove the throw is on the path actually taken, and it cannot detect a keystore
+  that exists but holds the wrong key. **Only the build proves those**, which is
+  why §5 still requires reading the signer identity.
+  **Invariant 7 covers only the
   unambiguous subset of missing-brace interpolation and cannot be widened**:
   `'$modelId.gguf'` (a file extension) and the real bug
   `'$role.wire|$alias|$nonceA'` are the same token shape, and the former is

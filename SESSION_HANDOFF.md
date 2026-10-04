@@ -18,7 +18,7 @@ gated. The last declared-unverified surface — the avatar dresser at large text
 pet name, and a wide Spark total whose cause was 60 lines away from where it was
 reported); all fixed, pinned at a pinned 360dp surface so the test cannot pass
 for the wrong reason (L40). Suite at **645**, analyze clean,
-**thirteen** invariants green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
+**fourteen** invariants green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
 
 **Release state:** the Play upload questionnaire is **complete** and the app is
 **awaiting approval for public publishing**. A signed `1.0.0+10` release AAB is
@@ -250,7 +250,7 @@ resume without losing progress. Update it at every session end.
     `bgDeep` into `surface`). This is a property of the palettes as designed,
     not a regression, and it is asserted in `test/theme_matrix_test.dart` so it
     cannot change silently. Changing the palettes is out of scope.
-- **The invariant gate is now the biggest one, at THIRTEEN rules:**
+- **The invariant gate is now the biggest one, at FOURTEEN rules:**
   `python tools/verify_invariants.py`. It started at 7 and each addition came
   from something that actually shipped: a second `SosTile`; the twelve
   load-bearing SharedPreferences keys going missing *or drifting out of their
@@ -261,20 +261,24 @@ resume without losing progress. Update it at every session end.
   a `colorScheme` panel; the constellation 3D overlay declared after the controls
   (a Stack hit-tests its last child first, so 3D mode was a one-way door);
   Firestore rules gated on `request.auth != null` alone; companion emoji art
-  returning; and the fellowship reward becoming reachable before attestation.
-  The valuable one is the partial-rename case for keys: the key still exists in
-  the reader while the writer moved on, which loses real users' settings with no
-  error anywhere.
-  **`tools/selftest_invariant7.py` runs alongside it and must too** — it is the
-  only thing that proves the checker can go red, and it is where the shapes
-  invariant 7 provably cannot flag are declared as `KNOWN_GAPS`. See L36 for why
-  that gap cannot simply be regexed away.
+  returning; the fellowship reward becoming reachable before attestation; and a
+  release build that falls back to the debug signing key when the upload keystore
+  is absent (14). The valuable one is the partial-rename case for keys: the key
+  still exists in the reader while the writer moved on, which loses real users'
+  settings with no error anywhere. The newest (14) is the one most likely to be
+  reverted by accident, because it is a *decision in a build file* and the next
+  person to touch signing will be fixing something unrelated nearby.
+  **`tools/selftest_invariant7.py` and `tools/selftest_invariant14.py` run
+  alongside it and must too** — they are the only things that prove the checkers
+  can go red, and `selftest_invariant7.py` is where the shapes invariant 7
+  provably cannot flag are declared as `KNOWN_GAPS`. See L36 for why that gap
+  cannot simply be regexed away.
 - **Repo tooling** in `.opencode/`: two auditor subagents (`text-scale-auditor`,
   `a11y-auditor`) that report findings with `file:line` and never edit, plus a
   `/verify` command that runs the full end-of-plan gate list (it has been
-  rewritten to match the real set: 13 invariants, the colour gate, the
-  invariant-7 self-test, the code package, and resources only when a URL
-  changed). Both auditors earned their keep:
+  rewritten to match the real set: 14 invariants, the colour gate, the
+  invariant-7 and invariant-14 self-tests, the code package, and resources only
+  when a URL changed). Both auditors earned their keep:
   the two-agent a11y/text-scale sweep found 117 issues, and only the
   *rendered* matrix found the Phase 13 overflow, which no amount of reading
   the code would have. Still the right first stop for a UI change, but treat
@@ -401,10 +405,22 @@ that requires a human with a phone and a Play account.
 | Map/tiles/offline packs? | blueprints/tacmap-extraction.md |
 | Firebase console steps? | blueprints/firebase-setup.md |
 | Feed guardrails C1–C5? | pet-store-rules.md §4 (+ community_feed_service_test.dart) |
-| Original MVP plan? | blueprints/SPRINT_PLAN.md (complete, historical) |
 | Original vision docs? | Volume_*.md + architecture/onboarding blueprints (marked HISTORICAL VISION — superseded) |
 | Full source dump? | blueprints/recovery_all_code.md (GENERATED — never hand-edit) |
 | What did we learn the hard way? | blueprints/lessons-learned.md (update when we trip) |
+
+> **Read the "where do I find it" table knowing that most of it is local-only.**
+> `roadmap-v2.md`, `pet-store-rules.md`, `gguf-feasibility.md`,
+> `pet-rpg-design.md`, `tacmap-extraction.md` and `firebase-setup.md` are all
+> **gitignored** — present on this machine, absent from a fresh clone. Only
+> `SESSION_HANDOFF.md`, `lessons-learned.md`, `UI-UX-themes-plan.md` and
+> `AGENTS.md` travel with the code.
+> The row that used to answer "Original MVP plan?" pointed at
+> `blueprints/SPRINT_PLAN.md`, **which no longer exists**. It was removed
+> rather than re-pointed: the MVP is finished and its plan has no remaining
+> reader, so an entry for it would be an index pointing at nothing — which
+> reads as authoritative and is worse than an honest gap. Use `git log` for
+> the MVP's actual history.
 
 ## 7 · Next moves (current)
 
@@ -525,11 +541,11 @@ the gate will fail and Phase 10 forbids it.
 - Gates after this round: `flutter analyze` -> No issues found; `flutter test` ->
   **300 passing** at that time; `verify_no_hardcoded_colors.py` -> exit 0;
   `verify_invariants.py` -> exit 0. The counts and invariant total have since
-  moved on — the current numbers are in the date line at the top (**612
-  tests, 13 invariants**). 8 is the pet-state single owner, 9 the
+  moved on — the current numbers are in the date line at the top (**645
+  tests, 14 invariants**). 8 is the pet-state single owner, 9 the
   paired-foreground colour role, 10 the constellation `Stack` child order,
   11 Firestore-rule ownership, 12 no-emoji companion art, 13 attestation
-  before the fellowship XP grant.
+  before the fellowship XP grant, 14 the release-signing guard.
 
 ### Earlier session-boundary state (Sep 30, after Phase 17 + FIRST device verification)
 
