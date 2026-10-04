@@ -13,6 +13,18 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Did THIS invocation ask for a release variant? Checked from the requested
+// task names rather than assumed, so a debug build is never blocked by an
+// absent keystore (release keys are gitignored, so a fresh clone legitimately
+// has none and must still be able to build debug).
+val RELEASE_VARIANT_REQUESTED: Boolean =
+    gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+
+// Captured here because the buildTypes/buildType lambdas have their own
+// receivers; relying on `logger` resolving through that chain is exactly the
+// kind of thing that compiles on one Gradle version and not the next.
+val gradleLogger = logger
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -69,7 +81,38 @@ android {
     buildTypes {
         getByName("release") {
             val releaseSig = signingConfigs.getByName("release")
-            signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else signingConfigs.getByName("debug")
+            // A release bundle must NEVER silently fall back to the debug key.
+            //
+            // This previously read `if (storeFile?.exists()) release else debug`,
+            // which looks defensive and is actually a trap: a debug-signed AAB
+            // builds cleanly, `jarsigner -verify` reports `jar verified.`, and
+            // the resulting Play upload fails with an opaque signature error.
+            // Every step between the mistake and finding out is green. So the
+            // fallback is kept for debug builds (where it is correct and
+            // unreachable) and made FATAL for a release build, where it is
+            // never what anyone meant.
+            val keystorePresent = releaseSig.storeFile?.exists() == true
+            val keystorePath = releaseSig.storeFile?.path
+                ?: "(storeFile unset — android/key.properties missing or has no storeFile)"
+            if (!keystorePresent) {
+                if (RELEASE_VARIANT_REQUESTED) {
+                    throw GradleException(
+                        "REFUSING TO SIGN A RELEASE WITH THE DEBUG KEY.\n" +
+                        "  android/key.properties points at a keystore that does not exist:\n" +
+                        "  $keystorePath\n" +
+                        "  The upload key (upload-keystore.jks) is gitignored and never committed.\n" +
+                        "  Restore it to the repo root, fix storeFile in key.properties, or build\n" +
+                        "  a debug APK instead. Not negotiable — a debug-signed release looks\n" +
+                        "  exactly like a good one until Play rejects it.\n" +
+                        "  See AGENTS.md §5 Build Boundary."
+                    )
+                }
+                gradleLogger.warn(
+                    "Release keystore not found ($keystorePath). Debug builds are unaffected; " +
+                        "a RELEASE build would now fail rather than be debug-signed."
+                )
+            }
+            signingConfig = if (keystorePresent) releaseSig else signingConfigs.getByName("debug")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

@@ -1239,8 +1239,68 @@ not a comment to any parser that is not specifically forgiving, and
   2. **Does it contain the intended code?** Grep a literal unique to the change,
      inside the artifact.
   "It built" and "it verified" are answers to neither question on their own.
-- And: **a signed artifact is not a released one.** The versionCode here is
-  still `10` — the same code as the previous AAB — and Play refuses a re-upload
-  of a used versionCode. So the binary is correct and still not shippable as-is.
-  Artifact correctness and release readiness are separate claims, and the gap
-  between them is where "I thought that was done" lives.
+- Checking both questions is what surfaced the silent-debug-fallback in
+  `build.gradle.kts` itself — the build had been "working" for months. That fix
+  and its gate are L42 below.
+- And: **a signed artifact is not a released one — but check the constraint's
+  actual referent before warning about it.** I wrote a versionCode warning here
+  on the grounds that `10` matched the previous local build's code, so Play
+  would reject it. The user then confirmed the highest AAB ever *uploaded* is
+  **+8** (live in Closed Testing). `+10` clears it; nothing was ever burned.
+  **Play's constraint is against a versionCode that has been UPLOADED, not one
+  that has been BUILT.** "I built it twice" is a fact about a build directory,
+  not about the world. I also suggested `+9` as a "fix", which gains nothing and
+  only lowers the next upload.
+  The general rule: before raising a release blocker derived from local state,
+  establish what the constraint actually refers to, and prefer the human who can
+  see the Play console over an inference from local files.
+
+---
+
+## L42 — `if (keystore exists) release else debug` is not a safety net (Oct 2026)
+
+- **What shipped:** `android/app/build.gradle.kts` ended with
+  ```kotlin
+  signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig
+                  else signingConfigs.getByName("debug")
+  ```
+  Read as prose this says "use the real key when we have it". Read as behaviour
+  it says **"if the upload key is missing, ship the app signed with a key
+  anybody on the internet has."**
+- **Why nothing caught it**, which is the actual lesson:
+  - `flutter build appbundle --release` **exits 0**.
+  - `jarsigner -verify` reports **`jar verified.`**.
+  - The AAB carries a valid signature. It is just not *yours*.
+  - Size, versionCode and manifest all look right.
+  Every signal a person or script checks says *fine*. The only thing nobody reads
+  is the signer's identity — because the tool already said "verified", and that
+  word feels like the end of the sentence.
+- **The fix has a tension, and that tension is the design.** Two requirements
+  look contradictory:
+  - a missing keystore must be **fatal** for a release build, and
+  - it must stay **harmless** for a debug build, since release keys are
+    gitignored and a fresh clone legitimately has none.
+  One `if` cannot satisfy both. So the build now decides *which build it is* from
+  `gradle.startParameter.taskNames` and throws a `GradleException` only on the
+  release path. Debug keeps its debug fallback, where it is correct and
+  unreachable.
+- **Do not "simplify" it back.** Any edit that collapses this to a bare ternary
+  re-opens the trap, and it will do so *quietly*, during an unrelated fix, in a
+  file whose neighbouring lines are about minification. That is why it is
+  invariant 14 and not a code comment.
+- **The gate is a pure function** (`check_release_signing`) so
+  `tools/selftest_invariant14.py` can mutate the real file text and assert the
+  rule fires — including the case that matters most: *detects the release
+  variant, warns about the missing key, then continues with debug anyway.* That
+  is the shape a well-meaning refactor produces, and it is still the bug. It
+  also carries a negative control with **every code line stripped and only the
+  comments left**. If that passes, the rule matches prose instead of behaviour —
+  the L32 failure mode, where the constellation 3D one-way door shipped *and* was
+  documented as fixed in a comment directly above the wrong line.
+- **Stated limits, because a text check is not a proof.** This gate cannot run
+  Gradle, so it cannot prove the `throw` sits on the path actually taken, and it
+  cannot detect a keystore that exists but holds the wrong key. **Only the build
+  proves that**, which is why AGENTS.md §5 still requires reading the signer
+  identity after every release build. The gate catches the regression; the manual
+  check catches the runtime truth. The honest thing is to say which gap each one
+  leaves.

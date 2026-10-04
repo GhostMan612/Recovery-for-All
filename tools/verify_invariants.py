@@ -1061,6 +1061,108 @@ else:
         )
 
 
+# ---------------------------------------------------------------------------
+# 14. A release build must never silently fall back to the debug key.
+#
+# `android/app/build.gradle.kts` used to end with
+#   signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig
+#                   else signingConfigs.getByName("debug")
+# which reads like a safety net and is actually the opposite. A debug-signed
+# AAB builds cleanly, `jarsigner -verify` reports `jar verified.`, and the
+# failure surfaces only as an opaque Play signature rejection -- or as nothing,
+# if nobody checks. Every step between the mistake and discovery is green.
+#
+# The fallback is still legal for a DEBUG build (release keys are gitignored,
+# so a fresh clone legitimately has none and must still build). The two
+# requirements cannot both be satisfied by one `if`, so this pins the pieces
+# that make them separable:
+#   (a) release detection inspects the requested task names, not an assumption;
+#   (b) that flag guards a throw on the missing-keystore path;
+#   (c) the debug fallback itself still exists, because debug needs a signer.
+# Removing (b) re-opens the silent-debug-signing trap and fails the gate.
+# Written as a pure function so `selftest_invariant14.py` can prove it goes red.
+# ---------------------------------------------------------------------------
+def check_release_signing(gradle_src):
+    out = []
+    flat = " ".join(gradle_src.split())
+    # The guard as it must actually be WRITTEN, not merely mentioned. Checking
+    # for the bare flag name would pass `if (false) { throw ... }`, which is
+    # the original bug wearing a hat.
+    GUARD = "if (RELEASE_VARIANT_REQUESTED)"
+
+    if (
+        'signingConfigs.getByName("debug")' not in gradle_src
+        and "signingConfigs.getByName('debug')" not in gradle_src
+    ):
+        out.append(
+            "RELEASE SIGNING NO LONGER HAS A DEBUG FALLBACK AT ALL (invariant "
+            "14): expected the release buildType to reference "
+            'signingConfigs.getByName("debug"). A debug APK built by `flutter '
+            "build apk --debug` needs a signing config, and if that lookup has "
+            "gone, debug builds may be failing or shipping unsigned."
+        )
+
+    if "startParameter.taskNames" not in flat:
+        out.append(
+            "RELEASE BUILD NO LONGER DETECTS THAT IT IS A RELEASE (invariant "
+            "14): android/app/build.gradle.kts no longer inspects "
+            "gradle.startParameter.taskNames. Without that check the build "
+            "cannot tell 'asked for a release' from 'asked for a debug', which "
+            "is the only thing that lets a missing keystore be fatal for "
+            "release while staying harmless for debug."
+        )
+
+    if "RELEASE_VARIANT_REQUESTED" not in gradle_src:
+        out.append(
+            "MISSING-KEYSTORE RELEASE FALLBACK IS SILENT AGAIN (invariant 14): "
+            "the RELEASE_VARIANT_REQUESTED guard is gone from "
+            "android/app/build.gradle.kts. A release build with no keystore "
+            "will again fall through to the debug key, build successfully, and "
+            "verify successfully."
+        )
+    elif GUARD not in flat:
+        # The flag exists but is not guarding anything. This is the subtle
+        # case: the variable is computed, so the file still *reads* as though
+        # release detection happened, while the branch that needs it has been
+        # rewritten to a constant.
+        out.append(
+            "RELEASE DETECTION NO LONGER GUARDS THE MISSING-KEYSTORE BRANCH "
+            "(invariant 14): RELEASE_VARIANT_REQUESTED is declared but the "
+            'literal `%s` does not appear in android/app/build.gradle.kts. '
+            "Computing the flag while the branch that needs it no longer tests "
+            "it is the original bug with the guard still in the file."
+            % GUARD
+        )
+    else:
+        # Positional: the throw must be INSIDE the guarded branch, not merely
+        # present somewhere later in the file. `GradleException` alone is not
+        # enough -- `val ignored = GradleException(...)` keeps that string
+        # while removing the failure entirely.
+        tail = flat.split(GUARD, 1)[1][:300]
+        if "throw" not in tail:
+            out.append(
+                "RELEASE VARIANT IS DETECTED BUT NOTHING IS THROWN (invariant "
+                '14): the branch `%s` does not throw. Detecting a release '
+                "build and then continuing with the debug key is the exact "
+                "failure this invariant exists to stop; a warning is not a "
+                "refusal." % GUARD
+            )
+        if "GradleException" not in gradle_src:
+            out.append(
+                "RELEASE MISSING-KEYSTORE FAILURE NO LONGER THROWS A "
+                "GradleException (invariant 14): expected the guarded branch "
+                "in android/app/build.gradle.kts to throw a GradleException."
+            )
+    return out
+
+
+GRADLE_APP = ROOT / "android" / "app" / "build.gradle.kts"
+if not GRADLE_APP.exists():
+    notes.append("invariant 14: android/app/build.gradle.kts not present; skipped")
+else:
+    failures.extend(check_release_signing(read(GRADLE_APP)))
+
+
 def main() -> int:
     for note in notes:
         print("NOTE: %s" % note)
@@ -1075,7 +1177,7 @@ def main() -> int:
         )
         return 1
 
-    print("PASS: %d architecture invariants hold" % 13)
+    print("PASS: %d architecture invariants hold" % 14)
     return 0
 
 

@@ -6,6 +6,20 @@ Modernize Recovery for All from a dark-first, screen-specific UI into a cohesive
 
 This is an **execution specification**, not a loose list of ideas. Each phase has explicit scope, invariants, deliverables, and a verification gate so an autonomous coding agent can execute the work without inventing architecture or silently changing recovery behavior.
 
+### CURRENT STATE (read this first; the numbers below are historical)
+
+All 17 phases are shipped. **Current suite: `flutter test` -> 645 passing,
+`flutter analyze` -> zero issues, `tools/verify_no_hardcoded_colors.py` and
+`tools/verify_invariants.py` -> exit 0.**
+
+Every test count appearing anywhere in this document (167, 254, 292, 300, 480,
+612) is a **record of what was true at the end of that phase** and is
+deliberately left unedited. Do not "correct" them — a phase gate that said
+"292 passing" was true when it was written, and rewriting it would destroy the
+only evidence of what each phase was actually verified against. Use the figure
+above, or `SESSION_HANDOFF.md`, for the current one. Where a stale figure caused
+a real wrong turn, it is marked **Superseded** inline with the replacement.
+
 ## Non-Negotiable Engineering Rules
 
 1. **Inspect before modifying.** Reconcile every blueprint assumption with the current repository before implementation. If reality differs, document the discrepancy and adapt the phase rather than guessing.
@@ -228,7 +242,7 @@ order, added after the 3D view turned out to be a one-way door (see L32); and 11
 is Firestore-rule ownership, added after `firestore/firestore.rules` shipped
 `allow read, write: if request.auth != null` over clinical step-work bundles.
 
-> **Superseded: it is THIRTEEN now, and the suite is 612.** 12 forbids companion
+> **Superseded: it is THIRTEEN now, and the suite is 645.** 12 forbids companion
 > surfaces re-introducing a system emoji as artwork, and 13 requires the
 > fellowship reward to be unreachable before attestation and keys the 24-hour
 > cooldown on the peer's public key. Invariant 7 also turned out to cover only

@@ -639,6 +639,46 @@ the gate will fail and Phase 10 forbids it.
   only makes the next upload's number lower for no benefit.
   `build/` is gitignored, so re-verify the file exists before referencing it,
   and do not trust any artifact name remembered from an earlier session.
+- **🔴 FIXED: the release build could silently sign with the DEBUG key (this
+  session).** `android/app/build.gradle.kts` ended with
+  `signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else
+  signingConfigs.getByName("debug")`. Read as prose that is prudent; read as
+  behaviour it is "if the upload key is missing, ship signed with a key anybody
+  has". **Nothing catches it**: the release build exits 0, `jarsigner -verify`
+  says `jar verified.`, and the signature *is* valid — just not yours. The
+  symptom is an opaque Play rejection, or none at all.
+  The fix has a real tension in it — missing keystore must be **fatal** for a
+  release and **harmless** for a debug (release keys are gitignored, so a fresh
+  clone has none and must still build debug) — and one `if` cannot do both. So
+  the build now reads `gradle.startParameter.taskNames` to know which variant it
+  is and throws a `GradleException` only on the release path.
+  **All three paths were executed, not assumed:**
+  | build | keystore | expected | got |
+  |---|---|---|---|
+  | `appbundle --release` | present | succeeds | ✅ 129.5 MB, release cert |
+  | `appbundle --release` | absent | **refuses** | ✅ exit 1, "REFUSING TO SIGN A RELEASE WITH THE DEBUG KEY" |
+  | `apk --debug` | absent | succeeds | ✅ exit 0 — fresh clone not bricked |
+  The keystore-absent rows were produced by moving only `android/key.properties`
+  aside inside a `finally`, so it was restored even on failure. Note the
+  `logger.warn` did **not** appear in captured output (Flutter filters Gradle
+  warnings without `--verbose`); the `throw` is what enforces this, so don't rely
+  on seeing the warning.
+  Now **invariant 14**, with `tools/selftest_invariant14.py` proving it goes red.
+  The selftest's first draft had **two cases it could not catch** — a rule that
+  only greps for `RELEASE_VARIANT_REQUESTED` and `GradleException` passes
+  `if (false) { throw … }` and `val ignored = GradleException(…)`. Fixed by
+  requiring the literal `if (RELEASE_VARIANT_REQUESTED)` and checking `throw`
+  appears *inside that branch*. Stated limits, because a text check is not a
+  proof: it cannot run Gradle, so it cannot prove the throw is on the path
+  actually taken, and it cannot detect a valid-but-wrong keystore. Only the
+  build proves those — which is why §5 still requires reading the signer CN.
+- **📄 The doc index was lying (this session).** `AGENTS.md` told the next agent
+  to read eleven `blueprints/*.md` files as "load-bearing" while `.gitignore`
+  excluded every one of them, and pointed at `SPRINT_PLAN.md`, which **no longer
+  exists**. A fresh clone would have opened ten missing files with no way to tell
+  "this repo has no such doc" from "the index is stale". The list is now split
+  into **tracked** (5 files any clone gets) and **local-only** (gitignored, this
+  machine only), with the dead entry called out explicitly.
 - **🟢 DEVICE VERIFIED (Oct round, LG B160V, versionCode 9, debug APK, font_scale
   1.0, fresh install).** All four Oct tester fixes confirmed on real hardware:
   1. **Nav order** — Path · Companion · Library · Profile, Path leading.
