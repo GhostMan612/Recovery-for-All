@@ -18,6 +18,24 @@ explicit-path commits) and **§5 Build Boundary** are binding:
   below for when it runs. Builds still happen only in the end-of-plan batch —
   authorization to build is not permission to build mid-plan. Release signing
   keys are never committed; `build/` is gitignored.
+  **A missing release keystore silently produces a DEBUG-signed release.**
+  `android/app/build.gradle.kts` ends with
+  `signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else
+  signingConfigs.getByName("debug")` — and a debug-signed bundle builds cleanly
+  and passes `jarsigner -verify`. So "it built and it verified" does **not**
+  prove the upload key was used. After any release build, confirm the signer
+  identity explicitly: it must be
+  `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery`, never
+  `CN=Android Debug`. Also note `jarsigner` is not on `PATH` — it lives at
+  `C:\android\Android Studio\jbr\bin\jarsigner.exe` — and a self-signed upload
+  key always prints a harmless PKIX "certificate chain is invalid" warning
+  alongside `jar verified.`
+  **Prove an artifact contains the current code; do not assume it.** A build
+  directory can be stale in ways nothing complains about. Find a string literal
+  unique to the new code and grep for it inside the AOT blob in the artifact —
+  e.g. `PRAGMA table_info(` inside `base/lib/arm64-v8a/libapp.so` in the signed
+  `.aab`. That is what separates "rebuilt from current source" from "re-emitted
+  an old build".
 - **Commit by explicit path only** — never `git add .` / `-A`.
 - Commit messages: analyze/test status only; never claim build success.
 

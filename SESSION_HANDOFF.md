@@ -612,10 +612,25 @@ the gate will fail and Phase 10 forbids it.
   then rebuilt as `+9`, and is now rebuilt again from current source as
   **`+10`**. The current upload candidate is
   `build/app/outputs/bundle/release/app-release.aab` (1.0.0+10, 129.5 MB,
-  built 2026-10-03). Signature verified with `jarsigner -verify`:
-  `- Signed by "CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery,
-  L=Saint Paul, ST=Minnesota, C=US"`, SHA-256, 2048-bit RSA. That is the
-  **upload** key, not the Play App Signing key — back that up separately.
+  rebuilt 2026-10-04 from `53d3cd3b057`, i.e. **including the v1 migration fix
+  and all three dresser overflow fixes**). Signature verified with
+  `jarsigner -verify`: `jar verified.`, signed by
+  `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery,
+  L=Saint Paul, ST=Minnesota, C=US`, SHA384withRSA, 2048-bit RSA, valid to
+  2054-01-16. That is the **upload** key, not the Play App Signing key — back
+  that up separately. (`jar verified` also prints a PKIX "certificate chain is
+  invalid" warning; that is expected and harmless for a self-signed upload key,
+  which has no CA path.)
+  **Provenance was proven, not assumed:** the string `PRAGMA table_info(` — a
+  literal that exists only in the new `_addColumnIfMissing` helper — was found
+  inside the AOT-compiled `base/lib/arm64-v8a/libapp.so` **inside the signed
+  AAB**, so the artifact provably contains the current code rather than being a
+  stale rebuild. All six prebuilt llama/ggml libs and `libsqlcipher.so` are
+  present in the arm64-v8a slice; they are far smaller there than on disk
+  because release builds run `strip`, which is expected.
+  **⚠ versionCode is still 10, the same as the earlier +10 build.** Play will
+  not accept a re-upload of an already-used versionCode, so if +10 was ever
+  uploaded this must go out as **+11** (`pubspec.yaml` version) before release.
   `build/` is gitignored, so re-verify the file exists before referencing it,
   and do not trust any artifact name remembered from an earlier session.
 - **🟢 DEVICE VERIFIED (Oct round, LG B160V, versionCode 9, debug APK, font_scale

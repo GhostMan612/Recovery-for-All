@@ -1191,3 +1191,56 @@ not a comment to any parser that is not specifically forgiving, and
 - And the standing one: **a fixed `childAspectRatio` is a claim that the user's
   font size will not change.** Test at 1.0/1.5/2.0 at a real phone width, or
   do not claim the layout holds.
+
+---
+
+## L41 — "it built and jarsigner passed" proves less than it sounds (Oct 2026)
+
+- **What happened:** rebuilding the release AAB after the migration fix, I
+  checked the signature the obvious way — `jarsigner -verify` said `jar
+  verified.` — and could have stopped there. It would have been the wrong
+  conclusion, for two independent reasons.
+- **Reason 1 — the debug-key fallback.** `android/app/build.gradle.kts` ends with
+  `signingConfig = if (releaseSig.storeFile?.exists() == true) releaseSig else
+  signingConfigs.getByName("debug")`. A debug-signed release bundle **builds
+  without error and passes `jarsigner -verify`**. So a green build plus a green
+  signature check is entirely consistent with shipping the wrong key. The only
+  thing that distinguishes them is reading the signer's identity:
+  `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery` versus
+  `CN=Android Debug`. Nobody reads that line, because `jar verified.` already
+  looks like the end of the check.
+  (Mitigating factor worth stating: Play rejects a debug-signed upload with a
+  loud error, so this fails at publish time rather than reaching users. Still —
+  do not discover it at publish time.)
+- **Reason 2 — a stale build directory is silent.** `build/` is gitignored and
+  incremental. A "rebuild" can succeed while re-emitting a stale artifact, and
+  nothing warns: timestamps look fresh, the signature verifies, the size is
+  plausible. **I proved provenance instead.** `_addColumnIfMissing` contains the
+  literal `PRAGMA table_info(`, which exists nowhere else in the codebase, so I
+  grepped for it inside `base/lib/arm64-v8a/libapp.so` **inside the signed
+  `.aab`**. Found. That is the difference between "rebuilt from current source"
+  and "re-emitted an old build", and it costs one zip read.
+- **Also learned the hard way:** `jarsigner` is not on `PATH` here. It is at
+  `C:\android\Android Studio\jbr\bin\jarsigner.exe`. And a self-signed upload
+  key always prints a PKIX "certificate chain is invalid" warning next to
+  `jar verified.` — a self-signed cert has no CA path, so this warning is
+  **expected**, and treating it as a failure would teach you to ignore real
+  errors.
+- **One thing that looked wrong and was not:** the llama/ggml `.so` files in the
+  AAB are ~17x smaller than the committed copies (`libllama-common.so` 72.6 MB on
+  disk, 4.3 MB in the bundle). That is `strip` running on jniLibs during a
+  release build, not truncation. I checked the actual sizes before deciding,
+  because "the native lib shrank" is exactly the sentence that precedes a very
+  expensive rebuild.
+- **Prevention — the law:** *a verification that cannot fail is not a
+  verification.* Same law as `selftest_invariant7.py`, now applied to builds.
+  Two questions must both be answered for any artifact:
+  1. **Who signed it?** Read the identity, not the exit code.
+  2. **Does it contain the intended code?** Grep a literal unique to the change,
+     inside the artifact.
+  "It built" and "it verified" are answers to neither question on their own.
+- And: **a signed artifact is not a released one.** The versionCode here is
+  still `10` — the same code as the previous AAB — and Play refuses a re-upload
+  of a used versionCode. So the binary is correct and still not shippable as-is.
+  Artifact correctness and release readiness are separate claims, and the gap
+  between them is where "I thought that was done" lives.
