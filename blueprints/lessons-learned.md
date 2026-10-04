@@ -937,3 +937,94 @@ goes wrong twice.
   rows are, and putting art in the data made "how does this item look" a field
   on the record. `CosmeticArt` is keyed by id and lives in `widgets/`, so the
   art and the record cannot drift into disagreeing.
+
+---
+
+## L36 — A gate that must allow a legitimate shape cannot close the ambiguous one (Oct 2026)
+
+- **What happened:** invariant 7 exists because
+  `Text('Welcome, $ref.watch(dashboardDataProvider).username')` shipped a
+  literal `.watch(...)` into the most visible string in the app (L23). Its regex
+  is `\$(id)\.(field)(\s*\(|\s*\.)`, which flags the ambiguous shapes and
+  deliberately ignores the rest. In the fellowship attestation service I wrote:
+
+  ```
+  signingMessage = '$role.wire|$alias|$nonceA|$nonceB'
+  ```
+
+  Dart interpolates **only the identifier**, so `.wire|$alias|$nonceA|$nonceB`
+  was literal text. **All three legs of the handshake signed an identical
+  string.** The role was not covered by the signature at all, and an `answer`
+  signature verified as a `confirm`. The pattern does not flag it — the
+  character after `role.` is `w`, then `|`.
+- **Root cause:** the gate was correct and I treated it as complete. It is not,
+  and it **cannot** be fixed, because `'$modelId.gguf'` (a file extension) and
+  `'$role.wire|…'` are the same token shape and only one of them is a bug.
+  `tools/selftest_invariant7.py` lists the file-extension case as
+  must-not-flag, so any regex broad enough to catch the bug fails the build on
+  correct code. **The gap is in the problem, not in the pattern.**
+- **What actually caught it:** a test asserting the **exact** signed string,
+  plus a tamper test that rewrites one specific field and requires verification
+  to fail. Neither was looking for this bug; both failed anyway, because an
+  exact-value assertion has no blind spot for a substitution.
+- **Fix:** the three unflaggable shapes are now listed in
+  `tools/selftest_invariant7.py` as a `KNOWN_GAPS` block that **prints and is
+  counted**, so the boundary is a declared fact instead of an accident someone
+  rediscovers. `AGENTS.md` invariant 7 no longer claims to catch all of them.
+- **Prevention — the law:** *a regex gate covers the unambiguous subset; the rest
+  needs an assertion over exact values.* When a gate cannot be widened, say so
+  in the gate, and cover the remainder with a test that pins the value. Also:
+  **a gate that exists is not a gate that is complete** — L32 again, in a new
+  costume. This one was found by the same session that added invariant 7 and
+  wrote its self-test.
+  - Corollary: prefer asserting the whole expected string over asserting a
+    property of it. `"$role.wire" != "$role"` looks absurd in a test and is
+    exactly the assertion that catches this; `"contains(role)"` would pass.
+
+---
+
+## L37 — The repo could not deploy its rules, and every status note said it was fine (Oct 2026)
+
+- **What happened:** `firestore/firestore.rules` had been restructured across
+  several sessions, with docs saying "the console copy is stale, re-publish
+  before publishing". Three sessions of "next move: re-publish the rules" went
+  by. `firebase deploy --only firestore:rules` failed with
+  **`Error: Not in a Firebase app directory (could not locate firebase.json)`**.
+  **The repo had never contained a `firebase.json`.** Every prior attempt was
+  presumably done by hand in the console — which is exactly why nobody noticed
+  that the *deployable path* did not exist, and why the rules could never have
+  been redeployed from source by anyone else, ever.
+- **Root cause:** the hand-rolled console path succeeded, so the automation gap
+  was invisible. A checklist item phrased as an **outcome** ("re-publish the
+  rules") cannot distinguish "done via a path that exists" from "done via a path
+  nobody documented". Nothing in the repo asserted that the rules file was
+  *reachable*, only that it was *correct*.
+- **Fix:** added a deliberately minimal `firebase.json` (firestore rules only —
+  no hosting, no functions, no emulator block, because declaring a target that
+  is not deployed is how a config starts lying about what exists). Deployed;
+  the CLI compiled the rules and released them. The file is now committed, and
+  both the handoff and the rules section say the deploy went through the CLI.
+- **Prevention — the law:** *correctness is not reachability.* When a file is the
+  input to a manual process, check that the process can actually consume it from
+  the repo. Phrase checklist items as the **command** (`firebase deploy --only
+  firestore:rules`), never as the outcome ("re-publish the rules") — an outcome
+  is satisfiable by one person's muscle memory and by nothing else.
+  - Corollary: if the only reason something has never broken is that one person
+    remembers a step, it is broken for everyone else and for future you.
+    `Not in a Firebase app directory` was one command away for six weeks.
+
+### The near-miss worth recording
+
+While writing `firebase.json` I first put the rationale in as a **`"//"` KEY** —
+the exact shape that had made `C:\Call-Dad\opencode.json` unparseable earlier in
+the same session. The CLI happened to tolerate it, so the deploy succeeded and
+nothing went red. It was still wrong: a key named `//` is not a comment to any
+parser that is not specifically forgiving, and `firebase.json` is read by more
+than one tool.
+
+- **The law:** when you have just fixed a "this file's shape was invalid" bug,
+  the *shape* is the thing under suspicion, not just the instance of it. Reach
+  for the construct that is actually legal — a real `//` comment — rather than
+  the one that happens to work in the tool you happen to have installed. And if
+  a fix passes because a tool was lenient, that is not evidence the fix is
+  right; it is a warning that the next tool will not be lenient.

@@ -81,7 +81,14 @@ Do not install software, modify system settings, or write to new locations outsi
    ```
 3. **Minnesota-first doctrine**: fallbacks center Twin Cities; MN feeds first; other states are additive. The meeting finder, resources, and sober housing all reflect this.
 4. **Tailoring doctrine**: onboarding choices drive the dashboard, meeting fellowships, and downloads. Never show the user everything — show what they chose.
-5. **No emoji in the avatar composite** — the companion is painted via `AvatarPainter` (procedural vector). Emoji survive only as dresser grid thumbnails and minor glyphs. Full custom art destination: see `blueprints/avatar-art-spec.md`.
+5. **No emoji anywhere in the companion** — not the composite, not the dresser
+   grid, not the preset picker, not the mood faces. Everything is painted in code
+   (`AvatarPainter` / `SpeciesPortraitPainter` / `CosmeticIconPainter` /
+   `PetMoodGlyphPainter`, all procedural vector). `PetCosmetic.emoji`,
+   `PetMoodX.emoji` and `presetEmojis` are **deleted, not deprecated**, and
+   invariant 12 fails the build if any return. A glyph is a per-device font
+   dependency, which is tofu precisely on the low-end builds the reduced-motion
+   path exists for. Art spec: `blueprints/avatar-art-spec.md`.
 6. **Safety pipeline is untouchable**: guardrail → crisis keywords → model (GGUF, output re-checked) → TFLite intent → scripted skills → keyword fallback → unknown redirect. Never reorder. Never let a model suppress a crisis path — a crisis-worded or empty model reply is discarded so the scripted coach still answers.
 7. **Pet never dies, never gets sad, never guilts.** Low activity = resting. Return after absence = welcomed. Loss in minigames = "learned something" +Bond, no punishment.
 8. **Cosmetics only**: Sparks buy outfits/species/auras. Never gate safety, meetings list, or crisis tools behind currency.
@@ -102,9 +109,10 @@ Do not install software, modify system settings, or write to new locations outsi
 | flutter_map v8 | Uses `latlong2 ^0.9.1` (pinned for marker_cluster compat). `TileLayer` requires named params in v22+ FLN. Stacked layers = multiple `TileLayer` children in `FlutterMap`. |
 | FLN 22 | `initialize()`, `show()`, `zonedSchedule()` all use NAMED parameters. `uiLocalNotificationDateInterpretation` REMOVED. `desugar_jdk_libs` must be ≥ 2.1.5. |
 | TFLite | Model is 14–24KB INT8, trained via `tools/train_coach_intent.py` in `.venv-tf`. Masked-mean pooling required (pad tokens must not dilute). Float token IDs in, cast to int32 inside graph. |
-| Firebase | `google-services.json` is gitignored. Gradle plugin activates conditionally (only when file exists). `Firebase.initializeApp()` guarded with try/catch + 8s timeout. |
+| Firebase | `google-services.json` is gitignored. Gradle plugin activates conditionally (only when file exists). `Firebase.initializeApp()` guarded with try/catch + 8s timeout. `firebase.json` **must exist** (minimal, firestore rules only) or `firebase deploy --only firestore:rules` refuses with `Not in a Firebase app directory` — that missing file is why the rules were never deployable from source. Deploy from source, never the console. |
 | Snackbars | Global theme in `main.dart` — white text on dark bg, floating, rounded. Never override with invisible colors. |
-| Emojis | NO new emoji features. Custom art is the destination (`blueprints/avatar-art-spec.md`). Emoji only as temporary dresser thumbnails. |
+| Emojis | **NONE** in the companion, in any file, in any form. All art is procedural vector. NO new emoji features — the destination is reached, not pending. `blueprints/avatar-art-spec.md`. Invariant 12 enforces it. |
+| Peer attestation | The fellowship QR handshake proves *contemporaneous presence between two keys*, **not identity** — no server, no third party, one person with two phones can self-attest. Never describe it as identity verification. The 24h cooldown is keyed on the public key, never the alias. Invariant 13. See `SECURITY.md`. |
 
 ---
 
@@ -118,7 +126,7 @@ Do not install software, modify system settings, or write to new locations outsi
 
 ### 4.2 Session end (every session)
 1. Finish the entire plan first. No shell ran during it (§1.5, `AGENTS.md` SHELL DISCIPLINE).
-2. **Then**, in one batched shell block: `flutter analyze` + `flutter test` + `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py`
+2. **Then**, in one batched shell block: `flutter analyze` + `flutter test` + `python tools/verify_no_hardcoded_colors.py` + `python tools/verify_invariants.py` + **`python tools/selftest_invariant7.py`**. That last one is not optional — it is the only thing that proves the invariant checker can go red, and it is where invariant 7's provable blind spot is declared. Skip it and the checker is decoration.
 3. Run `python tools/generate_code_package.py`
 4. Tick relevant `blueprints/*.md` checklists
 5. Device checklist, if the plan called for one — also batched into the same end pass

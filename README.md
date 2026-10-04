@@ -47,6 +47,10 @@
 - **Pet Companion** — never dies, never guilts; Sparks/Bond/Mood/Energy
 - **Sparks Economy** — daily cap 150, walks/meetings/milestones **cap-exempt**, anti-grind caps
 - **Dresser** — ~90 cosmetics, species-specific bodies, seasonal re-issue calendar, Lottie auras/moods
+- **Hand-drawn vector art** — every cosmetic, mood face, and species portrait is
+  painted in code (`CustomPainter`), **not** system emoji. No companion glyph is
+  a per-device font dependency, which matters most on the low-end builds the
+  reduced-motion path exists for. Identity is silhouette-first, colour-second.
 - **Trials of the Path** — turn-based urge monsters, coping skills as abilities, focus system, losing = "companion learned"
 - **Step-Counter Verified Walks** — pedometer integration, 500 steps/30 min minimum, prevents tap-only abuse
 
@@ -108,7 +112,7 @@ python -m uv pip install --python .venv-tf numpy tensorflow-cpu
 | `blueprints/pet-store-rules.md` | Sparks economy laws + feed guardrails C1–C5 |
 | `blueprints/gguf-feasibility.md` | GGUF device tiers, models, implementation status |
 | `blueprints/tacmap-extraction.md` | Map port plan (P0–P3 shipped) |
-| `blueprints/firebase-setup.md` | Console walkthrough for cloud sync |
+| `blueprints/firebase-setup.md` | Cloud-sync walkthrough (rules deploy from source via `firebase deploy --only firestore:rules`) |
 | `blueprints/whitepaper.pdf` | **Comprehensive whitepaper (this repo's manifesto)** |
 
 ---

@@ -219,14 +219,22 @@ architecture is Phase 9's job. Phase 8 did not add or move a destination.
 511/511** (was 300/300 through the tester-bug round, 488 before the structural
 audit, +23 regression tests from `test/audit_regressions_test.dart` and
 `test/indexedstack_staleness_test.dart`).
-`verify_invariants.py` now enforces **eleven** invariants — 7 is missing-brace
-interpolation (added after device testing found the app bar shipping the
-literal text `"Welcome, DashboardScree…"`, proved with
+`verify_invariants.py` enforced **eleven** invariants at that point — 7 is
+missing-brace interpolation (added after device testing found the app bar
+shipping the literal text `"Welcome, DashboardScree…"`, proved with
 `python tools/selftest_invariant7.py`, 10/10); 8 is the pet-state single owner;
 9 is the paired-foreground colourScheme role; 10 is constellation `Stack` child
 order, added after the 3D view turned out to be a one-way door (see L32); and 11
 is Firestore-rule ownership, added after `firestore/firestore.rules` shipped
 `allow read, write: if request.auth != null` over clinical step-work bundles.
+
+> **Superseded: it is THIRTEEN now, and the suite is 612.** 12 forbids companion
+> surfaces re-introducing a system emoji as artwork, and 13 requires the
+> fellowship reward to be unreachable before attestation and keys the 24-hour
+> cooldown on the peer's public key. Invariant 7 also turned out to cover only
+> the *unambiguous* missing-brace shapes — see L36 — which is why the
+> `KNOWN_GAPS` block in `selftest_invariant7.py` is load-bearing rather than
+> decorative. Current numbers live in `SESSION_HANDOFF.md`.
 
 **All four Oct fixes are device-verified** on the LG B160V: nav order, meeting
 radius ("198 meetings · 2 mi" in the header, one meeting 2.0 mi away on the

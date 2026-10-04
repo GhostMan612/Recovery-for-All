@@ -1,5 +1,22 @@
+// Firebase CLI config. Deliberately MINIMAL and firestore-only.
+//
+// This file exists because without it `firebase deploy --only firestore:rules`
+// fails with "Not in a Firebase app directory (could not locate firebase.json)",
+// which means the rules were NEVER deployable from this repo -- only editable by
+// hand in the console, which is how the deployed copy and the repo drifted apart.
+// See lessons-learned L37.
+//
+// Do NOT add sections for targets this project does not deploy (no hosting, no
+// functions, no emulators). Declaring a target that is not really deployed is how
+// a config starts lying about what exists. Add a section in the same commit that
+// deploys it.
+//
+// The rationale for this note is a real `//` comment above, NOT a `"//"` KEY.
+// A `"//"` key is exactly the shape that made `C:\Call-Dad\opencode.json`
+// invalid and stopped every session from starting, and it is not a comment to
+// every JSON parser. firebase.json is JSONC and firebase-tools reads `//`
+// comments; it does not need the abuse.
 {
-  "//": "Minimal, and deliberately ONLY firestore rules. This file is what makes `firebase deploy --only firestore:rules` possible at all: without it the CLI refuses with 'Not in a Firebase app directory'. Nothing else is declared on purpose -- no hosting, no functions, no emulator config -- because declaring a target that is not deployed is how a config starts lying about what exists. Add a section only in the same commit that deploys it.",
   "firestore": {
     "rules": "firestore/firestore.rules"
   }

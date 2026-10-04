@@ -34,6 +34,11 @@ migrate_working_dir/
 **/android/**/gradle-wrapper.jar
 **/android/.gradle/
 android/build/
+# Gradle's own scratch dir at android/.tmp/. It is pure build state and it is
+# NOT self-ignoring, so it showed up in `git status` on every single session
+# and every session had to remember "do not stage android/.tmp/". Ignoring the
+# directory removes the need to remember.
+android/.tmp/
 **/android/caches/
 **/android/daemon/
 **/android/kotlin-profile/

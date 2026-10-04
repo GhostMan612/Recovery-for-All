@@ -35,10 +35,18 @@ dart run build_runner build --delete-conflicting-outputs   # after ANY schema ed
 dart run flutter_launcher_icons                            # after icon config/asset changes
 python tools/generate_code_package.py                      # after code changes (see below)
 python tools/verify_no_hardcoded_colors.py                 # standing UI gate (must exit 0)
-python tools/verify_invariants.py                           # architecture invariants (must exit 0)
-python tools/verify_opencode_config.py                      # Call-Dad only: opencode.json must load
-python tools/verify_opencode_config.py --self-test         # ... and prove the checker can fail
+python tools/verify_invariants.py                           # 13 architecture invariants (must exit 0)
+python tools/selftest_invariant7.py                         # proves the gate above CAN fail (must exit 0)
+python tools/verify_resources.py                            # only if a URL actually changed
+python C:\Call-Dad\tools\validate_opencode_config.py        # Call-Dad only: opencode.json must load
+python C:\Call-Dad\tools\validate_opencode_config.py --self-test   # ... and prove the checker can fail
 ```
+
+- **`tools/selftest_invariant7.py` is a gate, not a debug script.** A checker
+  that cannot go red is worse than no checker. Run it in the same batch as
+  `verify_invariants.py`; if you ever change the invariant 7 regex, it is the
+  only thing standing between you and a silently-broken gate. It prints its
+  known-unflaggable shapes as `gap` lines — that is expected output.
 
 - **`C:\Call-Dad` has its own gate, and it is not optional.** That project's
   `opencode.json` once carried a note as a `"//"` KEY inside `permission.bash`.
@@ -46,10 +54,11 @@ python tools/verify_opencode_config.py --self-test         # ... and prove the c
   `ask`/`allow`/`deny`, so the config was rejected whole and **no session could
   start** — while `flutter build`, `flutter test` and every unit test in the
   repo passed, because the failure only exists inside the opencode app.
-  `tools/validate_opencode_config.py` checks it against the published schema and
-  parses JSONC (the schema declares `allowComments: true`), and `--self-test`
-  feeds it five deliberately invalid configs that it must reject — because a
-  green PASS from a checker that cannot go red is worse than no gate.
+  `C:\Call-Dad\tools\validate_opencode_config.py` checks it against the
+  published schema and parses JSONC (the schema declares `allowComments: true`),
+  and `--self-test` feeds it five deliberately invalid configs that it must
+  reject — because a green PASS from a checker that cannot go red is worse than
+  no gate. Note the script lives in the **Call-Dad** repo, not here.
 
 - **⛔ SHELL DISCIPLINE — THE RULE THAT MATTERS MOST. Restated after being
   violated repeatedly; it is not a preference, it is a hard gate.**
@@ -206,7 +215,10 @@ python tools/verify_opencode_config.py --self-test         # ... and prove the c
   real users silently lose saved settings); (4) the Phase 8 dashboard view
   files going missing; (5) any retired `AppColors` constant; (6) a reduce-motion
   read escaping `lib/core/motion/app_motion.dart`; (7) missing-brace string
-  interpolation (`'$ref.watch(x).y'` renders literally); (8) `dashboard_screen`
+  interpolation in its **unambiguous** forms (`'$ref.watch(x).y'` renders
+  literally — the ambiguous `$id.field` shapes are deliberately NOT flagged and
+  are covered by exact-value assertions instead, see the known-gaps list below
+  and L36); (8) `dashboard_screen`
   reading pet state back out of `RecoveryPetService` instead of the notifier;
   (9) a hardcoded `Colors.white`/`Colors.black` **text or icon colour** sitting
   near a `colorScheme` panel, fill, or `Border` — M3 `primary`/`tertiary`/
@@ -230,7 +242,7 @@ python tools/verify_opencode_config.py --self-test         # ... and prove the c
   trap invariant 11 documents for Firestore.
   When a rule changes on purpose, update the gate and this file in the same
   commit.
-- **Seven known gaps in those gates, so do not trust them blindly.** Invariant 8
+- **Eight known gaps in those gates, so do not trust them blindly.** Invariant 8
   scans `lib/screens/dashboard_screen.dart` only — three other screens still
   hold a private `_pet`. Invariant 9 pairs by statement and by a ±12-line
   window, so a fill declared more than 12 lines from its text still slips past,
@@ -245,7 +257,16 @@ python tools/verify_opencode_config.py --self-test         # ... and prove the c
   a newly-named emoji would pass; it also does not forbid non-ASCII text,
   because the UI legitimately uses `·`, `✦` and `—`. Invariant 13 compares byte
   offsets within one method and checks two needles, so a helper that grants XP
-  from somewhere else would not be seen.
+  from somewhere else would not be seen. **Invariant 7 covers only the
+  unambiguous subset of missing-brace interpolation and cannot be widened**:
+  `'$modelId.gguf'` (a file extension) and the real bug
+  `'$role.wire|$alias|$nonceA'` are the same token shape, and the former is
+  correct code that the gate must not flag. That bug shipped — every leg of the
+  fellowship handshake signed an identical string — and the regex missed it. The
+  unflaggable shapes are listed as `KNOWN_GAPS` in
+  `tools/selftest_invariant7.py`, and the coverage comes from asserting the
+  **exact** signed string, not from a pattern. See L36. Do not "fix" that
+  regex; broadening it fails the build on `'$modelId.gguf'`.
 - **A listed-but-unscannable key is not a pin.** When you add a key to
   `REQUIRED_KEYS`, confirm `KEY_PAT` can actually *see* it — the prefixes in
   that regex are what the scanner matches on. This is how
@@ -369,7 +390,10 @@ python tools/verify_opencode_config.py --self-test         # ... and prove the c
   vector pass; species portraits + all ~90 cosmetic icons + mood faces are now
   code-painted. No new emoji features — that is the whole point of it)
 - `blueprints/tacmap-extraction.md` — OSM map port plan (P0 shipped)
-- `blueprints/firebase-setup.md` — console walkthrough for cloud sync
+- `blueprints/firebase-setup.md` — cloud-sync walkthrough. **Prefer the CLI:**
+  `firebase deploy --only firestore:rules` now works from the repo, because
+  `firebase.json` exists (rules only, no hosting/functions). Editing rules in the
+  console instead is what let the deployed copy and the repo diverge for weeks.
 - `blueprints/recovery-pet-checklist.md`, `recovery-coach-checklist.md`,
   `SPRINT_PLAN.md` — tick boxes as items ship
 - `blueprints/lessons-learned.md` — mistake ledger, update on every trip

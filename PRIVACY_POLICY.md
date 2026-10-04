@@ -34,16 +34,29 @@ Location is **never** uploaded. Distance checks for attendance happen on device 
 
 ## Firebase (Only If You Configure It)
 
-If `google-services.json` is present, the app enables anonymous auth `FirebaseAuth.instance.signInAnonymously()` so `request.auth != null` passes Firestore rules.
+If `google-services.json` is present, the app enables anonymous auth
+`FirebaseAuth.instance.signInAnonymously()`. Anonymous auth gives an install a
+**session**, not an identity you can authorise against — being signed in is not
+permission — so the Firestore rules partition access by binding a path segment
+to `request.auth.uid`.
 
 Collections:
 
-- `community_feeds` — alias-only posts (rules reject real names / phone / location). Masked counts only.
-- `sponsor_bundles` — Ed25519-signed check-in bundles, encrypted payloads
+- `community_feeds` — alias-only posts (rules reject real names / phone / location). Masked counts only. Writes are field-scoped, so a post cannot be rewritten to change its author.
+- `sponsor_bundles` — Ed25519-signed check-in bundles, encrypted payloads, partitioned by **owner's uid in the path** (`sponsor_bundles/{ownerUid}/bundles/…`), so no authenticated user can read or write another user's bundle.
 - `care_alerts` — **write-only** (`allow read: false`). Client cannot query this collection.
 - `consultation_events` (planned) — 7th Tradition external routing logs are not stored.
 
-Firestore rules: `firestore/firestore.rules`. We recommend enabling **App Check** before open release.
+Firestore rules: `firestore/firestore.rules`, deployed to `recovery-for-all-c2ee8`
+via `firebase deploy --only firestore:rules` (the repo's `firebase.json` is
+required for that and is deliberately minimal). We recommend enabling **App
+Check** before open release.
+
+**Known gap:** the ownership-partitioned bundle paths mean a *cross-account*
+sponsor relay is not currently reachable; it would need a `sponsor_code` custom
+claim that does not exist yet. The offline messenger path is unaffected and is
+the default. See `SponsorLinkService.orphanedRelayDocIds()` and `AGENTS.md`
+invariant 11.
 
 ## Data Safety for Google Play
 
