@@ -67,9 +67,56 @@ void main() {
               reason: 'icon "$icon" is a resource reference, not a drawable name');
           expect(icon.contains('/'), isFalse,
               reason: 'icon "$icon" must be a bare name in the drawable folder');
+
+          // Rejecting '@' and '/' is NECESSARY BUT NOT SUFFICIENT. A bare name
+          // that simply does not exist fails identically at runtime, so
+          // 'ic_launcher' would sail through the two checks above and throw
+          // invalid_icon on every SOS notification. The name is pinned exactly,
+          // and separately proven to exist as a file below.
+          expect(icon, _expectedIcon,
+              reason: 'icon "$icon" is not "$_expectedIcon". Renaming the icon '
+                  'means renaming the drawable AND its keep.xml entry in the '
+                  'same commit; changing only the Dart call site produces a '
+                  'release build that compiles, installs, and then throws '
+                  'invalid_icon on device.');
         }
+
+        // The manifest must not depend on the launcher icon either: if it ever
+        // does, res/mipmap-*/ic_launcher.png stops being orphaned and this whole
+        // file's reasoning quietly stops applying. Asserted below.
+        expect(matches, contains(_expectedIcon),
+            reason: '$path no longer initialises notifications with '
+                '"$_expectedIcon"; if this is deliberate, delete this gate rather '
+                'than letting it pass by accident.');
       });
     }
+
+    test('every drawable the services reference exists as a file', () {
+      // Closes the last gap in the loop above: the check there proves the name
+      // is correct, this proves the name resolves. These are separate claims
+      // and the original bug was precisely a name that existed in neither form.
+      for (final path in _services) {
+        final source = File(path).readAsStringSync();
+        final names = RegExp(r"AndroidInitializationSettings\('([^']*)'\)")
+            .allMatches(source)
+            .map((m) => m.group(1)!)
+            .toList();
+
+        for (final name in names) {
+          final candidates = [
+            File('android/app/src/main/res/drawable/$name.xml'),
+            File('android/app/src/main/res/drawable-v24/$name.xml'),
+            File('android/app/src/main/res/drawable/$name.png'),
+          ];
+          expect(candidates.any((f) => f.existsSync()), isTrue,
+              reason: '$path asks the plugin for drawable "$name" but none of '
+                  'these exist: '
+                  '${candidates.map((f) => f.path).join(', ')}. '
+                  'getIdentifier will return 0 and initialization throws '
+                  'invalid_icon.');
+        }
+      }
+    });
 
     test('the notification drawable exists and is a white silhouette', () {
       final file = File(_drawablePath);

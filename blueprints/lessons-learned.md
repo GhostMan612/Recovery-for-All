@@ -1304,3 +1304,84 @@ not a comment to any parser that is not specifically forgiving, and
   identity after every release build. The gate catches the regression; the manual
   check catches the runtime truth. The honest thing is to say which gap each one
   leaves.
+
+## L43 — the SOS lifeline had never worked, and no test could ever have said so (Oct 2026)
+
+- **What shipped:** `SosNotificationService` and `GentleReminderService` both called
+  `AndroidInitializationSettings('@mipmap/ic_launcher')`.
+  `flutter_local_notifications` resolves that argument with
+  ```java
+  context.getResources().getIdentifier(name, "drawable", packageName)
+  ```
+  It searches the **drawable** folder for a resource *literally named*
+  `@mipmap/ic_launcher`. That is `0` in **every** build, debug included. The
+  plugin threw `invalid_icon`, and the boot-time `catch` converted the central
+  safety feature of the app into three log lines nobody reads:
+  ```
+  [boot] sos init skipped:    PlatformException(invalid_icon, ...)
+  [boot] gentle init skipped: PlatformException(invalid_icon, ...)
+  [boot] sos restore skipped: NullPointerException ... Integer.intValue() on null
+  ```
+- **Why nothing caught it, and this is the whole point:**
+  - The failure is an Android resource lookup against the **plugin's private
+    Java**. Nothing in `lib/` can observe it.
+  - `flutter analyze` sees types. It cannot see whether a *string* resolves to a
+    *resource*.
+  - Every widget test passed, every gate passed, 645 tests green, and the app was
+    still unable to raise the alarm it exists to raise.
+  - The only instrument that could see it was the one nobody had used for this
+    build type: **the device log**.
+- **Three independent mistakes, stacked. Any one of them alone would have been
+  enough:**
+  1. **Wrong resource type.** `drawable`, not `mipmap`.
+  2. **The name didn't exist anyway.** The manifest declares
+     `android:icon="@mipmap/launcher_icon"`, so `res/mipmap-*/ic_launcher.png`
+     is **orphaned** and resource shrinking deletes it from release builds.
+     Confirmed absent with `aapt2 dump resources`.
+  3. **The fix got stripped too.** The new `res/drawable/ic_stat_sos.xml` is
+     reached *only* by a runtime `getIdentifier()` from Dart. It is therefore
+     invisible to the shrinker's **static reference graph**. The first release
+     build containing it compiled cleanly, installed cleanly, and **still failed
+     on device**. Fixed with `res/raw/keep.xml` declaring
+     `tools:keep="@drawable/ic_stat_sos"`.
+- **The transferable rule: a resource whose only reference is a string in Dart
+  does not exist as far as the shrinker is concerned.** "The file is in `res/`"
+  and "the file is in the APK" are different claims, and only the second one
+  ships. L41 already established that a *verified signature* does not prove the
+  right key was used; this is the same shape one level down — an artifact can be
+  structurally valid, installable, and missing the thing you added to it.
+- **Verify the artifact, never the source.** `read`ing the drawable proves it was
+  typed. `aapt2 dump resources build/.../app-release.apk` proves it shipped. Do
+  the second one for anything reached by name lookup.
+- **Pinned** by `test/notification_icon_resource_test.dart`, and the gate was
+  strengthened after review: it first only rejected `@` and `/`, which meant a
+  bare-but-nonexistent `'ic_launcher'` would have passed. It now pins the exact
+  name **and** separately asserts a matching file exists, because "the name is
+  right" and "the name resolves" are separate claims. Shown red by reintroducing
+  `'@mipmap/ic_launcher'`.
+
+## L44 — `adb install` returning `Success` does not describe the build you just ran (Oct 2026)
+
+- **What happened:** a release build **failed**
+  (`[Fatal Error] ic_stat_sos.xml:13:30: The string "--" is not permitted within
+  comments` — my own explanatory comment contained `--`, which XML forbids). The
+  failure was in Gradle's output. The very next command was `adb install`, which
+  printed **`Success`** — because it dutifully installed the **previous** APK,
+  which was sitting in the output directory.
+- **Why it matters:** the two commands are adjacent, so the natural reading is
+  "built, installed, verified". The truth was "build failed, installed yesterday,
+  verified yesterday's code". Nothing errored, nothing warned, and had I not
+  re-read logcat for the `invalid_icon` lines I would have reported a broken
+  build as a working fix — and L41's lesson is precisely that a green signal from
+  a tool is not a statement about the thing you changed.
+- **The rule:** **`install` succeeding says nothing about the build that preceded
+  it.** A build directory is not invalidated by a failed build; Gradle writes
+  output and a failure can leave the *previous* artifact sitting there looking
+  perfect. Treat "the artifact contains my change" as its own verification step,
+  with its own evidence — grep a unique string literal out of the actual blob
+  (AGENTS.md §5), or dump the resource table — rather than inferring it from an
+  exit code or a neighbouring command's output.
+- **Corollary for the fix itself:** a stale-artifact false positive is only
+  avoidable if you verify the *specific property you changed*. Here that was
+  `drawable/ic_stat_sos` in the shipped resource table. Checking "the app runs"
+  would have passed with the bug intact.

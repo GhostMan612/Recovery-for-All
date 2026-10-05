@@ -348,6 +348,22 @@ python tools/verify_resources.py                            # only if a URL actu
   above the wrong line. A later pass read that comment, concluded the screen was
   handled, and skipped it. Pair every behavioural claim with a gate or a test —
   see L32.
+- **A resource referenced only by name from Dart does not exist to the resource
+  shrinker.** `flutter_local_notifications` resolves its icon with
+  `context.getResources().getIdentifier(name, "drawable", packageName)`, so the
+  argument must be a **bare drawable name** — `'ic_stat_sos'`, never
+  `'@mipmap/...'`, which returns 0 in every build and throws `invalid_icon`.
+  Worse, nothing references that drawable statically, so `--release` shrinking
+  **deletes it**: the build compiles, installs, launches, and only fails on the
+  device. `res/mipmap-*/ic_launcher.png` is already orphaned for the same reason
+  (the manifest declares `@mipmap/launcher_icon`). Anything reached by a runtime
+  name lookup needs a `tools:keep` in `res/raw/keep.xml` **and** verification
+  against the built artifact — `aapt2 dump resources <apk>`, or `read`ing the
+  file, which proves nothing about shipping. See L43.
+- **Never XML-escape a `--` inside a comment.** Android's resource parser
+  rejects it fatally at `parseReleaseLocalResources`, and the natural fix —
+  quoting the error message in the comment — reintroduces it. Cost one wasted
+  release build. See L44.
 
 ## Architecture (non-obvious wiring)
 
