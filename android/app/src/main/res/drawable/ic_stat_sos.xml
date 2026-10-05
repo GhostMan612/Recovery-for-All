@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notification small icon for the SOS lifeline and gentle reminders.
+
+  WHY THIS EXISTS
+  Both SosNotificationService and GentleReminderService passed
+  '@mipmap/ic_launcher' to AndroidInitializationSettings. flutter_local_notifications
+  resolves that with
+
+      context.getResources().getIdentifier(name, "drawable", packageName)
+
+  so it searches the DRAWABLE folder for a resource literally NAMED
+  "@mipmap/ic_launcher". That lookup returns 0 in every build, debug included,
+  and the plugin throws invalid_icon. The boot-time catch swallowed it into a log
+  line ("[boot] sos init skipped"), so the SOS lifeline had never initialised
+  and nothing anywhere reported it. A safety feature was dead and silent.
+
+  Even a corrected mipmap reference would still be wrong twice over:
+    1. the plugin looks in drawable, not mipmap;
+    2. res/mipmap-*/ic_launcher.png is ORPHANED, because AndroidManifest declares
+       android:icon="@mipmap/launcher_icon". Resource shrinking therefore
+       DELETES ic_launcher from release builds. Verified absent from the
+       release APK.
+
+  Android 8.0+ renders the small icon as a mask tinted to the system colour, so
+  this must be a solid white silhouette on transparent. The colourful adaptive
+  launcher icon is the wrong asset here regardless of the lookup.
+
+  NOTE: an XML comment may not contain a double hyphen. An earlier revision of
+  this comment used them for parenthetical asides and failed the build at
+  parseReleaseLocalResources with a fatal error about an illegal string in a
+  comment. Do not add one here.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Shield: the "safety plan / lifeline" read, and legible at status-bar size. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2L4,4.9v6.4c0,4.9 3.4,9.4 8,10.7c4.6,-1.3 8,-5.8 8,-10.7V4.9L12,2z" />
+</vector>

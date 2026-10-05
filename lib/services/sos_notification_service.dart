@@ -19,7 +19,12 @@ class SosNotificationService {
   static const String prefNotifPermissionRequested = 'sos_notif_permission_requested_v1';
 
   static Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // A DRAWABLE name, not a mipmap reference. The plugin resolves this with
+    // getIdentifier(name, "drawable", packageName), so "@mipmap/ic_launcher"
+    // always resolved to 0 and threw `invalid_icon` -- the SOS lifeline had
+    // never initialised and the boot-time catch hid it as a log line.
+    // See res/drawable/ic_stat_sos.xml for the full account.
+    const androidSettings = AndroidInitializationSettings('ic_stat_sos');
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await _notificationsPlugin.initialize(settings: initSettings);

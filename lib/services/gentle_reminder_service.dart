@@ -127,8 +127,11 @@ class GentleReminderService {
   }
 
   static Future<void> initialize() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    // A DRAWABLE name, not a mipmap reference -- see the matching note in
+    // SosNotificationService and res/drawable/ic_stat_sos.xml. The old
+    // '@mipmap/ic_launcher' resolved to 0 in getIdentifier(name, "drawable")
+    // and threw invalid_icon, so reminders never registered.
+    const androidSettings = AndroidInitializationSettings('ic_stat_sos');
     const iosSettings = DarwinInitializationSettings();
     await _plugin.initialize(
       settings: const InitializationSettings(

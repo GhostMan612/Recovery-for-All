@@ -20,7 +20,74 @@ reported); all fixed, pinned at a pinned 360dp surface so the test cannot pass
 for the wrong reason (L40). Suite at **645**, analyze clean,
 **fourteen** invariants green, all links alive. Governing lessons: **L31** (a probe never shown to work where you know the answer is a guess with a colon; its corollary — *a listed-but-unscannable key is not a pin*), **L32** (*a comment describing a fix is not the fix*), **L34** (*a caller-chosen string is never a security key*) and **L35** (*a fallback is not coverage*).
 
-**Release state:** the Play upload questionnaire is **complete** and the app is
+- **🟢🟢 DEVICE VERIFIED (this session, moto g - 2025, Android 16 / SDK 36,
+  720x1604 @ 280dpi, RELEASE build, release-signed).** This is the first
+  device run of a **release-signed** build, and it found a bug no host test
+  could. See "THE SOS LIFELINE NEVER INITIALISED" below.
+  - The previously installed copy was a **debug** build (`CN=Android Debug`,
+    262.6 MB, with a 104 MB `kernel_blob.bin`). A release build is signed with
+    the upload key, so Android refuses to install over it
+    (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) and an uninstall is the only path.
+    **Consequence: all local data was wiped.** App data was backed up first via
+    `run-as` to `%TEMP%\opencode\appdata.tar` (1.45 MB, holds the encrypted
+    `app_flutter/recovery_companion_secure.db`, `shared_prefs/`, `files/`,
+    `databases/`). **That backup is very likely NOT restorable**: the DB is
+    SQLCipher-encrypted and the key lives in the Android Keystore via
+    `FlutterSecureKeyStorage.xml`, and Keystore entries are destroyed on
+    uninstall. Treat it as an artifact for inspection, not a restore point.
+  - Verified on device: launches clean, **no FATAL**, stays resident;
+    `[boot] notifications: ready`; `NotificationChannel{mId='sos_persistent'}`
+    and `{mId='reminders@1'}` are **registered** — and since the uninstall
+    wiped all channels, they can only have been created by this launch.
+    `POST_NOTIFICATIONS: granted=false`, which is by design: the code requests
+    it from a user gesture (first SOS sheet open), never at boot.
+  - **Still unverified on device, needs the user:** the dashboard rendering, and
+    an SOS notification actually appearing in the status bar. The device has a
+    **secure lock screen** and unlocking it is a physical security boundary I
+    did not attempt. Wake the device, unlock it, open the SOS sheet once (that
+    also grants POST_NOTIFICATIONS), and confirm the persistent notification
+    draws with the shield icon.
+- **🔴🔴 THE SOS LIFELINE NEVER INITIALISED — found on hardware, not in CI.**
+  `SosNotificationService` and `GentleReminderService` both passed
+  `AndroidInitializationSettings('@mipmap/ic_launcher')`.
+  `flutter_local_notifications` resolves that with
+  `context.getResources().getIdentifier(name, "drawable", packageName)` — it
+  searches the **drawable** folder for a resource literally named
+  `@mipmap/ic_launcher`. That returns 0 **in every build, debug included**, so
+  the plugin threw `invalid_icon`, and the boot-time `catch` swallowed it into
+  three log lines:
+  ```
+  [boot] sos init skipped:    PlatformException(invalid_icon, The resource @mipmap/ic_launcher could not be found...)
+  [boot] gentle init skipped: PlatformException(invalid_icon, ...)
+  [boot] sos restore skipped: NullPointerException ... Integer.intValue() on a null object
+  ```
+  So the app's central safety feature had **never worked**, and nothing in CI,
+  no analyzer, and no assertion could see it. Three separate mistakes stacked:
+  1. **Wrong resource type.** The plugin looks in `drawable`, not `mipmap`.
+  2. **The resource did not exist anyway.** `AndroidManifest` declares
+     `android:icon="@mipmap/launcher_icon"`, so `res/mipmap-*/ic_launcher.png`
+     is **orphaned** and resource shrinking **deletes it from release builds**.
+     Verified absent from the release APK via `aapt2 dump resources`.
+  3. **Even a correct fix gets stripped.** The new
+     `res/drawable/ic_stat_sos.xml` is reached only by a runtime
+     `getIdentifier()` from Dart, so it is invisible to the shrinker's static
+     reference graph. The first release build containing it compiled cleanly,
+     installed cleanly, and **still** failed on device — caught only by running
+     `aapt2 dump resources` against the APK. Fixed with
+     `res/raw/keep.xml` declaring `tools:keep="@drawable/ic_stat_sos"`; the
+     resource now appears as `drawable/ic_stat_sos 0x7f08007e`.
+  Pinned by `test/notification_icon_resource_test.dart` (5 cases), which asserts
+  both call sites pass a bare drawable name, that the vector is white, that
+  `keep.xml` still declares the keep, and that the manifest has not started
+  referencing the orphaned mipmap. Shown to go red by reintroducing
+  `'@mipmap/ic_launcher'`.
+  **Lesson worth more than the fix:** a resource whose only reference is a
+  string in Dart does not exist as far as the shrinker is concerned. "The file
+  is in `res/`" and "the file is in the APK" are different claims, and only the
+  second one ships. Also: `--release` builds differ from `--debug` in ways that
+  only a device can show — the icon was broken in both, but resource shrinking
+  added a second, independent way for it to be absent.
+- **Release state:** the Play upload questionnaire is **complete** and the app is
 **awaiting approval for public publishing**. A signed `1.0.0+10` release AAB is
 built and signature-verified at
 `build/app/outputs/bundle/release/app-release.aab` (129.5 MB); it is the current

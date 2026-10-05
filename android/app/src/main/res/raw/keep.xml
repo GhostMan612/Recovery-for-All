@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resources that must survive release resource shrinking even though nothing
+  references them from Java, Kotlin or XML.
+
+  WHY: the resource shrinker works from the static reference graph. The SOS
+  notification icon is looked up at RUNTIME by name,
+
+      getIdentifier("ic_stat_sos", "drawable", packageName)
+
+  from Dart via flutter_local_notifications. No manifest entry, no layout, no
+  Java call mentions it, so the shrinker classifies it as unreachable and
+  deletes it. The result is a release build where every SOS notification throws
+  invalid_icon at runtime, with no compile error and no manifest warning to
+  explain it.
+
+  This is the same class of bug as the orphaned mipmap/ic_launcher: a resource
+  that exists in source, looks correct, and is simply absent from the artifact.
+  Verified by aapt2 dump resources on the built APK, not by reading this file.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_sos" />
