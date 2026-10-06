@@ -1254,6 +1254,19 @@ not a comment to any parser that is not specifically forgiving, and
   The general rule: before raising a release blocker derived from local state,
   establish what the constraint actually refers to, and prefer the human who can
   see the Play console over an inference from local files.
+- **UPDATE (Oct 2026) — the rule held, but the conclusion did not.** I recorded
+  above that "`+10` clears it; nothing was ever burned", on the strength of the
+  human confirming +8 was the highest *uploaded*. That was true at the time.
+  `1.0.0+10` was then uploaded to the **Open Testing** track, and the next upload
+  had to become `+11` anyway. Two things I got wrong, both about scope:
+  1. **"Not burned" was a claim about a moment, not a rule.** The correct durable
+     statement is *"not burned as of this check"* — an upload to *any* track
+     consumes the versionCode, and Open Testing is an upload. A confirmation
+     about release history is only true until the next upload.
+  2. **I asked about "the highest uploaded versionCode" without asking to
+     which track.** Per-project, the track is irrelevant; asking a narrower
+     question invited a narrower answer. See L45 — this became L45's actual
+     cause, and it cost a version bump.
 
 ---
 
@@ -1359,6 +1372,40 @@ not a comment to any parser that is not specifically forgiving, and
   name **and** separately asserts a matching file exists, because "the name is
   right" and "the name resolves" are separate claims. Shown red by reintroducing
   `'@mipmap/ic_launcher'`.
+
+## L45 — Play's versionCode ceiling is per-PROJECT, not per-track (Oct 2026)
+
+- **What happened:** `1.0.0+10` was uploaded to the **Open Testing** track. The
+  intent had been a production publish, and both live in the same release list in
+  the Play Console, where a hurried click is easy to make. The consequence is that
+  **versionCode 10 is consumed project-wide** and the production upload had to
+  become `1.0.1+11`.
+- **Why it is worth writing down, because the mechanism is the lesson:** Play
+  enforces "versionCode must be greater than any previously uploaded" across the
+  *whole project*. Internal testing, closed testing, open testing and production
+  share one counter. There is no per-track namespace, so "it's only a test track,
+  it doesn't count" is true of the *audience* and false of the *version number*.
+  The audience is temporary; the versionCode is spent forever.
+- **The documentation failure that let it through.** `SESSION_HANDOFF.md` carried
+  a confident, human-confirmed verdict in bold:
+  > **✅ versionCode 10 is correct — no bump needed (human-confirmed Oct 2026).**
+
+  That is precisely the L32 shape — a claim, stated as settled, sitting above the
+  line it governs. It was correct on the day it was written and it was **still
+  wrong a few hours later**, because it was a snapshot presented as a standing
+  fact. A release constraint derived from an external system's history is a
+  *measurement*, not a *fact*, and it decays. Every such verdict now carries its
+  as-of date and names the query used, and the follow-up question includes the
+  track.
+- **Two rules that follow:**
+  1. **Version numbers are monotonically spent.** Once an AAB is uploaded, that
+     versionCode is gone for the life of the project. An abandoned or
+     wrong-track upload is not free — budget a bump for it.
+  2. **Ask the release-constraint question with its scope attached.** "What is
+     the highest uploaded versionCode?" invites an answer scoped to whatever the
+     other person was looking at. The question that would have prevented this is
+     "What is the highest versionCode uploaded to *any* track?" See the L41
+     update above: the reasoning was sound and the *question* was under-specified.
 
 ## L44 — `adb install` returning `Success` does not describe the build you just ran (Oct 2026)
 

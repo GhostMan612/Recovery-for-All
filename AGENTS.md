@@ -364,6 +364,17 @@ python tools/verify_resources.py                            # only if a URL actu
   rejects it fatally at `parseReleaseLocalResources`, and the natural fix —
   quoting the error message in the comment — reintroduces it. Cost one wasted
   release build. See L44.
+- **A Play versionCode is spent project-wide, not per-track, and a release
+  verdict about one is a dated measurement — never a standing fact.** Uploading
+  an AAB to internal, closed or **open** testing consumes that versionCode for
+  the whole project; there is no per-track namespace, so a wrong-track upload
+  costs a real bump. `SESSION_HANDOFF.md` once carried a bold, human-confirmed
+  *"✅ versionCode 10 is correct — no bump needed"* that was true when written and
+  false hours later — the L32 shape, a snapshot wearing the costume of a settled
+  fact. When you record or cite release-state constraints, date them, name the
+  query used, and ask which **track** it came from. `versionCode` lives in
+  `pubspec.yaml` (`version: 1.0.1+11`) and flows into Gradle automatically;
+  never hardcode it in `build.gradle.kts`. See L45.
 
 ## Architecture (non-obvious wiring)
 

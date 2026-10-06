@@ -351,9 +351,12 @@ What genuinely remains, and is not a bug:
 - A **high-RAM** device for the non-low-end branch (Lottie enabled). The B160V
   takes `isLowEnd = true`; the **Moto G 2025** (`[hardware] totalRamGb=3.56
   isLowEnd=false`) now exercises the other branch, so this is closed too.
-- Play rollout of `1.0.0+10`. A signed release AAB was built and verified
+- Play rollout. A signed release AAB was built and verified
   (JAR signature present, 732 signed digests verified, all 18 arm64 `.so`
-  16 KB aligned); uploading and the publication questionnaire are human-owned.
+  16 KB aligned). `1.0.0+10` reached the **Open Testing** track; production
+  publishing is granted, so the current upload candidate is **`1.0.1+11`**.
+  `+10` is burned project-wide by that Open Testing upload — Play's versionCode
+  ceiling is per-project, not per-track.
 
 ## Re-Sequencing Rationale (Sep 28)
 

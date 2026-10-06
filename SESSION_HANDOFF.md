@@ -87,9 +87,12 @@ for the wrong reason (L40). Suite at **645**, analyze clean,
   second one ships. Also: `--release` builds differ from `--debug` in ways that
   only a device can show — the icon was broken in both, but resource shrinking
   added a second, independent way for it to be absent.
-- **Release state:** the Play upload questionnaire is **complete** and the app is
-**awaiting approval for public publishing**. A signed `1.0.0+10` release AAB is
-built and signature-verified at
+- **Release state:** Google Play **production access has been granted**, and
+  **production publishing has been granted**. The Play upload questionnaire is
+  **complete**. `1.0.0+10` was uploaded to the **Open Testing** track (not
+  production — an easy mistake, since both live in the same release list), which
+  burned versionCode 10 project-wide. A signed `1.0.1+11` release AAB is built
+  and signature-verified at
 `build/app/outputs/bundle/release/app-release.aab` (129.5 MB); it is the current
 upload candidate and supersedes every `+9` reference below. Device
 verification of the current source is owned by the user and has not been run for
@@ -421,7 +424,7 @@ resume without losing progress. Update it at every session end.
 ## 4 · Human-side queue (agent cannot do these)
 
 1. GGUF **download + load + latency** matrix on the Moto G — the gate is now
-   open and the app is installed (`versionCode 10`), so this is the only
+   open and the app is installed (`versionCode 11`), so this is the only
    remaining executable QA item. ~241 MB for Gemma 270M. Plan:
    `docs/qa/gguf_qa.md`.
 2. **The 500-step walk award** — the sensor chain is *proven* on the Moto G
@@ -433,8 +436,10 @@ resume without losing progress. Update it at every session end.
 4. ~~Re-publish Firestore rules after the audit added `ownerUid`.~~ **DONE,
    same deploy.** The live rules partition by `request.auth.uid` against a path
    segment, not the caller-written field.
-5. Play upload of the `+10` AAB + questionnaire + publication. Human-owned. The
+5. Play upload of the `+11` AAB + publication. Human-owned. The
    artifact is built and verified; only the console/account step remains.
+   **Use `+11`, not `+10`** — `+10` is already consumed by the Open Testing
+   upload and Play's versionCode ceiling is per-project, not per-track.
 6. **Open decision, not a task:** the deployed rules make flat-schema
    `sponsor_bundles` unreachable (deliberate), so genuine **cross-account**
    relay now needs a `sponsor_code` custom claim that does not exist yet. The
@@ -608,7 +613,7 @@ the gate will fail and Phase 10 forbids it.
   WSL2 or a CI `ubuntu` runner only.
 - **Release AAB built and verified** (historical entry, superseded): `+9`,
   129.1 MB. Kept only to show the artifact path moved and the count changed;
-  see the "Release state" line at the top for the current `+10` build and the
+  see the "Release state" line at the top for the current `+11` build and the
   `+9` note below for the trap that made this necessary.
 - **The `build/` tree was deleted at some point**, so the previously-referenced
   "stale" `recovery-for-all-1.0.0+9.aab` did not exist. Anything remembered
@@ -703,12 +708,14 @@ the gate will fail and Phase 10 forbids it.
   `adb connect 192.168.4.202:40809`.
 - ~~The `+9` release AAB in `build/` predates all of this and is stale. Do not
   upload it. The only binary built so far is a **debug** APK.~~
-  **SUPERSEDED TWICE, Oct 2026:** the `build/` tree was first deleted outright,
-  then rebuilt as `+9`, and is now rebuilt again from current source as
-  **`+10`**. The current upload candidate is
-  `build/app/outputs/bundle/release/app-release.aab` (1.0.0+10, 129.5 MB,
-  rebuilt 2026-10-04 from `53d3cd3b057`, i.e. **including the v1 migration fix
-  and all three dresser overflow fixes**). Signature verified with
+  **SUPERSEDED THREE TIMES, Oct 2026:** the `build/` tree was first deleted
+  outright, then rebuilt as `+9`, then as `+10`, and is now rebuilt again as
+  **`+11`** because `+10` was uploaded to Open Testing and can no longer be
+  reused. The current upload candidate is
+  `build/app/outputs/bundle/release/app-release.aab` (1.0.1+11, 129.5 MB), built
+  from a clean tree and shipped alongside version-named copies:
+  `RecoveryForAll-v1.0.1-build11.aab` (Play upload) and
+  `RecoveryForAll-v1.0.1-build11.apk` (sideload). Signature verified with
   `jarsigner -verify`: `jar verified.`, signed by
   `CN=Glenn Lee Clark IV, OU=Recovery For All, O=Recovery,
   L=Saint Paul, ST=Minnesota, C=US`, SHA384withRSA, 2048-bit RSA, valid to
@@ -723,15 +730,23 @@ the gate will fail and Phase 10 forbids it.
   stale rebuild. All six prebuilt llama/ggml libs and `libsqlcipher.so` are
   present in the arm64-v8a slice; they are far smaller there than on disk
   because release builds run `strip`, which is expected.
-  **✅ versionCode 10 is correct — no bump needed (human-confirmed Oct 2026).**
-  The highest AAB ever uploaded to Play is **+8**, live in Closed Testing. So
-  +10 clears it and nothing has been burned. An earlier note here warned that
-  `10` would have to become `+11` because it matched the previous local build's
-  code; that was reasoning from a build directory, not from release history.
-  Play's constraint is against a versionCode that has been *uploaded*, not one
-  that has been *built*, and locally-built +9 and +10 were never uploaded.
-  Do not renumber downwards either — going back to +9 would gain nothing and
-  only makes the next upload's number lower for no benefit.
+  **✅ versionCode 11 is required — the "no bump needed" note below was
+  superseded Oct 2026.**
+  This section previously read *"versionCode 10 is correct — no bump needed
+  (human-confirmed)"*, reasoning that the highest AAB ever uploaded was **+8**
+  (Closed Testing) and that locally-built +9 and +10 had never been uploaded.
+  **That reasoning was correct when written and is now false: `+10` WAS uploaded
+  to the Open Testing track.** Play's constraint is per-project, not per-track, so
+  a versionCode consumed by Open Testing cannot be reused by Production. The next
+  upload must therefore be **`+11`** — hence `pubspec.yaml` moving to
+  `version: 1.0.1+11`.
+  The general rule survives and is now load-bearing: **Play's constraint is
+  against a versionCode that has been *uploaded*, not one that has been *built*.**
+  Never renumber downwards — going back to +9 or reusing +10 gains nothing and
+  makes the next upload's number lower for no benefit. When an upload is
+  abandoned partway, assume the versionCode is burned unless the Play Console
+  release list proves otherwise; the console, not the build directory, is the
+  only authority.
   `build/` is gitignored, so re-verify the file exists before referencing it,
   and do not trust any artifact name remembered from an earlier session.
 - **🔴 FIXED: the release build could silently sign with the DEBUG key (this
