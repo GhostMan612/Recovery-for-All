@@ -125,6 +125,24 @@ media/*.PDF
 assets/pdfs/
 *.pdf
 
+# Browser "Save Page As" artifacts: an external documentation page plus the
+# entire _files/ folder it drags in (proxy.html, cookiesPage.html, app.css,
+# gtm*.js.download, devsite_*.js.download, lockup.svg, plus files with NO
+# extension like destination, css, css2, js, m=hfcr).
+#
+# The only prior media/ rules were *.pdf and *.PDF, so media/ was never actually
+# ignored and 80 such files were committed. The rule existed to exclude PDFs; I
+# later read "media/ has an ignore rule" and reported media/ as ignored without
+# checking what the rule covered -- `git check-ignore media/*.mp4` answered NOT
+# IGNORED and I went past it. Same class as L31: a rule that appears to cover a
+# path is not a pin on that path, and "listed" is not "scanned".
+#
+# The demo .mp4s and the authored design docs under media/ stay tracked on
+# purpose. Select by the _files/ directory rather than by extension, because a
+# third of these files carry no extension at all.
+media/*.html
+media/*_files/
+
 # --- Docs: split by sensitivity (was: all ignored before any public mirror) ---
 # TRACKED on purpose — these encode rules and state that silently drift from
 # the code when un-versioned, which has already happened with the invariant
