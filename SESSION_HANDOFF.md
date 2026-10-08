@@ -95,8 +95,93 @@ for the wrong reason (L40). Suite at **645**, analyze clean,
   and signature-verified at
 `build/app/outputs/bundle/release/app-release.aab` (129.5 MB); it is the current
 upload candidate and supersedes every `+9` reference below. Device
-verification of the current source is owned by the user and has not been run for
-this batch.
+  verification of the current source is owned by the user and has not been run for
+  this batch.
+- **🟢 R8 optimization fixed and device-verified — `1.0.2+12`.** Play's
+  pre-launch report raised three advisories; two were noise, one was a real
+  defect and is now fixed.
+  | advisory | verdict |
+  |---|---|
+  | *Edge-to-edge may not display for all users* | **Real, unavoidable-by-flag.** `targetSdkVersion=36`, so Android 15+ forces edge-to-edge and on SDK 36 the temporary opt-out is gone. Both test devices are already Android 16 and launch clean. Needs a proper inset audit; not a release blocker. |
+  | *Deprecated `Window.setStatusBarColor` / `setNavigationBarColor` in `a00.B`/`xz.B`/`yz.B`* | **Not our code, nothing to fix.** The app's Kotlin never calls them, no Dart requests system-bar colours (`SystemChrome`/`AnnotatedRegion` absent), and the R8 mapping has **zero** references to either method. Those names do not exist in our mapping at all — they appear only in Play's own re-optimization of the "Enhanced" APK. A dependency, not a defect in this repo. |
+  | *R8 low optimization/obfuscation/shrinking (~30%)* | **Real defect, fixed.** |
+- **Cause:** `android/app/proguard-rules.pro` blanket-kept the three largest
+  dependency graphs:
+  ```proguard
+  -keep class io.flutter.** { *; }
+  -keep class plugins.flutter.io.** { *; }
+  -keep class com.google.firebase.** { *; }
+  -keep class com.google.android.gms.** { *; }
+  ```
+  `{ *; }` means keep every class *and* every member, never rename, never remove —
+  so those four lines disabled shrinking, renaming and optimization across the
+  entire Flutter embedding, Firebase and Play Services. They were also
+  **redundant**: Flutter's Gradle plugin, the Firebase BoM and Play Services all
+  ship consumer rules that AGP merges automatically. The official Flutter
+  release template ships this file essentially empty for exactly that reason.
+- **Measured effect** (not asserted):
+  | | before | after |
+  |---|---|---|
+  | retained classes in mapping | 11,716 | **7,445** (−36%) |
+  | APK | 157.9 MB | 157.0 MB |
+  | AAB | 129.5 MB | 128.9 MB |
+  | DEX (what R8 governs) | — | **5.19 MB, 3.2% of the APK** |
+  | native `.so` | — | **134.76 MB, 84.1% of the APK** |
+  **Read the last two rows before expecting a smaller download.** This app is
+  84% native libs (llama.cpp/ggml/sqlcipher), so a 36% code reduction moves the
+  total download by well under 1%. Play's percentages are computed over code, so
+  the *rates* should improve markedly even though the APK barely shrinks.
+- **Device verification, because this is the risky half.** Removing `-keep` can
+  strip a class reached only by reflection, and that fails at **runtime on a
+  release build**, never at build time. Verified on the **BLU VIEW 5 / B160V**,
+  `versionCode 12`, release-signed, `ic_stat_sos` present in the device's own
+  resource table:
+  ```
+  [boot] firebase: ready (cloud circle enabled)     ← reflection-heavy, survived
+  [boot] notifications: ready
+  [boot] step counter: ready
+  [hardware] totalRamGb=2.75 isLowEnd=true
+  ```
+  No `ClassNotFoundException`, `NoSuchMethodError`, `NoClassDefFoundError`,
+  `FATAL EXCEPTION` or `invalid_icon`. `sos_persistent` channel registered.
+  **Stated limits:** this exercises launch, Firebase, notifications, sensors and
+  the resource table. It does not prove every release-only path in the app —
+  a reflection crash can still hide behind an unexercised feature. If one appears,
+  add back **one narrow rule** for the class in question; never a blanket
+  `-keep class <package>.** { *; }`, which silently undoes the whole change.
+- **Draft production release notes** (the console's existing copy mentions only
+  Themes/Companion/Meeting Finder/Constellation and omits the most important
+  change in the build — that the SOS lifeline had never worked):
+  > Fixed the SOS lifeline and made a companion that fits on your screen
+  >
+  > The SOS alert had never worked. When the app started, its notification setup
+  > was failing silently, so the emergency SOS button and the daily check-in
+  > reminders never actually reached your phone. They now initialise correctly,
+  > and the alert stays on screen while the SOS sheet is open so it cannot be lost
+  > behind another app.
+  >
+  > Also in this release:
+  > - Redid the Themes and the Recovery Companion visuals, and fixed layout
+  >   problems that pushed text and controls off screen at larger font sizes.
+  > - Fixed the Meeting Finder, including filtering and meeting detail views.
+  > - Fixed the Recovery Constellation, including how stars are drawn and laid out.
+  > - Improved app size and memory use by letting Android's compiler remove unused
+  >   code instead of shipping everything.
+  > - Faster startup and a smaller download for new installs.
+  >
+  > Your data stays on your device. Nothing in this release moves your journal,
+  > streaks or companion to the cloud.
+- **Three of my own gates were wrong today, all caught by checking rather than
+  trusting them.** Recording because it is a pattern, and because each one
+  produced a confident "FAIL" that was really a bad assertion: (1) checked for
+  channel `reminders@1` when the real ID is `gentle_reminders`, and its absence
+  on a fresh install is *correct* since the reminder pref is off; (2) matched
+  `drawable/ic_launcher` by prefix and flagged the perfectly legitimate adaptive
+  icon layers `ic_launcher_background`/`_foreground`; (3) used a `logcat -s`
+  tag filter that silently matched nothing, so a working build reported
+  `notifications: ready MISSING` while the line sat in the log. **A gate whose
+  failure mode is "wrong assertion" is worse than no gate**, because it trains
+  you to distrust real failures.
 - **🟢 Fresh CLEAN release build, verified (this session).** `flutter clean` was
   run first and the previous AAB confirmed **deleted** before rebuilding, so this
   is not a re-emission of an earlier artifact — that check is the whole point,

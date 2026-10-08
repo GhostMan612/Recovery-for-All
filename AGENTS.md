@@ -364,17 +364,28 @@ python tools/verify_resources.py                            # only if a URL actu
   rejects it fatally at `parseReleaseLocalResources`, and the natural fix —
   quoting the error message in the comment — reintroduces it. Cost one wasted
   release build. See L44.
-- **A Play versionCode is spent project-wide, not per-track, and a release
-  verdict about one is a dated measurement — never a standing fact.** Uploading
-  an AAB to internal, closed or **open** testing consumes that versionCode for
-  the whole project; there is no per-track namespace, so a wrong-track upload
-  costs a real bump. `SESSION_HANDOFF.md` once carried a bold, human-confirmed
-  *"✅ versionCode 10 is correct — no bump needed"* that was true when written and
-  false hours later — the L32 shape, a snapshot wearing the costume of a settled
-  fact. When you record or cite release-state constraints, date them, name the
-  query used, and ask which **track** it came from. `versionCode` lives in
-  `pubspec.yaml` (`version: 1.0.1+11`) and flows into Gradle automatically;
-  never hardcode it in `build.gradle.kts`. See L45.
+- **~~A Play versionCode is spent project-wide~~ — RETRACTED, and the retraction
+  matters more than the rule did.** I once recorded that uploading to *any* track
+  burns that versionCode project-wide, and used it to talk the user out of
+  versionCode 10 for a production release. Wrong. Play's increase constraint is
+  per **track**, and promoting open→production **reuses the same versionCode**.
+  The console error that refuted it named **8** being shadowed by **10** inside one
+  release — a within-release selection mistake, fixed by deselecting 8; 10 was
+  publishable all along. Two rules that replace it:
+  - **A versionCode is spent per track, not per project.** Promotion between
+    tracks reuses it; that is the ordinary workflow. Never renumber downwards.
+  - **Never write a numbered "lesson" from a plausible mechanism.** That entry
+    had confident prose, a code block and an imperative, and read as evidence
+    someone had already paid for it — so a later session would have acted on a
+    rule I invented. State the observation *and* its source, or do not write it
+    down. When a lesson is retracted, retract it **loudly and in place**; do not
+    quietly delete it, because the L32 failure mode is a stale claim, not an
+    absent one.
+  - Corollary: read the error text literally. "Version code 8 is shadowed" cannot
+    mean "version code 10 is spent". I had that evidence on screen and reasoned
+    past it.
+  - `versionCode` lives in `pubspec.yaml` and flows into Gradle automatically;
+    never hardcode it in `build.gradle.kts`.
 
 ## Architecture (non-obvious wiring)
 

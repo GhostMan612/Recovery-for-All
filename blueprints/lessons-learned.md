@@ -1373,39 +1373,41 @@ not a comment to any parser that is not specifically forgiving, and
   right" and "the name resolves" are separate claims. Shown red by reintroducing
   `'@mipmap/ic_launcher'`.
 
-## L45 — Play's versionCode ceiling is per-PROJECT, not per-track (Oct 2026)
+## L45 — RETRACTED: "Play's versionCode ceiling is per-project, not per-track" (Oct 2026)
 
-- **What happened:** `1.0.0+10` was uploaded to the **Open Testing** track. The
-  intent had been a production publish, and both live in the same release list in
-  the Play Console, where a hurried click is easy to make. The consequence is that
-  **versionCode 10 is consumed project-wide** and the production upload had to
-  become `1.0.1+11`.
-- **Why it is worth writing down, because the mechanism is the lesson:** Play
-  enforces "versionCode must be greater than any previously uploaded" across the
-  *whole project*. Internal testing, closed testing, open testing and production
-  share one counter. There is no per-track namespace, so "it's only a test track,
-  it doesn't count" is true of the *audience* and false of the *version number*.
-  The audience is temporary; the versionCode is spent forever.
-- **The documentation failure that let it through.** `SESSION_HANDOFF.md` carried
-  a confident, human-confirmed verdict in bold:
-  > **✅ versionCode 10 is correct — no bump needed (human-confirmed Oct 2026).**
-
-  That is precisely the L32 shape — a claim, stated as settled, sitting above the
-  line it governs. It was correct on the day it was written and it was **still
-  wrong a few hours later**, because it was a snapshot presented as a standing
-  fact. A release constraint derived from an external system's history is a
-  *measurement*, not a *fact*, and it decays. Every such verdict now carries its
-  as-of date and names the query used, and the follow-up question includes the
-  track.
-- **Two rules that follow:**
-  1. **Version numbers are monotonically spent.** Once an AAB is uploaded, that
-     versionCode is gone for the life of the project. An abandoned or
-     wrong-track upload is not free — budget a bump for it.
-  2. **Ask the release-constraint question with its scope attached.** "What is
-     the highest uploaded versionCode?" invites an answer scoped to whatever the
-     other person was looking at. The question that would have prevented this is
-     "What is the highest versionCode uploaded to *any* track?" See the L41
-     update above: the reasoning was sound and the *question* was under-specified.
+- **This lesson was wrong and is retracted. Do not act on it.** I wrote it
+  asserting that uploading an AAB to Open Testing burns that versionCode
+  *project-wide*, so a production upload had to move `+10` → `+11`.
+- **What actually happened.** The Play Console rejected the production release
+  with: *"This APK will not be served to any users because it is completely
+  shadowed by one or more APKs with higher version codes"* — and it named
+  **version code 8**. The cause was that the release had **artifact 8 selected
+  alongside artifact 10**. That is a *within-release* shadowing problem, not a
+  cross-track version-clash. Removing 8 from the release fixed it, and **10 was
+  publishable to production the whole time.**
+- **The correct rule:** Play's "versionCode must increase" constraint is scoped to
+  **each track's own release history**, and **promoting a release from a test
+  track to production reuses the same versionCode** — that is the ordinary
+  promote-from-open-testing workflow. "It only went to a test track" is true of the
+  audience and false as a claim about the number.
+- **How I got it wrong, which is the transferable part.** I never verified the
+  mechanism against the actual error; I *inferred* a project-wide rule from the
+  fact that the two tracks existed, then wrote it down as a numbered "hard-won
+  lesson" with confident prose, a code block, and an imperative ("ask which track
+  it came from"). Having the L32 shape — an asserted rule wearing the costume of
+  an earned lesson — is worse than having said nothing, because a future session
+  reads numbered lessons as evidence someone already paid for.
+  - **The rule that would have caught it:** when a lesson is numbered and framed
+    as learned, state the *observation* and the *source*. I had neither — I had a
+    plausible mechanism and confident prose. Where did "per-project" come from? I
+    cannot say, and that should have blocked writing it down.
+  - **This also cost a real version bump.** `+11` shipped where `+10` would have
+    served. Harmless in itself — Play only needs monotonic increase, so skipping a
+    number is cosmetic — but it is a decision made on my invented constraint.
+  - **The correct fix was visible in the first screenshot I was given**, in the
+    sentence I read past: the error names **8**, not 10. A complaint about 8 being
+    shadowed by 10 cannot be about 10 being spent. I had the evidence in front of
+    me and reasoned past it toward a more interesting theory.
 
 ## L44 — `adb install` returning `Success` does not describe the build you just ran (Oct 2026)
 
