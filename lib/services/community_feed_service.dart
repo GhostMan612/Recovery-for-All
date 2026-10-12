@@ -12,6 +12,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/privacy/privacy_capability.dart';
 import '../database/recovery_database.dart';
 import 'safety_guardrail_service.dart';
 
@@ -26,7 +27,21 @@ class CommunityFeedService {
   static const int maxPostLength = 480;
   static const String remoteCollection = 'community_feeds';
 
-  static bool remoteReady = true;
+  static bool remoteReady = false;
+
+  static bool isRemoteAvailable() => remoteReady;
+
+  static final List<void Function()> _revocationCallbacks = [];
+
+  static void onRevokeCloud() {
+    remoteReady = false;
+    for (final cb in List.of(_revocationCallbacks)) {
+      try {
+        cb();
+      } catch (_) {}
+    }
+    _revocationCallbacks.clear();
+  }
 
   static const List<String> _supportWords = [
     'relapsed',
@@ -42,14 +57,38 @@ class CommunityFeedService {
     'threw away my clean time',
   ];
 
+  static bool _privacyListenerAttached = false;
+
+  static void initPrivacyListener() {
+    if (_privacyListenerAttached) return;
+    _privacyListenerAttached = true;
+    PrivacyCapabilityService.onConsentChangedCallbacks.add((cap, state) {
+      if (cap == PrivacyCapability.cloudSync) {
+        if (state.isGranted) {
+          remoteReady = true;
+        } else {
+          onRevokeCloud();
+        }
+      }
+    });
+  }
+
   final RecoveryDatabase database;
 
-  CommunityFeedService(this.database);
+  CommunityFeedService(this.database) {
+    initPrivacyListener();
+  }
 
   static Future<bool> _ensureAuth() async {
     try {
       if (Firebase.apps.isEmpty) {
         debugPrint('[circle] Firebase is not initialized.');
+        return false;
+      }
+      final cloudAllowed =
+          await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+      if (!cloudAllowed) {
+        debugPrint('[circle] Cloud sync not permitted by privacy policy.');
         return false;
       }
       if (FirebaseAuth.instance.currentUser == null) {
@@ -65,7 +104,7 @@ class CommunityFeedService {
 
   Stream<List<FeedPost>> watchMergedFeed() {
     final local = database.watchVisibleFeed();
-    if (Firebase.apps.isEmpty) return local;
+    if (Firebase.apps.isEmpty || !remoteReady) return local;
 
     final remote = FirebaseFirestore.instance
         .collection(remoteCollection)
@@ -119,8 +158,16 @@ class CommunityFeedService {
     late StreamController<List<FeedPost>> controller;
     late StreamSubscription<List<FeedPost>> localSub;
     StreamSubscription<List<FeedPost>>? remoteSub;
-    // Hoisted so onCancel can reach it — see the anonymous-auth race below.
     var cancelled = false;
+
+    void cancelRemote() {
+      remoteSub?.cancel();
+      remoteSub = null;
+      hasRemote = false;
+      if (!controller.isClosed) {
+        controller.add(latestLocal);
+      }
+    }
 
     controller = StreamController<List<FeedPost>>(
       onListen: () {
@@ -132,15 +179,18 @@ class CommunityFeedService {
           onError: (Object _) => controller.add(latestLocal),
         );
 
-        // Anonymous auth can take a second or two. If the user leaves the screen
-        // inside that window, onCancel already ran with remoteSub == null, and
-        // this continuation then created a live Firestore subscription that
-        // nothing would ever cancel — a permanently-active listener per visit.
-        // The hoisted `cancelled` flag closes that race.
+        _revocationCallbacks.add(cancelRemote);
+
         _ensureAuth().then((authenticated) {
           if (!authenticated || cancelled) return;
           remoteSub = remote.listen(
-            (list) {
+            (list) async {
+              if (cancelled) return;
+              final stillAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+              if (!stillAllowed) {
+                cancelRemote();
+                return;
+              }
               latestRemote = list;
               hasRemote = true;
               controller.add(merged());
@@ -163,6 +213,7 @@ class CommunityFeedService {
       },
       onCancel: () async {
         cancelled = true;
+        _revocationCallbacks.remove(cancelRemote);
         await localSub.cancel();
         await remoteSub?.cancel();
       },
@@ -171,6 +222,20 @@ class CommunityFeedService {
   }
 
   Future<void> _mirrorToRemote(FeedPost post) async {
+    final shareAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);
+    if (!shareAllowed) {
+      debugPrint('[circle] Circle sharing not permitted by privacy policy (post stays local)');
+      return;
+    }
+
+    final cloudAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+    if (!cloudAllowed) {
+      debugPrint('[circle] Cloud sync not permitted by privacy policy');
+      return;
+    }
+
     final authed = await _ensureAuth();
     if (!authed) {
       debugPrint('[circle] Firestore write skipped: Not authenticated');
@@ -286,6 +351,14 @@ class CommunityFeedService {
       return;
     }
     await database.reactToPost(postId, kind: kind, by: by);
+
+    final shareAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);
+    if (!shareAllowed) return;
+
+    final cloudAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+    if (!cloudAllowed) return;
 
     final authed = await _ensureAuth();
     if (!authed) return;

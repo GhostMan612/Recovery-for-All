@@ -50,6 +50,8 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/privacy/privacy_capability.dart';
+
 /// Firestore subcollection holding a sponsee's own outbound bundles.
 const _sponsorBundleRoot = 'sponsor_bundles';
 
@@ -139,6 +141,9 @@ class SponsorLinkService {
   static Future<bool> _ensureAuth() async {
     try {
       if (Firebase.apps.isEmpty) return false;
+      final cloudAllowed =
+          await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+      if (!cloudAllowed) return false;
       if (FirebaseAuth.instance.currentUser == null) {
         await FirebaseAuth.instance.signInAnonymously();
       }
@@ -160,8 +165,9 @@ class SponsorLinkService {
   /// advisory, and it must never be able to fail a sign-off.
   static Future<List<String>> orphanedRelayDocIds() async {
     final authed = await _ensureAuth();
+    if (!authed) return const [];
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (!authed || uid == null) return const [];
+    if (uid == null) return const [];
     try {
       final snap = await FirebaseFirestore.instance
           .collection(_sponsorBundleRoot)

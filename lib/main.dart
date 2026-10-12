@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_navigator.dart';
+import 'core/privacy/privacy_capability.dart';
 import 'core/providers.dart';
 import 'core/theme/app_colors.dart';
 import 'database/recovery_database.dart';
@@ -31,11 +32,23 @@ void main() async {
   // 0. Firebase (Recovery Circle cloud sync) — activates only when
   // android/app/google-services.json exists; local-only otherwise.
   // Timeout-guarded: a hung platform channel must never stall app boot.
+  //
+  // WO-P0-PRIVACY: Decouple Firebase SDK initialization from user-authorized
+  // anonymous sign-in. If cloudSync capability is not granted, boot remains
+  // strictly local-first and does NOT initiate anonymous sign-in or cloud listeners.
+  CommunityFeedService.initPrivacyListener();
+
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 8));
-    await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 8));
-    CommunityFeedService.remoteReady = true;
-    debugPrint('[boot] firebase: ready (cloud circle enabled)');
+    final cloudAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+    if (cloudAllowed) {
+      await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 8));
+      CommunityFeedService.remoteReady = true;
+      debugPrint('[boot] firebase: ready (cloud circle enabled)');
+    } else {
+      CommunityFeedService.remoteReady = false;
+      debugPrint('[boot] firebase: initialized (cloud sync not consented — local-first mode)');
+    }
   } catch (e) {
     CommunityFeedService.remoteReady = false;
     debugPrint('[boot] firebase: local-only mode ($e)');

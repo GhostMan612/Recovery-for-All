@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/privacy/privacy_capability.dart';
 import '../data/minnesota_pathway_meetings.dart';
 import '../data/meeting_directories.dart';
 
@@ -457,6 +458,12 @@ class MeetingFinderService {
   /// Downloads every enabled source and rebuilds the local cache.
   Future<List<RecoveryMeeting>> refresh(
       {double? lat, double? lng, Set<String>? fellowships}) async {
+    final allowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.directoryRefresh);
+    if (!allowed) {
+      debugPrint('[meetings] Directory refresh denied by privacy policy — using cached directory');
+      return _cachedMeetings();
+    }
+
     var sources = await getSources();
     // Tailored downloads: skip directories whose fellowship is not in the
     // user's chosen pathways — never download data they won't see.

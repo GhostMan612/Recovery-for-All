@@ -4,30 +4,30 @@
 // ============================================================
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_colors.dart';
 import '../core/meeting_radius_logic.dart';
 import '../core/dashboard_providers.dart' show meetingRadiusProvider;
+import '../core/privacy/privacy_capability.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/constellation_service.dart';
+import '../services/weather_service.dart';
 import '../widgets/app_primitives.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
 /// city filter, live/upcoming color tiers, compass + re-center, and a
-/// live weather chip (Open-Meteon, keyless).
+/// live weather chip (Open-Meteo, keyless).
 ///
 /// ConsumerStatefulWidget so the radius slider can publish to
 /// [meetingRadiusProvider]; the dashboard's "In progress now" card reads the
@@ -297,33 +297,127 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // ------------------------------------------------------------------
 
   Future<void> _loadWeather() async {
+    final consent = ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather);
+    if (!consent) {
+      if (mounted) setState(() => _weatherChip = 'Weather off');
+      return;
+    }
     try {
       final me = _me;
       final lat = me?.$1 ?? 44.9778;
       final lng = me?.$2 ?? -93.2650;
-      final uri = Uri.parse(
-          'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lng&current=temperature_2m,weather_code&temperature_unit=fahrenheit');
-      final res = await http
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return;
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final current = data['current'] as Map<String, dynamic>;
-      final temp = (current['temperature_2m'] as num).round();
-      final code = current['weather_code'] as int? ?? 0;
+      final result = await WeatherService.fetchWeather(lat: lat, lng: lng, isConsented: true);
       if (!mounted) return;
-      setState(() => _weatherChip = '${_weatherEmoji(code)} $temp°F');
+      if (result.isAvailable) {
+        setState(() => _weatherChip = '${result.weatherEmoji} ${result.temperatureF?.round()}°F');
+      } else if (result.isDisabled) {
+        setState(() => _weatherChip = 'Weather off');
+      } else {
+        setState(() => _weatherChip = 'Weather unavailable');
+      }
     } catch (_) {}
   }
 
-  String _weatherEmoji(int code) {
-    if (code == 0) return '☀️';
-    if (code <= 3) return '⛅';
-    if (code <= 48) return '🌫️';
-    if (code <= 67) return '🌧️';
-    if (code <= 77) return '❄️';
-    if (code <= 82) return '🌦️';
-    return '⛈️';
+  Future<void> _promptEnableWeather() async {
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          'Enable Weather Updates',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '${PrivacyCapability.remoteWeather.disclosure.description}\n\n'
+          'Transmitted: ${PrivacyCapability.remoteWeather.disclosure.transmittedData}\n'
+          'Recipient: ${PrivacyCapability.remoteWeather.disclosure.recipient}',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () {
+              ref.read(privacyCapabilityProvider.notifier).setConsent(
+                    PrivacyCapability.remoteWeather,
+                    ConsentState.granted,
+                  );
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Enable Weather'),
+          ),
+        ],
+      ),
+    );
+    if (enable == true) {
+      await _loadWeather();
+    }
+  }
+
+  Future<bool> _promptEnableTiles() async {
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          'Enable Online Map Tiles',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '${PrivacyCapability.onlineTiles.disclosure.description}\n\n'
+          'Transmitted: ${PrivacyCapability.onlineTiles.disclosure.transmittedData}\n'
+          'Recipient: ${PrivacyCapability.onlineTiles.disclosure.recipient}',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () {
+              ref.read(privacyCapabilityProvider.notifier).setConsent(
+                    PrivacyCapability.onlineTiles,
+                    ConsentState.granted,
+                  );
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Enable Tiles'),
+          ),
+        ],
+      ),
+    );
+    return enable ?? false;
   }
 
   // ------------------------------------------------------------------
@@ -360,6 +454,56 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // ------------------------------------------------------------------
 
   Future<void> _openDirections(RecoveryMeeting meeting) async {
+    final consent = ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.externalNavigation);
+    if (!consent) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          title: Text(
+            'External Navigation',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            '${PrivacyCapability.externalNavigation.disclosure.description}\n\n'
+            'Transmitted: ${PrivacyCapability.externalNavigation.disclosure.transmittedData}\n'
+            'Recipient: ${PrivacyCapability.externalNavigation.disclosure.recipient}',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+              onPressed: () {
+                ref.read(privacyCapabilityProvider.notifier).setConsent(
+                      PrivacyCapability.externalNavigation,
+                      ConsentState.granted,
+                    );
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Allow & Open'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
     final Uri uri;
     if (meeting.hasLocation) {
       uri = Uri.parse(
@@ -923,6 +1067,10 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // ------------------------------------------------------------------
 
   Future<void> _startPrefetch() async {
+    if (!ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.onlineTiles)) {
+      final allowed = await _promptEnableTiles();
+      if (!allowed || !mounted) return;
+    }
     if (_downloading) return;
     final me = _me;
     final lat = me?.$1 ?? 44.9778;
@@ -1215,6 +1363,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                         : layer.subdomains,
                     userAgentPackageName: 'com.recoveryforall',
                     keepBuffer: index == 0 ? 2 : 1,
+                    tileProvider: CachedTileProvider(layer: layer.id),
                   ),
               MarkerLayer(
                 markers: _userMarkers,
@@ -1253,7 +1402,14 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
           ),
         ),
         if (_weatherChip != null)
-          Positioned(left: 12, top: 12, child: _MapChip(label: _weatherChip!)),
+          Positioned(
+            left: 12,
+            top: 12,
+            child: _MapChip(
+              label: _weatherChip!,
+              onTap: _weatherChip == 'Weather off' ? _promptEnableWeather : null,
+            ),
+          ),
         Positioned(
           left: 12,
           top: _weatherChip != null ? 52 : 12,
@@ -1262,6 +1418,15 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
             color: liveCount > 0 ? Theme.of(context).colorScheme.tertiary : null,
           ),
         ),
+        if (!ref.watch(privacyCapabilityProvider).isGranted(PrivacyCapability.onlineTiles))
+          Positioned(
+            left: 12,
+            top: _weatherChip != null ? 92 : 52,
+            child: _MapChip(
+              label: 'Online tiles off (tap to enable)',
+              onTap: _promptEnableTiles,
+            ),
+          ),
         if (_locationDebug.isNotEmpty)
           Positioned(
             left: 12,

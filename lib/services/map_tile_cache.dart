@@ -31,12 +31,20 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/privacy/privacy_capability.dart';
+
 class MapTileCache {
   MapTileCache._();
 
   static Directory? _cacheDir;
 
   static const String _userAgent = 'com.recoveryforall';
+
+  @visibleForTesting
+  static http.Client? clientForTesting;
+
+  @visibleForTesting
+  static Directory? cacheDirForTesting;
 
   /// Per-layer URL templates (single host — subdomain rotation is skipped
   /// so the cache key stays stable and prefetch stays polite).
@@ -47,12 +55,18 @@ class MapTileCache {
         'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     'light':
         'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     'sat':
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     'topo': 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
   };
 
   static Future<Directory> _dir(String layer) async {
+    if (cacheDirForTesting != null) {
+      final layerDir = Directory('${cacheDirForTesting!.path}/$layer');
+      await layerDir.create(recursive: true);
+      return layerDir;
+    }
     if (_cacheDir != null) {
       final layerDir = Directory('${_cacheDir!.path}/$layer');
       await layerDir.create(recursive: true);
@@ -67,7 +81,7 @@ class MapTileCache {
   }
 
   static File _tileFile(Directory layerDir, int z, int x, int y) =>
-      File('${layerDir.path}/${z}_{x}_{y}.png');
+      File('${layerDir.path}/${z}_${x}_$y.png');
 
   static String _urlFor(String layer, int z, int x, int y) {
     final template = _templates[layer] ?? _templates['dark']!;
@@ -78,12 +92,20 @@ class MapTileCache {
   }
 
   /// Network fetch → cache write. Returns cached file on success.
+  /// Enforces onlineTiles privacy capability gate.
   static Future<File?> fetchAndCache(
       String layer, int z, int x, int y) async {
+    final allowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles);
+    if (!allowed) {
+      return null;
+    }
+
+    final client = clientForTesting ?? http.Client();
     try {
       final layerDir = await _dir(layer);
       final file = _tileFile(layerDir, z, x, y);
-      final res = await http.get(
+      final res = await client.get(
         Uri.parse(_urlFor(layer, z, x, y)),
         headers: {'User-Agent': _userAgent},
       ).timeout(const Duration(seconds: 12));
@@ -93,6 +115,10 @@ class MapTileCache {
       return file;
     } catch (_) {
       return null;
+    } finally {
+      if (clientForTesting == null) {
+        client.close();
+      }
     }
   }
 
@@ -232,6 +258,9 @@ class _CachedTileImageProvider
           return await ui.instantiateImageCodec(bytes);
         } catch (_) {
           try { await file.delete(); } catch (_) {}
+          final allowed =
+              await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles);
+          if (!allowed) return await _transparentCodec();
           final fetched =
               await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
           if (fetched == null) return await _transparentCodec();
@@ -239,6 +268,12 @@ class _CachedTileImageProvider
           return await ui.instantiateImageCodec(bytes);
         }
       } else {
+        // Tile does not exist on disk. Check consent:
+        final allowed =
+            await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles);
+        if (!allowed) {
+          return await _transparentCodec();
+        }
         final fetched =
             await MapTileCache.fetchAndCache(key.layer, key.z, key.x, key.y);
         if (fetched == null) {
@@ -261,11 +296,12 @@ class _CachedTileImageProvider
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is _CachedTileImageProvider &&
-      other.layer == layer &&
-      other.z == z &&
-      other.x == x &&
-      other.y == y;
+          other.layer == layer &&
+          other.z == z &&
+          other.x == x &&
+          other.y == y;
 
   @override
   int get hashCode => Object.hash(layer, z, x, y);
@@ -341,6 +377,13 @@ class TilePrefetch {
     bool Function()? isCancelled,
     int maxTiles = 800,
   }) async {
+    final allowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles);
+    if (!allowed) {
+      debugPrint('[mapcache] Tile prefetch blocked by privacy policy');
+      return 0;
+    }
+
     var jobs = <(int, int, int)>[];
     for (final z in zooms) {
       final r = tileRange(lat: lat, lng: lng, radiusKm: radiusKm, zoom: z);

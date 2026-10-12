@@ -12,6 +12,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/dashboard_providers.dart';
+import '../core/privacy/privacy_capability.dart';
 import '../core/providers.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/app_primitives.dart';
@@ -222,7 +223,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Targeted single-column update. saveProfile() replaces every column from a
     // snapshot read above, so a concurrent write (onboarding finishing
     // selectedGoals, or the SOS service persisting sponsorPhone) was silently
-    // reverted by toggling one boolean.
+    // reverted by toggling one boolean..
     const profileId = 'active_user_profile';
     if (!want) {
       await widget.database.setProfileBiometricLock(profileId, false);
@@ -407,6 +408,11 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _refreshMeetingDirectory() async {
+    final isAllowed = ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.directoryRefresh);
+    if (!isAllowed) {
+      final consented = await _promptCapability(PrivacyCapability.directoryRefresh);
+      if (!consented || !mounted) return;
+    }
     setState(() => _refreshingMeetings = true);
     final (lat, lng) = await _currentLocation();
     var count = 0;
@@ -430,6 +436,81 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     _loadMeetingSources();
+  }
+
+  Future<bool> _promptCapability(PrivacyCapability cap) async {
+    final disclosure = PrivacyCapabilityState.disclosures[cap];
+    if (disclosure == null) return false;
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          disclosure.title,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                disclosure.description,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Data sent: ${disclosure.transmittedData}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Recipient: ${disclosure.recipient}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Offline fallback: ${disclosure.fallback}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.denied);
+              Navigator.of(dialogCtx).pop(false);
+            },
+            child: Text(
+              'Deny',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () {
+              ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.granted);
+              Navigator.of(dialogCtx).pop(true);
+            },
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    );
+    return res ?? false;
   }
 
   Future<void> _addSource() async {
@@ -522,7 +603,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       keyboardType: TextInputType.phone,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-() ]')),
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9+() -]')),
       ],
       decoration: _fieldDecoration(label: label, hint: hint).copyWith(
         prefixIcon: Icon(Icons.phone, color: Theme.of(context).colorScheme.outline),
@@ -559,7 +640,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'System Permissions',
               ),
               ListTile(
@@ -676,7 +757,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'Gentle Reminder',
               ),
               Text(
@@ -750,7 +831,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: _resetDashboardLayout,
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'My Sponsor',
               ),
               if (_registeredSponsor != null) ...[
@@ -883,7 +964,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               if (_ggufSupported) ...[
-                                const AppSectionHeader(
+                const AppSectionHeader(
                   title: 'Deeper Chat (Optional)',
                 ),
                 Text(
@@ -967,7 +1048,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
               ],
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'Export Data',
               ),
               Text(
@@ -1019,7 +1100,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'SOS Contacts',
               ),
               _buildPhoneField(
@@ -1042,7 +1123,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: const Text('Test Call Sponsor'),
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: 'Meeting Directory',
               ),
               Text(
@@ -1114,7 +1195,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 48),
-                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   child: Row(
                     children: [
                       ExcludeSemantics(
@@ -1122,7 +1203,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                             size: 16,
                             color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Feed format spec (Code for Recovery) — works with AA intergroups and BMLT',
@@ -1143,7 +1224,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 24),
 
               // 7th Tradition & Support
-                            const AppSectionHeader(
+              const AppSectionHeader(
                 title: '7th Tradition & Support',
               ),
               Text(
@@ -1176,7 +1257,50 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-                            const AppSectionHeader(
+              const AppSectionHeader(
+                title: 'Network & Privacy',
+              ),
+              Text(
+                'Choose which external services may connect. Unknown or denied consent never authorizes network traffic. Offline recovery tools, SOS, and local data always work without an internet connection.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...PrivacyCapability.values.map((cap) {
+                final state = ref.watch(privacyCapabilityProvider);
+                final isGranted = state.isGranted(cap);
+                final disclosure = PrivacyCapabilityState.disclosures[cap]!;
+                return SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    disclosure.title,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    '${disclosure.description}\nTransmits: ${disclosure.transmittedData} to ${disclosure.recipient}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                  ),
+                  value: isGranted,
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
+                  onChanged: (enabled) async {
+                    if (enabled) {
+                      await _promptCapability(cap);
+                    } else {
+                      await ref
+                          .read(privacyCapabilityProvider.notifier)
+                          .setConsent(cap, ConsentState.denied);
+                    }
+                  },
+                );
+              }),
+              const SizedBox(height: 24),
+              const AppSectionHeader(
                 title: 'Legal',
               ),
               ListTile(
