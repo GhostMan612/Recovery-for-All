@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RecoveryActionV1 (proposed, local-only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "actionType",
+    "createdAtUtcMs",
+    "origin",
+    "proofTier",
+    "synthetic",
+    "redactedMeta"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100
+    },
+    "actionType": {
+      "type": "string",
+      "enum": [
+        "check_in",
+        "journal",
+        "gratitude",
+        "grounding",
+        "meeting_self_report",
+        "meeting_peer_attestation",
+        "walk_verified",
+        "quest_completed",
+        "battle_completed",
+        "support_intention"
+      ]
+    },
+    "createdAtUtcMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "local_ui",
+        "local_import",
+        "verified_sensor",
+        "peer_attestation",
+        "legacy_adapter"
+      ]
+    },
+    "proofTier": {
+      "type": "string",
+      "enum": [
+        "self_reported",
+        "locally_observed",
+        "cryptographically_attested"
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "redactedMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intentId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "sourceRefHash": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

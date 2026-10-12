@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "requestId": "SAMPLE-request-001",
+  "meetingId": "SAMPLE-feed:SAMPLE-meeting-id",
+  "providerId": "SAMPLE-static-gtfs-fixture",
+  "dataSource": "synthetic_fixture",
+  "isSynthetic": true,
+  "fetchedAtUtcMs": 1791750000000,
+  "freshness": "fresh",
+  "options": [
+    {
+      "journeyId": "SAMPLE-journey-1",
+      "departUtcMs": 1791751200000,
+      "arriveUtcMs": 1791753000000,
+      "walkMeters": 325,
+      "transferCount": 1,
+      "transferConfidence": "scheduled_unknown",
+      "legs": [
+        {
+          "mode": "walk",
+          "fromLabel": "SAMPLE Origin",
+          "toLabel": "SAMPLE Stop A",
+          "startUtcMs": 1791751200000,
+          "endUtcMs": 1791751500000,
+          "distanceMeters": 230
+        },
+        {
+          "mode": "bus",
+          "fromLabel": "SAMPLE Stop A",
+          "toLabel": "SAMPLE Stop B",
+          "startUtcMs": 1791751560000,
+          "endUtcMs": 1791752460000,
+          "routeLabel": "SAMPLE Route 1"
+        },
+        {
+          "mode": "walk",
+          "fromLabel": "SAMPLE Stop B",
+          "toLabel": "SAMPLE Venue",
+          "startUtcMs": 1791752460000,
+          "endUtcMs": 1791753000000,
+          "distanceMeters": 95
+        }
+      ]
+    }
+  ]
+}

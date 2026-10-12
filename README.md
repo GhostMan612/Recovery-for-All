@@ -1,149 +1,64 @@
 # Recovery for All
 
-**Offline-first, privacy-first, pathway-tailored addiction recovery companion.**
+**An offline-first, privacy-focused, multi-pathway addiction recovery companion.**
 
-> "Recovery is not one path. Recovery is the path you build."
+> Recovery is not one path. Recovery is the path you build.
 
----
+## What this project combines
 
-## What Makes This Different
+Recovery for All combines recovery tools, a gentle companion RPG, local-first personal data, a multi-fellowship meeting finder, and an optional connected Recovery Circle. This is a description of this project's feature set, **not a claim that competing apps do not offer these features**. Competitor evidence, boundaries and proposed extensions are documented in [the category-platform research hub](blueprints/category-platform/README.md).
 
-| Category | Every Other App | **Recovery for All** |
-|----------|-----------------|----------------------|
-| **Architecture** | Cloud-dependent, tracking-enabled | **100% offline-first, zero tracking, zero analytics** |
-| **Privacy** | Identifiers sold, plaintext storage | **AES-256 SQLCipher encryption, biometric + PIN lock, keys in system secure storage** |
-| **Pathways** | Single (AA) or none | **9 fellowships**: AA, NA, Dharma, Wellbriety, LifeRing, WFS, CR, SMART, InTheRooms |
-| **Meeting Finder** | Online-only, 1 fellowship | **Offline OSM/Esri tiles, GPS cascade, 9 fellowships, curated MN meetings** |
-| **Companion** | None or generic streak | **Pet RPG** — Sparks/Bond/Mood/Energy, species, dresser, Lottie auras, **Trials of the Path** turn-based urge monsters using real coping skills |
-| **Verification** | Tap = reward | **Pedometer-verified walks** (500 steps/30 min), meetings/milestones cap-exempt |
-| **Guide** | None or external docs | **Full-app tutorial chatbot** with pet avatar — answers ANY feature question |
-| **Journal** | Basic notes | **AES-GCM encrypted, PBKDF2 PIN, legacy fallback** |
-| **LLM** | Cloud, $25/mo (Reframe) | **Optional on-device GGUF** via llama_cpp_dart, RAM-gated, off by default |
-| **Constellation** | None | **3D phyllotaxis** — zoom, orbit, star memories, shape sharing |
-| **Cost** | $120–$480/year | **$0 forever — no premium tier, no ads, no subscriptions** |
+| Area | Current project implementation | Boundary or planned extension |
+| --- | --- | --- |
+| Personal recovery | Counters, guided exercises, journaling, reflection, goal setting and recovery resources | Outcomes are personal; no clinical efficacy claim |
+| Multiple pathways | Pathway-tailored resources and meeting feeds covering multiple fellowships | Source coverage and availability vary by area and pathway |
+| Companion RPG | Sparks, Bond, Path XP, pets, cosmetics and turn-based Trials | A unified idempotent event/reward ledger is **planned**, not yet delivered |
+| Peer support | Alias-based Recovery Circle, local feed and optional Firestore mirror; signed sponsor/fellowship workflows | Remote moderation, deletion and reaction integrity need hardening before expansion |
+| Meeting discovery | Cached directories, map tiles, filters, local meeting markers, weather chip | Present directions may open an **external** map; native transit itinerary integration is **planned** |
+| Offline capability | Local journal, companion, skills, cached meeting data and cached map tiles | A cold offline install cannot supply uncached meetings, live traffic, weather, transit or Circle messages |
+| On-device AI | Scripted and TFLite guidance; optional local GGUF model with device and safety gates | AI is supportive, not an emergency or professional substitute |
 
----
+## Feature map
 
-## Feature Map
+**Recovery:** sobriety counters; 12-step resources and worksheets; sponsorship; grounding, HALT and breathing exercises; wellness check-ins; gratitude, journal and goals; resource directories and SOS entry points.
 
-### Core Recovery
-- **Sobriety Counters** — specific start dates, milestone chips (24h → 2yr)
-- **Meeting Finder** — Minnesota-first (aaMinnesota 1,900+ geo AA + NA BMLT), live/upcoming filter, radius slider, city filter, **offline tile prefetch**, marker clustering
-- **9 Fellowships** — AA, NA, Dharma, Wellbriety, LifeRing, WFS, CR, SMART, InTheRooms
-- **Sponsor Linking** — Ed25519 pairing codes, signed step-work bundles, clipboard/Firestore transport, Sponsor Mode screen
+**Companion:** species and dresser, code-drawn vector cosmetics, nonpunitive rest, Sparks/Bond/Mood/Energy, Path XP, daily quests, Trials of the Path and raids. Not completing a quest does not revoke access to recovery tools.
 
-### Evidence-Based Tools
-- **12 Steps** — guided worksheets, literature links, sign-off ledger
-- **Recovery Coach** — 16 scripted skills + TFLite INT8 intent model + optional GGUF; safety pipeline fixed: guardrail → crisis keywords → GGUF/TFLite → skills → keyword fallback
-- **Wellness Wheel** — 6 dimensions (PERMA-aligned), sponsor-shareable
-- **Weekly Goals** — Monday reset, small promises, streaks
-- **Gratitude + Daily Reflection** — streak tracks consistency, not perfection
-- **Coping Tools** — urge surfing, box breathing, 5-4-3-2-1 grounding, HALT check (offline, haptic)
-- **Grounding Exercises** — eyes open/closed, haptic cues
-- **Literature Library** — 13 verified offline-downloadable texts (Big Book, NA Basic Text, Dharma talks, Wellbriety, SMART manual)
-- **Community Resources** — 12 sections: hotlines, treatment locators, sober housing, legal aid (offline-first, pathway-filtered)
+**Meeting Finder:** multi-source data including Minnesota-focused directories, source/cache freshness handling, OpenStreetMap/Esri tiles, optional prefetch and a map with current-weather information. External web services are involved in some online modes.
 
-### Companion & Economy
-- **Pet Companion** — never dies, never guilts; Sparks/Bond/Mood/Energy
-- **Sparks Economy** — daily cap 150, walks/meetings/milestones **cap-exempt**, anti-grind caps
-- **Dresser** — ~90 cosmetics, species-specific bodies, seasonal re-issue calendar, Lottie auras/moods
-- **Hand-drawn vector art** — every cosmetic, mood face, and species portrait is
-  painted in code (`CustomPainter`), **not** system emoji. No companion glyph is
-  a per-device font dependency, which matters most on the low-end builds the
-  reduced-motion path exists for. Identity is silhouette-first, colour-second.
-- **Trials of the Path** — turn-based urge monsters, coping skills as abilities, focus system, losing = "companion learned"
-- **Step-Counter Verified Walks** — pedometer integration, 500 steps/30 min minimum, prevents tap-only abuse
+**Recovery Circle:** a local-first alias feed with Strength/Proud/Respect reactions and optional Firebase synchronization. Offline composition does **not** imply a message has been delivered to another person. Remote post deletion and trusted network moderation are known gaps being addressed in Phase 0.
 
-### Visualization & Sharing
-- **Recovery Constellation** — 3D phyllotaxis growth, zoom/orbit, star memories, shape sharing
-- **Recovery Circle Feed** — alias-only, no sober-time numbers, reactions (Strength/Proud/Respect), guardrails C1–C5
-- **Data Export** — CSV + summary, local-only
-- **SOS Sheet** — one-tap 988, sponsor call, meeting finder
+**Sponsor and fellowship verification:** Ed25519 signatures support exchange/approval workflows. Peer exchange signatures prove participation of signing keys, not the identity of a person or attendance at a specific meeting.
 
-### Architecture
-- **Flutter + Drift + SQLCipher** — local-first, optional Firestore mirror
-- **Offline Map Tiles** — Esri Canvas (keyless), cache-first TileProvider, offline prefetch packs
-- **GPS Cascade** — fresh fix → stale fallback → Twin Cities fallback
-- **On-Device GGUF** — llama_cpp_dart, prebuilt arm64 native libs (NDK 28.2), RAM-gated, off by default
-- **Self-Healing Tutorial System** — build-time route validation via Flutter test
+## Category-platform development
 
----
+The current architecture initiative is **Recovery Adventure Network** (working category name): a shared, nonpunitive progression engine, a recovery-destination navigator using Metro IntelliTrip's Atlas SDK, and safe cooperative Circle experiences. These are **blueprints**, not claims of shipped functionality.
 
-## Quick Start
+Start at **[Category Platform Blueprint Hub](blueprints/category-platform/README.md)**. Phase 0 is tracked in `blueprints/category-platform/phase-0/`.
 
-```bash
-# Prerequisites
-flutter --version        # 3.24+
-dart --version           # 3.12+
+The Metro IntelliTrip SDK implementation is in the separate repository's `master` branch, not its README-only default `main` branch. Any integration is local-first, version-pinned, and requires the documented host/SDK boundary; no source copying is implied.
 
-# Setup
+## Local development
+
+```powershell
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-
-# End-of-plan gates — run once, batched, after the plan is finished
-# (human builds in Android Studio; see AGENTS.md "SHELL DISCIPLINE")
-flutter analyze          # must report: No issues found
-flutter test             # 90+ tests must pass
-
-# Run
-flutter run              # or open in Android Studio → Run
+flutter analyze
+flutter test
 ```
 
-**Python 3.12 via uv** required for coach model training:
-```bash
-python -m uv venv .venv-tf --python 3.12
-python -m uv pip install --python .venv-tf numpy tensorflow-cpu
-.venv-tf\Scripts\python.exe tools\train_coach_intent.py
-```
+See [`AGENTS.md`](AGENTS.md) and [`RULES.md`](RULES.md) before executing changes. Those documents govern the build/test cadence, authorization boundaries, database migrations and evidence rules. The maintained design history is in `blueprints/UI-UX-themes-plan.md`, `blueprints/dashboard-ia.md` and `blueprints/lessons-learned.md`.
 
----
+## Privacy and connectivity
 
-## Documentation Map
+Private recovery records are intended to remain in the encrypted local application database. Some optional or context-dependent features contact external providers: meeting directories, map tile hosts, weather services, external navigation and Firebase where configured. In particular, the current weather query passes latitude/longitude to Open-Meteo, and opening Google Maps shares a meeting destination with that external application. A connected Circle feed shares its selected post content and alias with Firebase.
 
-| Document | Purpose |
-|----------|---------|
-| `AGENTS.md` | Operating law (build boundary, commit rules, gotchas) |
-| `CLAUDE.md` | Token conservation, filtered CLI output, build boundary |
-| `RULES.md` | Technical laws learned the hard way |
-| `SESSION_HANDOFF.md` | Cold-start entry point — current state, next moves |
-| `blueprints/roadmap-v2.md` | Feature queue + shipped reference (source of truth) |
-| `blueprints/competitive-analysis.md` | Deep competitive moat analysis |
-| `blueprints/RECOVERY_FOR_ALL_MASTER_PLAN.md` | Execution log + next moves |
-| `blueprints/pet-store-rules.md` | Sparks economy laws + feed guardrails C1–C5 |
-| `blueprints/gguf-feasibility.md` | GGUF device tiers, models, implementation status |
-| `blueprints/tacmap-extraction.md` | Map port plan (P0–P3 shipped) |
-| `blueprints/firebase-setup.md` | Cloud-sync walkthrough (rules deploy from source via `firebase deploy --only firestore:rules`) |
-| `blueprints/whitepaper.pdf` | **Comprehensive whitepaper (this repo's manifesto)** |
+**Offline-first is not the same as network-silent.** Review [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) and the [Phase-0 data-flow inventory](blueprints/category-platform/phase-0/DATA_FLOW_AND_CONSENT.md) before enabling connected features. Explicit per-capability consent and a network-off mode remain implementation work.
 
----
+## Licensing — clarification pending owner/legal review
 
-## Privacy Posture
+The checked-in [`LICENSE`](LICENSE) is an **MIT license** with a 2026 copyright notice for Toxic Creationz. Previous README language called the repository proprietary and prohibited commercial redistribution; that assertion conflicts with the currently checked-in license. **This README does not change, revoke or supersede LICENSE.** The owner must review provenance and intended licensing with qualified counsel before asserting exclusivity or changing licensing for future material. See [Phase-0 licensing decision](blueprints/category-platform/phase-0/LICENSE_AND_IP_DECISION.md).
 
-**Offline-first by default.** The journal is encrypted (SQLCipher, key in system secure storage). The feed is alias-only — rules reject identity and sober-time fields. Firebase is optional; without it the app runs fully local. **No analytics, no crash reporting, no tracking identifiers, no cloud dependency.**
-
----
-
-## Device Fleet
-
-| Device | RAM | Role |
-|--------|-----|------|
-| Blu View 5 | ~3 GB | GGUF gate OFF |
-| Moto G 2025 | 4–8 GB | Primary test target |
-| Dell Latitude 5400 | 16 GB | Dev host |
-
----
-
-## License
-
-Proprietary — Recovery for All. Not for commercial redistribution without permission.
-
-See [`LICENSE`](LICENSE) for the full proprietary license, [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) for data handling,
-and [`TERMS.md`](TERMS.md) for the app EULA. Third-party open-source licenses are displayed in-app via **Settings → About → Open Source Licenses**.
-
-- **App code & assets:** © 2024–2026 Recovery for All — proprietary, all rights reserved.
-- **Dependencies** (Flutter, Drift, SQLCipher, `llama_cpp_dart`, etc.) retain their own licenses — viewable in-app and in `pubspec.lock`.
-- **Meeting data:** Meeting Guide / BMLT feeds remain property of their respective intergroups.
-- **No analytics, no tracking, no sale of data** — see Privacy Policy for the full posture.
+Other assets, provider feeds, organization literature and dependencies may carry separate licenses or use conditions; no ownership over third-party materials is claimed.
 
 ---
 

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "eventId": "SAMPLE-f0a2-4744-b7e1-000000000001",
+  "actionType": "check_in",
+  "createdAtUtcMs": 1791750000000,
+  "origin": "local_ui",
+  "proofTier": "self_reported",
+  "synthetic": true,
+  "redactedMeta": {
+    "intentId": "check-in-example"
+  }
+}

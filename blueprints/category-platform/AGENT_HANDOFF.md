@@ -2,7 +2,7 @@
 
 ## Agent operating contract
 
-You are an implementation agent working **only** inside the user's local Recovery for All checkout. Treat `RULES.md`, `AGENTS.md` and `SESSION_HANDOFF.md` as authority, and inspect current source/tests before touching code. Metro IntelliTrip is a separate, read-only dependency from this worktree: read it, publish its SDK artifacts through an explicitly approved local process, but **do not modify the Metro repository as part of this work order**. Do not push GitHub changes unless the human explicitly asks. Do not build in the middle of a plan contrary to current shell discipline. Keep changes minimal and check tests at phase gates.
+You are an implementation agent working **only** inside the user's local Recovery for All checkout. Treat `RULES.md`, `AGENTS.md` and `SESSION_HANDOFF.md` as authority, and inspect current source/tests before touching code. Metro IntelliTrip is a separate, read-only dependency from this worktree: read it; any SDK publication that writes into Metro build output needs separate explicit owner approval, but **do not modify the Metro repository as part of this work order**. Do not push GitHub changes unless the human explicitly asks. Do not build in the middle of a plan contrary to current shell discipline. Keep changes minimal and check tests at phase gates.
 
 ## Read sequence
 
@@ -13,11 +13,11 @@ You are an implementation agent working **only** inside the user's local Recover
 
 ## First work order
 
-Produce a short implementation impact report BEFORE edits with (a) touched filenames and precise changes, (b) preserved invariants, (c) required migration steps, (d) negative tests, (e) cross-repo/gradle dependencies, and (f) decisions requiring human approval. Then execute **only Phase 0** with approved decisions. Do not jump to multiplayer features or route provider integration during Phase 0.
+Produce a short implementation impact report BEFORE edits with (a) touched filenames and precise changes, (b) preserved invariants, (c) required migration steps, (d) negative tests, (e) cross-repo/gradle dependencies, and (f) decisions requiring human approval. Then follow **only Phase 0** via `blueprints/category-platform/phase-0/README.md`, preserving all decision gates. The overlay provides documentation/CI recovery; do not treat a blueprint as an implemented Circle security fix. Do not jump to multiplayer features or route provider integration during Phase 0.
 
 ## Phases
 
-- P0 `PHASED_EXECUTION_PLAN.md` Phase 0: trust/consent/license documentation and Circle reliability.
+- P0 `phase-0/README.md`: trust/consent/license contracts, CI recovery, and safe Circle implementation work orders (runtime code and emulator tests still required).
 - P1 Phase 1: event engine and richer RPG.
 - P2 Phase 2: Metro SDK meeting navigation.
 - P3 Phase 3: Circle cooperative interactions.

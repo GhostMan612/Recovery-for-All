@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "contributionId": "SAMPLE-contrib-a1b2c3",
+  "questInstanceId": "SAMPLE-quest-1234",
+  "actorRef": "SAMPLE-anonymous-actor",
+  "intentId": "ground_together",
+  "consentPolicyVersion": 1,
+  "createdAtUtcMs": 1791750000000,
+  "visibility": "local_only",
+  "synthetic": true
+}

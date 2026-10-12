@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CircleQuestContributionV1 (proposed wire payload)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contributionId",
+    "questInstanceId",
+    "actorRef",
+    "intentId",
+    "consentPolicyVersion",
+    "createdAtUtcMs",
+    "visibility",
+    "synthetic"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "contributionId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100
+    },
+    "questInstanceId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100
+    },
+    "actorRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "intentId": {
+      "type": "string",
+      "enum": [
+        "ground_together",
+        "prepare_week",
+        "connection",
+        "show_up"
+      ]
+    },
+    "consentPolicyVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "createdAtUtcMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "circle_only",
+        "local_only"
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    }
+  }
+}

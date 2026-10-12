@@ -1,0 +1,284 @@
+{
+  "package": "Recovery for All full phases 1–4 implementation blueprint overlay",
+  "createdDate": "2026-10-11",
+  "archiveType": "new-only blueprint/contract/reference overlay; no app source changed",
+  "rfa": {
+    "repo": "GhostMan612/Recovery-for-All",
+    "branch": "main",
+    "referenceSha": "6f985f393962b091d69cc003bb922c9fae9ae618"
+  },
+  "metro": {
+    "repo": "GhostMan612/Metro-IntelliTrip",
+    "branch": "master",
+    "referenceSha": "a7d77e4a9de134bf8b20d5304dd349e3b29330be",
+    "note": "default main is not implementation branch"
+  },
+  "phase0RequiredForRemoteCircle": true,
+  "runtimeImplemented": false,
+  "remoteChanges": false,
+  "expectedOverwritePolicy": "new path only relative to referenced remote tree; existing user-local files with same paths should be backed up",
+  "files": [
+    {
+      "path": "PHASES_1_TO_4_OVERLAY_README.md",
+      "sha256": "d58a0a11b3c72ed3393aab94ccccf53ca1320842f6877c33567155cd49691e2c",
+      "bytes": 5194,
+      "overlayDeclaredSha256": "6cc2bcdeee43665d50330595ce23f1426744039e4226fcf9fbf6c89d2394dbd9"
+    },
+    {
+      "path": "blueprints/category-platform/PHASES_1_TO_4_INDEX.md",
+      "sha256": "4062fb404eeb51fb52b48a326922508742b3bc07c8b4d78ac03d23ad05cc761a",
+      "bytes": 14541,
+      "overlayDeclaredSha256": "7cc3942ddea13625438821acc89d052208d2783a1a40d5281c0ac95fbe7812c0"
+    },
+    {
+      "path": "blueprints/category-platform/contracts/CROSS_PHASE_INVARIANTS.md",
+      "sha256": "9e7664b1a648e5b9a6d3613e862813000887336f7a820137b0054febad7d5368",
+      "bytes": 3810,
+      "overlayDeclaredSha256": "ccd26a4c1037cbdf43dc4e2d4a71d3a2f6469ff946e026c8a073f577114ad53b"
+    },
+    {
+      "path": "blueprints/category-platform/contracts/DECISION_REGISTER.md",
+      "sha256": "bf925bb7e2fa835c016bacea0984adca49aed6c7cf81e0eddd54aaa27f389c3a",
+      "bytes": 2425
+    },
+    {
+      "path": "blueprints/category-platform/contracts/INTEGRATION_TRACEABILITY.md",
+      "sha256": "9284b56cb686528ed0d65f713adea1dc506e72aa5ed05c66561a9c7a815a5567",
+      "bytes": 2187
+    },
+    {
+      "path": "blueprints/category-platform/contracts/PRIVACY_CAPABILITIES.md",
+      "sha256": "35cf8fe80c8b41b1bd574d2a6ec8cae9c1eaee18f0466f965476f0c19f750eeb",
+      "bytes": 3318
+    },
+    {
+      "path": "blueprints/category-platform/contracts/RECOVERY_SAFETY_AND_ETHICS.md",
+      "sha256": "ce06e26985b18c40f6105ac14ea0fe61f4d4a22e3a21db5806b73c08c0719d8f",
+      "bytes": 2372
+    },
+    {
+      "path": "blueprints/category-platform/contracts/SCHEMA_REGISTRY.md",
+      "sha256": "22c59dcedf87bd93e6211f72aa94825bf0473815d3c5cfad354f2270473ded44",
+      "bytes": 3173,
+      "overlayDeclaredSha256": "4dad5ce87e29150b21a1644df89850b67b53c0a32753fe43ab1a069bb8626bee"
+    },
+    {
+      "path": "blueprints/category-platform/contracts/circle_quest_contribution_v1.schema.json",
+      "sha256": "35ba7c1e3bf517476ff7f2b52b7419a8de142c790c197689ca5a48c9d30a3f75",
+      "bytes": 1237
+    },
+    {
+      "path": "blueprints/category-platform/contracts/fixtures/action_check_in.json",
+      "sha256": "c1207150291f4fe32b45f24683eb535bacd34a925281ff73828d50b8f8a056fd",
+      "bytes": 276
+    },
+    {
+      "path": "blueprints/category-platform/contracts/fixtures/circle_contribution_local_only.json",
+      "sha256": "a4e24d1960b8d00d180039ea5d1b05b018a6b8e88b9ed2994a61e8daf657ed47",
+      "bytes": 300
+    },
+    {
+      "path": "blueprints/category-platform/contracts/fixtures/journey_offline_synthetic.json",
+      "sha256": "9e61ed6341f240557cd34e1110f7066150ac7c36e8fa0b7b191857470f94a1df",
+      "bytes": 1240
+    },
+    {
+      "path": "blueprints/category-platform/contracts/journey_preview_v1.schema.json",
+      "sha256": "cb745e33ca292e8f70219f03d707448eacf594c30cb67b506d2851ea6d4ebce2",
+      "bytes": 3484
+    },
+    {
+      "path": "blueprints/category-platform/contracts/recovery_action_v1.schema.json",
+      "sha256": "79bbeadc7d1344cebc35c109de59c7b95e23b8575d85b029e3918ed50ba407dd",
+      "bytes": 1610
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/ACCEPTANCE_AND_TESTS.md",
+      "sha256": "bdf1fa89ac688cebf7401a8cfe61e4635c0ceff1fbf47c35285cfbd2e1c9db77",
+      "bytes": 2134
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/AGENTS.md",
+      "sha256": "6ec18f4cc9a39803edffe6ae3ee0b004ee34bdbde2300fffec0c01651874b0fa",
+      "bytes": 1079
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/AGENT_HANDOFF.md",
+      "sha256": "55bc8f0b232524928ff19e376807ca13d8e32db9b9b194833cd2964c96d34e5b",
+      "bytes": 838
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/ECONOMY_AND_ETHICS.md",
+      "sha256": "43d0839786797ccfe21d44775a2c1d907e35a45240aec52a2515e79b2725f1c4",
+      "bytes": 2317
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/README.md",
+      "sha256": "15bdb496fdeb78cd579c801ef66b2585f399730bab3a67afb2b1f49f79a65849",
+      "bytes": 2559
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/SCHEMA_MIGRATION.md",
+      "sha256": "87b5900ab5086cfc99314d13f5bdc4b006c8248de005db6333ae96c367c43dd9",
+      "bytes": 3668,
+      "overlayDeclaredSha256": "1229d8919edbae0016aedc08fb69e359b579d055c82e9b12dcf962652b167228"
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/WO-1A-ACTION-LEDGER.md",
+      "sha256": "f1319827ea07601f4d36f7147612d7af6baed0e693d0f8fd325c1dc9a9c73ad8",
+      "bytes": 5467
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/WO-1B-COMBAT-ENGINE.md",
+      "sha256": "875b1619593722efa7c3664b3c44f8f2f34207f8efdbe09d3303197fa4178678",
+      "bytes": 3415
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/WO-1C-QUEST-PROGRESSION.md",
+      "sha256": "836b3fd037f3b536814e6216316552ed05c2401207bdfe84ce4e93b5582fc29f",
+      "bytes": 2936
+    },
+    {
+      "path": "blueprints/category-platform/phase-1/WO-1D-COMPANION-CONSTELLATION.md",
+      "sha256": "e80d9897f703f671e87a4a51c6aeac647f02950461d6cf83a6f3e99663d7cd8f",
+      "bytes": 2815
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/ACCEPTANCE_AND_TESTS.md",
+      "sha256": "646dd8fe25cd1a4ffa508082c8fcdd5b09dd7c5b1f75b28b5b7fccb5d1af95d3",
+      "bytes": 2645
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/AGENTS.md",
+      "sha256": "fc2721189f5854eb74addfcac400125af0ed06cd5d2ff0a1d7438b21eaf0e7d7",
+      "bytes": 888
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/AGENT_HANDOFF.md",
+      "sha256": "e5490b20a9226a35b07b16d477a5cdf1a633ccf4ff08550fba1ea12617a35c48",
+      "bytes": 883
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/BRIDGE_API_CONTRACT.md",
+      "sha256": "5c200103bd7368af40eb829317a99584e33ead61e3b2b35018b6e7d067efc7e8",
+      "bytes": 3450
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/OFFLINE_AND_LOCATION_PRIVACY.md",
+      "sha256": "9f90aa8c2f56eaa1b9fb672dedf2b45206220339d096c6ee9ba3e77c68b3c439",
+      "bytes": 3207
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/README.md",
+      "sha256": "a46d17d7dbd7f5c38100c9ff7649e38d59d28d8b164afee53d24864be264c504",
+      "bytes": 2321
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/WO-2A-ATLAS-SDK-BRIDGE.md",
+      "sha256": "8f39f74ef1eef50825b28d57dff7c97245723269329743effdcf1f634c772e5b",
+      "bytes": 4925,
+      "overlayDeclaredSha256": "7bed6f7f0ba2a09080016bad2d727889739b99a0eff52360c7b2ed0cd407a8b4"
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/WO-2B-MEETING-NORMALIZATION.md",
+      "sha256": "70d33576042faf991d660eba1e40e0e6fbdf5d86a0d60975c389a31d2fc2f13e",
+      "bytes": 3347
+    },
+    {
+      "path": "blueprints/category-platform/phase-2/WO-2C-JOURNEY-WEATHER-UX.md",
+      "sha256": "6cc814859376b6246ae9c9e88a983fb4939a389f284b722e1222dab822f53dbe",
+      "bytes": 3767
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/ACCEPTANCE_AND_TESTS.md",
+      "sha256": "258331487bd10adb3fac15ceb2c0ac11cb234c791cbe5352d3b1bc30732c5ec3",
+      "bytes": 2115
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/AGENTS.md",
+      "sha256": "aa8e59e8125b89bb04fe19c3e787dcaccc978003be3116ef1e14f2d59e6e8874",
+      "bytes": 897
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/AGENT_HANDOFF.md",
+      "sha256": "446ceaf5d2cdcb3bc03dd3090f4b493abf59d94bca5b96d0525afa28493f2299",
+      "bytes": 689
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/IDENTITY_MODERATION_AND_SAFETY.md",
+      "sha256": "9fac0619e2ea79a560281f7cec670a2923f05f98ff8528cf904de7b4279617c7",
+      "bytes": 2677
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/README.md",
+      "sha256": "3252d06d1d98f46687d5c433b1fa948236a02c1106f0b74d57dfee4db36aa81b",
+      "bytes": 1753
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/WO-3A-TRUSTED-CIRCLE-TRANSPORT.md",
+      "sha256": "a099c6a9e6f3295de6da68e51d858b9b246425dad832e8724cefc9b0983ba8bd",
+      "bytes": 3537
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/WO-3B-COOPERATIVE-QUESTS.md",
+      "sha256": "79e4d29d4977aa75b3d0cc76c6631831c76f76de543ce7e7f26f2ec21aa6d89d",
+      "bytes": 3748,
+      "overlayDeclaredSha256": "ba9ae29c8f25dcfdfb4ce4d5c96255cb16f34e334c3e8db452119bd2fcbcf471"
+    },
+    {
+      "path": "blueprints/category-platform/phase-3/WO-3C-CIRCLE-EXPERIENCE.md",
+      "sha256": "67ae54bec1461d01877c93694943f018a6d5b87e12f96d8cd9b8599ff646775f",
+      "bytes": 2616
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/ACCEPTANCE_AND_TESTS.md",
+      "sha256": "1357976d008d03233269f67cb24dbda19fc063c31fb50fe1fb8b24e9e5c88449",
+      "bytes": 1903
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/AGENTS.md",
+      "sha256": "ddc728da1834dee0bd87146ea935cc6b50f6ad17991d3b5b8a3e4eddbbf264d6",
+      "bytes": 750
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/AGENT_HANDOFF.md",
+      "sha256": "3bfb9ead90436c7b711c7cbee237ac9bfe372f9b179a4d06df099b5a5b59fd2d",
+      "bytes": 657
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/README.md",
+      "sha256": "bbc9d2511d83594e0e8a8fc304591c1d3ad3a9f4025c87be3a89572ee8f5b368",
+      "bytes": 881
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/RELEASE_SCORECARD.md",
+      "sha256": "b6d666529196695a32f82afdd07c40dfd879df335bff060eedcb7d336ad086ab",
+      "bytes": 1558
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/WO-4A-COHERENT-USER-JOURNEYS.md",
+      "sha256": "3ace6d32db27a49130027366f04b5f35786cda8c25c59a46d06a9828f2740acd",
+      "bytes": 2971
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/WO-4B-PERFORMANCE-ACCESSIBILITY.md",
+      "sha256": "fa3b3c67eafd183b013ea16ad14a77ba4111425c955b2d09c7527b9c37423459",
+      "bytes": 3192
+    },
+    {
+      "path": "blueprints/category-platform/phase-4/WO-4C-PILOT-RELEASE-EVIDENCE.md",
+      "sha256": "6fe68a188ba36e1918a0c5b3bb29334f5f18970d2c176c5115d2b745897f8676",
+      "bytes": 2634
+    },
+    {
+      "path": "tools/verify_category_overlay.py",
+      "sha256": "92dbbe8b5ffbbac503c0ee2abfc445e5d665c814d34af0eb362184cefc5fd601",
+      "bytes": 6729
+    }
+  ],
+  "reconciliation": {
+    "kind": "reconciled-working-copy",
+    "sourceArchivesInspected": false,
+    "note": "sha256 and bytes bind the reconciled working-copy files; overlayDeclaredSha256 preserves the extracted manifest's prior declaration when a listed file changed. The unavailable source ZIP bytes were not independently authenticated."
+  }
+}

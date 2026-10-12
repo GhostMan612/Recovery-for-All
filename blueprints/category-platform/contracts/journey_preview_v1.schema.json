@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JourneyPreviewV1 (proposed Android channel DTO)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "requestId",
+    "meetingId",
+    "providerId",
+    "dataSource",
+    "isSynthetic",
+    "fetchedAtUtcMs",
+    "freshness",
+    "options"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 5
+    },
+    "meetingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "providerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dataSource": {
+      "type": "string",
+      "enum": [
+        "static_gtfs",
+        "live_augmented",
+        "remote_opt_in",
+        "synthetic_fixture"
+      ]
+    },
+    "isSynthetic": {
+      "type": "boolean"
+    },
+    "fetchedAtUtcMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "freshness": {
+      "type": "string",
+      "enum": [
+        "fresh",
+        "stale",
+        "expired",
+        "absent",
+        "unknown"
+      ]
+    },
+    "options": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "journeyId",
+          "departUtcMs",
+          "arriveUtcMs",
+          "walkMeters",
+          "transferCount",
+          "transferConfidence",
+          "legs"
+        ],
+        "properties": {
+          "journeyId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "departUtcMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "arriveUtcMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "walkMeters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transferCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transferConfidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "scheduled_unknown"
+            ]
+          },
+          "legs": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "fromLabel",
+                "toLabel",
+                "startUtcMs",
+                "endUtcMs"
+              ],
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "walk",
+                    "bus",
+                    "rail",
+                    "other_transit"
+                  ]
+                },
+                "fromLabel": {
+                  "type": "string"
+                },
+                "toLabel": {
+                  "type": "string"
+                },
+                "startUtcMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endUtcMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "routeLabel": {
+                  "type": "string"
+                },
+                "distanceMeters": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

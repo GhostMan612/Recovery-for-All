@@ -1,0 +1,117 @@
+{
+  "package": "Recovery for All Phase 0 foundation and complete implementation work orders",
+  "issued": "2026-10-11",
+  "repo": "GhostMan612/Recovery-for-All",
+  "baseline_commit": "6f985f393962b091d69cc003bb922c9fae9ae618",
+  "metro_read_only_branch": "master",
+  "metro_pinned_commit": "a7d77e4a9de134bf8b20d5304dd349e3b29330be",
+  "scope": "Direct repo-relative overwrite. Documentation/CI fix; implementation work orders not executed",
+  "runtime_implemented": false,
+  "firestore_rules_modified": false,
+  "license_modified": false,
+  "explicit_owner_decisions_required": true,
+  "files": [
+    {
+      "path": ".github/workflows/cmake-multi-platform.yml",
+      "bytes": 1656,
+      "sha256": "45842d44ac4b57fa8b38f9911cfd9334a0bb1cd9687fc9c711be2b202c288bfc",
+      "overlayDeclaredSha256": "29fa3117cbfde656c3d9241627e2f3ed949744518dfe11e072b53fd55af7d8ba"
+    },
+    {
+      "path": "PHASE0_OVERLAY_README.md",
+      "bytes": 3756,
+      "sha256": "20ad582a43061486bac0ebfb08b96f8635588bb4dc6741b948cf04672ee68afa",
+      "overlayDeclaredSha256": "983c7922fd218cf7415ec62f3e4ad8028433809cc947b976769ba659d7904a51"
+    },
+    {
+      "path": "PRIVACY_POLICY.md",
+      "bytes": 7112,
+      "sha256": "72920661f00cb8002d80940630f81603487553ea56d53dd0c0503381ae968bef",
+      "overlayDeclaredSha256": "7ecf003e46f4f29658fcccf913c99ad4ecceb477cebb479230b3f8ab838db635"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6167,
+      "sha256": "cebcead38421506ca9a2a2ff30b1db1e50662885655bfa4b0974663b9d3e482d"
+    },
+    {
+      "path": "blueprints/category-platform/AGENT_HANDOFF.md",
+      "bytes": 2999,
+      "sha256": "a0af45586be69b768913b86edf2e502d828755911e87e911788c85d5a737cb5e"
+    },
+    {
+      "path": "blueprints/category-platform/README.md",
+      "bytes": 3428,
+      "sha256": "cc923aee9f314f8b357dc89646bd9fdca78c5f2c116709ccf7c6461117953161",
+      "overlayDeclaredSha256": "8a5078e4d8db37cb7cca511d503127ee6a1b9a9421630d30cfc2a5be2d1cee99"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/AGENTS.md",
+      "bytes": 1575,
+      "sha256": "a5960da9793e633071f0246757f2842e2e5857f0ddc592d8ef0341a9b2e8ae45"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/CIRCLE_EXECUTION_WORK_ORDER.md",
+      "bytes": 4941,
+      "sha256": "b1b1f4b2b694fc73148d59ad05dfe528472c087a4484d0cf3df9e99c71f2b988",
+      "overlayDeclaredSha256": "0b40e6419f9dd95baa6a45f8be53a67857f83b7b7fce1a24863e62e546c75950"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/CIRCLE_SECURITY_PROTOCOL.md",
+      "bytes": 6298,
+      "sha256": "49106a52f66209223a43345aae913ca3b6994119ef3cf354151f4104ba3fefa8"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/CIRCLE_THREAT_MODEL.md",
+      "bytes": 3514,
+      "sha256": "5f95fa897729de58c5ad535196c64503f2e9cb5749e5d791befe00a77292aab2"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/CI_AND_VERIFICATION.md",
+      "bytes": 3449,
+      "sha256": "13e59290fc360cf0a92ad2cf0329126bb4c1dedc440e1bbbf95e19f4f5bbf929",
+      "overlayDeclaredSha256": "06c08ffb5f8ea0c8d61643608c360790187cabd27da998f777e94f14ee8f6ef3"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/DATA_FLOW_AND_CONSENT.md",
+      "bytes": 5337,
+      "sha256": "807b18d6850187677a8cb01c6583dcd9ddefc25eff0cb3919795e76217dc4b11"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/DECISION_LOG.md",
+      "bytes": 1816,
+      "sha256": "bd5a2e15b6fb8e66c42b3d33fb7231a969be857d5f578ed085b18c56dfe8e3b4"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/LICENSE_AND_IP_DECISION.md",
+      "bytes": 2406,
+      "sha256": "8f501af4ce6c4df8cc42e0a54123e278b4d6faee3698eff3834caac95dd595f6"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/NETWORK_PRIVACY_WORK_ORDER.md",
+      "bytes": 3212,
+      "sha256": "10140940e1bef195e76b0d8c20d1f52ac9c5cb7865cc1420dccfda23da110651"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/PHASE_0_STATUS_AND_GATES.md",
+      "bytes": 3617,
+      "sha256": "41e24bdf4251826238f67e009d45f4ab03463a8f611c029fb5ff179c991297bf"
+    },
+    {
+      "path": "blueprints/category-platform/phase-0/README.md",
+      "bytes": 5058,
+      "sha256": "1b858ad951f8c1c0265aa6eed23072bfd22df37cdf8df93566674a3b8f188314",
+      "overlayDeclaredSha256": "e11e9ed708934222126c31a125b385a355d3afed2aa71a390615d1d534007026"
+    },
+    {
+      "path": "tools/verify_phase0_contracts.py",
+      "bytes": 4993,
+      "sha256": "ce5fb211e7976fa2eaf47d71e33b09e9a9f6fdfeba2d8ded0a9991239c5c97c8"
+    }
+  ],
+  "reconciliation": {
+    "kind": "reconciled-working-copy",
+    "sourceArchivesInspected": false,
+    "note": "sha256 and bytes bind the reconciled working-copy files; overlayDeclaredSha256 preserves the extracted manifest's prior declaration when a listed file changed. The unavailable source ZIP bytes were not independently authenticated."
+  }
+}
