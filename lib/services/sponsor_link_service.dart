@@ -1,44 +1,17 @@
+// lib/services/sponsor_link_service.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
-// lib/services/sponsor_link_service.dart
+// Offline-first sponsor linking with Ed25519 cryptography.
+// Pairing:
+// 1. Sponsor generates an Ed25519 keypair in secure storage.
+//    Pairing code is a checksummed fingerprint of the public key.
+// 2. Sponsee registers the pairing code and exports step bundles offline or via relay.
+// 3. Sponsor signs bundle content hash; sponsee verifies signature with stored public key.
 //
-// R5 — offline-first sponsor linking with REAL cryptography (Ed25519).
-//
-// How it works, no server required:
-//   1. Sponsor's app generates an Ed25519 keypair (private key lives in
-//      secure storage). Their PAIRING CODE is a checksummed fingerprint of
-//      the public key.
-//   2. Sponsee registers that pairing code → stores the sponsor's public
-//      key + alias locally.
-//   3. Sponsee exports a step-work BUNDLE (JSON) to the sponsor via any
-//      messenger.
-//   4. Sponsor's app (Sponsor Mode) signs the bundle's content hash →
-//      emits a compact signed CONFIRMATION CODE.
-//   5. Sponsee pastes the confirmation → signature is verified against the
-//      stored sponsor public key → step is cryptographically signed off.
-//
-// TRANSPORT. The design intent is "any messenger, no server" — that is still the
-// default path. An optional Firestore relay (shareBundleViaCloud) exists for
-// same-account pairs.
-//
-// The relay is partitioned by uid **in the document path**:
-//     sponsor_bundles/{ownerUid}/bundles/{docId}
-//     sponsorBundles/{sponsorUid}/inbox/{docId}
-// Firestore rules can compare a path segment against `request.auth.uid`, but they
-// cannot compare a document *field* against the caller without a custom claim —
-// and this project has no Admin SDK, so a claim cannot be set. An
-// `allow read, write: if request.auth != null` over a flat `sponsor_bundles`
-// collection therefore meant every authenticated user could read, sign and
-// rewrite every clinical step-work bundle in it.
-//
-// Bundles written under the previous flat schema are unreachable under the new
-// rules. That is intended: they were never ownership-checked, so no safe rule
-// admits them. [orphanedRelayDocIds] lets a returning user learn that their old
-// relay copy is stranded instead of silently seeing an empty list and concluding
-// their sponsee never shared anything.
+// Relay subcollections are partitioned by uid in document paths to enforce ownership rules.
 
 import 'dart:async';
 import 'dart:convert';
@@ -47,7 +20,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,6 +108,25 @@ class SponsorLinkService {
   static final Ed25519 _algo = Ed25519();
   static const FlutterSecureStorage _secure = FlutterSecureStorage();
 
+  @visibleForTesting
+  static Future<bool> Function()? authCheckerForTesting;
+
+  @visibleForTesting
+  static String? currentUidForTesting;
+
+  @visibleForTesting
+  static Stream<List<Map<String, dynamic>>> Function(String uid, String pairingCode)?
+      inboxStreamForTesting;
+
+  @visibleForTesting
+  static void resetTestingOverrides() {
+    authCheckerForTesting = null;
+    currentUidForTesting = null;
+    inboxStreamForTesting = null;
+    _privacyListenerAttached = false;
+    _revocationCallbacks.clear();
+  }
+
   static final List<void Function()> _revocationCallbacks = [];
   static bool _privacyListenerAttached = false;
 
@@ -162,6 +154,9 @@ class SponsorLinkService {
 
   /// Ensures an active Firebase Auth session to satisfy Security Rules
   static Future<bool> _ensureAuth() async {
+    if (authCheckerForTesting != null) {
+      return authCheckerForTesting!();
+    }
     try {
       if (Firebase.apps.isEmpty) return false;
       final cloudAllowed =
@@ -178,14 +173,7 @@ class SponsorLinkService {
 
   /// Legacy flat-collection doc IDs this user can still see, if any.
   ///
-  /// A read-only diagnostic. Under the old rules anyone could read the flat
-  /// `sponsor_bundles` collection; under the new ones they cannot, so any
-  /// documents there are stranded by design. Surfacing their count lets the UI
-  /// say "3 older relay bundles are no longer reachable — re-share to use the
-  /// relay" instead of showing an empty inbox that looks like data loss.
-  ///
-  /// Returns an empty list when unauthenticated or on any failure: this is
-  /// advisory, and it must never be able to fail a sign-off.
+  /// A read-only diagnostic for stranded documents under old flat rules.
   static Future<List<String>> orphanedRelayDocIds() async {
     final authed = await _ensureAuth();
     if (!authed) return const [];
@@ -196,10 +184,6 @@ class SponsorLinkService {
           .collection(_sponsorBundleRoot)
           .limit(20)
           .get();
-      // Ownership cannot be verified under the new rules, so only documents
-      // that self-declare this uid are reported — which is exactly the set the
-      // OLD rules failed to protect. It is a count for a message, not an
-      // authorisation surface.
       return snap.docs
           .where((d) => d.data()['ownerUid'] == uid)
           .map((d) => d.id)
@@ -257,12 +241,6 @@ class SponsorLinkService {
     final parts = cleaned.split('-');
     if (parts.length != 2) return false;
     if (parts[0].length != 8 || parts[1].length != 2) return false;
-    // The old third clause was `!RegExp(r'[a-zA-Z0-9]').hasMatch(ch)`, which is
-    // UNANCHORED — for any alphanumeric character it returns true, making the
-    // whole `&&` chain unsatisfiable and the loop body unreachable. The
-    // function therefore accepted ANY 11-character string containing a '-',
-    // and registerSponsor gates only on this, so arbitrary pasted text was
-    // stored as the sponsor's identity. Anchor the test.
     final bodyIsBase64Url =
         RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(parts[0]);
     final checksumIsAlphabet =
@@ -276,11 +254,6 @@ class SponsorLinkService {
       String alias, String pairingCode) async {
     final cleaned = pairingCode.trim().toUpperCase().replaceAll(' ', '');
     if (!isValidPairingCodeFormat(cleaned)) return null;
-    // The code is a fingerprint, not the full key — the sponsor shares the
-    // full public key alongside the code when their app exports it. For
-    // clipboard-only pairing we store the code as the sponsor's identity
-    // marker; signature verification upgrades automatically once a bundle
-    // signed by the sponsor includes their public key (see redeem).
     final identity = SponsorIdentity(
       alias: alias.trim().isEmpty ? 'Sponsor' : alias.trim(),
       pairingCode: cleaned,
@@ -326,12 +299,6 @@ class SponsorLinkService {
     final hash = await _hashBundle(bundleJson);
     final keyPair = await _algo.newKeyPairFromSeed(
         base64Decode(keyPairData).sublist(0, 32));
-    // signString, not sign: verifyConfirmation below calls verifyString, which
-    // hashes its input internally. Signing utf8.encode(hash) but verifying
-    // `hash` (which gets re-hashed) means the two sides compute different
-    // messages — so the moment a public key IS on file, every genuine
-    // signature fails. Currently masked by the empty-key branch below; fixed
-    // together with it.
     final signature = await _algo.signString(hash, keyPair: keyPair);
     final confirmation = SignedConfirmation(
       stepNumber: _stepFromBundle(bundleJson),
@@ -354,12 +321,6 @@ class SponsorLinkService {
     if (hash != confirmation.contentHashB64) return false;
     final publicKeyB64 = sponsor.publicKeyB64;
     if (publicKeyB64.isEmpty) {
-      // No key on file means NO signature can be verified. This used to
-      // `return true`, so verification reduced to "does the hash match" — and
-      // that hash travels in the clear alongside the bundle, so anyone who has
-      // seen a bundle could mint a confirmation this accepted. registerSponsor
-      // always wrote an empty key, which meant the Ed25519 branch below was
-      // unreachable and every pairing was code-only. Fail closed instead.
       debugPrint('[sponsor] no sponsor public key on file — cannot verify signature');
       return false;
     }
@@ -390,20 +351,9 @@ class SponsorLinkService {
     }
   }
 
-  // ---- Firestore transport (v3, ownership-partitioned, real-time) ----
+  // ---- Firestore transport (ownership-partitioned) ----
 
   /// Sponsee: shares a bundle via Firestore for the sponsor to sign.
-  ///
-  /// Writes into `sponsor_bundles/{myUid}/bundles/` — the owner's own partition,
-  /// matched by the rules against `request.auth.uid`. Also drops a copy into the
-  /// sponsor's inbox *only when* the sponsor is on the same account as the
-  /// sponsee (a signed-in uid we know), because the rules cannot resolve a
-  /// pairing code to a uid: that would need a custom claim, and this project
-  /// has no Admin SDK to set one.
-  ///
-  /// Returns the document ID for listening, or null when the relay is
-  /// unavailable — the local ledger is the source of truth, so a relay failure
-  /// never blocks a sign-off.
   static Future<String?> shareBundleViaCloud({
     required String sponsorCode,
     required String sponseeAlias,
@@ -436,10 +386,6 @@ class SponsorLinkService {
   }
 
   /// Sponsor: signs a pending bundle and writes the confirmation back.
-  ///
-  /// [bundleDocId] is addressed inside the SPONSOR's own inbox partition —
-  /// `sponsorBundles/{myUid}/inbox/{bundleDocId}` — which is what the rules
-  /// admit. Signing a document in someone else's partition is denied by design.
   static Future<bool> signBundleViaCloud({
     required String bundleDocId,
     required String bundleJson,
@@ -462,8 +408,6 @@ class SponsorLinkService {
   }
 
   /// Sponsee: listens for a signed confirmation on a shared bundle.
-  ///
-  /// Reads inside the SPONSEE's own partition, which is what the rules admit.
   /// Automatically tears down remote subscription on privacy capability revocation.
   static Stream<SignedConfirmation?> listenForConfirmation(String docId) {
     initPrivacyListener();
@@ -534,8 +478,6 @@ class SponsorLinkService {
   }
 
   /// Sponsor: queries pending bundles addressed to their pairing code.
-  ///
-  /// Scoped to the SPONSOR's own inbox partition by the rules.
   /// Automatically tears down remote subscription on privacy capability revocation.
   static Stream<List<Map<String, dynamic>>> watchPendingBundles(
       String pairingCode) {
@@ -574,7 +516,7 @@ class SponsorLinkService {
             }
             return;
           }
-          final uid = FirebaseAuth.instance.currentUser?.uid;
+          final uid = currentUidForTesting ?? FirebaseAuth.instance.currentUser?.uid;
           if (uid == null || controller.isClosed || revoked) {
             if (!controller.isClosed) {
               controller.add(const <Map<String, dynamic>>[]);
@@ -584,19 +526,22 @@ class SponsorLinkService {
           }
 
           final wanted = pairingCode.trim().toUpperCase();
-          sub = _sponsorInbox(uid)
-              .where('sponsorCode', isEqualTo: wanted)
-              .where('status', isEqualTo: 'pending')
-              .snapshots()
-              .listen(
-            (snap) async {
+          final sourceStream = inboxStreamForTesting != null
+              ? inboxStreamForTesting!(uid, wanted)
+              : _sponsorInbox(uid)
+                  .where('sponsorCode', isEqualTo: wanted)
+                  .where('status', isEqualTo: 'pending')
+                  .snapshots()
+                  .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+          sub = sourceStream.listen(
+            (items) async {
               final allowed =
                   await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
               if (!allowed || revoked) {
                 cancelStream();
                 return;
               }
-              final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
               if (!controller.isClosed) {
                 controller.add(items);
               }
@@ -625,12 +570,6 @@ class SponsorLinkService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyLedger);
-    // Parse defensively. `ledger()` below wraps the identical expression in a
-    // try/catch, so this was known to throw — a truncated value (interrupted
-    // write, older schema) made recordSignOff throw out to the UI, so the user
-    // could never record a sign-off again without clearing app data. Meanwhile
-    // ledger() silently returned {} and showed "no sign-offs" for work that
-    // HAD been recorded.
     List<Map<String, dynamic>> ledger = <Map<String, dynamic>>[];
     if (raw != null) {
       try {

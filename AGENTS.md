@@ -46,6 +46,13 @@ explicit-path commits) and **§5 Build Boundary** are binding:
 - **Commit by explicit path only** — never `git add .` / `-A`.
 - Commit messages: analyze/test status only; never claim build success.
 
+## Genesis Header Convention (GHC-001)
+
+All coding agents (Copilot, Claude Code, OpenCode, Codex, Antigravity, etc.) must follow **GHC-001 — Genesis Header Convention** as defined canonically in `RULES.md` §2.2:
+- Lead every manually maintained source file with its repository-relative path comment, followed immediately by the exact Genesis Header (`As Above, So Below...`) and a blank line before code/imports.
+- The Genesis Header is permanent and immutable; code cleanup or comment refactoring must never classify it as decorative or redundant.
+- Generated files and formats prohibiting comments (e.g., JSON) are exempt. Do not churn unrelated files solely to retrofit headers.
+
 ## Commands
 
 **These are the END-OF-PLAN batch. Do not run them mid-plan** — see SHELL

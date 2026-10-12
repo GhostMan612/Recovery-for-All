@@ -1,8 +1,10 @@
+// test/privacy_network_gating_test.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,9 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
+    PrivacyCapabilityService.resetForTesting();
+    CommunityFeedService.resetPrivacyListenerForTesting();
+    SponsorLinkService.resetTestingOverrides();
     tempDir = Directory.systemTemp.createTempSync('privacy_test_tiles_');
     MapTileCache.cacheDirForTesting = tempDir;
     CommunityFeedService.initPrivacyListener();
@@ -32,6 +37,8 @@ void main() {
     MapTileCache.clientForTesting = null;
     MapTileCache.cacheDirForTesting = null;
     WeatherService.consentEvaluatorForTesting = null;
+    SponsorLinkService.resetTestingOverrides();
+    PrivacyCapabilityService.resetForTesting();
     try {
       tempDir.deleteSync(recursive: true);
     } catch (_) {}
@@ -247,6 +254,11 @@ void main() {
   group('Slice C: Meeting Directory & Cloud Synchronization Decoupling', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+      PrivacyCapabilityService.resetForTesting();
+      CommunityFeedService.resetPrivacyListenerForTesting();
+      SponsorLinkService.resetTestingOverrides();
+      CommunityFeedService.initPrivacyListener();
+      SponsorLinkService.initPrivacyListener();
     });
 
     test('MeetingFinderService.refresh returns cached meetings without network when directoryRefresh is not granted', () async {
@@ -332,30 +344,71 @@ void main() {
           reason: 'SponsorLinkService must never initiate Firebase auth when cloudSync is denied');
     });
 
-    test('SponsorLinkService streams register revocation teardown and handle cloud revocation', () async {
+    test('Real subscribed sponsor stream tears down immediately upon cloud revocation', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_cloudSync': 'granted',
       });
+      await PrivacyCapabilityService.loadState();
 
-      var revokedCalled = false;
-      PrivacyCapabilityService.onConsentChangedCallbacks.add((cap, state) {
-        if (cap == PrivacyCapability.cloudSync && !state.isGranted) {
-          revokedCalled = true;
-        }
+      final underlyingSource = StreamController<List<Map<String, dynamic>>>();
+      SponsorLinkService.authCheckerForTesting = () async => true;
+      SponsorLinkService.currentUidForTesting = 'test_sponsor_uid';
+      SponsorLinkService.inboxStreamForTesting = (uid, code) => underlyingSource.stream;
+
+      addTearDown(() {
+        SponsorLinkService.resetTestingOverrides();
+        if (!underlyingSource.isClosed) underlyingSource.close();
       });
 
-      // Active stream watch
+      final receivedEvents = <List<Map<String, dynamic>>>[];
+      var streamClosed = false;
+
       final stream = SponsorLinkService.watchPendingBundles('ABCD12EF-QX');
-      expect(stream, isNotNull);
+      final subscription = stream.listen(
+        (items) => receivedEvents.add(items),
+        onDone: () => streamClosed = true,
+      );
+      addTearDown(subscription.cancel);
+
+      // Allow async onListen to execute and attach subscription to underlying source
+      await Future<void>.delayed(Duration.zero);
+      expect(underlyingSource.hasListener, isTrue,
+          reason: 'Active stream must be subscribed to underlying Firestore source');
+
+      // Emit active event from relay source
+      underlyingSource.add([
+        {'id': 'bundle_1', 'status': 'pending'}
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(receivedEvents.length, equals(1));
+      expect(receivedEvents.first.first['id'], equals('bundle_1'));
 
       // User revokes cloudSync
       await PrivacyCapabilityService.setConsent(
         PrivacyCapability.cloudSync,
         ConsentState.denied,
       );
+      await Future<void>.delayed(Duration.zero);
 
-      expect(revokedCalled, isTrue,
-          reason: 'SponsorLinkService stream lifecycle must respond to cloudSync revocation');
+      // Stream must be closed and underlying subscription cancelled
+      expect(streamClosed, isTrue,
+          reason: 'Stream must close immediately when cloudSync is revoked');
+      expect(underlyingSource.hasListener, isFalse,
+          reason: 'Underlying Firestore subscription must be cancelled upon revocation');
+      expect(receivedEvents.length, equals(2));
+      expect(receivedEvents.last, isEmpty,
+          reason: 'Revocation clears pending items with empty list');
+
+      // Subsequent emissions on the source are not received
+      if (!underlyingSource.isClosed) {
+        underlyingSource.add([
+          {'id': 'bundle_2', 'status': 'pending'}
+        ]);
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(receivedEvents.length, equals(2),
+          reason: 'No further events must be dispatched after revocation teardown');
     });
   });
 

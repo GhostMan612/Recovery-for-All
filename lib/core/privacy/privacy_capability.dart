@@ -1,17 +1,8 @@
+// lib/core/privacy/privacy_capability.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
-
-// lib/core/privacy/privacy_capability.dart
-//
-// WO-P0-PRIVACY — Fail-closed Network Capability Architecture.
-// Defines explicit privacy capabilities and consent state machine:
-//  1. Default system state is unknown -> denies all optional network requests.
-//  2. Only explicit, affirmative user grant authorizes network traffic.
-//  3. Revocation immediately tears down pending and active network streams.
-//  4. SOS and local recovery coping tools never require network consent.
-//  5. Capabilities are independent; granting one does not grant another.
 
 import 'dart:async';
 
@@ -96,7 +87,7 @@ class PrivacyCapabilityState {
     return PrivacyCapabilityState(next);
   }
 
-  /// Clear, unvarnished disclosure metadata for user consent prompts.
+  /// Structured disclosure metadata for user consent prompts.
   static const Map<PrivacyCapability, PrivacyDisclosure> disclosures = {
     PrivacyCapability.remoteWeather: PrivacyDisclosure(
       title: 'Local Weather Conditions',
@@ -149,8 +140,14 @@ class PrivacyCapabilityState {
   };
 }
 
-/// Standalone service for querying and updating privacy capability consent.
-/// Usable by background services and non-widget layers.
+/// Central authority for capability authorization and persisted consent.
+///
+/// Concurrency and Security Model:
+/// - Authoritative in-memory state: [_effectiveConsents] governs [isGranted] immediately.
+/// - Immediate revocation: Denial updates memory synchronously before persistence starts.
+/// - Concurrency lock: All disk persistence is sequentially queued through [_lock].
+/// - Request revisions: Monotonically increasing per-capability counters discard completions
+///   from superseded requests, ensuring older async grants never overwrite newer denials.
 class PrivacyCapabilityService {
   PrivacyCapabilityService._();
 
@@ -161,24 +158,41 @@ class PrivacyCapabilityService {
 
   static Future<void> _lock = Future.value();
 
+  static final Map<PrivacyCapability, int> _capabilityRevisions = {};
+  static final Map<PrivacyCapability, ConsentState> _effectiveConsents = {};
+  static final Set<PrivacyCapability> _explicitlyModified = {};
+
   @visibleForTesting
   static Future<bool> Function(PrivacyCapability, ConsentState)?
       persistenceOverrideForTesting;
 
-  /// Evaluates and loads all persisted consents into [PrivacyCapabilityState].
+  @visibleForTesting
+  static void resetForTesting() {
+    _capabilityRevisions.clear();
+    _effectiveConsents.clear();
+    _explicitlyModified.clear();
+    onConsentChangedCallbacks.clear();
+    _lock = Future.value();
+    persistenceOverrideForTesting = null;
+  }
+
+  /// Loads persisted consent from storage into [PrivacyCapabilityState].
+  /// Preserves session-level modifications made prior to hydration completion.
   static Future<PrivacyCapabilityState> loadState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final map = <PrivacyCapability, ConsentState>{};
       for (final cap in PrivacyCapability.values) {
-        final val = prefs.getString('$keyPrefix${cap.name}');
-        if (val == ConsentState.granted.name) {
-          map[cap] = ConsentState.granted;
-        } else if (val == ConsentState.denied.name) {
-          map[cap] = ConsentState.denied;
-        } else {
-          map[cap] = ConsentState.unknown;
+        if (_explicitlyModified.contains(cap) && _effectiveConsents.containsKey(cap)) {
+          map[cap] = _effectiveConsents[cap]!;
+          continue;
         }
+        final val = prefs.getString('$keyPrefix${cap.name}');
+        final state = val == ConsentState.granted.name
+            ? ConsentState.granted
+            : (val == ConsentState.denied.name ? ConsentState.denied : ConsentState.unknown);
+        map[cap] = state;
+        _effectiveConsents[cap] = state;
       }
       return PrivacyCapabilityState(map);
     } catch (_) {
@@ -186,70 +200,141 @@ class PrivacyCapabilityService {
     }
   }
 
-  /// Asynchronously evaluates whether [capability] is granted from [SharedPreferences].
-  /// Fails closed: returns false if absent, corrupted, unknown, or denied.
+  /// Evaluates whether [capability] is authorized.
+  /// Consults the authoritative in-memory state first, then persisted storage.
+  /// Fails closed: returns false on absent, corrupted, unknown, or denied state.
   static Future<bool> isGranted(PrivacyCapability capability) async {
+    if (_effectiveConsents.containsKey(capability)) {
+      return _effectiveConsents[capability] == ConsentState.granted;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_effectiveConsents.containsKey(capability)) {
+        return _effectiveConsents[capability] == ConsentState.granted;
+      }
       final val = prefs.getString('$keyPrefix${capability.name}');
-      return val == ConsentState.granted.name;
+      final state = val == ConsentState.granted.name
+          ? ConsentState.granted
+          : (val == ConsentState.denied.name ? ConsentState.denied : ConsentState.unknown);
+      if (!_effectiveConsents.containsKey(capability)) {
+        _effectiveConsents[capability] = state;
+      }
+      return _effectiveConsents[capability] == ConsentState.granted;
     } catch (_) {
       return false;
     }
   }
 
-  /// Retrieves the persisted [ConsentState] for [capability].
+  /// Fast synchronous check of effective authorization in memory.
+  /// Fails closed if not explicitly granted.
+  static bool isGrantedSync(PrivacyCapability capability) {
+    return _effectiveConsents[capability] == ConsentState.granted;
+  }
+
+  /// Retrieves effective [ConsentState] for [capability].
   static Future<ConsentState> getConsent(PrivacyCapability capability) async {
+    if (_effectiveConsents.containsKey(capability)) {
+      return _effectiveConsents[capability]!;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_effectiveConsents.containsKey(capability)) {
+        return _effectiveConsents[capability]!;
+      }
       final val = prefs.getString('$keyPrefix${capability.name}');
-      if (val == ConsentState.granted.name) return ConsentState.granted;
-      if (val == ConsentState.denied.name) return ConsentState.denied;
-      return ConsentState.unknown;
+      final state = val == ConsentState.granted.name
+          ? ConsentState.granted
+          : (val == ConsentState.denied.name ? ConsentState.denied : ConsentState.unknown);
+      if (!_effectiveConsents.containsKey(capability)) {
+        _effectiveConsents[capability] = state;
+      }
+      return _effectiveConsents[capability]!;
     } catch (_) {
       return ConsentState.unknown;
     }
   }
 
-  /// Sets consent in [SharedPreferences] and notifies registered callbacks.
-  /// Serialized through a lock to eliminate persistence concurrency races.
-  /// Fails closed: returns false if persistence throws or fails.
+  /// Sets consent for [capability] and persists the decision.
+  ///
+  /// Concurrency contract:
+  /// - Serialized through [_lock] to ensure sequential persistence.
+  /// - Monotonically increasing revision numbers ensure completions from
+  ///   superseded requests never overwrite newer intent or emit stale callbacks.
+  ///
+  /// Security invariants:
+  /// - Revocation synchronously updates [_effectiveConsents] and fires callbacks,
+  ///   immediately blocking outbound requests before persistence starts.
+  /// - Grants only become effective after persistence succeeds.
+  ///
+  /// Unresolved security acceptance issue (failed revocation on restart):
+  /// - If persistence fails during revocation, session-level denial is retained
+  ///   in memory and this method returns false. However, because underlying storage
+  ///   was not updated, durable denial cannot be guaranteed across app restarts.
   static Future<bool> setConsent(
     PrivacyCapability capability,
     ConsentState state,
   ) async {
+    final int revision = (_capabilityRevisions[capability] ?? 0) + 1;
+    _capabilityRevisions[capability] = revision;
+    _explicitlyModified.add(capability);
+
+    // Synchronous immediate revocation blocks calls before persistence starts
+    if (!state.isGranted) {
+      _effectiveConsents[capability] = state;
+      for (final cb in List.of(onConsentChangedCallbacks)) {
+        try {
+          cb(capability, state);
+        } catch (_) {}
+      }
+    }
+
     final completer = Completer<bool>();
     _lock = _lock.then((_) async {
       try {
+        final bool ok;
         if (persistenceOverrideForTesting != null) {
-          final ok = await persistenceOverrideForTesting!(capability, state);
-          if (!ok) {
-            completer.complete(false);
-            return;
-          }
+          ok = await persistenceOverrideForTesting!(capability, state);
         } else {
           final prefs = await SharedPreferences.getInstance();
-          final ok = await prefs.setString('$keyPrefix${capability.name}', state.name);
-          if (!ok) {
-            completer.complete(false);
-            return;
-          }
+          ok = await prefs.setString('$keyPrefix${capability.name}', state.name);
         }
-        for (final cb in List.of(onConsentChangedCallbacks)) {
-          try {
-            cb(capability, state);
-          } catch (_) {}
+
+        // Discard completions superseded by a newer request
+        if (_capabilityRevisions[capability] != revision) {
+          debugPrint(
+            '[privacy] Request revision $revision for ${capability.name} superseded by revision ${_capabilityRevisions[capability]}',
+          );
+          completer.complete(false);
+          return;
+        }
+
+        if (!ok) {
+          _effectiveConsents[capability] = ConsentState.denied;
+          completer.complete(false);
+          return;
+        }
+
+        _effectiveConsents[capability] = state;
+
+        if (state.isGranted) {
+          for (final cb in List.of(onConsentChangedCallbacks)) {
+            try {
+              cb(capability, state);
+            } catch (_) {}
+          }
         }
         completer.complete(true);
       } catch (e) {
         debugPrint('[privacy] persistence failed for ${capability.name}: $e');
+        if (_capabilityRevisions[capability] == revision) {
+          _effectiveConsents[capability] = ConsentState.denied;
+        }
         completer.complete(false);
       }
     });
     return completer.future;
   }
 
-  /// Alias for setConsent for round-trip persistence operations.
   static Future<bool> saveConsent(
     PrivacyCapability capability,
     ConsentState state,
@@ -257,38 +342,45 @@ class PrivacyCapabilityService {
       setConsent(capability, state);
 }
 
-/// Global provider managing privacy capability authorization across the app.
 final privacyCapabilityProvider =
     NotifierProvider<PrivacyCapabilityNotifier, PrivacyCapabilityState>(
   PrivacyCapabilityNotifier.new,
 );
 
+/// Observable Riverpod provider managing privacy capability authorization.
 class PrivacyCapabilityNotifier extends Notifier<PrivacyCapabilityState> {
+  int _revision = 0;
+
   @override
   PrivacyCapabilityState build() {
     _hydrateFromStorage();
-    return PrivacyCapabilityState.defaults();
+    return PrivacyCapabilityState(Map.from(PrivacyCapabilityService._effectiveConsents));
   }
 
   Future<void> _hydrateFromStorage() async {
+    final revisionAtStart = _revision;
     final loaded = await PrivacyCapabilityService.loadState();
-    if (state != loaded) {
+    if (_revision == revisionAtStart) {
       state = loaded;
     }
   }
 
-  /// Updates consent with immediate fail-closed in-memory revocation
-  /// and serialized persistent storage.
-  /// Grants are only committed to UI state after storage succeeds.
+  /// Updates consent with immediate in-memory revocation and serialized storage.
+  /// Stale completions from superseded operations are ignored.
   Future<bool> setConsent(
     PrivacyCapability capability,
     ConsentState consent,
   ) async {
+    final myRevision = ++_revision;
     if (!consent.isGranted) {
       state = state.withConsent(capability, consent);
     }
 
     final success = await PrivacyCapabilityService.setConsent(capability, consent);
+
+    if (_revision != myRevision) {
+      return false;
+    }
 
     if (consent.isGranted) {
       if (success) {

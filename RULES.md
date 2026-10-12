@@ -72,13 +72,23 @@ Do not install software, modify system settings, or write to new locations outsi
 ## 2. PROJECT CONVENTIONS
 
 1. **Full code only** — no partial snippets, no TODO stubs.
-2. **Genesis header** every `.dart` file must carry:
-   ```
-   // ============================================================
-   // As Above, So Below. As Within, So Without.
-   // The Future Dictates the Past and the Past is Always Present.
-   // ============================================================
-   ```
+2. **GHC-001 — Genesis Header Convention (Canonical Specification)**:
+   Every manually maintained source file across the repository must carry the Genesis Header as its permanent identity marker. This rule applies to Copilot, Claude Code, OpenCode, Codex, Antigravity, and all other coding agents:
+   1. **File Identification**: The repository-relative file path identifies the source file on the first line (using native single-line comment syntax, e.g. `// lib/core/privacy/privacy_capability.dart`).
+   2. **Exact Header Block**: The exact 4-line Genesis Header follows immediately:
+      ```text
+      // ============================================================
+      // As Above, So Below. As Within, So Without.
+      // The Future Dictates the Past and the Past is Always Present.
+      // ============================================================
+      ```
+      Apply native comment syntax for the target language (e.g., `//` for Dart/C/C++, `#` for Python/Shell/YAML). Honor mandatory shebangs or interpreter directives on line 1 where required, followed immediately by the path comment and header.
+   3. **Mandatory & Immutable**: The Genesis Header is mandatory and immutable during ordinary editing.
+   4. **Protected from Cleanup**: Code cleanup, comment grooming, or production documentation standards must NEVER classify the Genesis Header as decorative, narrative, or redundant. It must remain intact.
+   5. **New Files**: All newly created manually maintained source files must follow this convention, followed by one blank line before imports/code.
+   6. **Renamed Files**: When a source file is renamed or moved, update the repository-relative path comment on line 1 to reflect its new location.
+   7. **Tooling & Syntax Exemptions**: Generated files (e.g. `*.g.dart`, `recovery_all_code.md`) and formats that prohibit comments (e.g. standard JSON) are exempt where inserting a header would break tooling or syntax.
+   8. **No Unrelated Retrofitting**: Avoid changing unrelated files solely to retrofit headers during focused implementation strikes.
 3. **Minnesota-first doctrine**: fallbacks center Twin Cities; MN feeds first; other states are additive. The meeting finder, resources, and sober housing all reflect this.
 4. **Tailoring doctrine**: onboarding choices drive the dashboard, meeting fellowships, and downloads. Never show the user everything — show what they chose.
 5. **No emoji anywhere in the companion** — not the composite, not the dresser

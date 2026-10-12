@@ -1,3 +1,4 @@
+// lib/services/community_feed_service.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
@@ -9,7 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/privacy/privacy_capability.dart';
@@ -58,6 +59,12 @@ class CommunityFeedService {
   ];
 
   static bool _privacyListenerAttached = false;
+
+  @visibleForTesting
+  static void resetPrivacyListenerForTesting() {
+    _privacyListenerAttached = false;
+    _revocationCallbacks.clear();
+  }
 
   static void initPrivacyListener() {
     if (_privacyListenerAttached) return;
@@ -347,10 +354,7 @@ class CommunityFeedService {
   static const Set<String> _reactionKinds = {'strength', 'proud', 'respect'};
 
   Future<void> react(String postId, {required String kind, int by = 1}) async {
-    // Validate BEFORE both writes. reactToPost now throws on an unknown kind,
-    // and the cloud field name was built as '${kind}Count' with no check at
-    // all — so an unrecognised kind incremented a bogus Firestore field while
-    // the local write silently changed nothing: a guaranteed desync.
+    // Validate reaction kind before local and remote writes to prevent desync
     if (!_reactionKinds.contains(kind)) {
       debugPrint('[circle] ignoring unknown reaction kind "$kind"');
       return;
@@ -381,28 +385,13 @@ class CommunityFeedService {
     }
   }
 
-  /// Mirror a moderation action to the LOCAL row only.
-  ///
-  /// This used to also write `status` to Firestore. That was removed, for two
-  /// reasons that point the same way:
-  ///
-  ///  1. **It was a vulnerability.** `isModerator()` reads a SharedPreferences
-  ///     flag, which the caller controls — Firestore rules cannot see prefs, so
-  ///     any way of expressing moderator status in the rules would have been
-  ///     self-declared. The old remote write therefore meant *any* signed-in
-  ///     user could set `status` to `visible` (self-approving their own post past
-  ///     the C5 queue), or to `hidden` (burying anyone else's). The rules now
-  ///     deny remote `status` writes outright, which is why this stopped being a
-  ///     write at all rather than a guarded one.
-  ///  2. **It contradicted the documented design.** pet-store-rules C5 states
-  ///     moderation "stays on-device until networked moderation exists". The
-  ///     remote mirror was the implementation quietly disagreeing with the spec.
-  ///
-  /// Reaction counts still mirror — they are communal, need no authorisation,
-  /// and are display-only.
+  /// Mirror moderation action to the local row only.
+  /// Remote status writes are denied by security rules until networked
+  /// moderation is implemented (pet-store-rules C5).
   Future<void> flag(String postId) async {
     await database.flagPost(postId);
   }
+
   Future<void> approve(String postId) async {
     await database.setPostStatus(postId, 'visible');
   }
