@@ -1,9 +1,8 @@
+// lib/main.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
-
-// lib/main.dart
 
 import 'dart:async';
 
@@ -28,14 +27,15 @@ import 'services/step_counter_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HardwareTierService.initialize();
+  await PrivacyCapabilityService.initialize();
 
   // 0. Firebase (Recovery Circle cloud sync) — activates only when
   // android/app/google-services.json exists; local-only otherwise.
   // Timeout-guarded: a hung platform channel must never stall app boot.
   //
-  // WO-P0-PRIVACY: Decouple Firebase SDK initialization from user-authorized
-  // anonymous sign-in. If cloudSync capability is not granted, boot remains
-  // strictly local-first and does NOT initiate anonymous sign-in or cloud listeners.
+  // WO-P0-PRIVACY-DURABILITY: Decouple Firebase SDK initialization from user-authorized
+  // anonymous sign-in. Session authorization defaults to denied on every fresh process.
+  // Old persisted consent never automatically authorizes outbound network activity.
   CommunityFeedService.initPrivacyListener();
 
   try {

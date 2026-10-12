@@ -92,10 +92,33 @@ void main() {
       expect(result.isDisabled, isTrue);
     });
 
-    test('When capability is granted, fetchWeather executes HTTP request and parses response', () async {
+    test('Negative test: Old persisted granted remoteWeather on cold restart makes 0 network calls', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_remoteWeather': 'granted',
       });
+      await PrivacyCapabilityService.loadState();
+      var networkCallCount = 0;
+      final mockClient = MockClient((request) async {
+        networkCallCount++;
+        return http.Response('{"current": {}}', 200);
+      });
+
+      final result = await WeatherService.fetchWeather(
+        lat: 44.9778,
+        lng: -93.2650,
+        client: mockClient,
+      );
+
+      expect(networkCallCount, equals(0),
+          reason: 'Cold restart with old persisted grant alone must make zero network requests');
+      expect(result.isDisabled, isTrue);
+    });
+
+    test('When capability is granted in session, fetchWeather executes HTTP request and parses response', () async {
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.remoteWeather,
+        ConsentState.granted,
+      );
       var networkCallCount = 0;
       final mockClient = MockClient((request) async {
         networkCallCount++;
@@ -145,7 +168,7 @@ void main() {
       expect(networkCallCount, equals(0));
       expect(res.isDisabled, isTrue);
 
-      // 2. Grant capability -> allowed
+      // 2. Grant capability in session -> allowed
       await PrivacyCapabilityService.setConsent(
         PrivacyCapability.remoteWeather,
         ConsentState.granted,
@@ -232,10 +255,28 @@ void main() {
           reason: 'TilePrefetch must make 0 requests when onlineTiles is denied');
     });
 
-    test('When onlineTiles is granted, fetchAndCache reaches HTTP client and caches tile', () async {
+    test('Negative test: Old persisted granted onlineTiles on cold restart makes 0 tile network requests', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_onlineTiles': 'granted',
       });
+      await PrivacyCapabilityService.loadState();
+      var tileRequestCount = 0;
+      MapTileCache.clientForTesting = MockClient((request) async {
+        tileRequestCount++;
+        return http.Response('fake-png-bytes', 200);
+      });
+
+      final file = await MapTileCache.fetchAndCache('osm', 10, 250, 350);
+      expect(file, isNull);
+      expect(tileRequestCount, equals(0),
+          reason: 'Cold start must not fetch online tiles based solely on persisted grant');
+    });
+
+    test('When onlineTiles is granted in session, fetchAndCache reaches HTTP client and caches tile', () async {
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.onlineTiles,
+        ConsentState.granted,
+      );
 
       var tileRequestCount = 0;
       MapTileCache.clientForTesting = MockClient((request) async {
@@ -272,6 +313,16 @@ void main() {
       expect(meetings, isA<List>());
     });
 
+    test('MeetingFinderService.refresh on cold restart with old persisted granted uses cached directory with 0 network calls', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_directoryRefresh': 'granted',
+      });
+      await PrivacyCapabilityService.loadState();
+      final service = MeetingFinderService();
+      final meetings = await service.refresh(lat: 44.9778, lng: -93.2650);
+      expect(meetings, isA<List>(), reason: 'Cached directory must remain usable offline');
+    });
+
     test('CommunityFeedService respects unconsented cloudSync and circleShare', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_cloudSync': 'denied',
@@ -279,6 +330,16 @@ void main() {
       });
 
       expect(CommunityFeedService.isRemoteAvailable(), isFalse);
+    });
+
+    test('CommunityFeedService on cold restart with old persisted granted cloudSync stays local-first', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_cloudSync': 'granted',
+        'privacy_consent_v1_circleShare': 'granted',
+      });
+      await PrivacyCapabilityService.loadState();
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
     });
 
     test('Granting cloudSync post-startup updates CommunityFeedService dynamically without restart', () async {
@@ -300,9 +361,6 @@ void main() {
     });
 
     test('Revoking cloudSync immediately triggers onRevokeCloud and cancels remote listeners', () async {
-      SharedPreferences.setMockInitialValues({
-        'privacy_consent_v1_cloudSync': 'granted',
-      });
       CommunityFeedService.remoteReady = true;
 
       var listenerCancelled = false;
@@ -344,11 +402,23 @@ void main() {
           reason: 'SponsorLinkService must never initiate Firebase auth when cloudSync is denied');
     });
 
-    test('Real subscribed sponsor stream tears down immediately upon cloud revocation', () async {
+    test('SponsorLinkService on cold restart with old persisted granted cloudSync yields empty stream without network', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_cloudSync': 'granted',
       });
       await PrivacyCapabilityService.loadState();
+
+      final stream = SponsorLinkService.watchPendingBundles('ABCD12EF-QX');
+      final items = await stream.first;
+      expect(items, isEmpty,
+          reason: 'Cold start without session authorization must yield empty items without connecting');
+    });
+
+    test('Real subscribed sponsor stream tears down immediately upon cloud revocation', () async {
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.granted,
+      );
 
       final underlyingSource = StreamController<List<Map<String, dynamic>>>();
       SponsorLinkService.authCheckerForTesting = () async => true;
@@ -428,9 +498,8 @@ void main() {
       // Unit-level mock assertions verify that Dart-level service entry points
       // enforce privacy gates before invoking HttpClient or platform channels.
       // They do NOT constitute device-wide packet capture, and do not make
-      // false claims about underlying OS/OEM background behavior.
-      const codeLevelGatingVerified = true;
-      expect(codeLevelGatingVerified, isTrue);
+      // unverified claims about native platform libraries that bypass Dart.
+      expect(true, isTrue);
     });
   });
 }

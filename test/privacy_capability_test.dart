@@ -23,14 +23,16 @@ void main() {
   });
 
   group('Slice A: PrivacyCapability State & Policy', () {
-    test('Default state fails closed: all capabilities unknown and not granted', () {
+    test('Default state fails closed: all capabilities session-denied and not granted', () {
       final state = PrivacyCapabilityState.defaults();
 
       for (final cap in PrivacyCapability.values) {
-        expect(state.getConsent(cap), equals(ConsentState.unknown),
-            reason: '${cap.name} must default to ConsentState.unknown');
+        expect(state.getConsent(cap), equals(ConsentState.denied),
+            reason: '${cap.name} session consent must default to ConsentState.denied');
+        expect(state.getPersistedPreference(cap), equals(ConsentState.unknown),
+            reason: '${cap.name} persisted preference must default to unknown');
         expect(state.isGranted(cap), isFalse,
-            reason: '${cap.name} in unknown state must evaluate isGranted to false');
+            reason: '${cap.name} must evaluate isGranted to false');
       }
     });
 
@@ -44,7 +46,7 @@ void main() {
       expect(state.isGranted(PrivacyCapability.cloudSync), isFalse);
     });
 
-    test('Granted state explicitly evaluates isGranted to true', () {
+    test('Granted session state explicitly evaluates isGranted to true', () {
       final state = PrivacyCapabilityState(const {
         PrivacyCapability.remoteWeather: ConsentState.granted,
       });
@@ -59,12 +61,12 @@ void main() {
       );
 
       expect(state.isGranted(PrivacyCapability.remoteWeather), isTrue);
-      // All other capabilities must remain denied / not granted
+      // All other capabilities must remain denied
       for (final cap in PrivacyCapability.values) {
         if (cap != PrivacyCapability.remoteWeather) {
           expect(state.isGranted(cap), isFalse,
               reason: 'Granting weather must not grant ${cap.name}');
-          expect(state.getConsent(cap), equals(ConsentState.unknown));
+          expect(state.getConsent(cap), equals(ConsentState.denied));
         }
       }
     });
@@ -94,7 +96,7 @@ void main() {
     });
   });
 
-  group('Slice A: Persistence Owner & Fail-Closed Deserialization', () {
+  group('Slice A: Session Authorization & Cold-Start Policy (WO-P0-PRIVACY-DURABILITY)', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
     });
@@ -104,32 +106,82 @@ void main() {
       final state = await PrivacyCapabilityService.loadState();
 
       for (final cap in PrivacyCapability.values) {
-        expect(state.getConsent(cap), equals(ConsentState.unknown));
+        expect(state.getConsent(cap), equals(ConsentState.denied));
+        expect(state.getPersistedPreference(cap), equals(ConsentState.unknown));
         expect(state.isGranted(cap), isFalse);
+        expect(await PrivacyCapabilityService.isGranted(cap), isFalse);
       }
     });
 
-    test('Persists and restores explicit consent choices round-trip', () async {
-      SharedPreferences.setMockInitialValues({});
-      await PrivacyCapabilityService.saveConsent(
+    test('Old granted preference plus cold restart produces zero authorized optional requests', () async {
+      // Simulate persistent storage holding older granted preferences
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'granted',
+        'privacy_consent_v1_cloudSync': 'granted',
+        'privacy_consent_v1_onlineTiles': 'granted',
+      });
+
+      // Cold start: preferences are hydrated, but session authorization initializes to denied
+      final loaded = await PrivacyCapabilityService.loadState();
+
+      // Invariant: Persisted preferences are preserved for historical context
+      expect(loaded.getPersistedPreference(PrivacyCapability.remoteWeather), equals(ConsentState.granted));
+      expect(loaded.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted));
+      expect(loaded.getPersistedPreference(PrivacyCapability.onlineTiles), equals(ConsentState.granted));
+
+      // Invariant: Old persisted grants alone NEVER authorize network operations on restart
+      expect(loaded.isGranted(PrivacyCapability.remoteWeather), isFalse);
+      expect(loaded.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(loaded.isGranted(PrivacyCapability.onlineTiles), isFalse);
+
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteWeather), isFalse);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles), isFalse);
+
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.remoteWeather), isFalse);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync), isFalse);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.onlineTiles), isFalse);
+    });
+
+    test('Current-session explicit grant enables only the selected capability', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'granted',
+        'privacy_consent_v1_cloudSync': 'granted',
+      });
+      await PrivacyCapabilityService.loadState();
+
+      // Cold start starts with both denied
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteWeather), isFalse);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
+
+      // User explicitly grants weather through authorized consent workflow
+      final grantResult = await PrivacyCapabilityService.setConsent(
         PrivacyCapability.remoteWeather,
         ConsentState.granted,
       );
-      await PrivacyCapabilityService.saveConsent(
-        PrivacyCapability.cloudSync,
-        ConsentState.denied,
+      expect(grantResult, isTrue);
+
+      // Only weather is now session-authorized
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteWeather), isTrue);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.remoteWeather), isTrue);
+
+      // cloudSync remains unauthorized
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync), isFalse);
+    });
+
+    test('Normal background and resume within the same process preserves session authorization', () async {
+      // User grants onlineTiles during the session
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.onlineTiles,
+        ConsentState.granted,
       );
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles), isTrue);
 
-      final loaded = await PrivacyCapabilityService.loadState();
-      expect(loaded.getConsent(PrivacyCapability.remoteWeather), equals(ConsentState.granted));
-      expect(loaded.isGranted(PrivacyCapability.remoteWeather), isTrue);
-
-      expect(loaded.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
-      expect(loaded.isGranted(PrivacyCapability.cloudSync), isFalse);
-
-      // Remaining capabilities must still be unknown
-      expect(loaded.getConsent(PrivacyCapability.circleShare), equals(ConsentState.unknown));
-      expect(loaded.isGranted(PrivacyCapability.circleShare), isFalse);
+      // Simulated background / resume lifecycle: process remains alive, in-memory state unchanged
+      // Re-reading authorization state without process restart
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles), isTrue);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.onlineTiles), isTrue);
     });
 
     test('Corrupt or unrecognized preference values fail closed to unknown', () async {
@@ -139,26 +191,32 @@ void main() {
       });
 
       final loaded = await PrivacyCapabilityService.loadState();
-      expect(loaded.getConsent(PrivacyCapability.remoteWeather), equals(ConsentState.unknown));
+      expect(loaded.getPersistedPreference(PrivacyCapability.remoteWeather), equals(ConsentState.unknown));
       expect(loaded.isGranted(PrivacyCapability.remoteWeather), isFalse);
 
-      expect(loaded.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.unknown));
+      expect(loaded.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.unknown));
       expect(loaded.isGranted(PrivacyCapability.cloudSync), isFalse);
     });
   });
 
-  group('Slice A: Riverpod State Management & Reactivity', () {
+  group('Slice A: Riverpod State Management & Session Reactivity', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('privacyCapabilityProvider initializes with defaults and updates reactively', () async {
+    test('privacyCapabilityProvider initializes with session-denied defaults on cold start', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_directoryRefresh': 'granted',
+      });
+
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final initial = container.read(privacyCapabilityProvider);
-      expect(initial.isGranted(PrivacyCapability.directoryRefresh), isFalse);
+      expect(initial.isGranted(PrivacyCapability.directoryRefresh), isFalse,
+          reason: 'Cold start must fail closed even when disk preference was previously granted');
 
+      // Explicit grant in this session
       await container
           .read(privacyCapabilityProvider.notifier)
           .setConsent(PrivacyCapability.directoryRefresh, ConsentState.granted);
@@ -167,7 +225,7 @@ void main() {
       expect(updated.isGranted(PrivacyCapability.directoryRefresh), isTrue);
       expect(updated.getConsent(PrivacyCapability.directoryRefresh), equals(ConsentState.granted));
 
-      // Revocation
+      // Revocation in this session
       await container
           .read(privacyCapabilityProvider.notifier)
           .setConsent(PrivacyCapability.directoryRefresh, ConsentState.denied);
@@ -175,6 +233,48 @@ void main() {
       final revoked = container.read(privacyCapabilityProvider);
       expect(revoked.isGranted(PrivacyCapability.directoryRefresh), isFalse);
       expect(revoked.getConsent(PrivacyCapability.directoryRefresh), equals(ConsentState.denied));
+    });
+
+    test('Explicit user grant updates Riverpod state reactively for the process', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isFalse);
+
+      await container
+          .read(privacyCapabilityProvider.notifier)
+          .grant(PrivacyCapability.remoteWeather);
+
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isTrue);
+
+      await container
+          .read(privacyCapabilityProvider.notifier)
+          .revoke(PrivacyCapability.remoteWeather);
+
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isFalse);
+    });
+
+    test('Persisted settings or provider initialization alone never silently grant session access', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'granted',
+        'privacy_consent_v1_cloudSync': 'granted',
+        'privacy_consent_v1_circleShare': 'granted',
+        'privacy_consent_v1_directoryRefresh': 'granted',
+        'privacy_consent_v1_onlineTiles': 'granted',
+        'privacy_consent_v1_externalNavigation': 'granted',
+      });
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await PrivacyCapabilityService.initialize();
+      final state = container.read(privacyCapabilityProvider);
+
+      for (final cap in PrivacyCapability.values) {
+        expect(state.isGranted(cap), isFalse, reason: '${cap.name} must never be silently granted');
+        expect(state.getConsent(cap), equals(ConsentState.denied));
+        expect(state.getPersistedPreference(cap), equals(ConsentState.granted));
+      }
     });
 
     test('Asynchronous provider hydration never overwrites newer user consent decisions', () async {
@@ -185,7 +285,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      // User immediately grants capability before asynchronous hydration completes
+      // User immediately grants capability in this session
       await container
           .read(privacyCapabilityProvider.notifier)
           .setConsent(PrivacyCapability.directoryRefresh, ConsentState.granted);
@@ -197,12 +297,12 @@ void main() {
     });
   });
 
-  group('Slice A: Persistence Race & Failure Hardening', () {
+  group('Slice A: Persistence Race & Failure Hardening (WO-P0-PRIVACY-DURABILITY)', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('When persistence fails, setConsent returns false and state fails closed', () async {
+    test('When persistence fails on grant, setConsent returns false and session fails closed', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -219,9 +319,10 @@ void main() {
       final finalState = container.read(privacyCapabilityProvider);
       expect(finalState.isGranted(PrivacyCapability.cloudSync), isFalse);
       expect(finalState.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
     });
 
-    test('When persistence throws, setConsent returns false and state fails closed', () async {
+    test('When persistence throws on grant, setConsent returns false and session fails closed', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -238,6 +339,7 @@ void main() {
       final finalState = container.read(privacyCapabilityProvider);
       expect(finalState.isGranted(PrivacyCapability.onlineTiles), isFalse);
       expect(finalState.getConsent(PrivacyCapability.onlineTiles), equals(ConsentState.denied));
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles), isFalse);
     });
 
     test('Revocation immediately blocks in-memory before persistence completes', () async {
@@ -256,7 +358,7 @@ void main() {
         PrivacyCapabilityService.persistenceOverrideForTesting = null;
       });
 
-      // First grant successfully
+      // First grant successfully in session
       final granted = await container
           .read(privacyCapabilityProvider.notifier)
           .setConsent(PrivacyCapability.remoteWeather, ConsentState.granted);
@@ -270,6 +372,7 @@ void main() {
 
       // In-memory must ALREADY be revoked synchronously before persistence finishes
       expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isFalse);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.remoteWeather), isFalse);
 
       delayCompleter.complete(true);
       final revokeResult = await revokeFuture;
@@ -300,69 +403,12 @@ void main() {
       final f2 = PrivacyCapabilityService.setConsent(PrivacyCapability.remoteWeather, ConsentState.denied);
 
       await Future.delayed(Duration.zero);
-      // f1 has started and is awaiting completer1; f2 is queued behind f1
       expect(executionOrder, equals([1]));
 
       completer1.complete(true);
       await Future.wait([f1, f2]);
 
       expect(executionOrder, equals([1, 2]));
-    });
-
-    test('PrivacyCapabilityService.isGranted() immediately returns false during delayed revocation', () async {
-      SharedPreferences.setMockInitialValues({
-        'privacy_consent_v1_cloudSync': 'granted',
-      });
-      await PrivacyCapabilityService.loadState();
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isTrue);
-
-      final delayCompleter = Completer<bool>();
-      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
-        if (state == ConsentState.denied) {
-          return delayCompleter.future;
-        }
-        return true;
-      };
-      addTearDown(() {
-        if (!delayCompleter.isCompleted) delayCompleter.complete(true);
-      });
-
-      // Begin revocation - persistence is pending
-      final revokeFuture = PrivacyCapabilityService.setConsent(
-        PrivacyCapability.cloudSync,
-        ConsentState.denied,
-      );
-
-      // isGranted() MUST be false immediately, even while persistence has not completed
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse,
-          reason: 'Network services calling isGranted() must be blocked immediately during pending revocation');
-
-      delayCompleter.complete(true);
-      final ok = await revokeFuture;
-      expect(ok, isTrue);
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
-    });
-
-    test('PrivacyCapabilityService.isGranted() remains false when revocation persistence fails', () async {
-      SharedPreferences.setMockInitialValues({
-        'privacy_consent_v1_cloudSync': 'granted',
-      });
-      await PrivacyCapabilityService.loadState();
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isTrue);
-
-      // Persistence fails on revocation
-      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
-        return false;
-      };
-
-      final ok = await PrivacyCapabilityService.setConsent(
-        PrivacyCapability.cloudSync,
-        ConsentState.denied,
-      );
-
-      expect(ok, isFalse, reason: 'setConsent reports persistence failure');
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse,
-          reason: 'Failed revocation persistence must fail closed and never authorize network');
     });
 
     test('Superseded grant completing after revocation never restores authorization or emits stale grant callback', () async {
@@ -397,7 +443,6 @@ void main() {
         ConsentState.granted,
       );
 
-      // Allow microtask to enter persistence
       await Future.delayed(Duration.zero);
 
       // 2. Request revocation.
@@ -411,7 +456,7 @@ void main() {
       expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync), isFalse);
       expect(callbacksReceived, equals([ConsentState.denied]));
 
-      // 4. Complete the older grant while holding the newer revocation persistence.
+      // 4. Complete the older grant while holding newer revocation persistence.
       grantCompleter.complete(true);
       final grantResult = await grantFuture;
       expect(grantResult, isFalse, reason: 'Superseded grant must complete false and not be applied');
@@ -425,7 +470,7 @@ void main() {
           reason: 'Superseded grant must never emit stale granted callback');
       expect(callbacksReceived, equals([ConsentState.denied]));
 
-      // 7. Complete revocation and verify the final state.
+      // 7. Complete revocation and verify final state.
       revokeCompleter.complete(true);
       final revokeResult = await revokeFuture;
       expect(revokeResult, isTrue);
@@ -434,44 +479,90 @@ void main() {
       expect(callbacksReceived, equals([ConsentState.denied]));
     });
 
-    test('Failed revocation retains session denial, reports failure, and documents restart risk on cold start', () async {
-      // Setup initial persisted state: cloudSync was previously granted in storage
-      SharedPreferences.setMockInitialValues({
-        'privacy_consent_v1_cloudSync': 'granted',
-      });
-      await PrivacyCapabilityService.loadState();
+    test('Failed revocation write preserves session denial and accurately reports storage failure without claiming save', () async {
+      // 1. Setup initial session where cloudSync was explicitly granted
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.granted,
+      );
       expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isTrue);
+      expect(await PrivacyCapabilityService.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted));
 
+      // 2. Attempt revocation, but disk persistence fails (disk error / read-only filesystem)
       PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
         return false; // Storage write fails
       };
       addTearDown(() => PrivacyCapabilityService.persistenceOverrideForTesting = null);
 
-      // 1. Attempt revocation
       final ok = await PrivacyCapabilityService.setConsent(
         PrivacyCapability.cloudSync,
         ConsentState.denied,
       );
 
-      // 2. Expose persistence failure to caller/user - never report as successfully saved
+      // Invariant: Storage failure is accurately reported
       expect(ok, isFalse, reason: 'Revocation must never be reported as successfully saved when persistence fails');
 
-      // 3. Retain session-level denial
-      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse,
-          reason: 'Session-level denial must be retained despite persistence failure');
+      // Invariant: In current session, access is immediately and strictly denied
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse);
       expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync), isFalse);
       expect(await PrivacyCapabilityService.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
 
-      // 4. Simulated application restart (in-memory session state cleared)
-      // When storage is unavailable, durable denial cannot be guaranteed across restarts
-      // because SharedPreferences still contains the older 'granted' value.
+      // Invariant (Preference Accuracy): _persistedPreferences accurately retains the unsaved state ('granted')
+      // and does NOT falsely claim 'denied' was durably saved
+      expect(await PrivacyCapabilityService.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted),
+          reason: 'Failed preference write must not be represented as durably saved');
+
+      // 3. SIMULATE APPLICATION PROCESS RESTART (cold start)
+      // Memory is cleared. Disk still has 'granted' because revocation write failed.
       PrivacyCapabilityService.resetForTesting();
 
-      // On cold restart, verify the unresolved restart risk:
-      // because storage write failed, disk still has the older value.
       final restartedState = await PrivacyCapabilityService.loadState();
-      expect(restartedState.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.granted),
-          reason: 'Documents unresolved restart risk when storage write failed during revocation');
+
+      // INVARIANT (WO-P0-PRIVACY-DURABILITY):
+      // Even though underlying storage still contains 'granted',
+      // session authorization initializes to denied on every fresh launch.
+      // Therefore, the failed revocation write CANNOT leak network requests across cold restart!
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync), isFalse,
+          reason: 'Cold start must NEVER authorize network access from old persisted grant alone');
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync), isFalse);
+      expect(restartedState.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(restartedState.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
+      expect(restartedState.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted),
+          reason: 'Persisted preference reflects unsaved storage state, but is never used to authorize network');
+    });
+
+    test('Failed revocation in Riverpod keeps session denied while preserving persisted preference accuracy', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // Initially grant
+      final grantOk = await container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.cloudSync, ConsentState.granted);
+      expect(grantOk, isTrue);
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.cloudSync), isTrue);
+      expect(container.read(privacyCapabilityProvider).getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted));
+
+      // Attempt revocation with failing persistence
+      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
+        return false;
+      };
+      addTearDown(() => PrivacyCapabilityService.persistenceOverrideForTesting = null);
+
+      final revokeOk = await container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.cloudSync, ConsentState.denied);
+
+      // Returns false (reported storage error)
+      expect(revokeOk, isFalse);
+
+      final state = container.read(privacyCapabilityProvider);
+      // Session authorization is strictly denied!
+      expect(state.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(state.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
+      // Persisted preference does NOT falsely claim to be 'denied'
+      expect(state.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted),
+          reason: 'Failed revocation write must not be represented as durably saved in state');
     });
   });
 }
