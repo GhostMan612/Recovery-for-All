@@ -25,11 +25,13 @@ void main() {
     tempDir = Directory.systemTemp.createTempSync('privacy_test_tiles_');
     MapTileCache.cacheDirForTesting = tempDir;
     CommunityFeedService.initPrivacyListener();
+    SponsorLinkService.initPrivacyListener();
   });
 
   tearDown(() {
     MapTileCache.clientForTesting = null;
     MapTileCache.cacheDirForTesting = null;
+    WeatherService.consentEvaluatorForTesting = null;
     try {
       tempDir.deleteSync(recursive: true);
     } catch (_) {}
@@ -37,6 +39,9 @@ void main() {
 
   group('Slice B: Weather Network Request Enforcement', () {
     test('Negative test: When consent is false, fetchWeather makes 0 network calls and returns disabled', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'denied',
+      });
       var networkCallCount = 0;
       final mockClient = MockClient((request) async {
         networkCallCount++;
@@ -57,7 +62,33 @@ void main() {
       expect(result.reason, contains('privacy settings'));
     });
 
-    test('When consent is true, fetchWeather executes HTTP request and parses response', () async {
+    test('Negative test: Caller attempting to bypass policy with isConsented: true is blocked with 0 network calls', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'denied',
+      });
+      var networkCallCount = 0;
+      final mockClient = MockClient((request) async {
+        networkCallCount++;
+        return http.Response('{"current": {}}', 200);
+      });
+
+      // Caller passes isConsented: true, but capability is denied
+      final result = await WeatherService.fetchWeather(
+        lat: 44.9778,
+        lng: -93.2650,
+        isConsented: true,
+        client: mockClient,
+      );
+
+      expect(networkCallCount, equals(0),
+          reason: 'WeatherService must independently verify capability policy and reject caller bypass');
+      expect(result.isDisabled, isTrue);
+    });
+
+    test('When capability is granted, fetchWeather executes HTTP request and parses response', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'granted',
+      });
       var networkCallCount = 0;
       final mockClient = MockClient((request) async {
         networkCallCount++;
@@ -78,7 +109,6 @@ void main() {
       final result = await WeatherService.fetchWeather(
         lat: 44.9778,
         lng: -93.2650,
-        isConsented: true,
         client: mockClient,
       );
 
@@ -88,7 +118,8 @@ void main() {
       expect(result.summary, equals('Clear sky'));
     });
 
-    test('Revocation stops subsequent weather requests immediately', () async {
+    test('Dynamic grant and revoke transitions govern weather requests', () async {
+      SharedPreferences.setMockInitialValues({});
       var networkCallCount = 0;
       final mockClient = MockClient((request) async {
         networkCallCount++;
@@ -98,25 +129,68 @@ void main() {
         );
       });
 
-      // Initial consented request
+      // 1. Initial state: ungranted -> blocked
       var res = await WeatherService.fetchWeather(
         lat: 44.9778,
         lng: -93.2650,
-        isConsented: true,
+        client: mockClient,
+      );
+      expect(networkCallCount, equals(0));
+      expect(res.isDisabled, isTrue);
+
+      // 2. Grant capability -> allowed
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.remoteWeather,
+        ConsentState.granted,
+      );
+      res = await WeatherService.fetchWeather(
+        lat: 44.9778,
+        lng: -93.2650,
         client: mockClient,
       );
       expect(networkCallCount, equals(1));
       expect(res.isDisabled, isFalse);
 
-      // User revokes consent
+      // 3. Revoke capability -> immediately blocked
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.remoteWeather,
+        ConsentState.denied,
+      );
       res = await WeatherService.fetchWeather(
         lat: 44.9778,
         lng: -93.2650,
-        isConsented: false,
         client: mockClient,
       );
       expect(networkCallCount, equals(1),
           reason: 'Subsequent revoked request must make 0 additional network calls');
+      expect(res.isDisabled, isTrue);
+    });
+
+    test('Injectable policy evaluator governs weather requests without SharedPreferences', () async {
+      var isAllowed = false;
+      WeatherService.consentEvaluatorForTesting = () async => isAllowed;
+
+      var networkCallCount = 0;
+      final mockClient = MockClient((request) async {
+        networkCallCount++;
+        return http.Response(
+          jsonEncode({'current': {'temperature_2m': 65.0, 'weather_code': 0}}),
+          200,
+        );
+      });
+
+      var res = await WeatherService.fetchWeather(lat: 44.9778, lng: -93.2650, client: mockClient);
+      expect(networkCallCount, equals(0));
+      expect(res.isDisabled, isTrue);
+
+      isAllowed = true;
+      res = await WeatherService.fetchWeather(lat: 44.9778, lng: -93.2650, client: mockClient);
+      expect(networkCallCount, equals(1));
+      expect(res.isSuccess, isTrue);
+
+      isAllowed = false;
+      res = await WeatherService.fetchWeather(lat: 44.9778, lng: -93.2650, client: mockClient);
+      expect(networkCallCount, equals(1));
       expect(res.isDisabled, isTrue);
     });
   });
@@ -256,6 +330,32 @@ void main() {
       final orphaned = await SponsorLinkService.orphanedRelayDocIds();
       expect(orphaned, isEmpty,
           reason: 'SponsorLinkService must never initiate Firebase auth when cloudSync is denied');
+    });
+
+    test('SponsorLinkService streams register revocation teardown and handle cloud revocation', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_cloudSync': 'granted',
+      });
+
+      var revokedCalled = false;
+      PrivacyCapabilityService.onConsentChangedCallbacks.add((cap, state) {
+        if (cap == PrivacyCapability.cloudSync && !state.isGranted) {
+          revokedCalled = true;
+        }
+      });
+
+      // Active stream watch
+      final stream = SponsorLinkService.watchPendingBundles('ABCD12EF-QX');
+      expect(stream, isNotNull);
+
+      // User revokes cloudSync
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.denied,
+      );
+
+      expect(revokedCalled, isTrue,
+          reason: 'SponsorLinkService stream lifecycle must respond to cloudSync revocation');
     });
   });
 

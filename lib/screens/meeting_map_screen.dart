@@ -306,7 +306,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
       final me = _me;
       final lat = me?.$1 ?? 44.9778;
       final lng = me?.$2 ?? -93.2650;
-      final result = await WeatherService.fetchWeather(lat: lat, lng: lng, isConsented: true);
+      final result = await WeatherService.fetchWeather(lat: lat, lng: lng);
       if (!mounted) return;
       if (result.isAvailable) {
         setState(() => _weatherChip = '${result.weatherEmoji} ${result.temperatureF?.round()}°F');
@@ -353,12 +353,12 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
-            onPressed: () {
-              ref.read(privacyCapabilityProvider.notifier).setConsent(
+            onPressed: () async {
+              final ok = await ref.read(privacyCapabilityProvider.notifier).setConsent(
                     PrivacyCapability.remoteWeather,
                     ConsentState.granted,
                   );
-              Navigator.pop(ctx, true);
+              if (ctx.mounted) Navigator.pop(ctx, ok);
             },
             child: const Text('Enable Weather'),
           ),
@@ -405,12 +405,12 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
-            onPressed: () {
-              ref.read(privacyCapabilityProvider.notifier).setConsent(
+            onPressed: () async {
+              final ok = await ref.read(privacyCapabilityProvider.notifier).setConsent(
                     PrivacyCapability.onlineTiles,
                     ConsentState.granted,
                   );
-              Navigator.pop(ctx, true);
+              if (ctx.mounted) Navigator.pop(ctx, ok);
             },
             child: const Text('Enable Tiles'),
           ),
@@ -490,12 +490,12 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
-              onPressed: () {
-                ref.read(privacyCapabilityProvider.notifier).setConsent(
+              onPressed: () async {
+                final ok = await ref.read(privacyCapabilityProvider.notifier).setConsent(
                       PrivacyCapability.externalNavigation,
                       ConsentState.granted,
                     );
-                Navigator.pop(ctx, true);
+                if (ctx.mounted) Navigator.pop(ctx, ok);
               },
               child: const Text('Allow & Open'),
             ),

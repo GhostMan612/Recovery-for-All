@@ -40,6 +40,7 @@
 // relay copy is stranded instead of silently seeing an empty list and concluding
 // their sponsee never shared anything.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -133,6 +134,28 @@ class SponsorLinkService {
 
   static final Ed25519 _algo = Ed25519();
   static const FlutterSecureStorage _secure = FlutterSecureStorage();
+
+  static final List<void Function()> _revocationCallbacks = [];
+  static bool _privacyListenerAttached = false;
+
+  static void initPrivacyListener() {
+    if (_privacyListenerAttached) return;
+    _privacyListenerAttached = true;
+    PrivacyCapabilityService.onConsentChangedCallbacks.add((cap, state) {
+      if (cap == PrivacyCapability.cloudSync && !state.isGranted) {
+        onRevokeCloud();
+      }
+    });
+  }
+
+  static void onRevokeCloud() {
+    for (final cb in List.of(_revocationCallbacks)) {
+      try {
+        cb();
+      } catch (_) {}
+    }
+    _revocationCallbacks.clear();
+  }
 
   static const String _checksumAlphabet =
       'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/L/O/0/1 — unambiguous
@@ -441,49 +464,156 @@ class SponsorLinkService {
   /// Sponsee: listens for a signed confirmation on a shared bundle.
   ///
   /// Reads inside the SPONSEE's own partition, which is what the rules admit.
-  static Stream<SignedConfirmation?> listenForConfirmation(String docId) async* {
-    final authed = await _ensureAuth();
-    if (!authed) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+  /// Automatically tears down remote subscription on privacy capability revocation.
+  static Stream<SignedConfirmation?> listenForConfirmation(String docId) {
+    initPrivacyListener();
+    late StreamController<SignedConfirmation?> controller;
+    StreamSubscription? sub;
+    var revoked = false;
 
-    yield* _ownerBundles(uid).doc(docId).snapshots().map((doc) {
-      final data = doc.data();
-      if (data == null || data['status'] != 'signed') return null;
-      final conf = data['confirmation'] as String?;
-      if (conf == null) return null;
-      return SignedConfirmation.tryDecode(conf);
-    });
+    void cancelStream() {
+      revoked = true;
+      sub?.cancel();
+      sub = null;
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+
+    controller = StreamController<SignedConfirmation?>(
+      onListen: () {
+        _revocationCallbacks.add(cancelStream);
+        _ensureAuth().then((authed) async {
+          if (!authed || controller.isClosed || revoked) {
+            if (!controller.isClosed) controller.close();
+            return;
+          }
+          final stillAllowed =
+              await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+          if (!stillAllowed || controller.isClosed || revoked) {
+            if (!controller.isClosed) controller.close();
+            return;
+          }
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid == null || controller.isClosed || revoked) {
+            if (!controller.isClosed) controller.close();
+            return;
+          }
+
+          sub = _ownerBundles(uid).doc(docId).snapshots().listen(
+            (doc) async {
+              final allowed =
+                  await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+              if (!allowed || revoked) {
+                cancelStream();
+                return;
+              }
+              final data = doc.data();
+              if (data == null || data['status'] != 'signed') {
+                if (!controller.isClosed) controller.add(null);
+                return;
+              }
+              final conf = data['confirmation'] as String?;
+              if (!controller.isClosed) {
+                controller.add(conf != null ? SignedConfirmation.tryDecode(conf) : null);
+              }
+            },
+            onError: (Object e) {
+              if (!controller.isClosed) controller.add(null);
+            },
+          );
+        });
+      },
+      onCancel: () async {
+        _revocationCallbacks.remove(cancelStream);
+        await sub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// Sponsor: queries pending bundles addressed to their pairing code.
   ///
-  /// Scoped to the SPONSOR's own inbox partition by the rules. The
-  /// `sponsorCode` filter is retained as a client-side narrowing — it is a
-  /// convenience, not the security boundary, and it is worth being explicit
-  /// about which is which: the filter narrows what is *displayed*, the path
-  /// partition decides what is *readable*.
-  ///
-  /// Yields an empty list on any failure. A sponsor who cannot read the relay
-  /// must not see an error that implies their sponsee never shared anything.
+  /// Scoped to the SPONSOR's own inbox partition by the rules.
+  /// Automatically tears down remote subscription on privacy capability revocation.
   static Stream<List<Map<String, dynamic>>> watchPendingBundles(
-      String pairingCode) async* {
-    final authed = await _ensureAuth();
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (!authed || uid == null) {
-      yield [];
-      return;
+      String pairingCode) {
+    initPrivacyListener();
+    late StreamController<List<Map<String, dynamic>>> controller;
+    StreamSubscription? sub;
+    var revoked = false;
+
+    void cancelStream() {
+      revoked = true;
+      sub?.cancel();
+      sub = null;
+      if (!controller.isClosed) {
+        controller.add(const <Map<String, dynamic>>[]);
+        controller.close();
+      }
     }
 
-    final wanted = pairingCode.trim().toUpperCase();
-    yield* _sponsorInbox(uid)
-        .where('sponsorCode', isEqualTo: wanted)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => {'id': d.id, ...d.data()})
-            .toList())
-        .handleError((Object _) => <Map<String, dynamic>>[]);
+    controller = StreamController<List<Map<String, dynamic>>>(
+      onListen: () {
+        _revocationCallbacks.add(cancelStream);
+        _ensureAuth().then((authed) async {
+          if (!authed || controller.isClosed || revoked) {
+            if (!controller.isClosed) {
+              controller.add(const <Map<String, dynamic>>[]);
+              controller.close();
+            }
+            return;
+          }
+          final stillAllowed =
+              await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+          if (!stillAllowed || controller.isClosed || revoked) {
+            if (!controller.isClosed) {
+              controller.add(const <Map<String, dynamic>>[]);
+              controller.close();
+            }
+            return;
+          }
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid == null || controller.isClosed || revoked) {
+            if (!controller.isClosed) {
+              controller.add(const <Map<String, dynamic>>[]);
+              controller.close();
+            }
+            return;
+          }
+
+          final wanted = pairingCode.trim().toUpperCase();
+          sub = _sponsorInbox(uid)
+              .where('sponsorCode', isEqualTo: wanted)
+              .where('status', isEqualTo: 'pending')
+              .snapshots()
+              .listen(
+            (snap) async {
+              final allowed =
+                  await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+              if (!allowed || revoked) {
+                cancelStream();
+                return;
+              }
+              final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+              if (!controller.isClosed) {
+                controller.add(items);
+              }
+            },
+            onError: (Object _) {
+              if (!controller.isClosed) controller.add(const <Map<String, dynamic>>[]);
+            },
+          );
+        });
+      },
+      onCancel: () async {
+        _revocationCallbacks.remove(cancelStream);
+        await sub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   // ---- ledger ----

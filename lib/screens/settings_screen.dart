@@ -487,9 +487,9 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.denied);
-              Navigator.of(dialogCtx).pop(false);
+            onPressed: () async {
+              await ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.denied);
+              if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(false);
             },
             child: Text(
               'Deny',
@@ -501,9 +501,9 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
-            onPressed: () {
-              ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.granted);
-              Navigator.of(dialogCtx).pop(true);
+            onPressed: () async {
+              final ok = await ref.read(privacyCapabilityProvider.notifier).setConsent(cap, ConsentState.granted);
+              if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(ok);
             },
             child: const Text('Allow'),
           ),

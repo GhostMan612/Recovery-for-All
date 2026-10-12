@@ -92,7 +92,7 @@ class MapTileCache {
   }
 
   /// Network fetch → cache write. Returns cached file on success.
-  /// Enforces onlineTiles privacy capability gate.
+  /// Enforces onlineTiles privacy capability gate with pre-HTTP re-verification.
   static Future<File?> fetchAndCache(
       String layer, int z, int x, int y) async {
     final allowed =
@@ -105,6 +105,11 @@ class MapTileCache {
     try {
       final layerDir = await _dir(layer);
       final file = _tileFile(layerDir, z, x, y);
+      final stillAllowed =
+          await PrivacyCapabilityService.isGranted(PrivacyCapability.onlineTiles);
+      if (!stillAllowed) {
+        return null;
+      }
       final res = await client.get(
         Uri.parse(_urlFor(layer, z, x, y)),
         headers: {'User-Agent': _userAgent},

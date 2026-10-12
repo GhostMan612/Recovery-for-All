@@ -10,7 +10,10 @@
 // user consent for PrivacyCapability.remoteWeather has been granted.
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../core/privacy/privacy_capability.dart';
 
 enum WeatherStatus {
   disabled, // Blocked by privacy policy / unknown or denied consent
@@ -78,6 +81,9 @@ class WeatherService {
 
   WeatherService({this.client});
 
+  @visibleForTesting
+  static Future<bool> Function()? consentEvaluatorForTesting;
+
   /// Converts an Open-Meteo WMO weather code to a representative emoji.
   static String weatherEmoji(int code) {
     if (code == 0) return '☀️';
@@ -102,17 +108,24 @@ class WeatherService {
 
   /// Fetches weather for [lat] and [lng] from Open-Meteo.
   ///
-  /// CRITICAL PRIVACY GATE: If [isConsented] is false, this method returns
-  /// [WeatherResult.disabled()] IMMEDIATELY without initiating any HTTP request
-  /// or transmitting coordinates over the network.
+  /// CRITICAL PRIVACY GATE: Independently verifies affirmative consent for
+  /// [PrivacyCapability.remoteWeather]. Caller-supplied [isConsented] is checked,
+  /// but can NEVER bypass an ungranted capability state.
   static Future<WeatherResult> fetchWeather({
     required double lat,
     required double lng,
-    required bool isConsented,
+    bool? isConsented,
     http.Client? client,
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    if (!isConsented) {
+    final bool allowed;
+    if (consentEvaluatorForTesting != null) {
+      allowed = await consentEvaluatorForTesting!();
+    } else {
+      allowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteWeather);
+    }
+
+    if (!allowed || isConsented == false) {
       return const WeatherResult.disabled();
     }
 

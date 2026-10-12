@@ -3,6 +3,8 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -164,6 +166,119 @@ void main() {
       final revoked = container.read(privacyCapabilityProvider);
       expect(revoked.isGranted(PrivacyCapability.directoryRefresh), isFalse);
       expect(revoked.getConsent(PrivacyCapability.directoryRefresh), equals(ConsentState.denied));
+    });
+  });
+
+  group('Slice A: Persistence Race & Failure Hardening', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('When persistence fails, setConsent returns false and state fails closed', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
+        return false; // simulate disk write failure
+      };
+      addTearDown(() => PrivacyCapabilityService.persistenceOverrideForTesting = null);
+
+      final ok = await container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.cloudSync, ConsentState.granted);
+
+      expect(ok, isFalse);
+      final finalState = container.read(privacyCapabilityProvider);
+      expect(finalState.isGranted(PrivacyCapability.cloudSync), isFalse);
+      expect(finalState.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
+    });
+
+    test('When persistence throws, setConsent returns false and state fails closed', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
+        throw Exception('Disk full / OS write error');
+      };
+      addTearDown(() => PrivacyCapabilityService.persistenceOverrideForTesting = null);
+
+      final ok = await container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.onlineTiles, ConsentState.granted);
+
+      expect(ok, isFalse);
+      final finalState = container.read(privacyCapabilityProvider);
+      expect(finalState.isGranted(PrivacyCapability.onlineTiles), isFalse);
+      expect(finalState.getConsent(PrivacyCapability.onlineTiles), equals(ConsentState.denied));
+    });
+
+    test('Revocation immediately blocks in-memory before persistence completes', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final delayCompleter = Completer<bool>();
+      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
+        if (state == ConsentState.denied) {
+          return delayCompleter.future;
+        }
+        return true;
+      };
+      addTearDown(() {
+        if (!delayCompleter.isCompleted) delayCompleter.complete(true);
+        PrivacyCapabilityService.persistenceOverrideForTesting = null;
+      });
+
+      // First grant successfully
+      final granted = await container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.remoteWeather, ConsentState.granted);
+      expect(granted, isTrue);
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isTrue);
+
+      // Now start revocation with pending persistence
+      final revokeFuture = container
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.remoteWeather, ConsentState.denied);
+
+      // In-memory must ALREADY be revoked synchronously before persistence finishes
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isFalse);
+
+      delayCompleter.complete(true);
+      final revokeResult = await revokeFuture;
+      expect(revokeResult, isTrue);
+      expect(container.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather), isFalse);
+    });
+
+    test('Concurrent consent updates are serialized without race conditions', () async {
+      final executionOrder = <int>[];
+      final completer1 = Completer<bool>();
+
+      PrivacyCapabilityService.persistenceOverrideForTesting = (cap, state) async {
+        if (state == ConsentState.granted) {
+          executionOrder.add(1);
+          await completer1.future;
+          return true;
+        } else {
+          executionOrder.add(2);
+          return true;
+        }
+      };
+      addTearDown(() {
+        if (!completer1.isCompleted) completer1.complete(true);
+        PrivacyCapabilityService.persistenceOverrideForTesting = null;
+      });
+
+      final f1 = PrivacyCapabilityService.setConsent(PrivacyCapability.remoteWeather, ConsentState.granted);
+      final f2 = PrivacyCapabilityService.setConsent(PrivacyCapability.remoteWeather, ConsentState.denied);
+
+      await Future.delayed(Duration.zero);
+      // f1 has started and is awaiting completer1; f2 is queued behind f1
+      expect(executionOrder, equals([1]));
+
+      completer1.complete(true);
+      await Future.wait([f1, f2]);
+
+      expect(executionOrder, equals([1, 2]));
     });
   });
 }

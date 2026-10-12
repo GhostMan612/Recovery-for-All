@@ -159,8 +159,10 @@ class CommunityFeedService {
     late StreamSubscription<List<FeedPost>> localSub;
     StreamSubscription<List<FeedPost>>? remoteSub;
     var cancelled = false;
+    var remoteRevoked = false;
 
     void cancelRemote() {
+      remoteRevoked = true;
       remoteSub?.cancel();
       remoteSub = null;
       hasRemote = false;
@@ -181,11 +183,14 @@ class CommunityFeedService {
 
         _revocationCallbacks.add(cancelRemote);
 
-        _ensureAuth().then((authenticated) {
-          if (!authenticated || cancelled) return;
+        _ensureAuth().then((authenticated) async {
+          if (!authenticated || cancelled || remoteRevoked) return;
+          final stillAllowed =
+              await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+          if (!stillAllowed || cancelled || remoteRevoked) return;
           remoteSub = remote.listen(
             (list) async {
-              if (cancelled) return;
+              if (cancelled || remoteRevoked) return;
               final stillAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
               if (!stillAllowed) {
                 cancelRemote();
@@ -398,7 +403,6 @@ class CommunityFeedService {
   Future<void> flag(String postId) async {
     await database.flagPost(postId);
   }
-
   Future<void> approve(String postId) async {
     await database.setPostStatus(postId, 'visible');
   }

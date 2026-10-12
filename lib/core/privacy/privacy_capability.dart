@@ -5,146 +5,148 @@
 
 // lib/core/privacy/privacy_capability.dart
 //
-// WO-P0-PRIVACY — Privacy capability domain contract and policy enforcement.
-//
-// Local-first doctrine:
-//  1. Being signed in anonymously to Firebase is not user consent.
-//  2. Device runtime permissions (e.g. Android GPS) do not equal consent
-//     to transmit data to external providers.
-//  3. Fail-closed: Unknown, denied, or unreadable states deny outbound network calls.
+// WO-P0-PRIVACY — Fail-closed Network Capability Architecture.
+// Defines explicit privacy capabilities and consent state machine:
+//  1. Default system state is unknown -> denies all optional network requests.
+//  2. Only explicit, affirmative user grant authorizes network traffic.
+//  3. Revocation immediately tears down pending and active network streams.
 //  4. SOS and local recovery coping tools never require network consent.
 //  5. Capabilities are independent; granting one does not grant another.
+
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The distinct external network capabilities governed by user consent.
+/// Distinct network capabilities governed by independent user consent.
 enum PrivacyCapability {
-  cloudSync, // Firebase authentication & cloud synchronization
-  circleShare, // Publishing posts / reactions to Recovery Circle
-  directoryRefresh, // Fetching remote 12-step meeting directories
-  remoteWeather, // Sending location coordinates to Open-Meteo
-  onlineTiles, // Downloading map tiles over the network
-  externalNavigation, // Exporting destination coordinates to external navigation apps
+  remoteWeather,
+  cloudSync,
+  circleShare,
+  directoryRefresh,
+  onlineTiles,
+  externalNavigation;
+
+  PrivacyDisclosure get disclosure => PrivacyCapabilityState.disclosures[this]!;
 }
 
-extension PrivacyCapabilityX on PrivacyCapability {
-  CapabilityDisclosure get disclosure => capabilityDisclosures[this]!;
-}
-
-/// The state of user consent for a given capability.
+/// Explicit tri-state consent states.
+/// Invariant: Only [granted] authorizes optional outbound network activity.
 enum ConsentState {
   unknown,
-  denied,
-  granted;
+  granted,
+  denied;
 
   bool get isGranted => this == ConsentState.granted;
+  bool get isDenied => this == ConsentState.denied;
+  bool get isUnknown => this == ConsentState.unknown;
 }
 
-/// Descriptive metadata for transparent user disclosure.
-class CapabilityDisclosure {
+/// Structured disclosure explaining data transmission for a capability.
+class PrivacyDisclosure {
   final String title;
   final String description;
+  final String transmittedData;
   final String recipient;
-  final String dataShared;
-  final String offlineFallback;
+  final String fallback;
 
-  const CapabilityDisclosure({
+  const PrivacyDisclosure({
     required this.title,
     required this.description,
+    required this.transmittedData,
     required this.recipient,
-    required this.dataShared,
-    required this.offlineFallback,
+    required this.fallback,
   });
-
-  String get transmittedData => dataShared;
-  String get fallback => offlineFallback;
 }
 
-const Map<PrivacyCapability, CapabilityDisclosure> capabilityDisclosures = {
-  PrivacyCapability.cloudSync: CapabilityDisclosure(
-    title: 'Cloud Account & Sync',
-    description: 'Enables anonymous cloud authentication to connect with Recovery Circle and remote sponsor alerts.',
-    recipient: 'Google Firebase (Cloud Firestore & Auth)',
-    dataShared: 'Anonymous Firebase user ID and app session tokens',
-    offlineFallback: 'App runs 100% offline. All journal entries, pets, streaks, and recovery data remain encrypted on-device.',
-  ),
-  PrivacyCapability.circleShare: CapabilityDisclosure(
-    title: 'Recovery Circle Sharing',
-    description: 'Allows sharing milestone reflections, stories, and peer encouragement with the Recovery Circle.',
-    recipient: 'Google Firebase (Community Feeds)',
-    dataShared: 'Chosen alias, post text, recovery shapes, and reaction counts',
-    offlineFallback: 'Posts remain local drafts on your device only.',
-  ),
-  PrivacyCapability.directoryRefresh: CapabilityDisclosure(
-    title: 'Meeting Directory Updates',
-    description: 'Downloads current 12-step meeting schedules from public intergroup directories (AA, NA, BMLT).',
-    recipient: 'Public meeting directory servers (AA Minnesota, BMLT)',
-    dataShared: 'Network request and IP address (no personal info or GPS)',
-    offlineFallback: 'Uses previously cached directory and curated Minnesota pathway meetings.',
-  ),
-  PrivacyCapability.remoteWeather: CapabilityDisclosure(
-    title: 'Live Weather Forecast',
-    description: 'Fetches temperature and conditions for your current area to display on the meeting map.',
-    recipient: 'Open-Meteo API (api.open-meteo.com)',
-    dataShared: 'Latitude and longitude coordinates for current map center',
-    offlineFallback: 'Weather chip is hidden; meeting map and local listings function normally.',
-  ),
-  PrivacyCapability.onlineTiles: CapabilityDisclosure(
-    title: 'Online Map Imagery',
-    description: 'Downloads dynamic map tiles as you pan and zoom the meeting finder.',
-    recipient: 'OpenStreetMap and ArcGIS map servers',
-    dataShared: 'Tile coordinates and IP address (no personal user ID)',
-    offlineFallback: 'Uses downloaded offline tile packs or previously cached areas.',
-  ),
-  PrivacyCapability.externalNavigation: CapabilityDisclosure(
-    title: 'External Navigation Handoff',
-    description: 'Opens Google Maps or other navigation apps with meeting coordinates for driving or walking directions.',
-    recipient: 'External map app (e.g., Google Maps)',
-    dataShared: 'Destination coordinates and street address',
-    offlineFallback: 'Meeting address remains visible on-screen for manual entry.',
-  ),
-};
-
-/// Immutable container of capability consent decisions.
+/// Immutable snapshot of privacy capability authorization state.
 @immutable
 class PrivacyCapabilityState {
   final Map<PrivacyCapability, ConsentState> consents;
 
-  const PrivacyCapabilityState([Map<PrivacyCapability, ConsentState>? consents])
-      : consents = consents ?? const {};
+  const PrivacyCapabilityState([
+    this.consents = const <PrivacyCapability, ConsentState>{},
+  ]);
 
-  factory PrivacyCapabilityState.defaults() => const PrivacyCapabilityState();
+  /// Default baseline fails closed: all capabilities unknown.
+  factory PrivacyCapabilityState.defaults() {
+    return const PrivacyCapabilityState();
+  }
 
-  static Map<PrivacyCapability, CapabilityDisclosure> get disclosures =>
-      capabilityDisclosures;
-
+  /// Retrieves the recorded consent state for [capability].
+  /// Defaults to [ConsentState.unknown] if never set.
   ConsentState getConsent(PrivacyCapability capability) {
     return consents[capability] ?? ConsentState.unknown;
   }
 
+  /// Checks if network operations for [capability] are authorized.
+  /// Strictly fails closed: returns true ONLY if state is explicitly [ConsentState.granted].
   bool isGranted(PrivacyCapability capability) {
-    return getConsent(capability).isGranted;
+    return getConsent(capability) == ConsentState.granted;
   }
 
+  /// Returns a copy of this state with [capability] set to [state].
   PrivacyCapabilityState withConsent(
     PrivacyCapability capability,
     ConsentState state,
   ) {
-    final updated = Map<PrivacyCapability, ConsentState>.from(consents);
-    updated[capability] = state;
-    return PrivacyCapabilityState(updated);
+    final next = Map<PrivacyCapability, ConsentState>.from(consents);
+    next[capability] = state;
+    return PrivacyCapabilityState(next);
   }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is PrivacyCapabilityState &&
-          mapEquals(other.consents, consents);
-
-  @override
-  int get hashCode => consents.hashCode;
+  /// Clear, unvarnished disclosure metadata for user consent prompts.
+  static const Map<PrivacyCapability, PrivacyDisclosure> disclosures = {
+    PrivacyCapability.remoteWeather: PrivacyDisclosure(
+      title: 'Local Weather Conditions',
+      description:
+          'Fetches current weather and temperature for meeting locations from Open-Meteo.',
+      transmittedData: 'Approximate latitude and longitude coordinates',
+      recipient: 'Open-Meteo API (open-meteo.com)',
+      fallback: 'Map shows meeting times and directions without weather chips.',
+    ),
+    PrivacyCapability.cloudSync: PrivacyDisclosure(
+      title: 'Cloud Synchronization',
+      description:
+          'Enables encrypted backup and multi-device synchronization for recovery journals and progress.',
+      transmittedData: 'Encrypted recovery journals, milestones, and settings',
+      recipient: 'Firebase Cloud Firestore / Authentication',
+      fallback: 'All recovery data remains securely stored on this device only.',
+    ),
+    PrivacyCapability.circleShare: PrivacyDisclosure(
+      title: 'Recovery Circle Community Sharing',
+      description:
+          'Allows sharing encouragement, stories, and reactions with the Recovery Circle peer feed.',
+      transmittedData: 'Chosen alias, post text, and peer reactions',
+      recipient: 'Recovery Circle Firestore collection',
+      fallback: 'Community feed remains visible locally without publishing outwards.',
+    ),
+    PrivacyCapability.directoryRefresh: PrivacyDisclosure(
+      title: 'Meeting Directory Updates',
+      description:
+          'Downloads up-to-date meeting schedules and formats from recovery intergroups.',
+      transmittedData: 'Approximate search coordinates and feed query parameters',
+      recipient: 'Local fellowship servers (Code for Recovery / BMLT)',
+      fallback: 'Bundled and previously cached meeting directory remains available offline.',
+    ),
+    PrivacyCapability.onlineTiles: PrivacyDisclosure(
+      title: 'Online Map Detail Tiles',
+      description:
+          'Downloads street map and satellite imagery for viewing meeting locations.',
+      transmittedData: 'Tile coordinates (zoom, x, y)',
+      recipient: 'OpenStreetMap / Esri tile servers',
+      fallback: 'Previously cached offline tiles and meeting address lists remain usable.',
+    ),
+    PrivacyCapability.externalNavigation: PrivacyDisclosure(
+      title: 'External Navigation Handoff',
+      description:
+          'Opens external mapping applications (Google Maps, Apple Maps) for turn-by-turn driving directions.',
+      transmittedData: 'Destination meeting latitude, longitude, and street address',
+      recipient: 'System default map application',
+      fallback: 'Meeting addresses and cross streets are displayed on screen for manual entry.',
+    ),
+  };
 }
 
 /// Standalone service for querying and updating privacy capability consent.
@@ -156,6 +158,12 @@ class PrivacyCapabilityService {
 
   static final List<void Function(PrivacyCapability, ConsentState)>
       onConsentChangedCallbacks = [];
+
+  static Future<void> _lock = Future.value();
+
+  @visibleForTesting
+  static Future<bool> Function(PrivacyCapability, ConsentState)?
+      persistenceOverrideForTesting;
 
   /// Evaluates and loads all persisted consents into [PrivacyCapabilityState].
   static Future<PrivacyCapabilityState> loadState() async {
@@ -204,77 +212,106 @@ class PrivacyCapabilityService {
   }
 
   /// Sets consent in [SharedPreferences] and notifies registered callbacks.
-  static Future<void> setConsent(
+  /// Serialized through a lock to eliminate persistence concurrency races.
+  /// Fails closed: returns false if persistence throws or fails.
+  static Future<bool> setConsent(
     PrivacyCapability capability,
     ConsentState state,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('$keyPrefix${capability.name}', state.name);
-    for (final cb in List.of(onConsentChangedCallbacks)) {
+    final completer = Completer<bool>();
+    _lock = _lock.then((_) async {
       try {
-        cb(capability, state);
-      } catch (_) {}
-    }
+        if (persistenceOverrideForTesting != null) {
+          final ok = await persistenceOverrideForTesting!(capability, state);
+          if (!ok) {
+            completer.complete(false);
+            return;
+          }
+        } else {
+          final prefs = await SharedPreferences.getInstance();
+          final ok = await prefs.setString('$keyPrefix${capability.name}', state.name);
+          if (!ok) {
+            completer.complete(false);
+            return;
+          }
+        }
+        for (final cb in List.of(onConsentChangedCallbacks)) {
+          try {
+            cb(capability, state);
+          } catch (_) {}
+        }
+        completer.complete(true);
+      } catch (e) {
+        debugPrint('[privacy] persistence failed for ${capability.name}: $e');
+        completer.complete(false);
+      }
+    });
+    return completer.future;
   }
 
   /// Alias for setConsent for round-trip persistence operations.
-  static Future<void> saveConsent(
+  static Future<bool> saveConsent(
     PrivacyCapability capability,
     ConsentState state,
   ) =>
       setConsent(capability, state);
 }
 
-/// Riverpod Notifier for observable privacy capability state across the app.
-class PrivacyCapabilityNotifier extends Notifier<PrivacyCapabilityState> {
-  static const String keyPrefix = PrivacyCapabilityService.keyPrefix;
-
-  @override
-  PrivacyCapabilityState build() {
-    _loadFromPrefs();
-    return const PrivacyCapabilityState();
-  }
-
-  Future<void> _loadFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final map = <PrivacyCapability, ConsentState>{};
-    for (final cap in PrivacyCapability.values) {
-      final val = prefs.getString('$keyPrefix${cap.name}');
-      if (val == ConsentState.granted.name) {
-        map[cap] = ConsentState.granted;
-      } else if (val == ConsentState.denied.name) {
-        map[cap] = ConsentState.denied;
-      } else {
-        map[cap] = ConsentState.unknown;
-      }
-    }
-    if (ref.mounted) {
-      state = PrivacyCapabilityState(map);
-    }
-  }
-
-  Future<void> setConsent(
-    PrivacyCapability capability,
-    ConsentState consent,
-  ) async {
-    state = state.withConsent(capability, consent);
-    await PrivacyCapabilityService.setConsent(capability, consent);
-  }
-
-  Future<void> grant(PrivacyCapability capability) async {
-    await setConsent(capability, ConsentState.granted);
-  }
-
-  Future<void> deny(PrivacyCapability capability) async {
-    await setConsent(capability, ConsentState.denied);
-  }
-
-  Future<void> revoke(PrivacyCapability capability) async {
-    await setConsent(capability, ConsentState.denied);
-  }
-}
-
+/// Global provider managing privacy capability authorization across the app.
 final privacyCapabilityProvider =
     NotifierProvider<PrivacyCapabilityNotifier, PrivacyCapabilityState>(
   PrivacyCapabilityNotifier.new,
 );
+
+class PrivacyCapabilityNotifier extends Notifier<PrivacyCapabilityState> {
+  @override
+  PrivacyCapabilityState build() {
+    _hydrateFromStorage();
+    return PrivacyCapabilityState.defaults();
+  }
+
+  Future<void> _hydrateFromStorage() async {
+    final loaded = await PrivacyCapabilityService.loadState();
+    if (state != loaded) {
+      state = loaded;
+    }
+  }
+
+  /// Updates consent with immediate fail-closed in-memory revocation
+  /// and serialized persistent storage.
+  /// Grants are only committed to UI state after storage succeeds.
+  Future<bool> setConsent(
+    PrivacyCapability capability,
+    ConsentState consent,
+  ) async {
+    if (!consent.isGranted) {
+      state = state.withConsent(capability, consent);
+    }
+
+    final success = await PrivacyCapabilityService.setConsent(capability, consent);
+
+    if (consent.isGranted) {
+      if (success) {
+        state = state.withConsent(capability, consent);
+      } else {
+        state = state.withConsent(capability, ConsentState.denied);
+      }
+    } else if (!success) {
+      state = state.withConsent(capability, ConsentState.denied);
+    }
+
+    return success;
+  }
+
+  Future<bool> grant(PrivacyCapability capability) async {
+    return setConsent(capability, ConsentState.granted);
+  }
+
+  Future<bool> deny(PrivacyCapability capability) async {
+    return setConsent(capability, ConsentState.denied);
+  }
+
+  Future<bool> revoke(PrivacyCapability capability) async {
+    return setConsent(capability, ConsentState.denied);
+  }
+}
