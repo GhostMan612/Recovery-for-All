@@ -10,7 +10,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, ValueNotifier, debugPrint, visibleForTesting;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/privacy/privacy_capability.dart';
@@ -18,9 +20,41 @@ import '../database/recovery_database.dart';
 import 'safety_guardrail_service.dart';
 
 enum FeedComposeResult {
-  published,
-  publishedWithSupport,
-  blockedCrisis,
+  publishedLocal,
+  publishedRemote,
+  publishedRemoteFailed,
+  publishedWithSupportLocal,
+  publishedWithSupportRemote,
+  publishedWithSupportRemoteFailed,
+  blockedCrisis;
+
+  static const published = publishedLocal;
+  static const publishedWithSupport = publishedWithSupportLocal;
+
+  bool get isCrisis => this == blockedCrisis;
+  bool get isRemoteDelivered =>
+      this == publishedRemote || this == publishedWithSupportRemote;
+  bool get isRemoteFailed =>
+      this == publishedRemoteFailed || this == publishedWithSupportRemoteFailed;
+  bool get isLocalOnly =>
+      this == publishedLocal || this == publishedWithSupportLocal;
+  bool get needsSupport =>
+      this == publishedWithSupportLocal ||
+      this == publishedWithSupportRemote ||
+      this == publishedWithSupportRemoteFailed;
+}
+
+enum RemoteDeliveryStatus {
+  localOnly,
+  delivered,
+  failed,
+}
+
+enum CircleConnectionStatus {
+  localOnly,
+  connecting,
+  connected,
+  error,
 }
 
 class CommunityFeedService {
@@ -30,9 +64,12 @@ class CommunityFeedService {
 
   static bool remoteReady = false;
 
-  static bool isRemoteAvailable() => remoteReady;
+  static bool isRemoteAvailable() =>
+      remoteReady &&
+      PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync);
 
   static final List<void Function()> _revocationCallbacks = [];
+  static final List<void Function()> _grantCallbacks = [];
 
   static void onRevokeCloud() {
     remoteReady = false;
@@ -41,7 +78,15 @@ class CommunityFeedService {
         cb();
       } catch (_) {}
     }
-    _revocationCallbacks.clear();
+  }
+
+  static void onGrantCloud() {
+    remoteReady = true;
+    for (final cb in List.of(_grantCallbacks)) {
+      try {
+        cb();
+      } catch (_) {}
+    }
   }
 
   static const List<String> _supportWords = [
@@ -61,9 +106,28 @@ class CommunityFeedService {
   static bool _privacyListenerAttached = false;
 
   @visibleForTesting
-  static void resetPrivacyListenerForTesting() {
+  static Future<bool> Function()? authCheckerForTesting;
+
+  @visibleForTesting
+  static Stream<List<FeedPost>> Function()? remoteStreamForTesting;
+
+  @visibleForTesting
+  static Future<bool> Function(FeedPost post)? remoteWriterForTesting;
+
+  @visibleForTesting
+  static void resetTestingOverrides() {
+    authCheckerForTesting = null;
+    remoteStreamForTesting = null;
+    remoteWriterForTesting = null;
     _privacyListenerAttached = false;
     _revocationCallbacks.clear();
+    _grantCallbacks.clear();
+    remoteReady = false;
+  }
+
+  @visibleForTesting
+  static void resetPrivacyListenerForTesting() {
+    resetTestingOverrides();
   }
 
   static void initPrivacyListener() {
@@ -72,7 +136,7 @@ class CommunityFeedService {
     PrivacyCapabilityService.onConsentChangedCallbacks.add((cap, state) {
       if (cap == PrivacyCapability.cloudSync) {
         if (state.isGranted) {
-          remoteReady = true;
+          onGrantCloud();
         } else {
           onRevokeCloud();
         }
@@ -81,12 +145,47 @@ class CommunityFeedService {
   }
 
   final RecoveryDatabase database;
+  final ValueNotifier<CircleConnectionStatus> _connectionStatusNotifier =
+      ValueNotifier<CircleConnectionStatus>(CircleConnectionStatus.localOnly);
+  bool _isDisposed = false;
+
+  ValueListenable<CircleConnectionStatus> get connectionStatus =>
+      _connectionStatusNotifier;
+
+  CircleConnectionStatus get currentStatus => _connectionStatusNotifier.value;
+
+  void _setStatus(CircleConnectionStatus status) {
+    if (_isDisposed) return;
+    if (_connectionStatusNotifier.value == status) return;
+    if (WidgetsBinding.instance.buildOwner?.debugBuilding ?? false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_isDisposed) {
+          _connectionStatusNotifier.value = status;
+        }
+      });
+    } else {
+      _connectionStatusNotifier.value = status;
+    }
+  }
+
+  void dispose() {
+    _isDisposed = true;
+    _connectionStatusNotifier.dispose();
+  }
 
   CommunityFeedService(this.database) {
     initPrivacyListener();
   }
 
   static Future<bool> _ensureAuth() async {
+    if (authCheckerForTesting != null) {
+      try {
+        return await authCheckerForTesting!();
+      } catch (e) {
+        debugPrint('[circle] authCheckerForTesting failed: $e');
+        return false;
+      }
+    }
     try {
       if (Firebase.apps.isEmpty) {
         debugPrint('[circle] Firebase is not initialized.');
@@ -109,11 +208,19 @@ class CommunityFeedService {
     }
   }
 
-  Stream<List<FeedPost>> watchMergedFeed() {
-    final local = database.watchVisibleFeed();
-    if (Firebase.apps.isEmpty || !remoteReady) return local;
+  Future<void> retryConnect() async {
+    if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync)) {
+      _setStatus(CircleConnectionStatus.localOnly);
+      return;
+    }
+    onGrantCloud();
+  }
 
-    final remote = FirebaseFirestore.instance
+  Stream<List<FeedPost>> _defaultRemoteStream() {
+    if (Firebase.apps.isEmpty) {
+      return const Stream<List<FeedPost>>.empty();
+    }
+    return FirebaseFirestore.instance
         .collection(remoteCollection)
         .orderBy('createdAt', descending: true)
         .limit(100)
@@ -145,6 +252,10 @@ class CommunityFeedService {
         }
       }).whereType<FeedPost>().toList();
     });
+  }
+
+  Stream<List<FeedPost>> watchMergedFeed() {
+    final local = database.watchVisibleFeed();
 
     List<FeedPost> latestLocal = const <FeedPost>[];
     List<FeedPost> latestRemote = const <FeedPost>[];
@@ -166,15 +277,89 @@ class CommunityFeedService {
     late StreamSubscription<List<FeedPost>> localSub;
     StreamSubscription<List<FeedPost>>? remoteSub;
     var cancelled = false;
-    var remoteRevoked = false;
+    var attachEpoch = 0;
 
     void cancelRemote() {
-      remoteRevoked = true;
+      attachEpoch++;
       remoteSub?.cancel();
       remoteSub = null;
       hasRemote = false;
+      latestRemote = const <FeedPost>[];
+      _setStatus(CircleConnectionStatus.localOnly);
       if (!controller.isClosed) {
         controller.add(latestLocal);
+      }
+    }
+
+    Future<void> attachRemote() async {
+      if (cancelled) return;
+      final int epoch = ++attachEpoch;
+
+      if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+          cancelled ||
+          epoch != attachEpoch) {
+        if (epoch == attachEpoch) cancelRemote();
+        return;
+      }
+
+      _setStatus(CircleConnectionStatus.connecting);
+
+      final authed = await _ensureAuth();
+      if (cancelled || epoch != attachEpoch) return;
+      if (!authed) {
+        _setStatus(CircleConnectionStatus.error);
+        return;
+      }
+
+      if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+          cancelled ||
+          epoch != attachEpoch) {
+        if (epoch == attachEpoch) cancelRemote();
+        return;
+      }
+
+      await remoteSub?.cancel();
+      if (cancelled || epoch != attachEpoch) return;
+
+      try {
+        final stream = remoteStreamForTesting != null
+            ? remoteStreamForTesting!()
+            : _defaultRemoteStream();
+
+        remoteSub = stream.listen(
+          (list) {
+            if (cancelled || epoch != attachEpoch) return;
+            if (!PrivacyCapabilityService.isGrantedSync(
+                PrivacyCapability.cloudSync)) {
+              cancelRemote();
+              return;
+            }
+            latestRemote = list;
+            hasRemote = true;
+            _setStatus(CircleConnectionStatus.connected);
+            if (!controller.isClosed) {
+              controller.add(merged());
+            }
+          },
+          onError: (Object error) {
+            debugPrint('[circle] Remote stream error: $error');
+            if (epoch == attachEpoch) {
+              _setStatus(CircleConnectionStatus.error);
+            }
+            if (!controller.isClosed) {
+              controller.add(latestLocal);
+            }
+          },
+          cancelOnError: false,
+        );
+      } catch (e) {
+        debugPrint('[circle] Remote stream setup threw: $e');
+        if (epoch == attachEpoch) {
+          _setStatus(CircleConnectionStatus.error);
+        }
+        if (!controller.isClosed) {
+          controller.add(latestLocal);
+        }
       }
     }
 
@@ -183,37 +368,23 @@ class CommunityFeedService {
         localSub = local.listen(
           (list) {
             latestLocal = list;
-            controller.add(hasRemote ? merged() : list);
+            if (!controller.isClosed) {
+              controller.add(hasRemote ? merged() : list);
+            }
           },
-          onError: (Object _) => controller.add(latestLocal),
+          onError: (Object _) {
+            if (!controller.isClosed) controller.add(latestLocal);
+          },
         );
 
         _revocationCallbacks.add(cancelRemote);
+        _grantCallbacks.add(attachRemote);
 
-        _ensureAuth().then((authenticated) async {
-          if (!authenticated || cancelled || remoteRevoked) return;
-          final stillAllowed =
-              await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
-          if (!stillAllowed || cancelled || remoteRevoked) return;
-          remoteSub = remote.listen(
-            (list) async {
-              if (cancelled || remoteRevoked) return;
-              final stillAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
-              if (!stillAllowed) {
-                cancelRemote();
-                return;
-              }
-              latestRemote = list;
-              hasRemote = true;
-              controller.add(merged());
-            },
-            onError: (Object error) {
-              debugPrint('[circle] Remote stream error: $error');
-              controller.add(latestLocal);
-            },
-            cancelOnError: false,
-          );
-        });
+        if (PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync)) {
+          attachRemote();
+        } else {
+          _setStatus(CircleConnectionStatus.localOnly);
+        }
       },
       onPause: () {
         localSub.pause();
@@ -226,35 +397,61 @@ class CommunityFeedService {
       onCancel: () async {
         cancelled = true;
         _revocationCallbacks.remove(cancelRemote);
+        _grantCallbacks.remove(attachRemote);
         await localSub.cancel();
         await remoteSub?.cancel();
       },
     );
+
     return controller.stream;
   }
 
-  Future<void> _mirrorToRemote(FeedPost post) async {
+  Future<RemoteDeliveryStatus> _mirrorToRemote(FeedPost post) async {
     final shareAllowed =
         await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);
     if (!shareAllowed) {
       debugPrint('[circle] Circle sharing not permitted by privacy policy (post stays local)');
-      return;
+      return RemoteDeliveryStatus.localOnly;
     }
 
     final cloudAllowed =
         await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
     if (!cloudAllowed) {
-      debugPrint('[circle] Cloud sync not permitted by privacy policy');
-      return;
+      debugPrint('[circle] Cloud sync not permitted by privacy policy (post stays local)');
+      return RemoteDeliveryStatus.localOnly;
     }
 
     final authed = await _ensureAuth();
     if (!authed) {
       debugPrint('[circle] Firestore write skipped: Not authenticated');
-      return;
+      return RemoteDeliveryStatus.failed;
+    }
+
+    // Revalidate session authorization after asynchronous authentication and
+    // immediately before initiating a remote write. A revocation during authentication
+    // must prevent a new Firestore write.
+    if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+        !PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+      debugPrint(
+          '[circle] Privacy authorization revoked during authentication (post stays local)');
+      return RemoteDeliveryStatus.localOnly;
+    }
+
+    if (remoteWriterForTesting != null) {
+      try {
+        final ok = await remoteWriterForTesting!(post);
+        return ok ? RemoteDeliveryStatus.delivered : RemoteDeliveryStatus.failed;
+      } catch (e) {
+        debugPrint('[circle] remoteWriterForTesting threw: $e');
+        return RemoteDeliveryStatus.failed;
+      }
     }
 
     try {
+      if (Firebase.apps.isEmpty) {
+        debugPrint('[circle] Firebase is not initialized.');
+        return RemoteDeliveryStatus.failed;
+      }
       final payload = {
         'authorAlias': post.authorAlias,
         'kind': post.kind,
@@ -274,8 +471,10 @@ class CommunityFeedService {
           .set(payload);
 
       debugPrint('[circle] mirrored to Firestore successfully: ${post.id}');
+      return RemoteDeliveryStatus.delivered;
     } catch (e) {
       debugPrint('[circle] mirror FAILED (post stays local): $e');
+      return RemoteDeliveryStatus.failed;
     }
   }
 
@@ -326,11 +525,27 @@ class CommunityFeedService {
     );
 
     await database.addFeedPost(post);
-    await _mirrorToRemote(post);
+    final delivery = await _mirrorToRemote(post);
 
-    return needsSupport
-        ? FeedComposeResult.publishedWithSupport
-        : FeedComposeResult.published;
+    if (needsSupport) {
+      switch (delivery) {
+        case RemoteDeliveryStatus.delivered:
+          return FeedComposeResult.publishedWithSupportRemote;
+        case RemoteDeliveryStatus.failed:
+          return FeedComposeResult.publishedWithSupportRemoteFailed;
+        case RemoteDeliveryStatus.localOnly:
+          return FeedComposeResult.publishedWithSupportLocal;
+      }
+    } else {
+      switch (delivery) {
+        case RemoteDeliveryStatus.delivered:
+          return FeedComposeResult.publishedRemote;
+        case RemoteDeliveryStatus.failed:
+          return FeedComposeResult.publishedRemoteFailed;
+        case RemoteDeliveryStatus.localOnly:
+          return FeedComposeResult.publishedLocal;
+      }
+    }
   }
 
   static String _cleanAlias(String alias) {
@@ -371,6 +586,14 @@ class CommunityFeedService {
 
     final authed = await _ensureAuth();
     if (!authed) return;
+
+    if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+        !PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+      return;
+    }
+
+    // Skip unmocked live Firestore network calls in unit/widget test environments
+    if (remoteStreamForTesting != null) return;
 
     try {
       final fieldName = '${kind}Count';

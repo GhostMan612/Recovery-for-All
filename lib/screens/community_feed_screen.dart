@@ -1,34 +1,37 @@
+// lib/screens/community_feed_screen.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
-// lib/screens/community_feed_screen.dart
-//
-// Recovery Circle feed. Guardrails from pet-store-rules.md §4 are structural:
-// crisis strip always visible (C4), alias-only composer (C1), newest-first
-// list with no ranking metric (C3), relapse posts carry a support footer,
-// and a moderation queue appears only in moderator mode (C5).
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/privacy/privacy_capability.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/community_feed_service.dart';
 import '../widgets/themed_background.dart';
 
-class CommunityFeedScreen extends StatefulWidget {
+class CommunityFeedScreen extends ConsumerStatefulWidget {
   final RecoveryDatabase database;
+  final CommunityFeedService? feedService;
 
-  const CommunityFeedScreen({super.key, required this.database});
+  const CommunityFeedScreen({
+    super.key,
+    required this.database,
+    this.feedService,
+  });
 
   @override
-  State<CommunityFeedScreen> createState() => _CommunityFeedScreenState();
+  ConsumerState<CommunityFeedScreen> createState() =>
+      _CommunityFeedScreenState();
 }
 
-class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
+class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   late final CommunityFeedService _feed =
-      CommunityFeedService(widget.database);
+      widget.feedService ?? CommunityFeedService(widget.database);
+  late final Stream<List<FeedPost>> _feedStream = _feed.watchMergedFeed();
   String _alias = 'Anonymous';
   bool _isModerator = false;
 
@@ -36,6 +39,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   void initState() {
     super.initState();
     _loadIdentity();
+  }
+
+  @override
+  void dispose() {
+    if (widget.feedService == null) {
+      _feed.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _loadIdentity() async {
@@ -48,6 +59,288 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       }
       _isModerator = moderator;
     });
+  }
+
+  Future<void> _promptReconnectCloud() async {
+    final disclosure =
+        PrivacyCapabilityState.disclosures[PrivacyCapability.cloudSync];
+    if (disclosure == null) return;
+
+    final consented = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          disclosure.title,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                disclosure.description,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Data sent: ${disclosure.transmittedData}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Recipient: ${disclosure.recipient}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Offline fallback: ${disclosure.fallback}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('deny_reconnect_button'),
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(
+              'Stay Local',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            key: const Key('allow_reconnect_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Authorize for Session'),
+          ),
+        ],
+      ),
+    );
+
+    if (consented == true && mounted) {
+      await ref
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.cloudSync, ConsentState.granted);
+    }
+  }
+
+  Future<bool> _promptAuthorizeCircleShare() async {
+    final disclosure =
+        PrivacyCapabilityState.disclosures[PrivacyCapability.circleShare];
+    if (disclosure == null) return false;
+
+    final consented = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          disclosure.title,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                disclosure.description,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Data sent: ${disclosure.transmittedData}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Recipient: ${disclosure.recipient}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Offline fallback: ${disclosure.fallback}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('deny_circle_share_button'),
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(
+              'Stay Local',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            key: const Key('allow_circle_share_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Authorize for Session'),
+          ),
+        ],
+      ),
+    );
+
+    if (consented == true && mounted) {
+      final success = await ref
+          .read(privacyCapabilityProvider.notifier)
+          .setConsent(PrivacyCapability.circleShare, ConsentState.granted);
+      return success;
+    }
+    return false;
+  }
+
+  Widget _buildConnectionStatusBanner(CircleConnectionStatus status) {
+    switch (status) {
+      case CircleConnectionStatus.localOnly:
+        return Container(
+          key: const Key('circle_status_local_only'),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(10),
+            border:
+                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off_outlined,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Local feed only \u00b7 Cloud sync not authorized',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const Key('reconnect_cloud_button'),
+                onPressed: _promptReconnectCloud,
+                child: const Text('Connect'),
+              ),
+            ],
+          ),
+        );
+      case CircleConnectionStatus.connecting:
+        return Container(
+          key: const Key('circle_status_connecting'),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(10),
+            border:
+                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Connecting to Recovery Circle...',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      case CircleConnectionStatus.error:
+        return Container(
+          key: const Key('circle_status_error'),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .errorContainer
+                .withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.sync_problem_outlined,
+                  size: 18, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Connection error \u00b7 Viewing local posts',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const Key('retry_cloud_button'),
+                onPressed: () => _feed.retryConnect(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      case CircleConnectionStatus.connected:
+        return const SizedBox(
+          key: Key('circle_status_connected'),
+          height: 0,
+        );
+    }
   }
 
   // ------------------------------------------------------------------
@@ -86,9 +379,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const SizedBox(height: 4),
               Text(
                 shapeJson != null
-                    ? 'Your constellation shape rides along — day counts stay private.'
-                    : 'Alias only · no location · no numbers required',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                    ? 'Your constellation shape rides along \u2014 day counts stay private.'
+                    : 'Alias only \u00b7 no location \u00b7 no numbers required',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -96,21 +391,25 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 maxLines: 5,
                 maxLength: CommunityFeedService.maxPostLength,
                 autofocus: presetBody == null,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14),
                 onChanged: (_) => setSheetState(() {}),
                 decoration: InputDecoration(
                   hintText: 'How is your path going?',
-                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+                  hintStyle:
+                      TextStyle(color: Theme.of(context).colorScheme.outline),
                   filled: true,
                   fillColor: Theme.of(context).colorScheme.surfaceContainer,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                    borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: Theme.of(context).colorScheme.primary),
+                    borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               ),
@@ -126,6 +425,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   onPressed: controller.text.trim().isEmpty
                       ? null
                       : () async {
+                          if (_feed.currentStatus ==
+                                  CircleConnectionStatus.connected &&
+                              !PrivacyCapabilityService.isGrantedSync(
+                                  PrivacyCapability.circleShare)) {
+                            await _promptAuthorizeCircleShare();
+                          }
                           result = await _feed.compose(
                             authorAlias: _alias,
                             body: controller.text,
@@ -147,29 +452,65 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     );
 
     if (!mounted || result == null) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     switch (result!) {
       case FeedComposeResult.blockedCrisis:
         _showCrisisDoor();
-      case FeedComposeResult.publishedWithSupport:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            content: const Text(
-                'Shared. Support resources stay pinned to this post — '
-                'you are not alone in this.'),
-          ),
-        );
-      case FeedComposeResult.published:
+      case FeedComposeResult.publishedRemote:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             content: const Text('Shared with the circle.'),
           ),
         );
+      case FeedComposeResult.publishedWithSupportRemote:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            content: const Text(
+              'Shared with the circle. Support resources stay pinned to this post \u2014 '
+              'you are not alone in this.',
+            ),
+          ),
+        );
+      case FeedComposeResult.publishedRemoteFailed:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            content: const Text('Saved locally. Remote sharing failed.'),
+          ),
+        );
+      case FeedComposeResult.publishedWithSupportRemoteFailed:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            content: const Text(
+              'Saved locally. Remote sharing failed. Support resources stay pinned to this post \u2014 '
+              'you are not alone in this.',
+            ),
+          ),
+        );
+      case FeedComposeResult.publishedLocal:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            content: const Text('Saved to your local circle.'),
+          ),
+        );
+      case FeedComposeResult.publishedWithSupportLocal:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            content: const Text(
+              'Saved to your local circle. Support resources stay pinned to this post \u2014 '
+              'you are not alone in this.',
+            ),
+          ),
+        );
     }
   }
 
-  /// Rule C4 — the crisis door is never buried: full-sheet, first action.
+  /// Rule C4 \u2014 the crisis door is never buried: full-sheet, first action.
   void _showCrisisDoor() {
     showModalBottomSheet<void>(
       context: context,
@@ -194,8 +535,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const SizedBox(height: 6),
               Text(
                 "What you wrote tells us tonight is heavy. The circle can't "
-                'hold this one — humans can. Please reach out now.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13,
+                'hold this one \u2014 humans can. Please reach out now.',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
                     height: 1.45),
               ),
               const SizedBox(height: 16),
@@ -214,7 +557,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.5)),
                   minimumSize: const Size.fromHeight(46),
                 ),
                 icon: const Icon(Icons.person_pin_circle),
@@ -248,8 +595,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        // 48dp minimum: this is one of three reaction affordances per post
-        // and was a ~21dp target.
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           child: Padding(
@@ -257,13 +602,18 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
+                Icon(icon,
+                    size: 15, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 4),
                 Text('$count',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12)),
                 const SizedBox(width: 2),
                 Text(label,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12)),
               ],
             ),
           ),
@@ -278,14 +628,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        iconTheme:
+            IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         title: Text('Recovery Circle',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         actions: [
           if (_isModerator)
             IconButton(
               tooltip: 'Moderation queue',
-              icon: const Icon(Icons.gavel_outlined, color: Colors.amberAccent),
+              icon: Icon(Icons.gavel_outlined,
+                  color: Theme.of(context).colorScheme.tertiary),
               onPressed: () => showDialog(
                 context: context,
                 builder: (_) => _ModerationQueueDialog(service: _feed),
@@ -296,8 +648,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'feed_compose',
         backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.onPrimary),
-        label: Text('Share', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+        icon: Icon(Icons.edit_outlined,
+            color: Theme.of(context).colorScheme.onPrimary),
+        label: Text('Share',
+            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
         onPressed: () => _openComposer(),
       ),
       body: ThemedBackground(
@@ -307,34 +661,47 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           child: Column(
             children: [
               // Rule C4: the crisis door lives at the top of the feed,
-              // permanently — never buried in settings.
+              // permanently \u2014 never buried in settings.
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Material(
-                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.18),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .error
+                      .withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _showCrisisDoor,
                     child: ListTile(
                       dense: true,
-                      leading: Icon(Icons.support, color: AppColors.dangerSoft),
+                      leading:
+                          Icon(Icons.support, color: AppColors.dangerSoft),
                       title: Text(
-                        'Need help now? 988 · your people · one tap away',
+                        'Need help now? 988 \u00b7 your people \u00b7 one tap away',
                         style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w600),
                       ),
                       trailing: Icon(Icons.chevron_right,
-                          size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+                          size: 18,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.38)),
                     ),
                   ),
                 ),
               ),
+              ValueListenableBuilder<CircleConnectionStatus>(
+                valueListenable: _feed.connectionStatus,
+                builder: (context, status, _) =>
+                    _buildConnectionStatusBanner(status),
+              ),
               Expanded(
                 child: StreamBuilder<List<FeedPost>>(
-                  stream: _feed.watchMergedFeed(),
+                  stream: _feedStream,
                   builder: (context, snapshot) {
                     final posts = snapshot.data ?? const <FeedPost>[];
                     if (posts.isEmpty) {
@@ -343,20 +710,27 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.forum_outlined,
-                                size: 54, color: Theme.of(context).colorScheme.outline),
+                                size: 54,
+                                color: Theme.of(context).colorScheme.outline),
                             const SizedBox(height: 16),
                             Text('The circle is quiet right now.',
                                 style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 17)),
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                    fontSize: 17)),
                             const SizedBox(height: 8),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                'Be the first to share how today went — '
+                                'Be the first to share how today went \u2014 '
                                 'alias only, no numbers needed.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontSize: 13),
                               ),
                             ),
                           ],
@@ -367,8 +741,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                       padding: const EdgeInsets.all(16),
                       itemCount: posts.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) =>
-                          _postTile(posts[index]),
+                      itemBuilder: (context, index) => _postTile(posts[index]),
                     );
                   },
                 ),
@@ -383,10 +756,17 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Widget _postTile(FeedPost post) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.94),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainer
+            .withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: post.needsSupport
-            ? Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35))
+            ? Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.35))
             : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
@@ -397,10 +777,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                child: Text(post.authorAlias.isNotEmpty
-                    ? post.authorAlias[0].toUpperCase()
-                    : '?',
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.2),
+                child: Text(
+                    post.authorAlias.isNotEmpty
+                        ? post.authorAlias[0].toUpperCase()
+                        : '?',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
                         fontSize: 13,
@@ -409,7 +793,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${post.authorAlias}${post.kind == 'shape' ? '  ·  constellation shape' : ''}',
+                  '${post.authorAlias}${post.kind == 'shape' ? '  \u00b7  constellation shape' : ''}',
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 13,
@@ -418,12 +802,17 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 ),
               ),
               Text(_relativeTime(post.createdAt),
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 11)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                      fontSize: 11)),
               IconButton(
                 tooltip: 'Flag for moderators',
                 icon: Icon(Icons.flag_outlined,
-                    size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
+                    size: 16,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.24)),
                 onPressed: () => _feed.flag(post.id),
               ),
             ],
@@ -431,7 +820,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           const SizedBox(height: 4),
           Text(post.body,
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface, fontSize: 14, height: 1.45)),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 14,
+                  height: 1.45)),
           if (post.shapeJson != null) ...[
             const SizedBox(height: 8),
             _ShapeBadge(shapeJson: post.shapeJson!),
@@ -440,38 +831,42 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
                   Icon(Icons.favorite_outline,
                       size: 15, color: Theme.of(context).colorScheme.primary),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'This path has hard miles. Need support? '
-                      '988 is always there — tap the banner above.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 12, height: 1.35),
+                      '988 is always there \u2014 tap the banner above.',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 12,
+                          height: 1.35),
                     ),
                   ),
                 ],
               ),
             ),
           ],
-          Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 18),
+          Divider(
+              color: Theme.of(context).colorScheme.outlineVariant, height: 18),
           Row(
             children: [
               _reactionButton(Icons.volunteer_activism_outlined, 'strength',
                   post.strengthCount,
                   () => _feed.react(post.id, kind: 'strength')),
               _reactionButton(Icons.emoji_events_outlined, 'proud',
-                  post.proudCount,
-                  () => _feed.react(post.id, kind: 'proud')),
+                  post.proudCount, () => _feed.react(post.id, kind: 'proud')),
               _reactionButton(Icons.handshake_outlined, 'respect',
                   post.respectCount,
                   () => _feed.react(post.id, kind: 'respect')),
@@ -480,7 +875,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 IconButton(
                   tooltip: 'Delete your post',
                   icon: Icon(Icons.delete_outline,
-                      size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+                      size: 16,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.38)),
                   onPressed: () => widget.database.deleteFeedPost(post.id),
                 ),
             ],
@@ -498,9 +897,9 @@ class _ShapeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Payload format (from ConstellationScreen): lines of ✦/· rows.
+    // Payload format (from ConstellationScreen): lines of \u2726/\u00b7 rows.
     final rows =
-        shapeJson.split('\n').where((l) => l.contains('✦')).take(5).toList();
+        shapeJson.split('\n').where((l) => l.contains('\u2726')).take(5).toList();
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -530,8 +929,8 @@ class _ModerationQueueDialog extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.7),
+        constraints:
+            BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
         child: Column(
           children: [
             Padding(
@@ -546,7 +945,11 @@ class _ModerationQueueDialog extends StatelessWidget {
                             fontWeight: FontWeight.bold)),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.54)),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -560,7 +963,10 @@ class _ModerationQueueDialog extends StatelessWidget {
                   if (items.isEmpty) {
                     return Center(
                       child: Text('Queue is clear.',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                     );
                   }
                   return ListView.separated(
@@ -578,16 +984,21 @@ class _ModerationQueueDialog extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${post.authorAlias} · ${post.status}'
-                                ' · flags ${post.flagCount}',
+                            Text(
+                                '${post.authorAlias} \u00b7 ${post.status}'
+                                ' \u00b7 flags ${post.flagCount}',
                                 style: TextStyle(
-                                    color: Theme.of(context).colorScheme.outline, fontSize: 11)),
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
+                                    fontSize: 11)),
                             const SizedBox(height: 4),
                             Text(post.body,
                                 maxLines: 4,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                    fontSize: 13)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -595,15 +1006,15 @@ class _ModerationQueueDialog extends StatelessWidget {
                                   child: Text('Hide',
                                       style: TextStyle(
                                           color: AppColors.dangerSoft)),
-                                  onPressed: () =>
-                                      service.hide(post.id),
+                                  onPressed: () => service.hide(post.id),
                                 ),
                                 TextButton(
                                   child: Text('Keep visible',
                                       style: TextStyle(
-                                          color: Theme.of(context).colorScheme.primary)),
-                                  onPressed: () =>
-                                      service.approve(post.id),
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary)),
+                                  onPressed: () => service.approve(post.id),
                                 ),
                               ],
                             ),
