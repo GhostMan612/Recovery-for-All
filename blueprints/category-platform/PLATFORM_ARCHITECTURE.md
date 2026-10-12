@@ -82,12 +82,14 @@ RecoveryAction {
   userConsentFlags,
 }
 RewardLedger {
-  eventId, ruleVersion, currency, amount, grantedAt,
-  UNIQUE(eventId, ruleVersion, currency)
+  eventId PRIMARY KEY,
+  xpAmount, sparksAmount, policyVersion, grantedAt
 }
 ```
 
-Use existing Drift encrypted database and migration tests, not a second writable store. Reuse `XpEngineService` and `RecoveryPetService` behind one action dispatcher; retain old persisted values during migration. Existing data cannot be silently lost. Keep raid reward bookkeeping within the ledger; source-of-truth and audit records update atomically. Make all supported event types explicitly registered; ban unknown-event automatic rewards for new flows.
+The action ID is the sole reward idempotency key within the user's ledger. One receipt carries all eligible XP and Sparks for that event; never key or deduplicate reward issuance by currency, policy version, feature, retry, raid, quest, or phase. `policyVersion` is audit metadata, not a way to grant the same event again. If a correction is necessary, record a separately keyed compensating event linked to the original receipt. A server-side record shared across users additionally binds the event to the authenticated server identity, never a client-supplied actor field. Raid, quest, constellation, and Circle records are projections with their own scoped deduplication; they cannot issue another underlying reward or apply one action to competing reward ledgers.
+
+Use existing Drift encrypted database and migration tests, not a second writable store. Reuse `XpEngineService` and `RecoveryPetService` behind one action dispatcher; retain old persisted values during migration. Existing data cannot be silently lost. Coordinate P0 Circle outbox/delivery proposals and P1 ledger tables through [`contracts/SCHEMA_REGISTRY.md`](contracts/SCHEMA_REGISTRY.md) and `phase-1/SCHEMA_MIGRATION.md`; use one audited additive migration sequence based on the actual checked-out schema version, not one migration invented per phase. Keep source-of-truth and audit records atomic. Make all supported event types explicitly registered; ban unknown-event automatic rewards for new flows.
 
 ### Safety-economy policy
 

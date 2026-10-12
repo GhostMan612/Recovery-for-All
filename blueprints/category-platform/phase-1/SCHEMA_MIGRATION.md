@@ -1,6 +1,6 @@
 # Phase 1 Data Migration Plan (proposal, not SQL)
 
-**Baseline observed:** Drift `schemaVersion` **13** on RFA revision `6f985f3`; this is historical context only. Validate the local current schema and complete migration chain before calculating the next version. Preserve existing SQLCipher keys, PIN derivation and encrypted journal. This file and [`contracts/SCHEMA_REGISTRY.md`](../contracts/SCHEMA_REGISTRY.md) coordinate all Phase 0–4 schema changes.
+**Baseline observed:** Drift `schemaVersion` **13** on RFA revision `6f985f3`; validate local current schema before calculating next version. Preserve existing SQLCipher keys, PIN derivation and encrypted journal.
 
 ## New logical tables
 
@@ -13,9 +13,7 @@
 | `QuestProgress` | `(questInstanceId,eventId)` unique | local quest projection, no duplicate XP |
 | `ProjectionCheckpoints` | `(projectionName,eventId)` unique | resume half-completed external/projection steps safely |
 
-These are *candidate* tables: adopt only those necessary once ledger invariants and existing tables are analyzed. Phase 0 Circle outbox/delivery-state proposals must be reconciled with these candidates before any phase adds tables; do not create duplicate event, receipt, or outbox identities or separate uncoordinated schema bumps. Maintain one additive migration sequence and one registered migration version for the combined change, then cut over traffic separately from UI changes.
-
-`RewardReceipts.eventId` is the single reward idempotency key for an action. The receipt contains the complete eligible XP/Sparks award, while `policyVersion` is audit metadata only. A retry under a new policy, currency, battle, quest, raid, or cooperative activity cannot award the same event again. Any correction is a separately keyed and auditable compensating event.
+These are *candidate* tables: adopt only those necessary once ledger invariants and existing tables are analyzed. Establish migration in two steps: additive schema then traffic cutover; separate migration from UI changes.
 
 ## Migration decisions
 
@@ -27,7 +25,7 @@ These are *candidate* tables: adopt only those necessary once ledger invariants 
 
 ## Migration gates
 
-1. Audit the checkout's actual schema version and every migration; do not assume v13 remains current. Make sanitized fixtures for supported real schema versions and run `test/schema_migration_test.dart` with populated v1→current and current→next paths.
+1. Make sanitized fixture for *each* supported real schema version. Run `test/schema_migration_test.dart` with populated v1→current and current→new.
 2. Inject mid-migration exception and check transaction rollback.
 3. Test one and two rapid launches against encrypted database open race; preserve app-profile and SOS accessibility.
 4. Compare before/after: counters, journal record count/content hash, PIN lock, pet XP/Sparks/equipment, stars, community records, sponsor proof.

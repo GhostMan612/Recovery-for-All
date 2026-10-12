@@ -24,12 +24,12 @@ Progress is qualitative or capped collective milestones with equal-access altern
 
 `CircleQuestContributionV1` transmits an opaque quest instance ID, actor-bound pseudonym or UID known to backend, coarse intent ID, consent policy version, client idempotency ID and allowed public visibility. No source action type (journal/meeting), contents, date of sober start, lat/lon, route or device identifiers. Server must enforce membership, rate limits, replay uniqueness and moderation.
 
-The transport contribution is a Circle projection, distinct from the local `RecoveryAction` even if associated with one; server attestation verifies only membership/receipt, not sobriety, in-person presence or medical outcomes. If the contribution is linked to an already rewarded `RecoveryAction`, its acceptance/acknowledgment must not issue another XP/Sparks award. If the user performs a separately eligible action, create that action once with its stable event ID and route all eligible rewards through the shared ledger. Untrusted remote contribution cannot directly mint unlimited local XP. Local quest completion can occur without remote acknowledgment, but remote celebration remains pending until acknowledged.
+Each contribution is distinct from the local `RecoveryAction` even if associated with one; server attestation verifies only membership/receipt, not sobriety, in-person presence or medical outcomes. Untrusted remote contribution cannot directly mint unlimited local XP. Local quest completion can occur without remote acknowledgment, but remote celebration remains pending until acknowledged.
 
 ## Gates
 
 1. Two identities: can't contribute for another UID, nonmember can't read, removed member can't write.
-2. 100 same contribution replays: at most one recorded contribution; at most one reward receipt for its underlying eligible action, with no second award for a linked action already credited.
+2. 100 same contribution replays: at most one recorded and one permitted award.
 3. Offline mode: local invitation view and pending intent are accurately labeled, never sent before consent.
 4. Leave/delete/mute: no lingering public identity or forced loss of private quest progress.
 5. No-game mode and screen reader: full Circle support still available without cooperative quests.

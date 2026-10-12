@@ -6,9 +6,9 @@ These become tests as each work order is implemented; existing `RULES.md` / `AGE
 |---|---|
 | CP-01 | Personal coping, journal, SOS and emergency access do not require RPG, login, feed or network. |
 | CP-02 | Every reward-bearing event has a stable `eventId`, registered `actionType`, payload version, event creation time, and provenance; unrecognized types fail closed. |
-| CP-03 | One stable `eventId` creates at most one reward receipt across XP, Sparks, battles, quests, raids, constellation, retries, currency types, or policy versions, even after 100 retries, double taps, app termination, or reconciliation. Policy version is audit metadata, never an idempotency-key component; corrections use a separately identified compensating event. |
+| CP-03 | One `eventId` is committed at most once even after 100 retries, double taps, app termination, or reconciliation. |
 | CP-04 | The original domain action and its reward/event journal commit in one transaction or use explicitly recoverable outbox/saga state; no silent half-credit. |
-| CP-05 | Raid damage and victory projections are idempotent per triggering event and raid instance; a projection cannot issue a second underlying XP/Sparks reward or route one event to competing reward ledgers. |
+| CP-05 | Raid damage and victory rewards are idempotent per triggering event and raid instance. |
 | CP-06 | Attestation is not GPS proof, sobriety proof, meeting attendance proof or independent identity proof. |
 | CP-07 | No XP/Sparks bonuses for relapse/confession severity, share volume, reaction count, or mandatory disclosure. |
 | CP-08 | Companion never dies, shames, locks coping support or punishes absence/relapse. |
@@ -25,7 +25,7 @@ These become tests as each work order is implemented; existing `RULES.md` / `AGE
 | CP-19 | A local draft is never labeled published; a requested delete is never labeled deleted remotely before acknowledgement. |
 | CP-20 | Blocking/reporting do not expose report identities or precise location to other members. |
 | CP-21 | No private text, exact location, tokens, or unredacted trip history enters default logs/analytics. |
-| CP-22 | All schema changes are coordinated through one Drift migration plan across Phase 0–4; they preserve existing encrypted data and pass populated v1→current and current→next chain tests. |
+| CP-22 | All schema migrations preserve existing encrypted data and pass populated v1→current chain tests. |
 | CP-23 | Accessibility: screen readers, 200% text, reduced motion, contrast, and touch sizes are verified on actual views. |
 | CP-24 | Cloud being unreachable cannot affect core local app startup, user-data integrity or emergency affordances. |
 

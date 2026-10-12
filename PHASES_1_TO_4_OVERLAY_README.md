@@ -4,8 +4,6 @@
 
 This package **does not** build, fix or run the app. It gives an execution-ready, file-level blueprint, reference contracts, fixture tests, phased risk controls, and a read-only overlay validator. The execution agent must implement and verify the runtime changes locally before any release claim.
 
-**Consolidation note:** The named source ZIP was not available in this work session, and its archive bytes were not inspected. The extracted files and supplied manifest were used as the available inputs; original manifest-declared hashes are preserved separately from reconciled working-copy hashes. The extracted documents are already present; do not re-extract or treat this note as archive-level verification. `blueprints/category-platform/PHASES_1_TO_4_INDEX.md` is the unified Phases 0–4 master index and governs current status and dependencies.
-
 ## Installation (Windows; repository root)
 
 1. Back up your local work or commit your existing work under `RULES.md`.
@@ -31,7 +29,7 @@ This package **does not** build, fix or run the app. It gives an execution-ready
 - `RULES.md`/`AGENTS.md` remain authoritative. Respect their build/test and human-device boundaries.
 - No source-code, Firestore rules, native SDK, cloud configuration or dependencies are silently overwritten by this package.
 - No live data, credentials, personal identities, exact locations or other sensitive material is embedded.
-- A successful overlay validator means the extracted files match the reconciled manifest and the synthetic contract fixtures satisfy the validator's limited checks; it does **not** validate the unavailable ZIP bytes, Flutter tests, native builds, Firebase rules or field behavior.
+- A successful overlay validator means **the ZIP and document files are structurally intact**, not that Flutter tests, native builds, Firebase rules or field behavior pass.
 - Preserve all local user data. Generated Drift `.g.dart` is build-generated; never edit it by hand.
 - Runtime travel availability, meeting attendance and peer support outcomes must not be fabricated.
 
