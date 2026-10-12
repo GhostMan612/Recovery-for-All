@@ -47,6 +47,8 @@ dependencies:
   pedometer: ^4.0.2
   file_picker: ^12.1.2
   flutter_pdfview: ^1.4.0
+  webview_flutter: 4.14.1
+  webview_flutter_android: 4.14.1
   permission_handler: ^11.3.1
   qr_flutter: ^4.1.0
   mobile_scanner: ^3.5.6

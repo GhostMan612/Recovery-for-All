@@ -10,8 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../core/resources/resource_request.dart';
+import '../core/resources/resource_router.dart';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/sponsor_link_service.dart';
@@ -429,27 +430,39 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
                           onSave: (answers) => _saveWorksheet(step.number, answers),
                         ),
                         Divider(color: Theme.of(context).colorScheme.outlineVariant),
-                        Row(
-                          children: [
-                            Icon(Icons.menu_book,
-                                size: 15, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => launchUrl(
-                                  Uri.parse('https://www.aa.org/the-twelve-steps'),
-                                  mode: LaunchMode.externalApplication,
-                                ),
-                                child: Text(
-                                  'Literature: aa.org — the Twelve Steps',
-                                  style: TextStyle(
-                                      color: Theme.of(context).colorScheme.primary,
-                                      fontSize: 12,
-                                      decoration: TextDecoration.underline),
+                        Semantics(
+                          button: true,
+                          label:
+                              'Read official AA Step ${step.number} chapter as PDF',
+                          excludeSemantics: true,
+                          onTap: () => ResourceRouter.open(
+                            context,
+                            ResourceRequest.aaStep(step.number),
+                          ),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                                alignment: Alignment.centerLeft,
+                              ),
+                              onPressed: () => ResourceRouter.open(
+                                context,
+                                ResourceRequest.aaStep(step.number),
+                              ),
+                              icon: Icon(
+                                Icons.picture_as_pdf_outlined,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              label: Text(
+                                'Read Step ${step.number} — AA chapter (PDF)',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(

@@ -8,8 +8,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../core/resources/resource_request.dart';
+import '../core/resources/resource_router.dart';
 import '../data/recovery_literature.dart';
 import '../services/recovery_pet_service.dart';
 import '../services/resource_link_health.dart';
@@ -95,11 +96,21 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
               s.$1.pathways.intersection(_paths).isNotEmpty)
           .toList();
 
-  Future<void> _open(String url) async {
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {}
+  Future<void> _open(LitLink link) {
+    return ResourceRouter.open(
+      context,
+      ResourceRequest(
+        uri: Uri.parse(link.url),
+        title: link.title,
+        sourceId: 'literature-library',
+      ),
+    );
   }
+
+  IconData _resourceIcon(String url) =>
+      Uri.tryParse(url)?.path.toLowerCase().endsWith('.pdf') == true
+          ? Icons.picture_as_pdf_outlined
+          : Icons.language_outlined;
 
   String _formatDay(int ms) {
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
@@ -183,11 +194,11 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
                               child: dead
                                   ? Icon(Icons.link_off,
                                       size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38))
-                                  : Icon(Icons.open_in_new,
+                                  : Icon(_resourceIcon(link.url),
                                       size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                             onTap: () {
-                              _open(link.url);
+                              _open(link);
                               if (dead) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(

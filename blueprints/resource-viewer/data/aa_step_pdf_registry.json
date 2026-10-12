@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "purpose": "Candidate official AA Twelve Steps and Twelve Traditions per-step PDF endpoints; design fixture only, not an installed app asset",
+  "validated": false,
+  "validation_status": "UNVERIFIED_AS_OF_2026-10-09",
+  "origin": "https://www.aa.org",
+  "requires_live_url_and_pdf_magic_validation": true,
+  "items": [
+    {"step": 1, "label": "Honesty", "url": "https://www.aa.org/sites/default/files/2022-01/en_step1.pdf"},
+    {"step": 2, "label": "Hope", "url": "https://www.aa.org/sites/default/files/2022-01/en_step2.pdf"},
+    {"step": 3, "label": "Faith", "url": "https://www.aa.org/sites/default/files/2022-01/en_step3.pdf"},
+    {"step": 4, "label": "Courage", "url": "https://www.aa.org/sites/default/files/2022-01/en_step4.pdf"},
+    {"step": 5, "label": "Integrity", "url": "https://www.aa.org/sites/default/files/2022-01/en_step5.pdf"},
+    {"step": 6, "label": "Willingness", "url": "https://www.aa.org/sites/default/files/2022-01/en_step6.pdf"},
+    {"step": 7, "label": "Humility", "url": "https://www.aa.org/sites/default/files/2022-01/en_step7.pdf"},
+    {"step": 8, "label": "Brotherly Love", "url": "https://www.aa.org/sites/default/files/2022-01/en_step8.pdf"},
+    {"step": 9, "label": "Justice", "url": "https://www.aa.org/sites/default/files/2022-01/en_step9.pdf"},
+    {"step": 10, "label": "Perseverance", "url": "https://www.aa.org/sites/default/files/2022-01/en_step10.pdf"},
+    {"step": 11, "label": "Spirituality", "url": "https://www.aa.org/sites/default/files/2022-01/en_step11.pdf"},
+    {"step": 12, "label": "Service", "url": "https://www.aa.org/sites/default/files/2022-01/en_step12.pdf"}
+  ]
+}

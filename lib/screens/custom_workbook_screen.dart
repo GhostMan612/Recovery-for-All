@@ -8,10 +8,12 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/resources/resource_router.dart';
+import 'resource_viewer/resource_pdf_screen.dart';
 
 
 /// On-device, user-imported workbooks (Option B).
@@ -110,7 +112,6 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
       }
     }
   }
-
   Future<void> _delete(Map<String, dynamic> entry) async {
     final path = entry['path'] as String?;
     if (path != null) {
@@ -128,7 +129,13 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
     if (path == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => _PdfViewerScreen(path: path, title: name)),
+      MaterialPageRoute(
+        builder: (_) => ResourcePdfScreen.local(
+          path: path,
+          title: name,
+          onOpenResource: (request) => ResourceRouter.open(context, request),
+        ),
+      ),
     );
   }
 
@@ -209,50 +216,6 @@ class _CustomWorkbookScreenState extends State<CustomWorkbookScreen> {
                 ),
               ],
             ),
-    );
-  }
-}
-
-class _PdfViewerScreen extends StatefulWidget {
-  final String path;
-  final String title;
-  const _PdfViewerScreen({required this.path, required this.title});
-  @override
-  State<_PdfViewerScreen> createState() => _PdfViewerScreenState();
-}
-
-class _PdfViewerScreenState extends State<_PdfViewerScreen> {
-  int _pages = 0;
-  int _currentPage = 0;
-  bool _ready = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
-        title: Text(widget.title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
-      ),
-      body: Stack(children: [
-        PDFView(
-          filePath: widget.path,
-          enableSwipe: true,
-          swipeHorizontal: false,
-          autoSpacing: false,
-          pageFling: false,
-          pageSnap: true,
-          onRender: (pages) => setState(() { _pages = pages ?? 0; _ready = true; }),
-          onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _pages = total ?? _pages; }),
-          onError: (error) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF error: $error')));
-          },
-        ),
-        if (!_ready) Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
-        if (_ready && _pages > 0)
-          Positioned(bottom: 12, left: 0, right: 0, child: Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(20)), child: Text('${_currentPage + 1} / $_pages', style: TextStyle(color: Theme.of(context).colorScheme.surface, fontSize: 12))))),
-      ]),
     );
   }
 }
