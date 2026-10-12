@@ -14,7 +14,7 @@ Progress is qualitative or capped collective milestones with equal-access altern
 ## Proposed files
 
 - **NEW** `lib/features/circle/domain/cooperative_quest.dart`, `quest_membership.dart`, `quest_contribution.dart`.
-- **NEW** `lib/features/circle/application/cooperative_quest_coordinator.dart`: stable `(questInstanceId, actorId, contributionKind)` uniqueness, membership and consent validation, contribution receipts.
+- **NEW** `lib/features/circle/application/cooperative_quest_coordinator.dart`: stable `(questInstanceId, authenticatedActorId, contributionKind)` uniqueness, trusted membership and consent validation, contribution receipts.
 - **NEW** `lib/features/circle/ui/cooperative_quest_card.dart`, `circle_quest_detail_screen.dart`: accessible join/leave, pause, optional self/private quest alternative.
 - `lib/features/progression/application/recovery_action_coordinator.dart`: *only* one optional local bounded action acknowledgement, triggered by accepted Circle contribution receipt and already unique per actor/quest; do not pass private act metadata to Circle.
 - `lib/services/community_feed_service.dart`: isolated message adapter, no direct global mutable reward counts.
@@ -22,14 +22,14 @@ Progress is qualitative or capped collective milestones with equal-access altern
 
 ## Protocol
 
-`CircleQuestContributionV1` transmits an opaque quest instance ID, actor-bound pseudonym or UID known to backend, coarse intent ID, consent policy version, client idempotency ID and allowed public visibility. No source action type (journal/meeting), contents, date of sober start, lat/lon, route or device identifiers. Server must enforce membership, rate limits, replay uniqueness and moderation.
+`CircleQuestContributionV1` transmits an opaque quest instance ID, actor-bound pseudonym or UID known to backend, coarse intent ID, consent policy version, client idempotency ID and allowed public visibility. No source action type (journal/meeting), contents, date of sober start, lat/lon, route or device identifiers. Server must enforce authenticated identity, trusted membership, consent, rate limits, replay uniqueness and moderation; client-local privilege flags are never authority.
 
-Each contribution is distinct from the local `RecoveryAction` even if associated with one; server attestation verifies only membership/receipt, not sobriety, in-person presence or medical outcomes. Untrusted remote contribution cannot directly mint unlimited local XP. Local quest completion can occur without remote acknowledgment, but remote celebration remains pending until acknowledged.
+Each contribution is distinct from the local `RecoveryAction` even if associated with one. A contribution is a remote Circle projection, not a second local recovery action. Server attestation verifies only membership/receipt, not sobriety, in-person presence or medical outcomes. Acceptance or acknowledgment cannot mint a second XP/Sparks reward for an underlying action already recorded by the canonical `RewardReceipt`; all eligible rewards remain behind the shared stable-event ledger. An untrusted remote contribution cannot directly mint local XP or bypass trusted membership/authorization. Local quest completion can occur without remote acknowledgment, but remote celebration remains pending until acknowledged.
 
 ## Gates
 
 1. Two identities: can't contribute for another UID, nonmember can't read, removed member can't write.
-2. 100 same contribution replays: at most one recorded and one permitted award.
+2. 100 same contribution replays: at most one recorded contribution and at most one canonical reward receipt for its underlying eligible action; accepting a contribution linked to an already rewarded action adds no award.
 3. Offline mode: local invitation view and pending intent are accurately labeled, never sent before consent.
 4. Leave/delete/mute: no lingering public identity or forced loss of private quest progress.
 5. No-game mode and screen reader: full Circle support still available without cooperative quests.

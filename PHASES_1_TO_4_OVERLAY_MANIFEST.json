@@ -20,18 +20,21 @@
   "files": [
     {
       "path": "PHASES_1_TO_4_OVERLAY_README.md",
-      "sha256": "6cc2bcdeee43665d50330595ce23f1426744039e4226fcf9fbf6c89d2394dbd9",
-      "bytes": 4532
+      "sha256": "afb3d29069520d9c49da66572a02e2afe1d3599b9581d14f7d5ded0e00c0b416",
+      "bytes": 4672,
+      "overlayDeclaredSha256": "6cc2bcdeee43665d50330595ce23f1426744039e4226fcf9fbf6c89d2394dbd9"
     },
     {
       "path": "blueprints/category-platform/PHASES_1_TO_4_INDEX.md",
-      "sha256": "7cc3942ddea13625438821acc89d052208d2783a1a40d5281c0ac95fbe7812c0",
-      "bytes": 6787
+      "sha256": "f55da1f4a57586916a05e26ccbf8e5477c06aa20e0de56fba9cc7df2172e4f3a",
+      "bytes": 15470,
+      "overlayDeclaredSha256": "7cc3942ddea13625438821acc89d052208d2783a1a40d5281c0ac95fbe7812c0"
     },
     {
       "path": "blueprints/category-platform/contracts/CROSS_PHASE_INVARIANTS.md",
-      "sha256": "ccd26a4c1037cbdf43dc4e2d4a71d3a2f6469ff946e026c8a073f577114ad53b",
-      "bytes": 3356
+      "sha256": "b2f733cbdbe1ef6aa1a4e63420916675725919f27ede0fac20517c5c3d7706ca",
+      "bytes": 4242,
+      "overlayDeclaredSha256": "ccd26a4c1037cbdf43dc4e2d4a71d3a2f6469ff946e026c8a073f577114ad53b"
     },
     {
       "path": "blueprints/category-platform/contracts/DECISION_REGISTER.md",
@@ -55,8 +58,9 @@
     },
     {
       "path": "blueprints/category-platform/contracts/SCHEMA_REGISTRY.md",
-      "sha256": "4dad5ce87e29150b21a1644df89850b67b53c0a32753fe43ab1a069bb8626bee",
-      "bytes": 1834
+      "sha256": "b3a5e4420055ee76e01dd003ccb9157c44a463edccb72d5ca93ebdeecf97c1e6",
+      "bytes": 3451,
+      "overlayDeclaredSha256": "4dad5ce87e29150b21a1644df89850b67b53c0a32753fe43ab1a069bb8626bee"
     },
     {
       "path": "blueprints/category-platform/contracts/circle_quest_contribution_v1.schema.json",
@@ -115,8 +119,9 @@
     },
     {
       "path": "blueprints/category-platform/phase-1/SCHEMA_MIGRATION.md",
-      "sha256": "1229d8919edbae0016aedc08fb69e359b579d055c82e9b12dcf962652b167228",
-      "bytes": 2734
+      "sha256": "ad44e4efc6d2c03bfd97845cedffcbd867dd95cf6d1c0f70ba3a8b3594b139a7",
+      "bytes": 3690,
+      "overlayDeclaredSha256": "1229d8919edbae0016aedc08fb69e359b579d055c82e9b12dcf962652b167228"
     },
     {
       "path": "blueprints/category-platform/phase-1/WO-1A-ACTION-LEDGER.md",
@@ -170,8 +175,9 @@
     },
     {
       "path": "blueprints/category-platform/phase-2/WO-2A-ATLAS-SDK-BRIDGE.md",
-      "sha256": "7bed6f7f0ba2a09080016bad2d727889739b99a0eff52360c7b2ed0cd407a8b4",
-      "bytes": 4420
+      "sha256": "5422bd69bd3e96c471520bc6680604ee1dcb6271f3a46ec906b8b887c9b6eff2",
+      "bytes": 5225,
+      "overlayDeclaredSha256": "7bed6f7f0ba2a09080016bad2d727889739b99a0eff52360c7b2ed0cd407a8b4"
     },
     {
       "path": "blueprints/category-platform/phase-2/WO-2B-MEETING-NORMALIZATION.md",
@@ -215,8 +221,9 @@
     },
     {
       "path": "blueprints/category-platform/phase-3/WO-3B-COOPERATIVE-QUESTS.md",
-      "sha256": "ba9ae29c8f25dcfdfb4ce4d5c96255cb16f34e334c3e8db452119bd2fcbcf471",
-      "bytes": 3308
+      "sha256": "534cb12f833eec09e86dca8db6bb7a4b4dc3e9fa78ff0317c96b96c19eefc7a8",
+      "bytes": 3890,
+      "overlayDeclaredSha256": "ba9ae29c8f25dcfdfb4ce4d5c96255cb16f34e334c3e8db452119bd2fcbcf471"
     },
     {
       "path": "blueprints/category-platform/phase-3/WO-3C-CIRCLE-EXPERIENCE.md",
@@ -268,5 +275,10 @@
       "sha256": "92dbbe8b5ffbbac503c0ee2abfc445e5d665c814d34af0eb362184cefc5fd601",
       "bytes": 6729
     }
-  ]
+  ],
+  "reconciliation": {
+    "kind": "reconciled-working-copy",
+    "sourceArchivesInspected": false,
+    "note": "sha256 and bytes bind the reconciled working-copy files; overlayDeclaredSha256 preserves prior manifest declarations for files changed during reconciliation. Source ZIP bytes were not available and were not independently authenticated."
+  }
 }

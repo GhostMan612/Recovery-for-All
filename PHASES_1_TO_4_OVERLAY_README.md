@@ -29,7 +29,7 @@ This package **does not** build, fix or run the app. It gives an execution-ready
 - `RULES.md`/`AGENTS.md` remain authoritative. Respect their build/test and human-device boundaries.
 - No source-code, Firestore rules, native SDK, cloud configuration or dependencies are silently overwritten by this package.
 - No live data, credentials, personal identities, exact locations or other sensitive material is embedded.
-- A successful overlay validator means **the ZIP and document files are structurally intact**, not that Flutter tests, native builds, Firebase rules or field behavior pass.
+- A successful overlay validator means the listed reconciled working-copy files match their recorded hashes and the validator's limited schema/fixture/source-anchor checks pass. It does **not** authenticate the unavailable source ZIP bytes or prove Flutter tests, native builds, Firebase rules or field behavior.
 - Preserve all local user data. Generated Drift `.g.dart` is build-generated; never edit it by hand.
 - Runtime travel availability, meeting attendance and peer support outcomes must not be fabricated.
 
