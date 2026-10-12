@@ -24,6 +24,8 @@ Recovery for All combines recovery tools, a gentle companion RPG, local-first pe
 
 **Companion:** species and dresser, code-drawn vector cosmetics, nonpunitive rest, Sparks/Bond/Mood/Energy, Path XP, daily quests, Trials of the Path and raids. Not completing a quest does not revoke access to recovery tools.
 
+**Internal Resource Viewer:** shared routing, native PDF viewing, an in-app WebView and Literature/Community integrations are present in source. The final host gate, official AA endpoint evidence, physical-device behavior and release-artifact acceptance remain pending; see [the Resource Viewer work status](blueprints/resource-viewer/README.md).
+
 **Meeting Finder:** multi-source data including Minnesota-focused directories, source/cache freshness handling, OpenStreetMap/Esri tiles, optional prefetch and a map with current-weather information. External web services are involved in some online modes.
 
 **Recovery Circle:** a local-first alias feed with Strength/Proud/Respect reactions and optional Firebase synchronization. Offline composition does **not** imply a message has been delivered to another person. Remote post deletion and trusted network moderation are known gaps being addressed in Phase 0.
