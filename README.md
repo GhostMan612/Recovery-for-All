@@ -24,7 +24,7 @@ Recovery for All combines recovery tools, a gentle companion RPG, local-first pe
 
 **Companion:** species and dresser, code-drawn vector cosmetics, nonpunitive rest, Sparks/Bond/Mood/Energy, Path XP, daily quests, Trials of the Path and raids. Not completing a quest does not revoke access to recovery tools.
 
-**Internal Resource Viewer:** shared routing, native PDF viewing, an in-app WebView and Literature/Community integrations are present in source. The final host gate, official AA endpoint evidence, physical-device behavior and release-artifact acceptance remain pending; see [the Resource Viewer work status](blueprints/resource-viewer/README.md).
+**Internal Resource Viewer:** shared routing, native PDF viewing, an in-app WebView and Literature/Community integrations are present in source. GitHub Actions host gates passed, and live fetches returned PDF-format content for all twelve AA Step candidates; HTTP/redirect/chapter identity, physical-device behavior and current release-artifact acceptance remain pending. See [the Resource Viewer work status](blueprints/resource-viewer/README.md).
 
 **Meeting Finder:** multi-source data including Minnesota-focused directories, source/cache freshness handling, OpenStreetMap/Esri tiles, optional prefetch and a map with current-weather information. External web services are involved in some online modes.
 

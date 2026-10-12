@@ -2,7 +2,7 @@
 
 Scope: `blueprints/resource-viewer/` only. Read repository root `AGENTS.md`, `RULES.md`, `SESSION_HANDOFF.md` **first**. This document does not override them or invent a separate agent workflow.
 
-- **Reconciled 2026-10-12:** source implementation and focused tests are present for Phases 01–05. Final host gates, official Step 1–12 endpoint evidence, physical-device behavior, and release acceptance remain pending or blocked. Source presence and blueprint installation are not phase acceptance.
+- **Reconciled 2026-10-12:** source implementation is present; GitHub Actions host gates passed. Live fetches yielded PDF-format responses for all twelve Step candidates, but complete endpoint/chapter identity, physical-device behavior, and release acceptance remain pending or blocked. Source presence and CI are not phase acceptance.
 - Review phases `PHASE_00` through `PHASE_06` in numeric order. Their original implementation scope is reconciled against the source; do not repeat completed work. Record any rephasing decision in `06_RISKS_AND_DECISIONS.md`.
 - Inspect current source before changing it and preserve unrelated work. Root shell discipline defers Git status/diff and all verification to the single final batch; never infer the pre-change dirty state from a later diff.
 - Every URL in `data/aa_step_pdf_registry.json` is **CANDIDATE / UNVERIFIED**. Never label as verified without a live content check on the current date.

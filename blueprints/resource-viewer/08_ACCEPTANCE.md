@@ -1,18 +1,19 @@
 # 08 — Release acceptance checklist
 
-**Reconciled 2026-10-12.** Checklist marks are verification evidence, not source-presence markers. The current gate batch and physical-device/release observations have not been run, so the checklist below remains unchecked. Phase 03 is additionally blocked from release by the missing durable evidence for all twelve official endpoints.
+**Reconciled 2026-10-12.** Checklist marks are verification evidence, not source-presence markers. Current CI is green for the implementation commit and subsequent source-unchanged commit. A live fetch observed PDF MIME and `%PDF-1.7` responses for all twelve aa.org candidates; details and limitations are recorded in Phase 00. Full response/chapter identity checks, physical-device and release-artifact observations remain incomplete, so release acceptance is blocked.
 
 | Scope | Source status | Verification status |
 |---|---|---|
-| Shared router/policy and primary Literature/Community links | Implemented in source | Final host gate pending |
-| Native PDF acquisition/reader and workbook reuse | Implemented in source | Final host and device gates pending |
-| Twelve Step per-chapter routing | Wired to explicit registry | Official endpoint proof and device proof pending |
-| In-app WebView | Implemented in source | Final host and Android device gates pending |
+| Shared router/policy and primary Literature/Community links | Implemented in source | Host CI passed; device gate pending |
+| Native PDF acquisition/reader and workbook reuse | Implemented in source | Host CI passed; device gate pending |
+| Twelve Step per-chapter routing | Wired to explicit registry | 12/12 live fetches yielded PDF-format bodies; status/redirect/final-host and chapter-content match unverified; device proof pending |
+| In-app WebView | Implemented in source | Host CI passed; Android device gates pending |
 | Broader link callsites | Dispositioned in `07_LINK_INVENTORY.md` | Intentional external/native behavior not changed |
 | Release acceptance | Not complete | No current-artifact signer/build/runtime proof in this task |
 
 - [ ] Current branch/HEAD, dirty files, Dart/Flutter/AGP/Kotlin, device versions recorded before modification
-- [ ] AA step PDF URL 1..12 each verified as accessible official PDFs and exact results logged (or explicit block/decision)
+- [x] Live fetch returned `application/pdf` and `%PDF-1.7` from all twelve requested aa.org candidate URLs on 2026-10-12; observed PDF `/L` and `/N` values are logged in Phase 00
+- [ ] HTTP status, redirect chain/final host, complete transfer length/digest, and exact Step N content match independently verified for every endpoint
 - [ ] Router classifies HTML, PDF, native OS intent and invalid/untrusted URL via centralized pure policy
 - [ ] No uncontrolled `LaunchMode.externalApplication` for scoped built-in website/PDF links
 - [ ] Twelve Steps N invokes PDF chapter N and **does not** open Chrome automatically
@@ -32,4 +33,4 @@
 - [ ] Documentation statuses match observed evidence; no phase is labeled verified or shipped solely because source is present
 - [ ] Diff bounded to authorized work and pre-existing dirty files untouched
 
-**Checklist interpretation:** the unchecked boxes mean required verification evidence is not yet complete; they do not mean the source is only scaffolding. Source implementation and tests are present, while host gates, live endpoint evidence, device behavior and release acceptance remain unverified or blocked as listed above.
+**Checklist interpretation:** the checked endpoint item records only a PDF-format response observation, not comprehensive verification. Unchecked items mean required evidence is not complete; they do not mean the source is only scaffolding. Host CI passed, while complete endpoint identity, device behavior and release acceptance remain unverified or blocked as listed above.

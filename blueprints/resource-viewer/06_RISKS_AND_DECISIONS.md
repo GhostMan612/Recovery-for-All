@@ -16,7 +16,7 @@
 | RV-12 | MED | Viewer route closes but underlying step scroll/expansion resets | Preserve State and Navigator stack; widget regression test |
 | RV-13 | MED | WebView JS default OFF breaks sites | Per-site documented exception with tests and no privileged JS bridge |
 | RV-14 | MED | No network in a recovery-critical moment | Honest offline state, local core tools remain accessible; no dependence on resource URLs for SOS |
-| RV-15 | HIGH | No durable live-response evidence for the twelve AA endpoints is present in the reviewed tree | Keep all twelve AA URLs unverified for release until status, redirect, MIME, magic, byte count, timestamp and device observations are independently recorded |
+| RV-15 | HIGH | Live fetches yielded PDF-format responses for all twelve AA candidates, but status, redirects/final host, complete response identity, chapter match and device behavior are not proven | Keep all twelve AA URLs unverified for release until complete response and Step N content evidence, plus device observations, are independently recorded |
 | RV-16 | HIGH | DNS preflight does not bind the checked address to the HTTP connection; WebView resolution is outside the preflight | Describe as best-effort preflight only; do not claim DNS-rebinding resistance or general SSRF prevention |
 
 ## Non-negotiable sign-off points
