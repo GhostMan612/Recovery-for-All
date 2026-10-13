@@ -340,15 +340,29 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   }
 
   /// Returns true if an active SQLite connection supports SQLCipher encryption.
+  static DynamicLibrary? _resolveLinuxSqlCipher() {
+    if (!Platform.isLinux) return null;
+    for (final name in [
+      'libsqlcipher.so',
+      'libsqlcipher.so.1',
+      'libsqlcipher.so.0',
+      '/usr/lib/x86_64-linux-gnu/libsqlcipher.so',
+      '/usr/lib/x86_64-linux-gnu/libsqlcipher.so.1',
+      '/usr/lib/x86_64-linux-gnu/libsqlcipher.so.0',
+    ]) {
+      try {
+        return DynamicLibrary.open(name);
+      } catch (_) {}
+    }
+    return null;
+  }
+
   static bool isSqlCipherActive() {
     try {
       if (Platform.isLinux) {
-        try {
-          open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so.0'));
-        } catch (_) {
-          try {
-            open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so'));
-          } catch (_) {}
+        final lib = _resolveLinuxSqlCipher();
+        if (lib != null) {
+          open.overrideFor(OperatingSystem.linux, () => lib);
         }
       }
       final db = sqlite3.openInMemory();
@@ -890,12 +904,9 @@ QueryExecutor openEncryptedDatabaseConnection({
         open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
       } catch (_) {}
     } else if (Platform.isLinux) {
-      try {
-        open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so.0'));
-      } catch (_) {
-        try {
-          open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so'));
-        } catch (_) {}
+      final lib = RecoveryDatabase._resolveLinuxSqlCipher();
+      if (lib != null) {
+        open.overrideFor(OperatingSystem.linux, () => lib);
       }
     }
 
