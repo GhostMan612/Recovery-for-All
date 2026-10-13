@@ -5585,6 +5585,1533 @@ class ActiveRaidsCompanion extends UpdateCompanion<ActiveRaid> {
   }
 }
 
+class $RecoveryActionsTable extends RecoveryActions
+    with TableInfo<$RecoveryActionsTable, RecoveryActionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecoveryActionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionTypeMeta = const VerificationMeta(
+    'actionType',
+  );
+  @override
+  late final GeneratedColumn<String> actionType = GeneratedColumn<String>(
+    'action_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMsMeta = const VerificationMeta(
+    'createdAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtUtcMs = GeneratedColumn<int>(
+    'created_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
+  @override
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _proofTierMeta = const VerificationMeta(
+    'proofTier',
+  );
+  @override
+  late final GeneratedColumn<String> proofTier = GeneratedColumn<String>(
+    'proof_tier',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syntheticMeta = const VerificationMeta(
+    'synthetic',
+  );
+  @override
+  late final GeneratedColumn<bool> synthetic = GeneratedColumn<bool>(
+    'synthetic',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("synthetic" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _redactedMetaJsonMeta = const VerificationMeta(
+    'redactedMetaJson',
+  );
+  @override
+  late final GeneratedColumn<String> redactedMetaJson = GeneratedColumn<String>(
+    'redacted_meta_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    eventId,
+    actionType,
+    createdAtUtcMs,
+    origin,
+    proofTier,
+    synthetic,
+    redactedMetaJson,
+    schemaVersion,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recovery_actions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecoveryActionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('action_type')) {
+      context.handle(
+        _actionTypeMeta,
+        actionType.isAcceptableOrUnknown(data['action_type']!, _actionTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionTypeMeta);
+    }
+    if (data.containsKey('created_at_utc_ms')) {
+      context.handle(
+        _createdAtUtcMsMeta,
+        createdAtUtcMs.isAcceptableOrUnknown(
+          data['created_at_utc_ms']!,
+          _createdAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMsMeta);
+    }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originMeta);
+    }
+    if (data.containsKey('proof_tier')) {
+      context.handle(
+        _proofTierMeta,
+        proofTier.isAcceptableOrUnknown(data['proof_tier']!, _proofTierMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_proofTierMeta);
+    }
+    if (data.containsKey('synthetic')) {
+      context.handle(
+        _syntheticMeta,
+        synthetic.isAcceptableOrUnknown(data['synthetic']!, _syntheticMeta),
+      );
+    }
+    if (data.containsKey('redacted_meta_json')) {
+      context.handle(
+        _redactedMetaJsonMeta,
+        redactedMetaJson.isAcceptableOrUnknown(
+          data['redacted_meta_json']!,
+          _redactedMetaJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {eventId};
+  @override
+  RecoveryActionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecoveryActionRow(
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      actionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_type'],
+      )!,
+      createdAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_utc_ms'],
+      )!,
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
+      proofTier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}proof_tier'],
+      )!,
+      synthetic: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}synthetic'],
+      )!,
+      redactedMetaJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}redacted_meta_json'],
+      ),
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+    );
+  }
+
+  @override
+  $RecoveryActionsTable createAlias(String alias) {
+    return $RecoveryActionsTable(attachedDatabase, alias);
+  }
+}
+
+class RecoveryActionRow extends DataClass
+    implements Insertable<RecoveryActionRow> {
+  final String eventId;
+  final String actionType;
+  final int createdAtUtcMs;
+  final String origin;
+  final String proofTier;
+  final bool synthetic;
+  final String? redactedMetaJson;
+  final int schemaVersion;
+  const RecoveryActionRow({
+    required this.eventId,
+    required this.actionType,
+    required this.createdAtUtcMs,
+    required this.origin,
+    required this.proofTier,
+    required this.synthetic,
+    this.redactedMetaJson,
+    required this.schemaVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['event_id'] = Variable<String>(eventId);
+    map['action_type'] = Variable<String>(actionType);
+    map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs);
+    map['origin'] = Variable<String>(origin);
+    map['proof_tier'] = Variable<String>(proofTier);
+    map['synthetic'] = Variable<bool>(synthetic);
+    if (!nullToAbsent || redactedMetaJson != null) {
+      map['redacted_meta_json'] = Variable<String>(redactedMetaJson);
+    }
+    map['schema_version'] = Variable<int>(schemaVersion);
+    return map;
+  }
+
+  RecoveryActionsCompanion toCompanion(bool nullToAbsent) {
+    return RecoveryActionsCompanion(
+      eventId: Value(eventId),
+      actionType: Value(actionType),
+      createdAtUtcMs: Value(createdAtUtcMs),
+      origin: Value(origin),
+      proofTier: Value(proofTier),
+      synthetic: Value(synthetic),
+      redactedMetaJson: redactedMetaJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(redactedMetaJson),
+      schemaVersion: Value(schemaVersion),
+    );
+  }
+
+  factory RecoveryActionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecoveryActionRow(
+      eventId: serializer.fromJson<String>(json['eventId']),
+      actionType: serializer.fromJson<String>(json['actionType']),
+      createdAtUtcMs: serializer.fromJson<int>(json['createdAtUtcMs']),
+      origin: serializer.fromJson<String>(json['origin']),
+      proofTier: serializer.fromJson<String>(json['proofTier']),
+      synthetic: serializer.fromJson<bool>(json['synthetic']),
+      redactedMetaJson: serializer.fromJson<String?>(json['redactedMetaJson']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'eventId': serializer.toJson<String>(eventId),
+      'actionType': serializer.toJson<String>(actionType),
+      'createdAtUtcMs': serializer.toJson<int>(createdAtUtcMs),
+      'origin': serializer.toJson<String>(origin),
+      'proofTier': serializer.toJson<String>(proofTier),
+      'synthetic': serializer.toJson<bool>(synthetic),
+      'redactedMetaJson': serializer.toJson<String?>(redactedMetaJson),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+    };
+  }
+
+  RecoveryActionRow copyWith({
+    String? eventId,
+    String? actionType,
+    int? createdAtUtcMs,
+    String? origin,
+    String? proofTier,
+    bool? synthetic,
+    Value<String?> redactedMetaJson = const Value.absent(),
+    int? schemaVersion,
+  }) => RecoveryActionRow(
+    eventId: eventId ?? this.eventId,
+    actionType: actionType ?? this.actionType,
+    createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+    origin: origin ?? this.origin,
+    proofTier: proofTier ?? this.proofTier,
+    synthetic: synthetic ?? this.synthetic,
+    redactedMetaJson: redactedMetaJson.present
+        ? redactedMetaJson.value
+        : this.redactedMetaJson,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+  );
+  RecoveryActionRow copyWithCompanion(RecoveryActionsCompanion data) {
+    return RecoveryActionRow(
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      actionType: data.actionType.present
+          ? data.actionType.value
+          : this.actionType,
+      createdAtUtcMs: data.createdAtUtcMs.present
+          ? data.createdAtUtcMs.value
+          : this.createdAtUtcMs,
+      origin: data.origin.present ? data.origin.value : this.origin,
+      proofTier: data.proofTier.present ? data.proofTier.value : this.proofTier,
+      synthetic: data.synthetic.present ? data.synthetic.value : this.synthetic,
+      redactedMetaJson: data.redactedMetaJson.present
+          ? data.redactedMetaJson.value
+          : this.redactedMetaJson,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecoveryActionRow(')
+          ..write('eventId: $eventId, ')
+          ..write('actionType: $actionType, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('origin: $origin, ')
+          ..write('proofTier: $proofTier, ')
+          ..write('synthetic: $synthetic, ')
+          ..write('redactedMetaJson: $redactedMetaJson, ')
+          ..write('schemaVersion: $schemaVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    eventId,
+    actionType,
+    createdAtUtcMs,
+    origin,
+    proofTier,
+    synthetic,
+    redactedMetaJson,
+    schemaVersion,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecoveryActionRow &&
+          other.eventId == this.eventId &&
+          other.actionType == this.actionType &&
+          other.createdAtUtcMs == this.createdAtUtcMs &&
+          other.origin == this.origin &&
+          other.proofTier == this.proofTier &&
+          other.synthetic == this.synthetic &&
+          other.redactedMetaJson == this.redactedMetaJson &&
+          other.schemaVersion == this.schemaVersion);
+}
+
+class RecoveryActionsCompanion extends UpdateCompanion<RecoveryActionRow> {
+  final Value<String> eventId;
+  final Value<String> actionType;
+  final Value<int> createdAtUtcMs;
+  final Value<String> origin;
+  final Value<String> proofTier;
+  final Value<bool> synthetic;
+  final Value<String?> redactedMetaJson;
+  final Value<int> schemaVersion;
+  final Value<int> rowid;
+  const RecoveryActionsCompanion({
+    this.eventId = const Value.absent(),
+    this.actionType = const Value.absent(),
+    this.createdAtUtcMs = const Value.absent(),
+    this.origin = const Value.absent(),
+    this.proofTier = const Value.absent(),
+    this.synthetic = const Value.absent(),
+    this.redactedMetaJson = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecoveryActionsCompanion.insert({
+    required String eventId,
+    required String actionType,
+    required int createdAtUtcMs,
+    required String origin,
+    required String proofTier,
+    this.synthetic = const Value.absent(),
+    this.redactedMetaJson = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : eventId = Value(eventId),
+       actionType = Value(actionType),
+       createdAtUtcMs = Value(createdAtUtcMs),
+       origin = Value(origin),
+       proofTier = Value(proofTier);
+  static Insertable<RecoveryActionRow> custom({
+    Expression<String>? eventId,
+    Expression<String>? actionType,
+    Expression<int>? createdAtUtcMs,
+    Expression<String>? origin,
+    Expression<String>? proofTier,
+    Expression<bool>? synthetic,
+    Expression<String>? redactedMetaJson,
+    Expression<int>? schemaVersion,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (eventId != null) 'event_id': eventId,
+      if (actionType != null) 'action_type': actionType,
+      if (createdAtUtcMs != null) 'created_at_utc_ms': createdAtUtcMs,
+      if (origin != null) 'origin': origin,
+      if (proofTier != null) 'proof_tier': proofTier,
+      if (synthetic != null) 'synthetic': synthetic,
+      if (redactedMetaJson != null) 'redacted_meta_json': redactedMetaJson,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecoveryActionsCompanion copyWith({
+    Value<String>? eventId,
+    Value<String>? actionType,
+    Value<int>? createdAtUtcMs,
+    Value<String>? origin,
+    Value<String>? proofTier,
+    Value<bool>? synthetic,
+    Value<String?>? redactedMetaJson,
+    Value<int>? schemaVersion,
+    Value<int>? rowid,
+  }) {
+    return RecoveryActionsCompanion(
+      eventId: eventId ?? this.eventId,
+      actionType: actionType ?? this.actionType,
+      createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+      origin: origin ?? this.origin,
+      proofTier: proofTier ?? this.proofTier,
+      synthetic: synthetic ?? this.synthetic,
+      redactedMetaJson: redactedMetaJson ?? this.redactedMetaJson,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (actionType.present) {
+      map['action_type'] = Variable<String>(actionType.value);
+    }
+    if (createdAtUtcMs.present) {
+      map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs.value);
+    }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
+    if (proofTier.present) {
+      map['proof_tier'] = Variable<String>(proofTier.value);
+    }
+    if (synthetic.present) {
+      map['synthetic'] = Variable<bool>(synthetic.value);
+    }
+    if (redactedMetaJson.present) {
+      map['redacted_meta_json'] = Variable<String>(redactedMetaJson.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecoveryActionsCompanion(')
+          ..write('eventId: $eventId, ')
+          ..write('actionType: $actionType, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('origin: $origin, ')
+          ..write('proofTier: $proofTier, ')
+          ..write('synthetic: $synthetic, ')
+          ..write('redactedMetaJson: $redactedMetaJson, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RewardReceiptsTable extends RewardReceipts
+    with TableInfo<$RewardReceiptsTable, RewardReceiptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RewardReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _xpMeta = const VerificationMeta('xp');
+  @override
+  late final GeneratedColumn<int> xp = GeneratedColumn<int>(
+    'xp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sparksMeta = const VerificationMeta('sparks');
+  @override
+  late final GeneratedColumn<int> sparks = GeneratedColumn<int>(
+    'sparks',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _policyVersionMeta = const VerificationMeta(
+    'policyVersion',
+  );
+  @override
+  late final GeneratedColumn<int> policyVersion = GeneratedColumn<int>(
+    'policy_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _awardedAtMeta = const VerificationMeta(
+    'awardedAt',
+  );
+  @override
+  late final GeneratedColumn<int> awardedAt = GeneratedColumn<int>(
+    'awarded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    eventId,
+    xp,
+    sparks,
+    status,
+    policyVersion,
+    awardedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reward_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RewardReceiptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('xp')) {
+      context.handle(_xpMeta, xp.isAcceptableOrUnknown(data['xp']!, _xpMeta));
+    } else if (isInserting) {
+      context.missing(_xpMeta);
+    }
+    if (data.containsKey('sparks')) {
+      context.handle(
+        _sparksMeta,
+        sparks.isAcceptableOrUnknown(data['sparks']!, _sparksMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sparksMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('policy_version')) {
+      context.handle(
+        _policyVersionMeta,
+        policyVersion.isAcceptableOrUnknown(
+          data['policy_version']!,
+          _policyVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('awarded_at')) {
+      context.handle(
+        _awardedAtMeta,
+        awardedAt.isAcceptableOrUnknown(data['awarded_at']!, _awardedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_awardedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {eventId};
+  @override
+  RewardReceiptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RewardReceiptRow(
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      xp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}xp'],
+      )!,
+      sparks: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sparks'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      policyVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}policy_version'],
+      )!,
+      awardedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}awarded_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RewardReceiptsTable createAlias(String alias) {
+    return $RewardReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class RewardReceiptRow extends DataClass
+    implements Insertable<RewardReceiptRow> {
+  final String eventId;
+  final int xp;
+  final int sparks;
+  final String status;
+  final int policyVersion;
+  final int awardedAt;
+  const RewardReceiptRow({
+    required this.eventId,
+    required this.xp,
+    required this.sparks,
+    required this.status,
+    required this.policyVersion,
+    required this.awardedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['event_id'] = Variable<String>(eventId);
+    map['xp'] = Variable<int>(xp);
+    map['sparks'] = Variable<int>(sparks);
+    map['status'] = Variable<String>(status);
+    map['policy_version'] = Variable<int>(policyVersion);
+    map['awarded_at'] = Variable<int>(awardedAt);
+    return map;
+  }
+
+  RewardReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return RewardReceiptsCompanion(
+      eventId: Value(eventId),
+      xp: Value(xp),
+      sparks: Value(sparks),
+      status: Value(status),
+      policyVersion: Value(policyVersion),
+      awardedAt: Value(awardedAt),
+    );
+  }
+
+  factory RewardReceiptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RewardReceiptRow(
+      eventId: serializer.fromJson<String>(json['eventId']),
+      xp: serializer.fromJson<int>(json['xp']),
+      sparks: serializer.fromJson<int>(json['sparks']),
+      status: serializer.fromJson<String>(json['status']),
+      policyVersion: serializer.fromJson<int>(json['policyVersion']),
+      awardedAt: serializer.fromJson<int>(json['awardedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'eventId': serializer.toJson<String>(eventId),
+      'xp': serializer.toJson<int>(xp),
+      'sparks': serializer.toJson<int>(sparks),
+      'status': serializer.toJson<String>(status),
+      'policyVersion': serializer.toJson<int>(policyVersion),
+      'awardedAt': serializer.toJson<int>(awardedAt),
+    };
+  }
+
+  RewardReceiptRow copyWith({
+    String? eventId,
+    int? xp,
+    int? sparks,
+    String? status,
+    int? policyVersion,
+    int? awardedAt,
+  }) => RewardReceiptRow(
+    eventId: eventId ?? this.eventId,
+    xp: xp ?? this.xp,
+    sparks: sparks ?? this.sparks,
+    status: status ?? this.status,
+    policyVersion: policyVersion ?? this.policyVersion,
+    awardedAt: awardedAt ?? this.awardedAt,
+  );
+  RewardReceiptRow copyWithCompanion(RewardReceiptsCompanion data) {
+    return RewardReceiptRow(
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      xp: data.xp.present ? data.xp.value : this.xp,
+      sparks: data.sparks.present ? data.sparks.value : this.sparks,
+      status: data.status.present ? data.status.value : this.status,
+      policyVersion: data.policyVersion.present
+          ? data.policyVersion.value
+          : this.policyVersion,
+      awardedAt: data.awardedAt.present ? data.awardedAt.value : this.awardedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RewardReceiptRow(')
+          ..write('eventId: $eventId, ')
+          ..write('xp: $xp, ')
+          ..write('sparks: $sparks, ')
+          ..write('status: $status, ')
+          ..write('policyVersion: $policyVersion, ')
+          ..write('awardedAt: $awardedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(eventId, xp, sparks, status, policyVersion, awardedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RewardReceiptRow &&
+          other.eventId == this.eventId &&
+          other.xp == this.xp &&
+          other.sparks == this.sparks &&
+          other.status == this.status &&
+          other.policyVersion == this.policyVersion &&
+          other.awardedAt == this.awardedAt);
+}
+
+class RewardReceiptsCompanion extends UpdateCompanion<RewardReceiptRow> {
+  final Value<String> eventId;
+  final Value<int> xp;
+  final Value<int> sparks;
+  final Value<String> status;
+  final Value<int> policyVersion;
+  final Value<int> awardedAt;
+  final Value<int> rowid;
+  const RewardReceiptsCompanion({
+    this.eventId = const Value.absent(),
+    this.xp = const Value.absent(),
+    this.sparks = const Value.absent(),
+    this.status = const Value.absent(),
+    this.policyVersion = const Value.absent(),
+    this.awardedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RewardReceiptsCompanion.insert({
+    required String eventId,
+    required int xp,
+    required int sparks,
+    required String status,
+    this.policyVersion = const Value.absent(),
+    required int awardedAt,
+    this.rowid = const Value.absent(),
+  }) : eventId = Value(eventId),
+       xp = Value(xp),
+       sparks = Value(sparks),
+       status = Value(status),
+       awardedAt = Value(awardedAt);
+  static Insertable<RewardReceiptRow> custom({
+    Expression<String>? eventId,
+    Expression<int>? xp,
+    Expression<int>? sparks,
+    Expression<String>? status,
+    Expression<int>? policyVersion,
+    Expression<int>? awardedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (eventId != null) 'event_id': eventId,
+      if (xp != null) 'xp': xp,
+      if (sparks != null) 'sparks': sparks,
+      if (status != null) 'status': status,
+      if (policyVersion != null) 'policy_version': policyVersion,
+      if (awardedAt != null) 'awarded_at': awardedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RewardReceiptsCompanion copyWith({
+    Value<String>? eventId,
+    Value<int>? xp,
+    Value<int>? sparks,
+    Value<String>? status,
+    Value<int>? policyVersion,
+    Value<int>? awardedAt,
+    Value<int>? rowid,
+  }) {
+    return RewardReceiptsCompanion(
+      eventId: eventId ?? this.eventId,
+      xp: xp ?? this.xp,
+      sparks: sparks ?? this.sparks,
+      status: status ?? this.status,
+      policyVersion: policyVersion ?? this.policyVersion,
+      awardedAt: awardedAt ?? this.awardedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (xp.present) {
+      map['xp'] = Variable<int>(xp.value);
+    }
+    if (sparks.present) {
+      map['sparks'] = Variable<int>(sparks.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (policyVersion.present) {
+      map['policy_version'] = Variable<int>(policyVersion.value);
+    }
+    if (awardedAt.present) {
+      map['awarded_at'] = Variable<int>(awardedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RewardReceiptsCompanion(')
+          ..write('eventId: $eventId, ')
+          ..write('xp: $xp, ')
+          ..write('sparks: $sparks, ')
+          ..write('status: $status, ')
+          ..write('policyVersion: $policyVersion, ')
+          ..write('awardedAt: $awardedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RaidDamageReceiptsTable extends RaidDamageReceipts
+    with TableInfo<$RaidDamageReceiptsTable, RaidDamageReceiptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RaidDamageReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _raidIdMeta = const VerificationMeta('raidId');
+  @override
+  late final GeneratedColumn<String> raidId = GeneratedColumn<String>(
+    'raid_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _damageMeta = const VerificationMeta('damage');
+  @override
+  late final GeneratedColumn<int> damage = GeneratedColumn<int>(
+    'damage',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appliedAtMeta = const VerificationMeta(
+    'appliedAt',
+  );
+  @override
+  late final GeneratedColumn<int> appliedAt = GeneratedColumn<int>(
+    'applied_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [raidId, eventId, damage, appliedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'raid_damage_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RaidDamageReceiptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('raid_id')) {
+      context.handle(
+        _raidIdMeta,
+        raidId.isAcceptableOrUnknown(data['raid_id']!, _raidIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_raidIdMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('damage')) {
+      context.handle(
+        _damageMeta,
+        damage.isAcceptableOrUnknown(data['damage']!, _damageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_damageMeta);
+    }
+    if (data.containsKey('applied_at')) {
+      context.handle(
+        _appliedAtMeta,
+        appliedAt.isAcceptableOrUnknown(data['applied_at']!, _appliedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_appliedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {raidId, eventId};
+  @override
+  RaidDamageReceiptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RaidDamageReceiptRow(
+      raidId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raid_id'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      damage: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}damage'],
+      )!,
+      appliedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}applied_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RaidDamageReceiptsTable createAlias(String alias) {
+    return $RaidDamageReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class RaidDamageReceiptRow extends DataClass
+    implements Insertable<RaidDamageReceiptRow> {
+  final String raidId;
+  final String eventId;
+  final int damage;
+  final int appliedAt;
+  const RaidDamageReceiptRow({
+    required this.raidId,
+    required this.eventId,
+    required this.damage,
+    required this.appliedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['raid_id'] = Variable<String>(raidId);
+    map['event_id'] = Variable<String>(eventId);
+    map['damage'] = Variable<int>(damage);
+    map['applied_at'] = Variable<int>(appliedAt);
+    return map;
+  }
+
+  RaidDamageReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return RaidDamageReceiptsCompanion(
+      raidId: Value(raidId),
+      eventId: Value(eventId),
+      damage: Value(damage),
+      appliedAt: Value(appliedAt),
+    );
+  }
+
+  factory RaidDamageReceiptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RaidDamageReceiptRow(
+      raidId: serializer.fromJson<String>(json['raidId']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      damage: serializer.fromJson<int>(json['damage']),
+      appliedAt: serializer.fromJson<int>(json['appliedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'raidId': serializer.toJson<String>(raidId),
+      'eventId': serializer.toJson<String>(eventId),
+      'damage': serializer.toJson<int>(damage),
+      'appliedAt': serializer.toJson<int>(appliedAt),
+    };
+  }
+
+  RaidDamageReceiptRow copyWith({
+    String? raidId,
+    String? eventId,
+    int? damage,
+    int? appliedAt,
+  }) => RaidDamageReceiptRow(
+    raidId: raidId ?? this.raidId,
+    eventId: eventId ?? this.eventId,
+    damage: damage ?? this.damage,
+    appliedAt: appliedAt ?? this.appliedAt,
+  );
+  RaidDamageReceiptRow copyWithCompanion(RaidDamageReceiptsCompanion data) {
+    return RaidDamageReceiptRow(
+      raidId: data.raidId.present ? data.raidId.value : this.raidId,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      damage: data.damage.present ? data.damage.value : this.damage,
+      appliedAt: data.appliedAt.present ? data.appliedAt.value : this.appliedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RaidDamageReceiptRow(')
+          ..write('raidId: $raidId, ')
+          ..write('eventId: $eventId, ')
+          ..write('damage: $damage, ')
+          ..write('appliedAt: $appliedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(raidId, eventId, damage, appliedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RaidDamageReceiptRow &&
+          other.raidId == this.raidId &&
+          other.eventId == this.eventId &&
+          other.damage == this.damage &&
+          other.appliedAt == this.appliedAt);
+}
+
+class RaidDamageReceiptsCompanion
+    extends UpdateCompanion<RaidDamageReceiptRow> {
+  final Value<String> raidId;
+  final Value<String> eventId;
+  final Value<int> damage;
+  final Value<int> appliedAt;
+  final Value<int> rowid;
+  const RaidDamageReceiptsCompanion({
+    this.raidId = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.damage = const Value.absent(),
+    this.appliedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RaidDamageReceiptsCompanion.insert({
+    required String raidId,
+    required String eventId,
+    required int damage,
+    required int appliedAt,
+    this.rowid = const Value.absent(),
+  }) : raidId = Value(raidId),
+       eventId = Value(eventId),
+       damage = Value(damage),
+       appliedAt = Value(appliedAt);
+  static Insertable<RaidDamageReceiptRow> custom({
+    Expression<String>? raidId,
+    Expression<String>? eventId,
+    Expression<int>? damage,
+    Expression<int>? appliedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (raidId != null) 'raid_id': raidId,
+      if (eventId != null) 'event_id': eventId,
+      if (damage != null) 'damage': damage,
+      if (appliedAt != null) 'applied_at': appliedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RaidDamageReceiptsCompanion copyWith({
+    Value<String>? raidId,
+    Value<String>? eventId,
+    Value<int>? damage,
+    Value<int>? appliedAt,
+    Value<int>? rowid,
+  }) {
+    return RaidDamageReceiptsCompanion(
+      raidId: raidId ?? this.raidId,
+      eventId: eventId ?? this.eventId,
+      damage: damage ?? this.damage,
+      appliedAt: appliedAt ?? this.appliedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (raidId.present) {
+      map['raid_id'] = Variable<String>(raidId.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (damage.present) {
+      map['damage'] = Variable<int>(damage.value);
+    }
+    if (appliedAt.present) {
+      map['applied_at'] = Variable<int>(appliedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RaidDamageReceiptsCompanion(')
+          ..write('raidId: $raidId, ')
+          ..write('eventId: $eventId, ')
+          ..write('damage: $damage, ')
+          ..write('appliedAt: $appliedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RaidVictoryReceiptsTable extends RaidVictoryReceipts
+    with TableInfo<$RaidVictoryReceiptsTable, RaidVictoryReceiptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RaidVictoryReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _raidIdMeta = const VerificationMeta('raidId');
+  @override
+  late final GeneratedColumn<String> raidId = GeneratedColumn<String>(
+    'raid_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _victoryXpMeta = const VerificationMeta(
+    'victoryXp',
+  );
+  @override
+  late final GeneratedColumn<int> victoryXp = GeneratedColumn<int>(
+    'victory_xp',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _awardedAtMeta = const VerificationMeta(
+    'awardedAt',
+  );
+  @override
+  late final GeneratedColumn<int> awardedAt = GeneratedColumn<int>(
+    'awarded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [raidId, victoryXp, awardedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'raid_victory_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RaidVictoryReceiptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('raid_id')) {
+      context.handle(
+        _raidIdMeta,
+        raidId.isAcceptableOrUnknown(data['raid_id']!, _raidIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_raidIdMeta);
+    }
+    if (data.containsKey('victory_xp')) {
+      context.handle(
+        _victoryXpMeta,
+        victoryXp.isAcceptableOrUnknown(data['victory_xp']!, _victoryXpMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_victoryXpMeta);
+    }
+    if (data.containsKey('awarded_at')) {
+      context.handle(
+        _awardedAtMeta,
+        awardedAt.isAcceptableOrUnknown(data['awarded_at']!, _awardedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_awardedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {raidId};
+  @override
+  RaidVictoryReceiptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RaidVictoryReceiptRow(
+      raidId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raid_id'],
+      )!,
+      victoryXp: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}victory_xp'],
+      )!,
+      awardedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}awarded_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RaidVictoryReceiptsTable createAlias(String alias) {
+    return $RaidVictoryReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class RaidVictoryReceiptRow extends DataClass
+    implements Insertable<RaidVictoryReceiptRow> {
+  final String raidId;
+  final int victoryXp;
+  final int awardedAt;
+  const RaidVictoryReceiptRow({
+    required this.raidId,
+    required this.victoryXp,
+    required this.awardedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['raid_id'] = Variable<String>(raidId);
+    map['victory_xp'] = Variable<int>(victoryXp);
+    map['awarded_at'] = Variable<int>(awardedAt);
+    return map;
+  }
+
+  RaidVictoryReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return RaidVictoryReceiptsCompanion(
+      raidId: Value(raidId),
+      victoryXp: Value(victoryXp),
+      awardedAt: Value(awardedAt),
+    );
+  }
+
+  factory RaidVictoryReceiptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RaidVictoryReceiptRow(
+      raidId: serializer.fromJson<String>(json['raidId']),
+      victoryXp: serializer.fromJson<int>(json['victoryXp']),
+      awardedAt: serializer.fromJson<int>(json['awardedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'raidId': serializer.toJson<String>(raidId),
+      'victoryXp': serializer.toJson<int>(victoryXp),
+      'awardedAt': serializer.toJson<int>(awardedAt),
+    };
+  }
+
+  RaidVictoryReceiptRow copyWith({
+    String? raidId,
+    int? victoryXp,
+    int? awardedAt,
+  }) => RaidVictoryReceiptRow(
+    raidId: raidId ?? this.raidId,
+    victoryXp: victoryXp ?? this.victoryXp,
+    awardedAt: awardedAt ?? this.awardedAt,
+  );
+  RaidVictoryReceiptRow copyWithCompanion(RaidVictoryReceiptsCompanion data) {
+    return RaidVictoryReceiptRow(
+      raidId: data.raidId.present ? data.raidId.value : this.raidId,
+      victoryXp: data.victoryXp.present ? data.victoryXp.value : this.victoryXp,
+      awardedAt: data.awardedAt.present ? data.awardedAt.value : this.awardedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RaidVictoryReceiptRow(')
+          ..write('raidId: $raidId, ')
+          ..write('victoryXp: $victoryXp, ')
+          ..write('awardedAt: $awardedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(raidId, victoryXp, awardedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RaidVictoryReceiptRow &&
+          other.raidId == this.raidId &&
+          other.victoryXp == this.victoryXp &&
+          other.awardedAt == this.awardedAt);
+}
+
+class RaidVictoryReceiptsCompanion
+    extends UpdateCompanion<RaidVictoryReceiptRow> {
+  final Value<String> raidId;
+  final Value<int> victoryXp;
+  final Value<int> awardedAt;
+  final Value<int> rowid;
+  const RaidVictoryReceiptsCompanion({
+    this.raidId = const Value.absent(),
+    this.victoryXp = const Value.absent(),
+    this.awardedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RaidVictoryReceiptsCompanion.insert({
+    required String raidId,
+    required int victoryXp,
+    required int awardedAt,
+    this.rowid = const Value.absent(),
+  }) : raidId = Value(raidId),
+       victoryXp = Value(victoryXp),
+       awardedAt = Value(awardedAt);
+  static Insertable<RaidVictoryReceiptRow> custom({
+    Expression<String>? raidId,
+    Expression<int>? victoryXp,
+    Expression<int>? awardedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (raidId != null) 'raid_id': raidId,
+      if (victoryXp != null) 'victory_xp': victoryXp,
+      if (awardedAt != null) 'awarded_at': awardedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RaidVictoryReceiptsCompanion copyWith({
+    Value<String>? raidId,
+    Value<int>? victoryXp,
+    Value<int>? awardedAt,
+    Value<int>? rowid,
+  }) {
+    return RaidVictoryReceiptsCompanion(
+      raidId: raidId ?? this.raidId,
+      victoryXp: victoryXp ?? this.victoryXp,
+      awardedAt: awardedAt ?? this.awardedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (raidId.present) {
+      map['raid_id'] = Variable<String>(raidId.value);
+    }
+    if (victoryXp.present) {
+      map['victory_xp'] = Variable<int>(victoryXp.value);
+    }
+    if (awardedAt.present) {
+      map['awarded_at'] = Variable<int>(awardedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RaidVictoryReceiptsCompanion(')
+          ..write('raidId: $raidId, ')
+          ..write('victoryXp: $victoryXp, ')
+          ..write('awardedAt: $awardedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -5604,6 +7131,14 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     this,
   );
   late final $ActiveRaidsTable activeRaids = $ActiveRaidsTable(this);
+  late final $RecoveryActionsTable recoveryActions = $RecoveryActionsTable(
+    this,
+  );
+  late final $RewardReceiptsTable rewardReceipts = $RewardReceiptsTable(this);
+  late final $RaidDamageReceiptsTable raidDamageReceipts =
+      $RaidDamageReceiptsTable(this);
+  late final $RaidVictoryReceiptsTable raidVictoryReceipts =
+      $RaidVictoryReceiptsTable(this);
   late final Index idxJournalTs = Index(
     'idx_journal_ts',
     'CREATE INDEX idx_journal_ts ON journal_entries (timestamp)',
@@ -5652,6 +7187,10 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     feedPosts,
     fellowshipSyncs,
     activeRaids,
+    recoveryActions,
+    rewardReceipts,
+    raidDamageReceipts,
+    raidVictoryReceipts,
     idxJournalTs,
     idxPointsTs,
     idxCheckinTs,
@@ -8530,6 +10069,884 @@ typedef $$ActiveRaidsTableProcessedTableManager =
       ActiveRaid,
       PrefetchHooks Function()
     >;
+typedef $$RecoveryActionsTableCreateCompanionBuilder =
+    RecoveryActionsCompanion Function({
+      required String eventId,
+      required String actionType,
+      required int createdAtUtcMs,
+      required String origin,
+      required String proofTier,
+      Value<bool> synthetic,
+      Value<String?> redactedMetaJson,
+      Value<int> schemaVersion,
+      Value<int> rowid,
+    });
+typedef $$RecoveryActionsTableUpdateCompanionBuilder =
+    RecoveryActionsCompanion Function({
+      Value<String> eventId,
+      Value<String> actionType,
+      Value<int> createdAtUtcMs,
+      Value<String> origin,
+      Value<String> proofTier,
+      Value<bool> synthetic,
+      Value<String?> redactedMetaJson,
+      Value<int> schemaVersion,
+      Value<int> rowid,
+    });
+
+class $$RecoveryActionsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryActionsTable> {
+  $$RecoveryActionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get proofTier => $composableBuilder(
+    column: $table.proofTier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get synthetic => $composableBuilder(
+    column: $table.synthetic,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get redactedMetaJson => $composableBuilder(
+    column: $table.redactedMetaJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecoveryActionsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryActionsTable> {
+  $$RecoveryActionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get proofTier => $composableBuilder(
+    column: $table.proofTier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get synthetic => $composableBuilder(
+    column: $table.synthetic,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get redactedMetaJson => $composableBuilder(
+    column: $table.redactedMetaJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecoveryActionsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $RecoveryActionsTable> {
+  $$RecoveryActionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
+
+  GeneratedColumn<String> get proofTier =>
+      $composableBuilder(column: $table.proofTier, builder: (column) => column);
+
+  GeneratedColumn<bool> get synthetic =>
+      $composableBuilder(column: $table.synthetic, builder: (column) => column);
+
+  GeneratedColumn<String> get redactedMetaJson => $composableBuilder(
+    column: $table.redactedMetaJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+}
+
+class $$RecoveryActionsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $RecoveryActionsTable,
+          RecoveryActionRow,
+          $$RecoveryActionsTableFilterComposer,
+          $$RecoveryActionsTableOrderingComposer,
+          $$RecoveryActionsTableAnnotationComposer,
+          $$RecoveryActionsTableCreateCompanionBuilder,
+          $$RecoveryActionsTableUpdateCompanionBuilder,
+          (
+            RecoveryActionRow,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $RecoveryActionsTable,
+              RecoveryActionRow
+            >,
+          ),
+          RecoveryActionRow,
+          PrefetchHooks Function()
+        > {
+  $$RecoveryActionsTableTableManager(
+    _$RecoveryDatabase db,
+    $RecoveryActionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecoveryActionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecoveryActionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecoveryActionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> eventId = const Value.absent(),
+                Value<String> actionType = const Value.absent(),
+                Value<int> createdAtUtcMs = const Value.absent(),
+                Value<String> origin = const Value.absent(),
+                Value<String> proofTier = const Value.absent(),
+                Value<bool> synthetic = const Value.absent(),
+                Value<String?> redactedMetaJson = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecoveryActionsCompanion(
+                eventId: eventId,
+                actionType: actionType,
+                createdAtUtcMs: createdAtUtcMs,
+                origin: origin,
+                proofTier: proofTier,
+                synthetic: synthetic,
+                redactedMetaJson: redactedMetaJson,
+                schemaVersion: schemaVersion,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String eventId,
+                required String actionType,
+                required int createdAtUtcMs,
+                required String origin,
+                required String proofTier,
+                Value<bool> synthetic = const Value.absent(),
+                Value<String?> redactedMetaJson = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecoveryActionsCompanion.insert(
+                eventId: eventId,
+                actionType: actionType,
+                createdAtUtcMs: createdAtUtcMs,
+                origin: origin,
+                proofTier: proofTier,
+                synthetic: synthetic,
+                redactedMetaJson: redactedMetaJson,
+                schemaVersion: schemaVersion,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecoveryActionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $RecoveryActionsTable,
+      RecoveryActionRow,
+      $$RecoveryActionsTableFilterComposer,
+      $$RecoveryActionsTableOrderingComposer,
+      $$RecoveryActionsTableAnnotationComposer,
+      $$RecoveryActionsTableCreateCompanionBuilder,
+      $$RecoveryActionsTableUpdateCompanionBuilder,
+      (
+        RecoveryActionRow,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $RecoveryActionsTable,
+          RecoveryActionRow
+        >,
+      ),
+      RecoveryActionRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RewardReceiptsTableCreateCompanionBuilder =
+    RewardReceiptsCompanion Function({
+      required String eventId,
+      required int xp,
+      required int sparks,
+      required String status,
+      Value<int> policyVersion,
+      required int awardedAt,
+      Value<int> rowid,
+    });
+typedef $$RewardReceiptsTableUpdateCompanionBuilder =
+    RewardReceiptsCompanion Function({
+      Value<String> eventId,
+      Value<int> xp,
+      Value<int> sparks,
+      Value<String> status,
+      Value<int> policyVersion,
+      Value<int> awardedAt,
+      Value<int> rowid,
+    });
+
+class $$RewardReceiptsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $RewardReceiptsTable> {
+  $$RewardReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get xp => $composableBuilder(
+    column: $table.xp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sparks => $composableBuilder(
+    column: $table.sparks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get awardedAt => $composableBuilder(
+    column: $table.awardedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RewardReceiptsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $RewardReceiptsTable> {
+  $$RewardReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get xp => $composableBuilder(
+    column: $table.xp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sparks => $composableBuilder(
+    column: $table.sparks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get awardedAt => $composableBuilder(
+    column: $table.awardedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RewardReceiptsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $RewardReceiptsTable> {
+  $$RewardReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<int> get xp =>
+      $composableBuilder(column: $table.xp, builder: (column) => column);
+
+  GeneratedColumn<int> get sparks =>
+      $composableBuilder(column: $table.sparks, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get awardedAt =>
+      $composableBuilder(column: $table.awardedAt, builder: (column) => column);
+}
+
+class $$RewardReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $RewardReceiptsTable,
+          RewardReceiptRow,
+          $$RewardReceiptsTableFilterComposer,
+          $$RewardReceiptsTableOrderingComposer,
+          $$RewardReceiptsTableAnnotationComposer,
+          $$RewardReceiptsTableCreateCompanionBuilder,
+          $$RewardReceiptsTableUpdateCompanionBuilder,
+          (
+            RewardReceiptRow,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $RewardReceiptsTable,
+              RewardReceiptRow
+            >,
+          ),
+          RewardReceiptRow,
+          PrefetchHooks Function()
+        > {
+  $$RewardReceiptsTableTableManager(
+    _$RecoveryDatabase db,
+    $RewardReceiptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RewardReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RewardReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RewardReceiptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> eventId = const Value.absent(),
+                Value<int> xp = const Value.absent(),
+                Value<int> sparks = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> policyVersion = const Value.absent(),
+                Value<int> awardedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RewardReceiptsCompanion(
+                eventId: eventId,
+                xp: xp,
+                sparks: sparks,
+                status: status,
+                policyVersion: policyVersion,
+                awardedAt: awardedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String eventId,
+                required int xp,
+                required int sparks,
+                required String status,
+                Value<int> policyVersion = const Value.absent(),
+                required int awardedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RewardReceiptsCompanion.insert(
+                eventId: eventId,
+                xp: xp,
+                sparks: sparks,
+                status: status,
+                policyVersion: policyVersion,
+                awardedAt: awardedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RewardReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $RewardReceiptsTable,
+      RewardReceiptRow,
+      $$RewardReceiptsTableFilterComposer,
+      $$RewardReceiptsTableOrderingComposer,
+      $$RewardReceiptsTableAnnotationComposer,
+      $$RewardReceiptsTableCreateCompanionBuilder,
+      $$RewardReceiptsTableUpdateCompanionBuilder,
+      (
+        RewardReceiptRow,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $RewardReceiptsTable,
+          RewardReceiptRow
+        >,
+      ),
+      RewardReceiptRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RaidDamageReceiptsTableCreateCompanionBuilder =
+    RaidDamageReceiptsCompanion Function({
+      required String raidId,
+      required String eventId,
+      required int damage,
+      required int appliedAt,
+      Value<int> rowid,
+    });
+typedef $$RaidDamageReceiptsTableUpdateCompanionBuilder =
+    RaidDamageReceiptsCompanion Function({
+      Value<String> raidId,
+      Value<String> eventId,
+      Value<int> damage,
+      Value<int> appliedAt,
+      Value<int> rowid,
+    });
+
+class $$RaidDamageReceiptsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $RaidDamageReceiptsTable> {
+  $$RaidDamageReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get raidId => $composableBuilder(
+    column: $table.raidId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get damage => $composableBuilder(
+    column: $table.damage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get appliedAt => $composableBuilder(
+    column: $table.appliedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RaidDamageReceiptsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $RaidDamageReceiptsTable> {
+  $$RaidDamageReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get raidId => $composableBuilder(
+    column: $table.raidId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get damage => $composableBuilder(
+    column: $table.damage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get appliedAt => $composableBuilder(
+    column: $table.appliedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RaidDamageReceiptsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $RaidDamageReceiptsTable> {
+  $$RaidDamageReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get raidId =>
+      $composableBuilder(column: $table.raidId, builder: (column) => column);
+
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<int> get damage =>
+      $composableBuilder(column: $table.damage, builder: (column) => column);
+
+  GeneratedColumn<int> get appliedAt =>
+      $composableBuilder(column: $table.appliedAt, builder: (column) => column);
+}
+
+class $$RaidDamageReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $RaidDamageReceiptsTable,
+          RaidDamageReceiptRow,
+          $$RaidDamageReceiptsTableFilterComposer,
+          $$RaidDamageReceiptsTableOrderingComposer,
+          $$RaidDamageReceiptsTableAnnotationComposer,
+          $$RaidDamageReceiptsTableCreateCompanionBuilder,
+          $$RaidDamageReceiptsTableUpdateCompanionBuilder,
+          (
+            RaidDamageReceiptRow,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $RaidDamageReceiptsTable,
+              RaidDamageReceiptRow
+            >,
+          ),
+          RaidDamageReceiptRow,
+          PrefetchHooks Function()
+        > {
+  $$RaidDamageReceiptsTableTableManager(
+    _$RecoveryDatabase db,
+    $RaidDamageReceiptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RaidDamageReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RaidDamageReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RaidDamageReceiptsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> raidId = const Value.absent(),
+                Value<String> eventId = const Value.absent(),
+                Value<int> damage = const Value.absent(),
+                Value<int> appliedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RaidDamageReceiptsCompanion(
+                raidId: raidId,
+                eventId: eventId,
+                damage: damage,
+                appliedAt: appliedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String raidId,
+                required String eventId,
+                required int damage,
+                required int appliedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RaidDamageReceiptsCompanion.insert(
+                raidId: raidId,
+                eventId: eventId,
+                damage: damage,
+                appliedAt: appliedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RaidDamageReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $RaidDamageReceiptsTable,
+      RaidDamageReceiptRow,
+      $$RaidDamageReceiptsTableFilterComposer,
+      $$RaidDamageReceiptsTableOrderingComposer,
+      $$RaidDamageReceiptsTableAnnotationComposer,
+      $$RaidDamageReceiptsTableCreateCompanionBuilder,
+      $$RaidDamageReceiptsTableUpdateCompanionBuilder,
+      (
+        RaidDamageReceiptRow,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $RaidDamageReceiptsTable,
+          RaidDamageReceiptRow
+        >,
+      ),
+      RaidDamageReceiptRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RaidVictoryReceiptsTableCreateCompanionBuilder =
+    RaidVictoryReceiptsCompanion Function({
+      required String raidId,
+      required int victoryXp,
+      required int awardedAt,
+      Value<int> rowid,
+    });
+typedef $$RaidVictoryReceiptsTableUpdateCompanionBuilder =
+    RaidVictoryReceiptsCompanion Function({
+      Value<String> raidId,
+      Value<int> victoryXp,
+      Value<int> awardedAt,
+      Value<int> rowid,
+    });
+
+class $$RaidVictoryReceiptsTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $RaidVictoryReceiptsTable> {
+  $$RaidVictoryReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get raidId => $composableBuilder(
+    column: $table.raidId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get victoryXp => $composableBuilder(
+    column: $table.victoryXp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get awardedAt => $composableBuilder(
+    column: $table.awardedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RaidVictoryReceiptsTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $RaidVictoryReceiptsTable> {
+  $$RaidVictoryReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get raidId => $composableBuilder(
+    column: $table.raidId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get victoryXp => $composableBuilder(
+    column: $table.victoryXp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get awardedAt => $composableBuilder(
+    column: $table.awardedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RaidVictoryReceiptsTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $RaidVictoryReceiptsTable> {
+  $$RaidVictoryReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get raidId =>
+      $composableBuilder(column: $table.raidId, builder: (column) => column);
+
+  GeneratedColumn<int> get victoryXp =>
+      $composableBuilder(column: $table.victoryXp, builder: (column) => column);
+
+  GeneratedColumn<int> get awardedAt =>
+      $composableBuilder(column: $table.awardedAt, builder: (column) => column);
+}
+
+class $$RaidVictoryReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $RaidVictoryReceiptsTable,
+          RaidVictoryReceiptRow,
+          $$RaidVictoryReceiptsTableFilterComposer,
+          $$RaidVictoryReceiptsTableOrderingComposer,
+          $$RaidVictoryReceiptsTableAnnotationComposer,
+          $$RaidVictoryReceiptsTableCreateCompanionBuilder,
+          $$RaidVictoryReceiptsTableUpdateCompanionBuilder,
+          (
+            RaidVictoryReceiptRow,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $RaidVictoryReceiptsTable,
+              RaidVictoryReceiptRow
+            >,
+          ),
+          RaidVictoryReceiptRow,
+          PrefetchHooks Function()
+        > {
+  $$RaidVictoryReceiptsTableTableManager(
+    _$RecoveryDatabase db,
+    $RaidVictoryReceiptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RaidVictoryReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RaidVictoryReceiptsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$RaidVictoryReceiptsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> raidId = const Value.absent(),
+                Value<int> victoryXp = const Value.absent(),
+                Value<int> awardedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RaidVictoryReceiptsCompanion(
+                raidId: raidId,
+                victoryXp: victoryXp,
+                awardedAt: awardedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String raidId,
+                required int victoryXp,
+                required int awardedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RaidVictoryReceiptsCompanion.insert(
+                raidId: raidId,
+                victoryXp: victoryXp,
+                awardedAt: awardedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RaidVictoryReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $RaidVictoryReceiptsTable,
+      RaidVictoryReceiptRow,
+      $$RaidVictoryReceiptsTableFilterComposer,
+      $$RaidVictoryReceiptsTableOrderingComposer,
+      $$RaidVictoryReceiptsTableAnnotationComposer,
+      $$RaidVictoryReceiptsTableCreateCompanionBuilder,
+      $$RaidVictoryReceiptsTableUpdateCompanionBuilder,
+      (
+        RaidVictoryReceiptRow,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $RaidVictoryReceiptsTable,
+          RaidVictoryReceiptRow
+        >,
+      ),
+      RaidVictoryReceiptRow,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -8556,4 +10973,12 @@ class $RecoveryDatabaseManager {
       $$FellowshipSyncsTableTableManager(_db, _db.fellowshipSyncs);
   $$ActiveRaidsTableTableManager get activeRaids =>
       $$ActiveRaidsTableTableManager(_db, _db.activeRaids);
+  $$RecoveryActionsTableTableManager get recoveryActions =>
+      $$RecoveryActionsTableTableManager(_db, _db.recoveryActions);
+  $$RewardReceiptsTableTableManager get rewardReceipts =>
+      $$RewardReceiptsTableTableManager(_db, _db.rewardReceipts);
+  $$RaidDamageReceiptsTableTableManager get raidDamageReceipts =>
+      $$RaidDamageReceiptsTableTableManager(_db, _db.raidDamageReceipts);
+  $$RaidVictoryReceiptsTableTableManager get raidVictoryReceipts =>
+      $$RaidVictoryReceiptsTableTableManager(_db, _db.raidVictoryReceipts);
 }

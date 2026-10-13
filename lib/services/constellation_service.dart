@@ -124,6 +124,21 @@ class ConstellationService {
     await _insert(db, id: 'trial_$day#$n', title: label, category: 'spiritual');
   }
 
+  /// Add an event-backed star idempotently.
+  /// If a star for [eventId] already exists, avoids creating duplicate stars on retry.
+  static Future<void> addStarForEvent(
+    RecoveryDatabase db, {
+    required String eventId,
+    required String category,
+    required String title,
+  }) async {
+    final existing = await (db.select(db.constellationPoints)
+          ..where((t) => t.id.equals('star_$eventId')))
+        .getSingleOrNull();
+    if (existing != null) return;
+    await _insert(db, id: 'star_$eventId', title: title, category: category);
+  }
+
   // ---- internal ----
 
   static Future<void> _insert(

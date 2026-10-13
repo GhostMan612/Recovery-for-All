@@ -221,6 +221,55 @@ class ActiveRaids extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('RecoveryActionRow')
+class RecoveryActions extends Table {
+  TextColumn get eventId => text()();
+  TextColumn get actionType => text()();
+  IntColumn get createdAtUtcMs => integer()();
+  TextColumn get origin => text()();
+  TextColumn get proofTier => text()();
+  BoolColumn get synthetic => boolean().withDefault(const Constant(false))();
+  TextColumn get redactedMetaJson => text().nullable()();
+  IntColumn get schemaVersion => integer().withDefault(const Constant(1))();
+
+  @override
+  Set<Column> get primaryKey => {eventId};
+}
+
+@DataClassName('RewardReceiptRow')
+class RewardReceipts extends Table {
+  TextColumn get eventId => text()();
+  IntColumn get xp => integer()();
+  IntColumn get sparks => integer()();
+  TextColumn get status => text()();
+  IntColumn get policyVersion => integer().withDefault(const Constant(1))();
+  IntColumn get awardedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {eventId};
+}
+
+@DataClassName('RaidDamageReceiptRow')
+class RaidDamageReceipts extends Table {
+  TextColumn get raidId => text()();
+  TextColumn get eventId => text()();
+  IntColumn get damage => integer()();
+  IntColumn get appliedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {raidId, eventId};
+}
+
+@DataClassName('RaidVictoryReceiptRow')
+class RaidVictoryReceipts extends Table {
+  TextColumn get raidId => text()();
+  IntColumn get victoryXp => integer()();
+  IntColumn get awardedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {raidId};
+}
+
 @DriftDatabase(tables: [
   Profiles,
   Counters,
@@ -233,6 +282,10 @@ class ActiveRaids extends Table {
   FeedPosts,
   FellowshipSyncs,
   ActiveRaids,
+  RecoveryActions,
+  RewardReceipts,
+  RaidDamageReceipts,
+  RaidVictoryReceipts,
 ])
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
@@ -240,7 +293,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -320,6 +373,12 @@ class RecoveryDatabase extends _$RecoveryDatabase {
               await _addColumnIfMissing(
                   m, fellowshipSyncs, fellowshipSyncs.role);
               await m.createIndex(idxSyncKeyTs);
+            }
+            if (from < 14) {
+              await m.createTable(recoveryActions);
+              await m.createTable(rewardReceipts);
+              await m.createTable(raidDamageReceipts);
+              await m.createTable(raidVictoryReceipts);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -624,6 +683,36 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   Future<bool> updateActiveRaid(ActiveRaid raid) => update(activeRaids).replace(raid);
   Future<int> deleteActiveRaid(String id) => (delete(activeRaids)..where((t) => t.id.equals(id))).go();
   Stream<List<ActiveRaid>> watchActiveRaids() => select(activeRaids).watch();
+
+  Future<int> addRecoveryAction(RecoveryActionRow action) =>
+      into(recoveryActions).insert(action);
+  Future<RecoveryActionRow?> getRecoveryAction(String eventId) =>
+      (select(recoveryActions)..where((t) => t.eventId.equals(eventId)))
+          .getSingleOrNull();
+
+  Future<int> addRewardReceipt(RewardReceiptRow receipt) =>
+      into(rewardReceipts).insert(receipt);
+  Future<RewardReceiptRow?> getRewardReceipt(String eventId) =>
+      (select(rewardReceipts)..where((t) => t.eventId.equals(eventId)))
+          .getSingleOrNull();
+
+  Future<int> addRaidDamageReceipt(RaidDamageReceiptRow receipt) =>
+      into(raidDamageReceipts).insert(receipt);
+  Future<bool> hasRaidDamageReceipt(String raidId, String eventId) async {
+    final row = await (select(raidDamageReceipts)
+          ..where((t) => t.raidId.equals(raidId) & t.eventId.equals(eventId)))
+        .getSingleOrNull();
+    return row != null;
+  }
+
+  Future<int> addRaidVictoryReceipt(RaidVictoryReceiptRow receipt) =>
+      into(raidVictoryReceipts).insert(receipt);
+  Future<bool> hasRaidVictoryReceipt(String raidId) async {
+    final row = await (select(raidVictoryReceipts)
+          ..where((t) => t.raidId.equals(raidId)))
+        .getSingleOrNull();
+    return row != null;
+  }
 }
 
 const _kDbKeyStorageKey = 'recovery_db_sqlcipher_key_v1';

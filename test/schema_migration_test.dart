@@ -66,13 +66,17 @@ Future<File> _seedPopulatedV12() async {
     }
   });
 
-  // Force the connection open so `onCreate` runs and the authoritative v13
+  // Force the connection open so `onCreate` runs and the authoritative v14
   // schema exists.
   await seed.customStatement('SELECT 1');
 
   // --- Roll back to exactly v12 -------------------------------------------------
-  // Inverse of `if (from < 13)` in recovery_database.dart, in reverse order
-  // because `peer_key_b64` is indexed.
+  // Inverse of v14 and v13 blocks in recovery_database.dart.
+  await seed.customStatement('DROP TABLE IF EXISTS raid_victory_receipts');
+  await seed.customStatement('DROP TABLE IF EXISTS raid_damage_receipts');
+  await seed.customStatement('DROP TABLE IF EXISTS reward_receipts');
+  await seed.customStatement('DROP TABLE IF EXISTS recovery_actions');
+
   await seed.customStatement('DROP INDEX IF EXISTS idx_sync_key_ts');
   await seed.customStatement('ALTER TABLE fellowship_syncs DROP COLUMN role');
   await seed
@@ -181,6 +185,10 @@ Future<File> _seedPopulatedV1() async {
 
   // Tables the migration is responsible for creating.
   for (final t in const [
+    'raid_victory_receipts',
+    'raid_damage_receipts',
+    'reward_receipts',
+    'recovery_actions',
     'active_raids',
     'fellowship_syncs',
     'feed_posts',
@@ -244,7 +252,7 @@ Future<Set<String>> _indexesOn(RecoveryDatabase db, String table) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('v12 -> v13 migration on a populated database', () {
+  group('v12 -> v14 migration on a populated database', () {
     late File file;
     late RecoveryDatabase db;
     var dbClosed = false;
@@ -280,10 +288,17 @@ void main() {
       return r.read<int>('n');
     }
 
-    test('lands on schema version 13', () async {
+    test('lands on schema version 14', () async {
       final v = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(v.data['user_version'], 13);
-      expect(db.schemaVersion, 13);
+      expect(v.data['user_version'], 14);
+      expect(db.schemaVersion, 14);
+    });
+
+    test('v14 action ledger and receipt tables exist afterwards', () async {
+      expect(await countRows('recovery_actions'), 0);
+      expect(await countRows('reward_receipts'), 0);
+      expect(await countRows('raid_damage_receipts'), 0);
+      expect(await countRows('raid_victory_receipts'), 0);
     });
 
     test('keeps every pre-existing row — no data loss', () async {
@@ -416,7 +431,7 @@ void main() {
       });
       expect(await reopened.getAllFellowshipSyncs(), hasLength(2));
       final v = await reopened.customSelect('PRAGMA user_version').getSingle();
-      expect(v.data['user_version'], 13);
+      expect(v.data['user_version'], 14);
     });
   });
 
@@ -436,7 +451,7 @@ void main() {
   // The users on v1 are also exactly the users most likely to hit it: they have
   // upgraded the most times, so they traverse the most blocks.
   // ---------------------------------------------------------------------------
-  group('v1 -> v13 migration on a populated database (all twelve blocks)',
+  group('v1 -> v14 migration on a populated database (all thirteen blocks)',
       () {
     late File file;
     late RecoveryDatabase db;
@@ -472,10 +487,10 @@ void main() {
       return rs.map((r) => r.data).toList();
     }
 
-    test('runs every block and lands on schema version 13', () async {
+    test('runs every block and lands on schema version 14', () async {
       final v = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(v.data['user_version'], 13,
-          reason: 'a v1 install must traverse all twelve `if (from < N)` blocks');
+      expect(v.data['user_version'], 14,
+          reason: 'a v1 install must traverse all thirteen `if (from < N)` blocks');
     });
 
     test('the four tables that existed at v1 survive with their rows', () async {
@@ -512,6 +527,10 @@ void main() {
         'feed_posts',
         'fellowship_syncs',
         'active_raids',
+        'recovery_actions',
+        'reward_receipts',
+        'raid_damage_receipts',
+        'raid_victory_receipts',
       ]) {
         expect(await countRows(t), 0,
             reason: '$t did not exist at v1; the migration must create it');
@@ -625,7 +644,7 @@ void main() {
         }
       });
       final v = await reopened.customSelect('PRAGMA user_version').getSingle();
-      expect(v.data['user_version'], 13);
+      expect(v.data['user_version'], 14);
       expect(await countRowsOf(reopened, 'profiles'), 1);
     });
   });

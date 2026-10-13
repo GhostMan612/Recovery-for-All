@@ -29,6 +29,7 @@ import 'package:flutter/material.dart';
 import '../database/recovery_database.dart';
 import 'raid_service.dart';
 import 'recovery_pet_service.dart';
+import '../features/progression/domain/recovery_action.dart';
 
 /// Result of an XP grant.
 class XpGrantOutcome {
@@ -85,7 +86,22 @@ class XpEngineService {
     int xp, {
     required String actionType,
     String? metaJson,
+    String? eventId,
   }) async {
+    final stableId = eventId ?? RecoveryAction.generateEventId();
+
+    // Idempotent check: if stableId has already been granted, do not double-allocate
+    final existingReceipt = await db.getRewardReceipt(stableId);
+    if (existingReceipt != null) {
+      final petRow = await db.getPet(RecoveryPetService.defaultPetId);
+      final level = petRow?.pathLevel ?? 1;
+      return XpGrantOutcome.granted(
+        leveled: false,
+        level: level,
+        raidSuffix: '',
+      );
+    }
+
     final outcome = await db.transaction(() async {
       await RecoveryPetService.ensureHatched();
       final row = await db.getPet(RecoveryPetService.defaultPetId);
@@ -96,8 +112,29 @@ class XpEngineService {
       final withXp = before.copyWith(pathXp: before.pathXp + xp);
       final next = RecoveryPetService.evaluateLevel(withXp);
       await db.upsertPet(RecoveryPetService.rowFromPet(next));
+
+      // Record RecoveryAction & RewardReceipt in database
+      await db.addRecoveryAction(RecoveryActionRow(
+        eventId: stableId,
+        actionType: actionType,
+        createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        origin: 'legacy_adapter',
+        proofTier: 'self_reported',
+        synthetic: false,
+        redactedMetaJson: metaJson,
+        schemaVersion: 1,
+      ));
+      await db.addRewardReceipt(RewardReceiptRow(
+        eventId: stableId,
+        xp: xp,
+        sparks: 0,
+        status: 'granted',
+        policyVersion: 1,
+        awardedAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+
       await db.addPetEvent(PetEventRow(
-        id: 'pet_event_${DateTime.now().microsecondsSinceEpoch}_xp_$actionType',
+        id: 'pet_event_${stableId}_xp_$actionType',
         petId: RecoveryPetService.defaultPetId,
         eventType: 'xp_$actionType',
         sparksDelta: 0,
@@ -109,15 +146,13 @@ class XpEngineService {
 
     if (outcome == null) return const XpGrantOutcome.notGranted();
 
-    // The raid is touched EXACTLY ONCE, right here. A raid failure must NOT
-    // roll back or swallow a grant the user already earned — the XP and the
-    // audit event are already committed — so failures here degrade to no
-    // message rather than propagating.
+    // The raid is touched EXACTLY ONCE, right here with idempotent event key.
     var raidSuffix = '';
     try {
       final raid = await RaidService.getActiveRaid(db);
       if (raid != null) {
-        final updated = await RaidService.dealDamage(db, raid.id, xp);
+        final updated =
+            await RaidService.dealDamageForEvent(db, raid.id, xp, stableId);
         if (updated != null) {
           raidSuffix = ' | Boss Struck for $xp DMG';
           if (updated.currentHp <= 0) raidSuffix += ' • Boss Defeated!';
@@ -139,10 +174,11 @@ class XpEngineService {
   static Future<XpGrantOutcome> processAction(
     BuildContext context,
     RecoveryDatabase db,
-    String actionType,
-  ) async {
+    String actionType, {
+    String? eventId,
+  }) async {
     final xp = _xpMap[actionType] ?? 10;
-    final result = await grantXp(db, xp, actionType: actionType);
+    final result = await grantXp(db, xp, actionType: actionType, eventId: eventId);
     if (!context.mounted) return result;
 
     final levelSuffix = result.leveled == true ? ' • LEVEL UP! Lv ${result.level}' : '';

@@ -106,4 +106,73 @@ class RaidService {
     }
     return result;
   }
+
+  /// Idempotent damage strike keyed on [eventId].
+  /// Guarantees that the same user recovery action will never strike the boss twice,
+  /// and boss victory will reward victory bonus at most once across concurrent strikes.
+  static Future<ActiveRaid?> dealDamageForEvent(
+    RecoveryDatabase db,
+    String raidId,
+    int damage,
+    String eventId,
+  ) async {
+    final alreadyStruck = await db.hasRaidDamageReceipt(raidId, eventId);
+    if (alreadyStruck) {
+      return await db.getActiveRaidById(raidId);
+    }
+
+    final result = await db.transaction(() async {
+      final rows = await (db.select(db.activeRaids)
+            ..where((t) => t.id.equals(raidId)))
+          .get();
+      if (rows.isEmpty) return null;
+      final raid = rows.first;
+      if (raid.currentHp <= 0) return raid;
+
+      final newHp = (raid.currentHp - damage).clamp(0, raid.maxHp);
+      final applied = raid.currentHp - newHp;
+      final updated = await (db.update(db.activeRaids)
+            ..where((t) => t.id.equals(raidId)))
+          .writeReturning(ActiveRaidsCompanion(
+        currentHp: Value(newHp),
+        userContribution: Value(raid.userContribution + applied),
+      ));
+
+      await db.addRaidDamageReceipt(RaidDamageReceiptRow(
+        raidId: raidId,
+        eventId: eventId,
+        damage: applied,
+        appliedAt: DateTime.now().millisecondsSinceEpoch,
+      ));
+
+      return updated.isEmpty
+          ? raid.copyWith(currentHp: newHp)
+          : updated.first;
+    });
+
+    if (result == null) return null;
+    if (result.currentHp <= 0) {
+      final victoryAwarded = await db.hasRaidVictoryReceipt(raidId);
+      if (!victoryAwarded) {
+        await db.addRaidVictoryReceipt(RaidVictoryReceiptRow(
+          raidId: raidId,
+          victoryXp: victoryXp,
+          awardedAt: DateTime.now().millisecondsSinceEpoch,
+        ));
+        final pet = await RecoveryPetService.ensureHatched();
+        final withXp = pet.copyWith(pathXp: pet.pathXp + victoryXp);
+        final leveled = RecoveryPetService.evaluateLevel(withXp);
+        await RecoveryPetService.save(leveled);
+        await db.addPetEvent(PetEventRow(
+          id: 'pet_event_raid_victory_$raidId',
+          petId: RecoveryPetService.defaultPetId,
+          eventType: 'raid_victory',
+          sparksDelta: 0,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          metaJson: '{"boss":"\${result.bossName}","xp":\$victoryXp}',
+        ));
+      }
+    }
+    return result;
+  }
 }
