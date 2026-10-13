@@ -23,10 +23,12 @@ import '../domain/reward_policy.dart';
 class RecoveryActionCoordinator {
   final RecoveryDatabase database;
   final RewardLedgerRepository repository;
+  final Future<void> Function(RecoveryAction action)? onActionCommitted;
 
   RecoveryActionCoordinator({
     required this.database,
     RewardLedgerRepository? repository,
+    this.onActionCommitted,
   }) : repository = repository ?? RewardLedgerRepository(database);
 
   /// Process a canonical RecoveryAction domain event.
@@ -106,6 +108,16 @@ class RecoveryActionCoordinator {
       }
     } catch (e) {
       debugPrint('[progression] Constellation projection error (non-fatal): $e');
+    }
+
+    // 6. Notify external action listener (e.g. QuestProgressor)
+    if (onActionCommitted != null &&
+        action.actionType != RecoveryActionType.questCompleted) {
+      try {
+        await onActionCommitted!(action);
+      } catch (e) {
+        debugPrint('[progression] Action listener error (non-fatal): ');
+      }
     }
 
     return RewardResult(
