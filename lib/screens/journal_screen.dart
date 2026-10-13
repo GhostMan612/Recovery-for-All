@@ -30,11 +30,11 @@ class JournalScreen extends StatefulWidget {
   State<JournalScreen> createState() => _JournalScreenState();
 }
 
-enum _JournalGate { loading, setupPin, confirmPin, unlock, open }
+enum _JournalGate { loading, setupPin, confirmPin, unlock, open, error }
 
 const int kPinDigits = JournalCryptoService.pinLength;
 
-class _JournalScreenState extends State<JournalScreen> {
+class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserver {
   final TextEditingController _contentController = TextEditingController();
   int _selectedMood = 3;
   _JournalGate _gate = _JournalGate.loading;
@@ -49,18 +49,53 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    JournalCryptoService.sessionUnlockedNotifier.addListener(_onSessionUnlockChanged);
     _bootstrap();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    JournalCryptoService.sessionUnlockedNotifier.removeListener(_onSessionUnlockChanged);
+    _contentController.dispose();
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _onSessionUnlockChanged() {
+    if (!JournalCryptoService.isSessionUnlocked && _gate == _JournalGate.open && mounted) {
+      _relock();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      JournalCryptoService.lockSession();
+      if (mounted) {
+        _relock();
+      }
+    }
+  }
+
   Future<void> _bootstrap() async {
-    final hasPin = await JournalCryptoService.hasPin();
+    final status = await JournalCryptoService.checkPinStatus();
     if (!mounted) return;
-    if (hasPin && JournalCryptoService.isSessionUnlocked) {
+    if (status == JournalPinStatus.configured && JournalCryptoService.isSessionUnlocked) {
       await _openSession();
       return;
     }
     setState(() {
-      _gate = hasPin ? _JournalGate.unlock : _JournalGate.setupPin;
+      _gate = switch (status) {
+        JournalPinStatus.unconfigured => _JournalGate.setupPin,
+        JournalPinStatus.configured => _JournalGate.unlock,
+        JournalPinStatus.corruptedOrInaccessible => _JournalGate.error,
+      };
+      _pinError = false;
+      _pinController.clear();
     });
   }
 
@@ -72,6 +107,12 @@ class _JournalScreenState extends State<JournalScreen> {
     }
     switch (_gate) {
       case _JournalGate.setupPin:
+        final status = await JournalCryptoService.checkPinStatus();
+        if (status != JournalPinStatus.unconfigured) {
+          // Cannot configure PIN if already configured or storage corrupted
+          await _bootstrap();
+          return;
+        }
         setState(() {
           _firstEntryPin = pin;
           _gate = _JournalGate.confirmPin;
@@ -102,6 +143,8 @@ class _JournalScreenState extends State<JournalScreen> {
         }
         JournalCryptoService.unlockSession();
         await _openSession();
+      case _JournalGate.error:
+        await _bootstrap();
       default:
         break;
     }
@@ -144,6 +187,10 @@ class _JournalScreenState extends State<JournalScreen> {
         hasExistingEntries: entries.isNotEmpty,
       );
       if (!mounted) return;
+      if (!JournalCryptoService.isSessionUnlocked) {
+        _relock();
+        return;
+      }
       setState(() {
         _masterKey = key;
         _gate = _JournalGate.open;
@@ -164,6 +211,7 @@ class _JournalScreenState extends State<JournalScreen> {
       _masterKey = null;
       _gate = _JournalGate.unlock;
       _contentController.clear();
+      _pinController.clear();
     });
   }
 
@@ -177,7 +225,6 @@ class _JournalScreenState extends State<JournalScreen> {
       final encryptedReflection =
           await JournalCryptoService.encrypt(text, _masterKey!);
 
-      // Stable intent-bound entry ID derived from content and time window
       final intentHash = (text.hashCode & 0x7FFFFFFF).toRadixString(16);
       final minuteBucket = DateTime.now().millisecondsSinceEpoch ~/ 60000;
       final entryId = 'journal_${intentHash}_$minuteBucket';
@@ -191,7 +238,6 @@ class _JournalScreenState extends State<JournalScreen> {
         isSyncedToCloud: false,
       );
 
-      // Persist entry atomically (insertOnConflictUpdate prevents duplicates/crashes on retry)
       await widget.database
           .into(widget.database.journalEntries)
           .insertOnConflictUpdate(entry);
@@ -230,20 +276,18 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Future<String> _decryptContent(String ciphertext) async {
     final key = _masterKey;
-    if (key == null) {
+    if (key == null || !JournalCryptoService.isSessionUnlocked) {
       return JournalCryptoService.decryptLegacy(ciphertext) ??
           '[Locked \u2014 unlock the journal to read this entry]';
     }
-    return await JournalCryptoService.decrypt(ciphertext, key) ??
-        '[Encrypted entry could not be opened with this key]';
+    final plain = await JournalCryptoService.decrypt(ciphertext, key);
+    if (!JournalCryptoService.isSessionUnlocked) {
+      return '[Locked \u2014 unlock the journal to read this entry]';
+    }
+    return plain ?? '[Encrypted entry could not be opened with this key]';
   }
 
   Future<void> _showChronicleGenerator(BuildContext context) async {
-    // The dialog used to be popped under `if (context.mounted)` while
-    // `barrierDismissible: false` blocked every other exit. Leaving the
-    // Journal screen mid-generation left an un-dismissable dialog on screen
-    // with no way out. Pop through the DIALOG's own context in a finally, so
-    // dismissal is guaranteed regardless of this screen's lifecycle.
     final navigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
@@ -370,6 +414,12 @@ class _JournalScreenState extends State<JournalScreen> {
                 : 'Enter your $kPinDigits-digit PIN to open your sanctuary.',
             'Unlock Journal'
           ),
+        _JournalGate.error => (
+            'Secure Vault Inaccessible',
+            'Your journal PIN metadata could not be safely read from secure storage. '
+                'To protect your privacy, your sanctuary remains sealed.',
+            'Retry Vault Check'
+          ),
         _JournalGate.open => ('', '', ''),
       };
 
@@ -387,7 +437,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     color: Theme.of(context).colorScheme.surfaceContainer,
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: _pinError
+                        color: _pinError || _gate == _JournalGate.error
                             ? AppColors.moodNeedHelp
                             : Theme.of(context).colorScheme.outlineVariant),
                   ),
@@ -395,8 +445,10 @@ class _JournalScreenState extends State<JournalScreen> {
                     _gate == _JournalGate.setupPin ||
                             _gate == _JournalGate.confirmPin
                         ? Icons.key
-                        : Icons.lock_outline,
-                    color: _pinError
+                        : _gate == _JournalGate.error
+                            ? Icons.error_outline
+                            : Icons.lock_outline,
+                    color: _pinError || _gate == _JournalGate.error
                         ? AppColors.moodNeedHelp
                         : Theme.of(context).colorScheme.primary,
                     size: 48,
@@ -418,7 +470,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
-                if (_gate != _JournalGate.loading)
+                if (_gate != _JournalGate.loading && _gate != _JournalGate.error)
                   SizedBox(
                     width: 200,
                     child: TextField(
@@ -447,9 +499,12 @@ class _JournalScreenState extends State<JournalScreen> {
                 const SizedBox(height: 24),
                 if (_gate == _JournalGate.setupPin ||
                     _gate == _JournalGate.confirmPin ||
-                    _gate == _JournalGate.unlock)
+                    _gate == _JournalGate.unlock ||
+                    _gate == _JournalGate.error)
                   ElevatedButton(
-                    onPressed: () => _submitPin(_pinController.text),
+                    onPressed: _gate == _JournalGate.error
+                        ? _bootstrap
+                        : () => _submitPin(_pinController.text),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                       foregroundColor: Theme.of(context).colorScheme.primary,
@@ -461,11 +516,11 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
                     child: Text(buttonLabel),
                   ),
-                if (_gate == _JournalGate.unlock)
+                if (_gate == _JournalGate.unlock || _gate == _JournalGate.error)
                   TextButton(
                     onPressed: _resettingBiometric ? null : _forgotPin,
                     child: Text(
-                      _resettingBiometric ? 'Checking\u2026' : 'Forgot PIN?',
+                      _resettingBiometric ? 'Checking\u2026' : 'Forgot PIN / Biometric Reset',
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.primary, fontSize: 13),
                     ),
@@ -639,8 +694,6 @@ class _JournalScreenState extends State<JournalScreen> {
               }
 
               return IconButton(
-                // Without this a screen reader announced only
-                // "sentiment very satisfied, button" and never the position.
                 tooltip: 'Mood ${rating + 1} of 5',
                 isSelected: isSelected,
                 icon: Icon(icon, size: 28),

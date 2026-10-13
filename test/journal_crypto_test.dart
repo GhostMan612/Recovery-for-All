@@ -7,6 +7,7 @@
 // AES-GCM entry encryption under the secure-storage master key, and
 // legacy payload compatibility.
 
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
@@ -19,19 +20,62 @@ void main() {
   setUp(() {
     FlutterSecureStoragePlatform.instance =
         TestFlutterSecureStoragePlatform({});
+    JournalCryptoService.lockSession();
   });
 
-  group('PIN lifecycle', () {
+  group('PIN lifecycle and fail-closed security', () {
     test('no PIN exists before first-run setup', () async {
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.unconfigured);
       expect(await JournalCryptoService.hasPin(), isFalse);
     });
 
     test('setPin then verify — right and wrong answers', () async {
       await JournalCryptoService.setPin('123456');
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.configured);
       expect(await JournalCryptoService.hasPin(), isTrue);
       expect(await JournalCryptoService.verifyPin('123456'), isTrue);
       expect(await JournalCryptoService.verifyPin('654321'), isFalse);
       expect(await JournalCryptoService.verifyPin('000000'), isFalse);
+    });
+
+    test('sessionUnlockedNotifier broadcasts unlock and lock transitions', () {
+      final events = <bool>[];
+      JournalCryptoService.sessionUnlockedNotifier.addListener(() {
+        events.add(JournalCryptoService.sessionUnlockedNotifier.value);
+      });
+
+      JournalCryptoService.unlockSession();
+      expect(JournalCryptoService.isSessionUnlocked, isTrue);
+
+      JournalCryptoService.lockSession();
+      expect(JournalCryptoService.isSessionUnlocked, isFalse);
+
+      expect(events, equals([true, false]));
+    });
+
+    test('corrupted or partial PIN metadata fails closed', () async {
+      const storage = FlutterSecureStorage();
+
+      // Case 1: Hash present, salt missing
+      await storage.write(key: 'journal_pin_hash_v1', value: base64Encode(List.filled(32, 1)));
+      await storage.delete(key: 'journal_pin_salt_v1');
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.corruptedOrInaccessible);
+      expect(await JournalCryptoService.hasPin(), isTrue, reason: 'Must fail closed');
+      expect(() => JournalCryptoService.setPin('123456'), throwsStateError);
+
+      // Case 2: Salt present, hash missing
+      await storage.delete(key: 'journal_pin_hash_v1');
+      await storage.write(key: 'journal_pin_salt_v1', value: base64Encode(List.filled(16, 2)));
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.corruptedOrInaccessible);
+      expect(await JournalCryptoService.hasPin(), isTrue, reason: 'Must fail closed');
+      expect(() => JournalCryptoService.setPin('123456'), throwsStateError);
+
+      // Case 3: Both present but invalid length (corrupted)
+      await storage.write(key: 'journal_pin_hash_v1', value: base64Encode(List.filled(10, 1)));
+      await storage.write(key: 'journal_pin_salt_v1', value: base64Encode(List.filled(16, 2)));
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.corruptedOrInaccessible);
+      expect(await JournalCryptoService.hasPin(), isTrue, reason: 'Must fail closed');
+      expect(() => JournalCryptoService.setPin('123456'), throwsStateError);
     });
 
     test('rejects malformed PINs', () async {
@@ -61,6 +105,7 @@ void main() {
       const storage = FlutterSecureStorage();
       await storage.write(key: 'journal_pin_hash_v1', value: '');
       await storage.write(key: 'journal_pin_salt_v1', value: '');
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.unconfigured);
       expect(await JournalCryptoService.hasPin(), isFalse);
       expect(await JournalCryptoService.verifyPin('123456'), isFalse);
     });
@@ -71,6 +116,7 @@ void main() {
       final cipher = await JournalCryptoService.encrypt('keep me', key);
 
       await JournalCryptoService.clearPin();
+      expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.unconfigured);
       expect(await JournalCryptoService.hasPin(), isFalse);
 
       await JournalCryptoService.setPin('654321');

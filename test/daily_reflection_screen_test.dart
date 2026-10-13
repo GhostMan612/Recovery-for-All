@@ -184,7 +184,7 @@ void main() {
     });
   });
 
-  group('DailyReflectionScreen Journal PIN Privacy Protection', () {
+  group('DailyReflectionScreen Journal PIN Privacy Protection & Fail-Closed Gate', () {
     const validPin = '123456';
 
     setUp(() async {
@@ -272,6 +272,85 @@ void main() {
 
       expect(find.text('Already authenticated reflection'), findsOneWidget);
       expect(find.text('Past Reflections Locked'), findsNothing);
+    });
+
+    testWidgets('fails closed with Vault Storage Inaccessible when PIN metadata is corrupted or partial', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // Seed private reflection
+      final encPrivate = await JournalCryptoService.encrypt('Protected private thought', masterKey);
+      await db.addJournalEntry(JournalEntry(
+        id: 'secret_ref_corrupt',
+        timestamp: DateTime.now().millisecondsSinceEpoch - 10000,
+        moodRating: 4,
+        contentEncrypted: encPrivate,
+        isSyncedToCloud: false,
+      ));
+
+      // Corrupt the secure storage PIN metadata: valid salt but malformed hash length
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'journal_pin_hash_v1', value: base64Encode(List<int>.filled(10, 99)));
+      JournalCryptoService.lockSession();
+
+      await tester.pumpWidget(buildScreen());
+      await pumpUntil(
+        tester,
+        () => find.text('Vault Storage Inaccessible').evaluate().isNotEmpty,
+      );
+
+      // Must display Vault Storage Inaccessible and retry button
+      expect(find.text('Vault Storage Inaccessible'), findsOneWidget);
+      expect(find.textContaining('Secure storage could not verify your PIN metadata'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Retry Vault Check'), findsOneWidget);
+
+      // Must NOT allow PIN entry or offer PIN setup
+      expect(find.text('Choose Your Journal PIN'), findsNothing);
+      expect(find.widgetWithText(ElevatedButton, 'Unlock Past Reflections'), findsNothing);
+
+      // Reflections MUST remain concealed
+      expect(find.text('Protected private thought'), findsNothing);
+    });
+
+    testWidgets('automatically conceals reflections when app enters background (paused)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // Unlock session
+      JournalCryptoService.unlockSession();
+
+      final enc = await JournalCryptoService.encrypt('Visible reflection before pause', masterKey);
+      await db.addJournalEntry(JournalEntry(
+        id: 'visible_ref_1',
+        timestamp: DateTime.now().millisecondsSinceEpoch - 10000,
+        moodRating: 5,
+        contentEncrypted: enc,
+        isSyncedToCloud: false,
+      ));
+
+      await tester.pumpWidget(buildScreen());
+      await pumpUntil(
+        tester,
+        () => find.text('Visible reflection before pause').evaluate().isNotEmpty,
+      );
+
+      expect(find.text('Visible reflection before pause'), findsOneWidget);
+      expect(JournalCryptoService.isSessionUnlocked, isTrue);
+
+      // Simulate app backgrounding
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      // Session must be locked
+      expect(JournalCryptoService.isSessionUnlocked, isFalse);
+
+      // Decrypted reflection must be completely cleared from UI
+      expect(find.text('Visible reflection before pause'), findsNothing);
+
+      // Privacy gate must be rendered
+      expect(find.text('Past Reflections Locked'), findsOneWidget);
     });
   });
 }

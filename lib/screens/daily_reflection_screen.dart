@@ -20,7 +20,7 @@ class DailyReflectionScreen extends StatefulWidget {
   State<DailyReflectionScreen> createState() => _DailyReflectionScreenState();
 }
 
-class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
+class _DailyReflectionScreenState extends State<DailyReflectionScreen> with WidgetsBindingObserver {
   final TextEditingController _reflectionController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
   int _selectedMood = 3;
@@ -28,6 +28,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   List<String> _journalEntries = [];
   bool _isLoading = true;
   bool _isJournalLocked = false;
+  bool _isVaultInaccessible = false;
   bool _pinError = false;
 
   final List<String> _moodLabels = ['Terrible', 'Bad', 'Okay', 'Good', 'Great'];
@@ -47,16 +48,53 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    JournalCryptoService.sessionUnlockedNotifier.addListener(_onSessionUnlockChanged);
     _loadJournalEntries();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    JournalCryptoService.sessionUnlockedNotifier.removeListener(_onSessionUnlockChanged);
+    _reflectionController.dispose();
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _onSessionUnlockChanged() {
+    if (!JournalCryptoService.isSessionUnlocked && mounted) {
+      setState(() {
+        _isJournalLocked = true;
+        _journalEntries = [];
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      JournalCryptoService.lockSession();
+      if (mounted) {
+        setState(() {
+          _isJournalLocked = true;
+          _journalEntries = [];
+          _pinController.clear();
+        });
+      }
+    }
   }
 
   Future<void> _loadJournalEntries() async {
     try {
-      final hasPin = await JournalCryptoService.hasPin();
-      if (hasPin && !JournalCryptoService.isSessionUnlocked) {
+      final status = await JournalCryptoService.checkPinStatus();
+      if (status != JournalPinStatus.unconfigured && !JournalCryptoService.isSessionUnlocked) {
         if (mounted) {
           setState(() {
             _isJournalLocked = true;
+            _isVaultInaccessible = (status == JournalPinStatus.corruptedOrInaccessible);
             _isLoading = false;
             _journalEntries = [];
           });
@@ -84,13 +122,23 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
         final plain = await JournalCryptoService.decrypt(e.contentEncrypted, key);
         readable.add(plain ?? '[Locked \u2014 unlock the journal to read this entry]');
       }
-      if (mounted) {
+
+      if (!mounted) return;
+      if (status != JournalPinStatus.unconfigured && !JournalCryptoService.isSessionUnlocked) {
         setState(() {
-          _isJournalLocked = false;
-          _journalEntries = readable;
+          _isJournalLocked = true;
           _isLoading = false;
+          _journalEntries = [];
         });
+        return;
       }
+
+      setState(() {
+        _isJournalLocked = false;
+        _isVaultInaccessible = false;
+        _journalEntries = readable;
+        _isLoading = false;
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -190,13 +238,6 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   }
 
   @override
-  void dispose() {
-    _reflectionController.dispose();
-    _pinController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -233,9 +274,6 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: List.generate(5, (index) {
                     final isSelected = _selectedMood == index;
-                    // The emoji is decorative; the label is the accessible
-                    // name, and the box is the accessible button. Selection
-                    // was previously signalled by fill colour alone.
                     return Semantics(
                       button: true,
                       selected: isSelected,
@@ -269,7 +307,6 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                                 ),
                               ),
                               if (isSelected)
-                                // 8pt was below the 12sp body floor.
                                 Text(
                                   _moodLabels[index],
                                   style: TextStyle(
@@ -321,9 +358,6 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                         selectedColor: Theme.of(context).colorScheme.primary,
                         labelStyle: TextStyle(
-                          // onPrimary when selected, not Colors.white — the
-                          // selected fill is `primary`, a light tone in light
-                          // mode.
                           color: isSelected
                               ? Theme.of(context).colorScheme.onPrimary
                               : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -408,19 +442,19 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
           color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.outlineVariant,
+            color: _pinError || _isVaultInaccessible ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
         child: Column(
           children: [
             Icon(
-              Icons.lock_outline,
+              _isVaultInaccessible ? Icons.error_outline : Icons.lock_outline,
               size: 36,
-              color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.primary,
+              color: _pinError || _isVaultInaccessible ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 12),
             Text(
-              'Past Reflections Locked',
+              _isVaultInaccessible ? 'Vault Storage Inaccessible' : 'Past Reflections Locked',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 16,
@@ -429,60 +463,74 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              _pinError
-                  ? 'Incorrect PIN. Please try again.'
-                  : 'Enter your 6-digit Journal PIN to view recent reflections.',
+              _isVaultInaccessible
+                  ? 'Secure storage could not verify your PIN metadata. Past reflections remain sealed to protect your privacy.'
+                  : _pinError
+                      ? 'Incorrect PIN. Please try again.'
+                      : 'Enter your 6-digit Journal PIN to view recent reflections.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: _pinError || _isVaultInaccessible ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: 180,
-              child: TextField(
-                controller: _pinController,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: JournalCryptoService.pinLength,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 18,
-                  letterSpacing: 6,
-                ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '••••••',
-                  hintStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.outline,
+            if (!_isVaultInaccessible) ...[
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: JournalCryptoService.pinLength,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 18,
                     letterSpacing: 6,
                   ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '\u2022\u2022\u2022\u2022\u2022\u2022',
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                      letterSpacing: 6,
+                    ),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
+                  onSubmitted: _verifyAndUnlockPin,
                 ),
-                onSubmitted: _verifyAndUnlockPin,
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => _verifyAndUnlockPin(_pinController.text),
-              icon: const Icon(Icons.key, size: 18),
-              label: const Text('Unlock Past Reflections'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                foregroundColor: Theme.of(context).colorScheme.primary,
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _verifyAndUnlockPin(_pinController.text),
+                icon: const Icon(Icons.key, size: 18),
+                label: const Text('Unlock Past Reflections'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                ),
               ),
-            ),
+            ] else ...[
+              ElevatedButton.icon(
+                onPressed: _loadJournalEntries,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry Vault Check'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
           ],
         ),
       );

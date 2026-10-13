@@ -4,6 +4,7 @@
 // ============================================================
 
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 
@@ -13,6 +14,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/open.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
 part 'recovery_database.g.dart';
@@ -337,6 +339,30 @@ class RecoveryDatabase extends _$RecoveryDatabase {
     return true;
   }
 
+  /// Returns true if an active SQLite connection supports SQLCipher encryption.
+  static bool isSqlCipherActive() {
+    try {
+      if (Platform.isLinux) {
+        try {
+          open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so.0'));
+        } catch (_) {
+          try {
+            open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so'));
+          } catch (_) {}
+        }
+      }
+      final db = sqlite3.openInMemory();
+      final rows = db.select('PRAGMA cipher_version');
+      db.dispose();
+      return rows.isNotEmpty &&
+          rows.first.values.isNotEmpty &&
+          rows.first.values.first != null &&
+          rows.first.values.first.toString().trim().isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   int get schemaVersion => 15;
 
@@ -657,7 +683,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
     // unmatched, but the Companion used strict equality and so wrote three
     // `Value.absent()` columns — an UPDATE that changed nothing, with the
     // reaction evaporating and no error. A bad `kind` also reached Firestore as
-    // `'${kind}Count'`, desyncing local and cloud.
+    // '${kind}Count', desyncing local and cloud.
     final column = switch (kind) {
       'strength' => feedPosts.strengthCount,
       'proud' => feedPosts.proudCount,
@@ -863,6 +889,14 @@ QueryExecutor openEncryptedDatabaseConnection({
       try {
         open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
       } catch (_) {}
+    } else if (Platform.isLinux) {
+      try {
+        open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so.0'));
+      } catch (_) {
+        try {
+          open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlcipher.so'));
+        } catch (_) {}
+      }
     }
 
     final dbFileExists = file.existsSync() && file.lengthSync() > 0;

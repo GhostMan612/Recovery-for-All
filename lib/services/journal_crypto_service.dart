@@ -5,9 +5,9 @@
 
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../database/recovery_database.dart';
 
@@ -17,6 +17,19 @@ class MasterKeyInaccessibleException implements Exception {
   const MasterKeyInaccessibleException(this.message, {this.cause});
   @override
   String toString() => 'MasterKeyInaccessibleException: $message';
+}
+
+enum JournalPinStatus {
+  /// Both hash and salt keys are completely absent from secure storage.
+  /// Represents a fresh installation where the user has not yet configured a PIN.
+  unconfigured,
+
+  /// Both hash and salt keys are present, well-formed, and valid.
+  configured,
+
+  /// Storage read failed, or PIN metadata is partial / corrupted / inaccessible.
+  /// Must fail closed: do not permit PIN setup and do not reveal journal entries.
+  corruptedOrInaccessible,
 }
 
 class JournalCryptoService {
@@ -39,42 +52,77 @@ class JournalCryptoService {
 
   static bool _sessionUnlocked = false;
 
+  /// Notifier for journal session unlock state across the app.
+  static final ValueNotifier<bool> sessionUnlockedNotifier = ValueNotifier<bool>(false);
+
   /// Whether the journal has been verified and unlocked during this active app session.
   static bool get isSessionUnlocked => _sessionUnlocked;
 
   /// Marks the active session as unlocked (e.g. after successful PIN verification).
   static void unlockSession() {
     _sessionUnlocked = true;
+    sessionUnlockedNotifier.value = true;
   }
 
   /// Locks the active session, requiring PIN verification before decrypting or viewing journal history.
   static void lockSession() {
     _sessionUnlocked = false;
+    sessionUnlockedNotifier.value = false;
   }
 
-  static Future<bool> hasPin() async {
+  /// Inspects secure storage to determine PIN status with fail-closed semantics.
+  static Future<JournalPinStatus> checkPinStatus() async {
     try {
       final hashB64 = await _storage.read(key: _keyPinHash);
       final saltB64 = await _storage.read(key: _keyPinSalt);
-      if (hashB64 == null || hashB64.isEmpty) return false;
-      if (saltB64 == null || saltB64.isEmpty) return false;
+
+      final hasHash = hashB64 != null && hashB64.isNotEmpty;
+      final hasSalt = saltB64 != null && saltB64.isNotEmpty;
+
+      // Both missing => genuinely unconfigured fresh install
+      if (!hasHash && !hasSalt) {
+        return JournalPinStatus.unconfigured;
+      }
+
+      // One present without the other => partial/corrupted
+      if (!hasHash || !hasSalt) {
+        return JournalPinStatus.corruptedOrInaccessible;
+      }
+
       final hash = base64Decode(hashB64);
       final salt = base64Decode(saltB64);
-      if (hash.length != 32) return false;
-      if (salt.length != 16) return false;
-      return true;
+      if (hash.length != 32 || salt.length != 16) {
+        return JournalPinStatus.corruptedOrInaccessible;
+      }
+
+      return JournalPinStatus.configured;
     } catch (_) {
-      return false;
+      // Secure storage read error (e.g. KeyStore lock) fails closed
+      return JournalPinStatus.corruptedOrInaccessible;
     }
+  }
+
+  /// Backward-compatible check that fails closed:
+  /// Returns false ONLY when the PIN is genuinely unconfigured.
+  /// Returns true when the PIN is configured OR when metadata is corrupted/inaccessible.
+  static Future<bool> hasPin() async {
+    final status = await checkPinStatus();
+    return status != JournalPinStatus.unconfigured;
   }
 
   static Future<void> setPin(String pin) async {
     _assertPinFormat(pin);
+    final status = await checkPinStatus();
+    if (status == JournalPinStatus.corruptedOrInaccessible) {
+      throw StateError(
+        'Cannot configure new PIN while existing PIN metadata is corrupted or inaccessible.',
+      );
+    }
     final salt = _randomBytes(16);
     final hash = await _hashPin(pin, salt);
     await _storage.write(key: _keyPinSalt, value: base64Encode(salt));
     await _storage.write(key: _keyPinHash, value: base64Encode(hash));
-    _sessionUnlocked = true;
+    unlockSession();
   }
 
   static Future<void> clearPin() async {
@@ -82,11 +130,14 @@ class JournalCryptoService {
       await _storage.delete(key: _keyPinHash);
       await _storage.delete(key: _keyPinSalt);
     } catch (_) {}
-    _sessionUnlocked = false;
+    lockSession();
   }
 
   static Future<bool> verifyPin(String pin) async {
     try {
+      final status = await checkPinStatus();
+      if (status != JournalPinStatus.configured) return false;
+
       final saltB64 = await _storage.read(key: _keyPinSalt);
       final hashB64 = await _storage.read(key: _keyPinHash);
       if (saltB64 == null || saltB64.isEmpty) return false;

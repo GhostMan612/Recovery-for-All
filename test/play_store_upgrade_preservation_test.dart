@@ -475,7 +475,136 @@ void main() {
       expect(utf8.decode(headerBytes.sublist(0, 15)), equals('SQLite format 3'));
     });
 
-    test('Real encrypted connection upgrades v13 to v15, retains data, and reopens stably', () async {
+    test(
+      'Authentic SQLCipher positive test: verifies cipher_version, encrypted on-disk header, wrong-key rejection, and v13 to v15 data preservation',
+      () async {
+        const storage = FlutterSecureStorage();
+        await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+
+        final masterKey = Uint8List.fromList(List<int>.generate(32, (i) => i * 3 + 1));
+        await storage.write(key: 'journal_master_key_v1', value: base64Encode(masterKey));
+
+        // 1. Seed database with v13 schema and encrypted data under strict SQLCipher enforcement
+        final initialDb = RecoveryDatabase.openEncrypted(
+          file: dbFile,
+          storage: storage,
+          enforceSqlCipher: true,
+        );
+        await initialDb.customStatement('SELECT 1');
+
+        // Confirm PRAGMA cipher_version is nonempty and valid
+        final cipherRows = await initialDb.customSelect('PRAGMA cipher_version').get();
+        expect(cipherRows, isNotEmpty);
+        expect(cipherRows.first.data.values.first?.toString().trim().isNotEmpty, isTrue);
+
+        // Drop v15 additions
+        await initialDb.customStatement('DROP INDEX IF EXISTS idx_circle_outbox_status');
+        await initialDb.customStatement('DROP TABLE IF EXISTS circle_outbox_entries');
+
+        // Drop v14 additions
+        await initialDb.customStatement('DROP TABLE IF EXISTS raid_victory_receipts');
+        await initialDb.customStatement('DROP TABLE IF EXISTS raid_damage_receipts');
+        await initialDb.customStatement('DROP TABLE IF EXISTS reward_receipts');
+        await initialDb.customStatement('DROP TABLE IF EXISTS recovery_actions');
+
+        final encJournal = await JournalCryptoService.encrypt('Encrypted journal prior to upgrade', masterKey);
+        await initialDb.addJournalEntry(JournalEntry(
+          id: 'journal_sqlcipher_1',
+          timestamp: 1672531199000,
+          moodRating: 5,
+          contentEncrypted: encJournal,
+          isSyncedToCloud: false,
+        ));
+
+        await initialDb.addCounter(Counter(
+          id: 'counter_sqlcipher_1',
+          label: 'Alcohol Freedom',
+          startDateTime: 1672531199000,
+          isActive: true,
+          dailyCost: 15.5,
+        ));
+
+        await initialDb.customStatement(
+          "INSERT INTO recovery_pets (id, name, species_or_style, energy, bond, mood, sparks, unlocked_items, equipped_outfit, last_fed_at, created_at, equipped_slots_json, path_level, path_xp) "
+          "VALUES ('pet_sqlcipher_1', 'Phoenix', 'guardian', 0.95, 0.85, 'thriving', 500, '[\"crown_gold\"]', 'crown_gold', 1672531199000, 1672531199000, '{\"head\":\"crown_gold\"}', 5, 450)",
+        );
+
+        await initialDb.customStatement('PRAGMA user_version = 13');
+        await initialDb.close();
+
+        // 2. Verify on-disk file header is NOT plaintext SQLite
+        expect(RecoveryDatabase.hasPlaintextSqliteHeader(dbFile), isFalse);
+        final headerBytes = dbFile.openSync().readSync(16);
+        expect(utf8.decode(headerBytes.sublist(0, 15), allowMalformed: true), isNot(equals('SQLite format 3')));
+
+        // 3. Verify wrong key CANNOT open the populated encrypted database
+        const wrongKey = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+        final wrongStoragePlatform = TestFlutterSecureStoragePlatform({'recovery_db_sqlcipher_key_v1': wrongKey});
+        FlutterSecureStoragePlatform.instance = wrongStoragePlatform;
+        const wrongStorage = FlutterSecureStorage();
+
+        final wrongDb = RecoveryDatabase.openEncrypted(
+          file: dbFile,
+          storage: wrongStorage,
+          enforceSqlCipher: true,
+        );
+        expect(
+          () async => await wrongDb.customSelect('SELECT COUNT(*) FROM recovery_pets').get(),
+          throwsA(isA<Exception>()),
+        );
+        try {
+          await wrongDb.close();
+        } catch (_) {}
+
+        // Restore correct storage key platform
+        FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({
+          'recovery_db_sqlcipher_key_v1': testDbKey,
+          'journal_master_key_v1': base64Encode(masterKey),
+        });
+
+        // 4. Open with authentic SQLCipher connection: triggers v13 -> v15 upgrade
+        final upgradedDb = RecoveryDatabase.openEncrypted(
+          file: dbFile,
+          storage: storage,
+          enforceSqlCipher: true,
+        );
+        await upgradedDb.customStatement('SELECT 1');
+
+        final v = (await upgradedDb.customSelect('PRAGMA user_version').getSingle()).data['user_version'] as int;
+        expect(v, equals(15));
+
+        // 5. Verify all domain data preserved across upgrade under SQLCipher
+        final journals = await upgradedDb.select(upgradedDb.journalEntries).get();
+        expect(journals, hasLength(1));
+        final plain = await JournalCryptoService.decrypt(journals.first.contentEncrypted, masterKey);
+        expect(plain, equals('Encrypted journal prior to upgrade'));
+
+        final counters = await upgradedDb.select(upgradedDb.counters).get();
+        expect(counters, hasLength(1));
+        expect(counters.first.label, equals('Alcohol Freedom'));
+
+        final pets = await upgradedDb.select(upgradedDb.recoveryPets).get();
+        expect(pets, hasLength(1));
+        expect(pets.first.name, equals('Phoenix'));
+        expect(pets.first.sparks, equals(500));
+
+        // 6. Stable reopening
+        await upgradedDb.close();
+        final reopenedDb = RecoveryDatabase.openEncrypted(
+          file: dbFile,
+          storage: storage,
+          enforceSqlCipher: true,
+        );
+        final finalPets = await reopenedDb.select(reopenedDb.recoveryPets).get();
+        expect(finalPets.first.name, equals('Phoenix'));
+        await reopenedDb.close();
+      },
+      skip: !RecoveryDatabase.isSqlCipherActive()
+          ? 'Native SQLCipher library not active in current test runner (supported on Android and Linux CI with libsqlcipher-dev)'
+          : null,
+    );
+
+    test('Simulation (unencrypted engine fallback): openEncrypted connection upgrades v13 to v15, retains data, and reopens stably', () async {
       const storage = FlutterSecureStorage();
       await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
 
