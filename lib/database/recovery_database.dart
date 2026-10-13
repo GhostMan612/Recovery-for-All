@@ -778,6 +778,14 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
 const _kDbKeyStorageKey = 'recovery_db_sqlcipher_key_v1';
 
+class DatabaseKeyInaccessibleException implements Exception {
+  final String message;
+  final Object? cause;
+  const DatabaseKeyInaccessibleException(this.message, {this.cause});
+  @override
+  String toString() => 'DatabaseKeyInaccessibleException: $message';
+}
+
 String _generateKeyHex() {
   final rnd = Random.secure();
   final bytes = List<int>.generate(32, (_) => rnd.nextInt(256));
@@ -795,22 +803,41 @@ LazyDatabase _openEncryptedConnection() {
       } catch (_) {}
     }
 
+    final dbFolder = await getApplicationDocumentsDirectory().timeout(const Duration(seconds: 4));
+    final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
+    final dbFileExists = file.existsSync() && file.lengthSync() > 0;
+
     const storage = FlutterSecureStorage();
     String? key;
     try {
       key = await storage.read(key: _kDbKeyStorageKey).timeout(const Duration(seconds: 4));
-    } catch (_) {
+    } catch (e) {
+      if (dbFileExists) {
+        throw DatabaseKeyInaccessibleException(
+          'Failed to retrieve database encryption key from secure storage while existing encrypted database is present: $e',
+          cause: e,
+        );
+      }
       key = null;
     }
+
     if (key == null || key.isEmpty) {
+      if (dbFileExists) {
+        throw const DatabaseKeyInaccessibleException(
+          'Existing encrypted database found, but database encryption key is missing from secure storage. '
+          'Refusing to generate a replacement key to prevent user data loss or corruption.',
+        );
+      }
       key = _generateKeyHex();
       try {
         await storage.write(key: _kDbKeyStorageKey, value: key).timeout(const Duration(seconds: 4));
-      } catch (_) {}
+      } catch (e) {
+        throw DatabaseKeyInaccessibleException(
+          'Failed to persist new database encryption key to secure storage: $e',
+          cause: e,
+        );
+      }
     }
-
-    final dbFolder = await getApplicationDocumentsDirectory().timeout(const Duration(seconds: 4));
-    final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
 
     return NativeDatabase(
       file,

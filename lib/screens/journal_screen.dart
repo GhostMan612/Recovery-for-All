@@ -131,14 +131,24 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _openSession() async {
-    final key = await JournalCryptoService.loadMasterKey();
-    if (!mounted) return;
-    setState(() {
-      _masterKey = key;
-      _gate = _JournalGate.open;
-      _pinError = false;
-      _pinController.clear();
-    });
+    try {
+      final entries = await widget.database.watchRecentJournals().first;
+      final key = await JournalCryptoService.loadMasterKey(
+        hasExistingEntries: entries.isNotEmpty,
+      );
+      if (!mounted) return;
+      setState(() {
+        _masterKey = key;
+        _gate = _JournalGate.open;
+        _pinError = false;
+        _pinController.clear();
+      });
+    } on MasterKeyInaccessibleException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Secure storage key error: ${e.message}')),
+      );
+    }
   }
 
   void _relock() {

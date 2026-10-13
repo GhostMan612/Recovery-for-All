@@ -53,7 +53,9 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
       // DECRYPT before display. This list previously rendered
       // `e.contentEncrypted` raw, so users saw ciphertext instead of their own
       // writing. Mirrors journal_screen.dart `_decryptContent`.
-      final key = await JournalCryptoService.loadMasterKey();
+      final key = await JournalCryptoService.loadMasterKey(
+        hasExistingEntries: entries.isNotEmpty,
+      );
       final readable = <String>[];
       for (final e in entries) {
         // `decrypt` already falls back to `decryptLegacy` for pre-ENC2_ rows.

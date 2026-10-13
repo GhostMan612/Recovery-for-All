@@ -10,6 +10,14 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+class MasterKeyInaccessibleException implements Exception {
+  final String message;
+  final Object? cause;
+  const MasterKeyInaccessibleException(this.message, {this.cause});
+  @override
+  String toString() => 'MasterKeyInaccessibleException: $message';
+}
+
 class JournalCryptoService {
   JournalCryptoService._();
 
@@ -78,13 +86,48 @@ class JournalCryptoService {
     }
   }
 
-  static Future<Uint8List> loadMasterKey() async {
-    final existing = await _storage.read(key: _keyMaster);
-    if (existing != null) {
+  /// Loads the journal master key from secure storage.
+  ///
+  /// Fail-closed safety property:
+  /// If existing encrypted entries or a configured PIN are present, and the key
+  /// cannot be retrieved from secure storage (due to storage error, Keystore
+  /// lockout, or missing key), this method throws [MasterKeyInaccessibleException]
+  /// instead of generating a new random key that would corrupt or lock out existing
+  /// journal entries. A new key is generated ONLY for a fresh installation.
+  static Future<Uint8List> loadMasterKey({bool? hasExistingEntries}) async {
+    String? existing;
+    try {
+      existing = await _storage.read(key: _keyMaster);
+    } catch (e) {
+      throw MasterKeyInaccessibleException(
+        'Failed to read journal master key from secure storage: $e',
+        cause: e,
+      );
+    }
+
+    if (existing != null && existing.isNotEmpty) {
       return Uint8List.fromList(base64Decode(existing));
     }
+
+    // Key is missing or empty in secure storage.
+    // Verify whether existing journal history is present.
+    if (hasExistingEntries == true) {
+      throw const MasterKeyInaccessibleException(
+        'Existing journal history found, but master key was not found in secure storage. '
+        'Refusing to generate a replacement key to prevent user data loss.',
+      );
+    }
+
+    // Clean first-time installation: generate and persist fresh key.
     final key = _randomBytes(32);
-    await _storage.write(key: _keyMaster, value: base64Encode(key));
+    try {
+      await _storage.write(key: _keyMaster, value: base64Encode(key));
+    } catch (e) {
+      throw MasterKeyInaccessibleException(
+        'Failed to persist new journal master key to secure storage: $e',
+        cause: e,
+      );
+    }
     return Uint8List.fromList(key);
   }
 

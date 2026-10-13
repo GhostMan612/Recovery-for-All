@@ -121,7 +121,10 @@ Keep it concise, empathetic, and free of medical advice or sycophancy.
   static Future<void> saveToJournal(RecoveryDatabase db, String chronicle) async {
     String sealed;
     try {
-      final key = await JournalCryptoService.loadMasterKey();
+      final entries = await db.watchRecentJournals().first;
+      final key = await JournalCryptoService.loadMasterKey(
+        hasExistingEntries: entries.isNotEmpty,
+      );
       sealed = await JournalCryptoService.encrypt(chronicle, key);
     } catch (e) {
       // Refuse to store a clinical narrative in the clear. Losing the export is
