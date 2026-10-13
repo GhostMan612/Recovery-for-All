@@ -19,10 +19,13 @@ import '../core/privacy/privacy_capability.dart';
 import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
-import '../services/recovery_pet_service.dart';
-import '../services/constellation_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/app_primitives.dart';
+import '../features/navigator/application/meeting_journey_planner.dart';
+import '../features/navigator/data/meeting_destination_adapter.dart';
+import '../features/navigator/ui/widgets/journey_sheet.dart';
+import '../features/progression/application/recovery_action_coordinator.dart';
+import '../features/progression/domain/recovery_action.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
@@ -504,17 +507,42 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
       );
       if (proceed != true) return;
     }
-    final Uri uri;
-    if (meeting.hasLocation) {
-      uri = Uri.parse(
-          'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
-    } else {
-      uri = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
-    }
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    final destination = MeetingDestinationAdapter.fromRecoveryMeeting(meeting);
+    final originLat = _currentPosition?.$1 ?? 44.9778;
+    final originLon = _currentPosition?.$2 ?? -93.2650;
+    final planner = MeetingJourneyPlanner();
+    final planResult = await planner.planJourneyForMeeting(
+      destination: destination,
+      originLat: originLat,
+      originLon: originLon,
+    );
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => SafeArea(
+        child: JourneySheet(
+          planResult: planResult,
+          onLaunchExternalDirections: () async {
+            Navigator.pop(sheetCtx);
+            final Uri uri;
+            if (meeting.hasLocation) {
+              uri = Uri.parse(
+                  'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
+            } else {
+              uri = Uri.parse(
+                  'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
+            }
+            try {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } catch (_) {}
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _joinZoomMeeting(String url) async {
@@ -634,22 +662,33 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
             '[Meeting] ${meeting.name}: ${reflectionData.tag}${reflectionData.text.isNotEmpty ? ' — ${reflectionData.text}' : ''}',
         isSyncedToCloud: false,
       ));
+
+      final coordinator = RecoveryActionCoordinator(database: db);
+      final eventId = RecoveryAction.generateEventId();
+      final action = RecoveryAction(
+        eventId: eventId,
+        actionType: RecoveryActionType.meetingSelfReport,
+        createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        origin: ActionOrigin.localUi,
+        redactedMeta: RedactedActionMeta(intentId: meeting.name),
+      );
+      final result = await coordinator.processAction(action);
+
+      if (!mounted) return;
+      final sparks = result.sparksAwarded;
+      final xp = result.xpAwarded;
+      final levelSuffix = result.leveledUp ? ' • LEVEL UP!' : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          content: Text(
+            sparks > 0
+                ? 'Reflection saved · +$sparks Sparks · +$xp XP$levelSuffix${result.raidSuffix}'
+                : 'Reflection saved · daily Sparks cap reached, and that is fine',
+          ),
+        ),
+      );
     }
-    final before = (await RecoveryPetService.ensureHatched()).sparks;
-    await RecoveryPetService.logMeeting();
-    if (db != null) {
-      await ConstellationService.addMeetingStar(db, meetingName: meeting.name);
-    }
-    final delta = (await RecoveryPetService.ensureHatched()).sparks - before;
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        content: Text(delta > 0
-            ? 'Reflection saved · +$delta Sparks'
-            : 'Reflection saved · daily Sparks cap reached, and that is fine'),
-      ),
-    );
   }
 
   /// Rule R3: Quick-tag reflection sheet for meeting attendance

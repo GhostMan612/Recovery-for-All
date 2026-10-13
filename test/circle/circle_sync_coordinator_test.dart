@@ -4,7 +4,9 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:recovery_for_all/database/recovery_database.dart';
 import 'package:recovery_for_all/features/circle/data/circle_sync_coordinator.dart';
 import 'package:recovery_for_all/features/circle/domain/circle_event.dart';
 import 'package:recovery_for_all/services/community_feed_service.dart';
@@ -54,17 +56,52 @@ void main() {
       expect(coordinator.items.length, 1);
     });
 
-    test('deletion convergence: requestPostDeletion marks item as deleting then deleted tombstone', () async {
+    test('deletion state machine: requestPostDeletion marks as deleting, requires server ack for deleted', () async {
       final result = await coordinator.requestPostDeletion(
         outboxId: 'del-001',
         postId: 'post-123',
         ownerUid: 'uid-456',
       );
 
-      expect(result.status, CircleOutboxStatus.deleted);
+      expect(result.status, CircleOutboxStatus.deleting);
       expect(result.eventType, CircleEventType.postDelete);
       expect(result.payload['postId'], 'post-123');
       expect(result.payload['ownerUid'], 'uid-456');
+
+      // Server acknowledgment promotes to deleted tombstone
+      final confirmed = await coordinator.confirmServerAck('del-001');
+      expect(confirmed?.status, CircleOutboxStatus.deleted);
+    });
+
+    test('durability: survives app restarts and reloads from Drift database', () async {
+      final db = RecoveryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(() => db.close());
+
+      final initialCoordinator = CircleSyncCoordinator(database: db);
+      final enqueued = await initialCoordinator.enqueueEvent(
+        outboxId: 'durable-001',
+        eventType: CircleEventType.postCreate,
+        payload: {'body': 'Persisted across restarts'},
+      );
+
+      expect(enqueued.status, CircleOutboxStatus.localDraft);
+
+      // Verify row in database
+      final row = await db.getCircleOutboxEntry('durable-001');
+      expect(row, isNotNull);
+      expect(row!.status, 'localDraft');
+      expect(row.payloadJson, contains('Persisted across restarts'));
+
+      // Simulate app restart with fresh coordinator instance
+      final restartedCoordinator = CircleSyncCoordinator(database: db);
+      expect(restartedCoordinator.items, isEmpty);
+
+      await restartedCoordinator.loadPersistedOutbox();
+      expect(restartedCoordinator.items.length, 1);
+      final loadedItem = restartedCoordinator.items.first;
+      expect(loadedItem.outboxId, 'durable-001');
+      expect(loadedItem.payload['body'], 'Persisted across restarts');
+      expect(loadedItem.status, CircleOutboxStatus.localDraft);
     });
   });
 }

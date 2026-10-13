@@ -11,11 +11,11 @@ import '../database/recovery_database.dart';
 import '../core/theme/app_colors.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/narrative_export_service.dart';
-import '../services/constellation_service.dart';
 import '../services/recovery_pet_service.dart';
-import '../services/xp_engine_service.dart';
 import '../widgets/app_primitives.dart';
 import '../widgets/chronicle_share_card.dart';
+import '../features/progression/application/recovery_action_coordinator.dart';
+import '../features/progression/domain/recovery_action.dart';
 
 class JournalScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -162,24 +162,31 @@ class _JournalScreenState extends State<JournalScreen> {
       isSyncedToCloud: false,
     );
 
-    final sparksBefore = (await RecoveryPetService.ensureHatched()).sparks;
+    final eventId = RecoveryAction.generateEventId();
     await widget.database.addJournalEntry(entry);
     if (!mounted) return;
-    await XpEngineService.processAction(context, widget.database, 'journal');
-    await RecoveryPetService.logJournalEntry();
-    await ConstellationService.addJournalStar(widget.database);
-    final sparksDelta =
-        (await RecoveryPetService.ensureHatched()).sparks - sparksBefore;
+
+    final coordinator = RecoveryActionCoordinator(database: widget.database);
+    final action = RecoveryAction(
+      eventId: eventId,
+      actionType: RecoveryActionType.journal,
+      createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+      origin: ActionOrigin.localUi,
+    );
+    final result = await coordinator.processAction(action);
     _contentController.clear();
     setState(() {
       _selectedMood = 3;
     });
 
     if (mounted) {
+      final sparks = result.sparksAwarded;
+      final xp = result.xpAwarded;
+      final levelSuffix = result.leveledUp ? ' • LEVEL UP!' : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(sparksDelta > 0
-              ? 'Reflection securely encrypted and saved · +$sparksDelta Sparks'
+          content: Text(sparks > 0
+              ? 'Reflection securely encrypted and saved · +$sparks Sparks · +$xp XP$levelSuffix${result.raidSuffix}'
               : 'Reflection securely encrypted and saved'),
         ),
       );

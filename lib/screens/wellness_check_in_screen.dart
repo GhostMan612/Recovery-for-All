@@ -6,8 +6,8 @@
 import 'package:flutter/material.dart';
 
 import '../database/recovery_database.dart';
-import '../services/recovery_pet_service.dart';
-import '../services/xp_engine_service.dart';
+import '../features/progression/application/recovery_action_coordinator.dart';
+import '../features/progression/domain/recovery_action.dart';
 
 /// Six-dimension wellness wheel check-in (NWI model) with a 7-check-in trend.
 class WellnessCheckInScreen extends StatefulWidget {
@@ -71,12 +71,26 @@ class _WellnessCheckInScreenState extends State<WellnessCheckInScreen> {
       ),
     );
     if (!mounted) return;
-    await XpEngineService.processAction(context, widget.database, 'check_in');
-    await RecoveryPetService.logWellness();
+    final coordinator = RecoveryActionCoordinator(database: widget.database);
+    final eventId = RecoveryAction.generateEventId();
+    final action = RecoveryAction(
+      eventId: eventId,
+      actionType: RecoveryActionType.checkIn,
+      createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+      origin: ActionOrigin.localUi,
+    );
+    final result = await coordinator.processAction(action);
     if (!mounted) return;
+    final sparks = result.sparksAwarded;
+    final xp = result.xpAwarded;
+    final levelSuffix = result.leveledUp ? ' • LEVEL UP!' : '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Check-in saved · your wheel is balanced by honesty, not perfection'),
+        content: Text(
+          sparks > 0
+              ? 'Check-in saved · +$sparks Sparks · +$xp XP$levelSuffix${result.raidSuffix}'
+              : 'Check-in saved · your wheel is balanced by honesty, not perfection',
+        ),
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       ),
     );

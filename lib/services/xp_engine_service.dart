@@ -71,13 +71,11 @@ class XpEngineService {
   /// XP for [actionType], or `null` when the type is not a known action.
   ///
   /// Exposed so callers can REJECT an unknown action instead of silently
-  /// defaulting. `processAction` used to fall back to `_xpMap[type] ?? 10`, so
-  /// a typo in an event name quietly awarded 10 XP forever — a number nobody
-  /// chose and nobody could see.
+  /// defaulting. Fail-closed per CP-02 and Category Platform Phase 1.
   static int? xpFor(String actionType) => _xpMap[actionType];
 
   /// Grants [xp] XP atomically, writes one audit event, and damages an active
-  /// raid by the same amount.
+  /// raid by the same amount. Fails closed on unknown action types.
   ///
   /// [metaJson] is stored verbatim on the audit event — pass the peer alias for
   /// a handshake, so the event is explainable months later.
@@ -88,6 +86,11 @@ class XpEngineService {
     String? metaJson,
     String? eventId,
   }) async {
+    // Fail closed: unregistered actions cannot receive rewards
+    if (_xpMap[actionType] == null) {
+      return const XpGrantOutcome.notGranted();
+    }
+
     final stableId = eventId ?? RecoveryAction.generateEventId();
 
     // Idempotent check: if stableId has already been granted, do not double-allocate
@@ -168,16 +171,17 @@ class XpEngineService {
   }
 
   /// Standard XP grant for a known action, with the standard snackbar.
-  ///
-  /// Unknown [actionType] falls back to 10 XP for backwards compatibility with
-  /// callers that predate [xpFor]; new code should check [xpFor] first.
+  /// Fails closed on unknown action types.
   static Future<XpGrantOutcome> processAction(
     BuildContext context,
     RecoveryDatabase db,
     String actionType, {
     String? eventId,
   }) async {
-    final xp = _xpMap[actionType] ?? 10;
+    final xp = _xpMap[actionType];
+    if (xp == null) {
+      return const XpGrantOutcome.notGranted();
+    }
     final result = await grantXp(db, xp, actionType: actionType, eventId: eventId);
     if (!context.mounted) return result;
 

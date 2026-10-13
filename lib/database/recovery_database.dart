@@ -270,6 +270,22 @@ class RaidVictoryReceipts extends Table {
   Set<Column> get primaryKey => {raidId};
 }
 
+@TableIndex(name: 'idx_circle_outbox_status', columns: {#status, #createdAtUtcMs})
+@DataClassName('CircleOutboxEntry')
+class CircleOutboxEntries extends Table {
+  TextColumn get outboxId => text()();
+  TextColumn get eventType => text()();
+  TextColumn get payloadJson => text()();
+  TextColumn get status => text()();
+  IntColumn get createdAtUtcMs => integer()();
+  IntColumn get lastAttemptUtcMs => integer().nullable()();
+  TextColumn get errorMessage => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {outboxId};
+}
+
+
 @DriftDatabase(tables: [
   Profiles,
   Counters,
@@ -286,6 +302,7 @@ class RaidVictoryReceipts extends Table {
   RewardReceipts,
   RaidDamageReceipts,
   RaidVictoryReceipts,
+  CircleOutboxEntries,
 ])
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
@@ -293,7 +310,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -379,6 +396,10 @@ class RecoveryDatabase extends _$RecoveryDatabase {
               await m.createTable(rewardReceipts);
               await m.createTable(raidDamageReceipts);
               await m.createTable(raidVictoryReceipts);
+            }
+            if (from < 15) {
+              await m.createTable(circleOutboxEntries);
+              await m.createIndex(idxCircleOutboxStatus);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');
@@ -713,6 +734,35 @@ class RecoveryDatabase extends _$RecoveryDatabase {
         .getSingleOrNull();
     return row != null;
   }
+
+  Future<void> addCircleOutboxEntry(CircleOutboxEntry entry) =>
+      into(circleOutboxEntries).insertOnConflictUpdate(entry);
+
+  Future<CircleOutboxEntry?> getCircleOutboxEntry(String outboxId) =>
+      (select(circleOutboxEntries)..where((t) => t.outboxId.equals(outboxId)))
+          .getSingleOrNull();
+
+  Future<List<CircleOutboxEntry>> getAllCircleOutboxEntries() =>
+      (select(circleOutboxEntries)
+            ..orderBy([(t) => OrderingTerm(expression: t.createdAtUtcMs)]))
+          .get();
+
+  Future<void> updateCircleOutboxStatus(
+    String outboxId, {
+    required String status,
+    int? lastAttemptUtcMs,
+    String? errorMessage,
+  }) =>
+      (update(circleOutboxEntries)..where((t) => t.outboxId.equals(outboxId)))
+          .write(CircleOutboxEntriesCompanion(
+        status: Value(status),
+        lastAttemptUtcMs: Value(lastAttemptUtcMs),
+        errorMessage: Value(errorMessage),
+      ));
+
+  Future<void> deleteCircleOutboxEntry(String outboxId) =>
+      (delete(circleOutboxEntries)..where((t) => t.outboxId.equals(outboxId)))
+          .go();
 }
 
 const _kDbKeyStorageKey = 'recovery_db_sqlcipher_key_v1';

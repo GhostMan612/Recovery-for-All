@@ -4,50 +4,107 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:recovery_for_all/database/recovery_database.dart';
 import 'package:recovery_for_all/features/circle/application/cooperative_quest_coordinator.dart';
 import 'package:recovery_for_all/features/circle/data/circle_sync_coordinator.dart';
 import 'package:recovery_for_all/features/circle/domain/circle_event.dart';
 import 'package:recovery_for_all/features/circle/domain/quest_contribution.dart';
+import 'package:recovery_for_all/features/game/application/battle_session_service.dart';
+import 'package:recovery_for_all/features/game/domain/battle_state.dart';
 import 'package:recovery_for_all/features/navigator/application/meeting_journey_planner.dart';
 import 'package:recovery_for_all/features/navigator/application/meeting_schedule_resolver.dart';
+import 'package:recovery_for_all/features/navigator/data/meeting_destination_adapter.dart';
 import 'package:recovery_for_all/features/navigator/domain/meeting_destination.dart';
+import 'package:recovery_for_all/features/navigator/ui/widgets/journey_sheet.dart';
+import 'package:recovery_for_all/features/progression/application/recovery_action_coordinator.dart';
 import 'package:recovery_for_all/features/progression/domain/recovery_action.dart';
 import 'package:recovery_for_all/features/progression/domain/reward_policy.dart';
+import 'package:recovery_for_all/features/quests/application/quest_progressor.dart';
+import 'package:recovery_for_all/features/quests/data/quest_catalog.dart';
+import 'package:recovery_for_all/services/meeting_finder_service.dart';
+import 'package:recovery_for_all/services/recovery_pet_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Category Platform Phases 0-4 End-to-End Coherent Journeys', () {
-    test('Path A: Local-first private progression (Phase 1)', () {
-      final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-      final action = RecoveryAction(
-        eventId: RecoveryAction.generateEventId(),
-        actionType: RecoveryActionType.journal,
-        createdAtUtcMs: nowMs,
-      );
+    late RecoveryDatabase db;
 
-      final allocation = RewardPolicy.evaluate(action.actionType);
-      expect(allocation, isNotNull);
-      expect(allocation!.xp, greaterThan(0));
-      expect(allocation.sparks, greaterThanOrEqualTo(0));
-      expect(action.eventId, isNotEmpty);
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = RecoveryDatabase.forTesting(NativeDatabase.memory());
+      RecoveryPetService.bindDatabase(db);
+      await RecoveryPetService.ensureHatched();
     });
 
-    test('Path B: Meeting reachability and navigation fallback (Phase 2)', () async {
-      const destination = MeetingDestination(
-        sourceId: 'tsml_aa_minnesota',
-        sourceMeetingId: 'mtg-889',
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('Path A: Screen-to-ledger atomic progression and idempotency (Phase 1)', () async {
+      final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+      final coordinator = RecoveryActionCoordinator(database: db);
+      final eventId = RecoveryAction.generateEventId();
+
+      final action = RecoveryAction(
+        eventId: eventId,
+        actionType: RecoveryActionType.journal,
+        createdAtUtcMs: nowMs,
+        origin: ActionOrigin.localUi,
+      );
+
+      // 1. First execution allocates rewards atomically
+      final firstResult = await coordinator.processAction(action);
+      expect(firstResult.outcome, RewardOutcome.granted);
+      expect(firstResult.xpAwarded, 25);
+      expect(firstResult.sparksAwarded, 10);
+
+      // Verify canonical ledger entries in database
+      final receipt = await (db.select(db.rewardReceipts)
+            ..where((t) => t.eventId.equals(eventId)))
+          .getSingleOrNull();
+      expect(receipt, isNotNull);
+      expect(receipt!.xp, 25);
+      expect(receipt.sparks, 10);
+      expect(receipt.status, 'granted');
+
+      // Verify constellation star projection occurred
+      final stars = await db.select(db.constellationPoints).get();
+      expect(stars.any((s) => s.id.contains(eventId)), isTrue);
+
+      // 2. Double-tap / duplicate retry with same eventId fails safe and idempotent
+      final duplicateResult = await coordinator.processAction(action);
+      expect(duplicateResult.outcome, RewardOutcome.alreadyApplied);
+      expect(duplicateResult.xpAwarded, 0);
+      expect(duplicateResult.sparksAwarded, 0);
+
+      // Assert pet balance was NOT inflated
+      final pet = await db.getPet(RecoveryPetService.defaultPetId);
+      expect(pet, isNotNull);
+      expect(pet!.pathXp, 25);
+      expect(pet.sparks, 10);
+    });
+
+    test('Path B: Meeting reachability, planning, and navigation fallback (Phase 2)', () async {
+      final recoveryMeeting = RecoveryMeeting(
+        id: 'tsml_aa_minnesota:mtg-889',
         name: 'Uptown Alano Step Study',
         fellowship: 'AA',
-        meetingType: 'Step Study',
+        address: '2214 S 10th Ave, Minneapolis, MN',
+        type: 'Step Study',
+        time: '7:00 PM',
+        day: 1, // Monday
+        minutes: 19 * 60,
         latitude: 44.9500,
         longitude: -93.2900,
-        address: '2214 S 10th Ave',
-        dayOfWeek: 1, // Monday
-        minuteOfDay: 19 * 60, // 7:00 PM
-        fetchedAtUtcMs: 1791750000000,
       );
+
+      final destination = MeetingDestinationAdapter.fromRecoveryMeeting(recoveryMeeting);
+      expect(destination.compositeId, 'tsml_aa_minnesota:mtg-889');
 
       final schedule = MeetingScheduleResolver.resolveNextOccurrence(
         destination,
@@ -64,48 +121,101 @@ void main() {
         originLon: -93.2600,
       );
 
-      expect(journeyResult.destination.compositeId, 'tsml_aa_minnesota:mtg-889');
       // When native SDK is unlinked, provides external Google Maps directions link
       expect(journeyResult.fallbackExternalDirectionsUrl, isNotNull);
       expect(journeyResult.fallbackExternalDirectionsUrl, contains('google.com/maps/dir'));
+      expect(journeyResult.isRouteAvailableInApp, isFalse);
     });
 
-    test('Path C: Recovery Circle cooperative support and outbox tombstone (Phase 0 & 3)', () async {
-      final syncCoordinator = CircleSyncCoordinator();
-      syncCoordinator.clearForTesting();
+    testWidgets('Path B2: JourneySheet renders destination details and external navigation trigger', (tester) async {
+      const destination = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: 'mtg-ui-1',
+        name: 'St. Paul Sunrise Group',
+        fellowship: 'AA',
+        meetingType: 'Discussion',
+        latitude: 44.9400,
+        longitude: -93.1000,
+        address: '123 University Ave',
+        fetchedAtUtcMs: 1791750000000,
+      );
 
-      // Enqueue draft: fail-closed interim safeguard preserves post locally
+      const planResult = PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: ScheduleResolutionResult(
+          status: MeetingScheduleStatus.scheduled,
+          minutesUntil: 45,
+          statusDescription: 'Starts in 45m',
+        ),
+        fallbackExternalDirectionsUrl: 'https://maps.google.com/test',
+        isRouteAvailableInApp: false,
+        statusMessage: 'In-app transit routing unavailable. Open external directions.',
+      );
+
+      bool launchedExternal = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: JourneySheet(
+              planResult: planResult,
+              onLaunchExternalDirections: () => launchedExternal = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('St. Paul Sunrise Group'), findsOneWidget);
+      expect(find.textContaining('AA • Starts in 45m'), findsOneWidget);
+
+      final directionsBtn = find.text('Open External Directions (Google Maps)');
+      expect(directionsBtn, findsOneWidget);
+      await tester.tap(directionsBtn);
+      await tester.pump();
+      expect(launchedExternal, isTrue);
+    });
+
+    test('Path C: Recovery Circle cooperative support and durable outbox restart survival (Phase 0 & 3)', () async {
+      // 1. Initial coordinator enqueues post with durable database backing
+      final syncCoordinator = CircleSyncCoordinator(database: db);
+
       final draft = await syncCoordinator.enqueueEvent(
-        outboxId: 'draft-99',
+        outboxId: 'draft-durable-1',
         eventType: CircleEventType.postCreate,
         payload: {'body': 'One day at a time.'},
       );
       expect(draft.status, CircleOutboxStatus.localDraft);
 
-      // Cooperative quest flow
-      final questCoordinator = CooperativeQuestCoordinator();
-      const actor = 'actor-phoenix';
-      questCoordinator.joinQuest('cq_ground_together', actor);
-      expect(questCoordinator.isMember('cq_ground_together', actor), isTrue);
+      // Verify row persisted in Drift database
+      final row = await db.getCircleOutboxEntry('draft-durable-1');
+      expect(row, isNotNull);
+      expect(row!.status, 'localDraft');
+      expect(row.payloadJson, contains('One day at a time.'));
 
-      final contributed = questCoordinator.submitContribution(
-        CircleQuestContribution(
-          contributionId: 'contrib-flow-1',
-          questInstanceId: 'cq_ground_together',
-          actorRef: actor,
-          intentId: 'ground_together',
-          createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
-        ),
-      );
-      expect(contributed, isTrue);
+      // 2. Restart simulation: brand new instance reloads persisted state
+      final restartedCoordinator = CircleSyncCoordinator(database: db);
+      await restartedCoordinator.loadPersistedOutbox();
+      expect(restartedCoordinator.items.length, 1);
+      expect(restartedCoordinator.items.first.outboxId, 'draft-durable-1');
 
-      // Deletion convergence with tombstone
-      final tombstone = await syncCoordinator.requestPostDeletion(
+      // 3. Deletion state accuracy: request marks as deleting, requires proof before deleted
+      final pendingDeletion = await restartedCoordinator.requestPostDeletion(
         outboxId: 'del-flow-1',
         postId: 'post-xyz',
         ownerUid: 'uid-abc',
       );
-      expect(tombstone.status, CircleOutboxStatus.deleted);
+      expect(pendingDeletion.status, CircleOutboxStatus.deleting);
+
+      // Persisted in deleting state
+      final delRow = await db.getCircleOutboxEntry('del-flow-1');
+      expect(delRow?.status, 'deleting');
+
+      // Server acknowledgment promotes to deleted
+      final tombstone = await restartedCoordinator.confirmServerAck('del-flow-1');
+      expect(tombstone?.status, CircleOutboxStatus.deleted);
+
+      final finalDelRow = await db.getCircleOutboxEntry('del-flow-1');
+      expect(finalDelRow?.status, 'deleted');
     });
 
     test('Path D: Non-punitive opt-out and independence from gameplay (Phase 1, 3, 4)', () {
@@ -130,6 +240,37 @@ void main() {
         ),
       );
       expect(ignored, isFalse);
+    });
+
+    test('Path E: Combat engine reducer and gentle quests integration (Phase 1)', () async {
+      // 1. Gentle quest accommodation workflow
+      final progressor = QuestProgressor(database: db);
+      final activeQuests = await progressor.getActiveQuests();
+      expect(activeQuests, isNotEmpty);
+
+      final initialQuest = activeQuests.first;
+      final def = QuestCatalog.getDefinition(initialQuest.definitionId)!;
+      final alt = def.alternativeAccommodations.first;
+
+      await progressor.selectAlternative(
+        initialQuest.instanceId,
+        alt,
+      );
+      final refreshed = (await progressor.getActiveQuests()).first;
+      expect(refreshed.selectedAlternative, alt);
+
+      // 2. Battle session pure reducer workflow
+      final state = await BattleSessionService.startSession(
+        db: db,
+        petEnergy: 80,
+        petBond: 10,
+        petSparks: 50,
+        difficulty: BattleDifficulty.guided,
+        customSeed: 12345,
+      );
+
+      expect(state.phase, BattlePhase.playerTurn);
+      expect(state.monster.maxHp, lessThan(40));
     });
   });
 }

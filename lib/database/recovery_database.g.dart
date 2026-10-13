@@ -7112,6 +7112,498 @@ class RaidVictoryReceiptsCompanion
   }
 }
 
+class $CircleOutboxEntriesTable extends CircleOutboxEntries
+    with TableInfo<$CircleOutboxEntriesTable, CircleOutboxEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CircleOutboxEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _outboxIdMeta = const VerificationMeta(
+    'outboxId',
+  );
+  @override
+  late final GeneratedColumn<String> outboxId = GeneratedColumn<String>(
+    'outbox_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventTypeMeta = const VerificationMeta(
+    'eventType',
+  );
+  @override
+  late final GeneratedColumn<String> eventType = GeneratedColumn<String>(
+    'event_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMsMeta = const VerificationMeta(
+    'createdAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtUtcMs = GeneratedColumn<int>(
+    'created_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastAttemptUtcMsMeta = const VerificationMeta(
+    'lastAttemptUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> lastAttemptUtcMs = GeneratedColumn<int>(
+    'last_attempt_utc_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    outboxId,
+    eventType,
+    payloadJson,
+    status,
+    createdAtUtcMs,
+    lastAttemptUtcMs,
+    errorMessage,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'circle_outbox_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CircleOutboxEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('outbox_id')) {
+      context.handle(
+        _outboxIdMeta,
+        outboxId.isAcceptableOrUnknown(data['outbox_id']!, _outboxIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_outboxIdMeta);
+    }
+    if (data.containsKey('event_type')) {
+      context.handle(
+        _eventTypeMeta,
+        eventType.isAcceptableOrUnknown(data['event_type']!, _eventTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventTypeMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('created_at_utc_ms')) {
+      context.handle(
+        _createdAtUtcMsMeta,
+        createdAtUtcMs.isAcceptableOrUnknown(
+          data['created_at_utc_ms']!,
+          _createdAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMsMeta);
+    }
+    if (data.containsKey('last_attempt_utc_ms')) {
+      context.handle(
+        _lastAttemptUtcMsMeta,
+        lastAttemptUtcMs.isAcceptableOrUnknown(
+          data['last_attempt_utc_ms']!,
+          _lastAttemptUtcMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {outboxId};
+  @override
+  CircleOutboxEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CircleOutboxEntry(
+      outboxId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outbox_id'],
+      )!,
+      eventType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_type'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_utc_ms'],
+      )!,
+      lastAttemptUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_attempt_utc_ms'],
+      ),
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+    );
+  }
+
+  @override
+  $CircleOutboxEntriesTable createAlias(String alias) {
+    return $CircleOutboxEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class CircleOutboxEntry extends DataClass
+    implements Insertable<CircleOutboxEntry> {
+  final String outboxId;
+  final String eventType;
+  final String payloadJson;
+  final String status;
+  final int createdAtUtcMs;
+  final int? lastAttemptUtcMs;
+  final String? errorMessage;
+  const CircleOutboxEntry({
+    required this.outboxId,
+    required this.eventType,
+    required this.payloadJson,
+    required this.status,
+    required this.createdAtUtcMs,
+    this.lastAttemptUtcMs,
+    this.errorMessage,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['outbox_id'] = Variable<String>(outboxId);
+    map['event_type'] = Variable<String>(eventType);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['status'] = Variable<String>(status);
+    map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs);
+    if (!nullToAbsent || lastAttemptUtcMs != null) {
+      map['last_attempt_utc_ms'] = Variable<int>(lastAttemptUtcMs);
+    }
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    return map;
+  }
+
+  CircleOutboxEntriesCompanion toCompanion(bool nullToAbsent) {
+    return CircleOutboxEntriesCompanion(
+      outboxId: Value(outboxId),
+      eventType: Value(eventType),
+      payloadJson: Value(payloadJson),
+      status: Value(status),
+      createdAtUtcMs: Value(createdAtUtcMs),
+      lastAttemptUtcMs: lastAttemptUtcMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttemptUtcMs),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+    );
+  }
+
+  factory CircleOutboxEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CircleOutboxEntry(
+      outboxId: serializer.fromJson<String>(json['outboxId']),
+      eventType: serializer.fromJson<String>(json['eventType']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAtUtcMs: serializer.fromJson<int>(json['createdAtUtcMs']),
+      lastAttemptUtcMs: serializer.fromJson<int?>(json['lastAttemptUtcMs']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'outboxId': serializer.toJson<String>(outboxId),
+      'eventType': serializer.toJson<String>(eventType),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'status': serializer.toJson<String>(status),
+      'createdAtUtcMs': serializer.toJson<int>(createdAtUtcMs),
+      'lastAttemptUtcMs': serializer.toJson<int?>(lastAttemptUtcMs),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+    };
+  }
+
+  CircleOutboxEntry copyWith({
+    String? outboxId,
+    String? eventType,
+    String? payloadJson,
+    String? status,
+    int? createdAtUtcMs,
+    Value<int?> lastAttemptUtcMs = const Value.absent(),
+    Value<String?> errorMessage = const Value.absent(),
+  }) => CircleOutboxEntry(
+    outboxId: outboxId ?? this.outboxId,
+    eventType: eventType ?? this.eventType,
+    payloadJson: payloadJson ?? this.payloadJson,
+    status: status ?? this.status,
+    createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+    lastAttemptUtcMs: lastAttemptUtcMs.present
+        ? lastAttemptUtcMs.value
+        : this.lastAttemptUtcMs,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+  );
+  CircleOutboxEntry copyWithCompanion(CircleOutboxEntriesCompanion data) {
+    return CircleOutboxEntry(
+      outboxId: data.outboxId.present ? data.outboxId.value : this.outboxId,
+      eventType: data.eventType.present ? data.eventType.value : this.eventType,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      status: data.status.present ? data.status.value : this.status,
+      createdAtUtcMs: data.createdAtUtcMs.present
+          ? data.createdAtUtcMs.value
+          : this.createdAtUtcMs,
+      lastAttemptUtcMs: data.lastAttemptUtcMs.present
+          ? data.lastAttemptUtcMs.value
+          : this.lastAttemptUtcMs,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CircleOutboxEntry(')
+          ..write('outboxId: $outboxId, ')
+          ..write('eventType: $eventType, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('lastAttemptUtcMs: $lastAttemptUtcMs, ')
+          ..write('errorMessage: $errorMessage')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    outboxId,
+    eventType,
+    payloadJson,
+    status,
+    createdAtUtcMs,
+    lastAttemptUtcMs,
+    errorMessage,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CircleOutboxEntry &&
+          other.outboxId == this.outboxId &&
+          other.eventType == this.eventType &&
+          other.payloadJson == this.payloadJson &&
+          other.status == this.status &&
+          other.createdAtUtcMs == this.createdAtUtcMs &&
+          other.lastAttemptUtcMs == this.lastAttemptUtcMs &&
+          other.errorMessage == this.errorMessage);
+}
+
+class CircleOutboxEntriesCompanion extends UpdateCompanion<CircleOutboxEntry> {
+  final Value<String> outboxId;
+  final Value<String> eventType;
+  final Value<String> payloadJson;
+  final Value<String> status;
+  final Value<int> createdAtUtcMs;
+  final Value<int?> lastAttemptUtcMs;
+  final Value<String?> errorMessage;
+  final Value<int> rowid;
+  const CircleOutboxEntriesCompanion({
+    this.outboxId = const Value.absent(),
+    this.eventType = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAtUtcMs = const Value.absent(),
+    this.lastAttemptUtcMs = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CircleOutboxEntriesCompanion.insert({
+    required String outboxId,
+    required String eventType,
+    required String payloadJson,
+    required String status,
+    required int createdAtUtcMs,
+    this.lastAttemptUtcMs = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : outboxId = Value(outboxId),
+       eventType = Value(eventType),
+       payloadJson = Value(payloadJson),
+       status = Value(status),
+       createdAtUtcMs = Value(createdAtUtcMs);
+  static Insertable<CircleOutboxEntry> custom({
+    Expression<String>? outboxId,
+    Expression<String>? eventType,
+    Expression<String>? payloadJson,
+    Expression<String>? status,
+    Expression<int>? createdAtUtcMs,
+    Expression<int>? lastAttemptUtcMs,
+    Expression<String>? errorMessage,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (outboxId != null) 'outbox_id': outboxId,
+      if (eventType != null) 'event_type': eventType,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (status != null) 'status': status,
+      if (createdAtUtcMs != null) 'created_at_utc_ms': createdAtUtcMs,
+      if (lastAttemptUtcMs != null) 'last_attempt_utc_ms': lastAttemptUtcMs,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CircleOutboxEntriesCompanion copyWith({
+    Value<String>? outboxId,
+    Value<String>? eventType,
+    Value<String>? payloadJson,
+    Value<String>? status,
+    Value<int>? createdAtUtcMs,
+    Value<int?>? lastAttemptUtcMs,
+    Value<String?>? errorMessage,
+    Value<int>? rowid,
+  }) {
+    return CircleOutboxEntriesCompanion(
+      outboxId: outboxId ?? this.outboxId,
+      eventType: eventType ?? this.eventType,
+      payloadJson: payloadJson ?? this.payloadJson,
+      status: status ?? this.status,
+      createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+      lastAttemptUtcMs: lastAttemptUtcMs ?? this.lastAttemptUtcMs,
+      errorMessage: errorMessage ?? this.errorMessage,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (outboxId.present) {
+      map['outbox_id'] = Variable<String>(outboxId.value);
+    }
+    if (eventType.present) {
+      map['event_type'] = Variable<String>(eventType.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAtUtcMs.present) {
+      map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs.value);
+    }
+    if (lastAttemptUtcMs.present) {
+      map['last_attempt_utc_ms'] = Variable<int>(lastAttemptUtcMs.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CircleOutboxEntriesCompanion(')
+          ..write('outboxId: $outboxId, ')
+          ..write('eventType: $eventType, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('lastAttemptUtcMs: $lastAttemptUtcMs, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$RecoveryDatabase extends GeneratedDatabase {
   _$RecoveryDatabase(QueryExecutor e) : super(e);
   $RecoveryDatabaseManager get managers => $RecoveryDatabaseManager(this);
@@ -7139,6 +7631,8 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
       $RaidDamageReceiptsTable(this);
   late final $RaidVictoryReceiptsTable raidVictoryReceipts =
       $RaidVictoryReceiptsTable(this);
+  late final $CircleOutboxEntriesTable circleOutboxEntries =
+      $CircleOutboxEntriesTable(this);
   late final Index idxJournalTs = Index(
     'idx_journal_ts',
     'CREATE INDEX idx_journal_ts ON journal_entries (timestamp)',
@@ -7171,6 +7665,10 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     'idx_sync_key_ts',
     'CREATE INDEX idx_sync_key_ts ON fellowship_syncs (peer_key_b64, timestamp)',
   );
+  late final Index idxCircleOutboxStatus = Index(
+    'idx_circle_outbox_status',
+    'CREATE INDEX idx_circle_outbox_status ON circle_outbox_entries (status, created_at_utc_ms)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7191,6 +7689,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     rewardReceipts,
     raidDamageReceipts,
     raidVictoryReceipts,
+    circleOutboxEntries,
     idxJournalTs,
     idxPointsTs,
     idxCheckinTs,
@@ -7199,6 +7698,7 @@ abstract class _$RecoveryDatabase extends GeneratedDatabase {
     idxFeedFlag,
     idxSyncPeerTs,
     idxSyncKeyTs,
+    idxCircleOutboxStatus,
   ];
 }
 
@@ -10947,6 +11447,268 @@ typedef $$RaidVictoryReceiptsTableProcessedTableManager =
       RaidVictoryReceiptRow,
       PrefetchHooks Function()
     >;
+typedef $$CircleOutboxEntriesTableCreateCompanionBuilder =
+    CircleOutboxEntriesCompanion Function({
+      required String outboxId,
+      required String eventType,
+      required String payloadJson,
+      required String status,
+      required int createdAtUtcMs,
+      Value<int?> lastAttemptUtcMs,
+      Value<String?> errorMessage,
+      Value<int> rowid,
+    });
+typedef $$CircleOutboxEntriesTableUpdateCompanionBuilder =
+    CircleOutboxEntriesCompanion Function({
+      Value<String> outboxId,
+      Value<String> eventType,
+      Value<String> payloadJson,
+      Value<String> status,
+      Value<int> createdAtUtcMs,
+      Value<int?> lastAttemptUtcMs,
+      Value<String?> errorMessage,
+      Value<int> rowid,
+    });
+
+class $$CircleOutboxEntriesTableFilterComposer
+    extends Composer<_$RecoveryDatabase, $CircleOutboxEntriesTable> {
+  $$CircleOutboxEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get outboxId => $composableBuilder(
+    column: $table.outboxId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastAttemptUtcMs => $composableBuilder(
+    column: $table.lastAttemptUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CircleOutboxEntriesTableOrderingComposer
+    extends Composer<_$RecoveryDatabase, $CircleOutboxEntriesTable> {
+  $$CircleOutboxEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get outboxId => $composableBuilder(
+    column: $table.outboxId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastAttemptUtcMs => $composableBuilder(
+    column: $table.lastAttemptUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CircleOutboxEntriesTableAnnotationComposer
+    extends Composer<_$RecoveryDatabase, $CircleOutboxEntriesTable> {
+  $$CircleOutboxEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get outboxId =>
+      $composableBuilder(column: $table.outboxId, builder: (column) => column);
+
+  GeneratedColumn<String> get eventType =>
+      $composableBuilder(column: $table.eventType, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastAttemptUtcMs => $composableBuilder(
+    column: $table.lastAttemptUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+}
+
+class $$CircleOutboxEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$RecoveryDatabase,
+          $CircleOutboxEntriesTable,
+          CircleOutboxEntry,
+          $$CircleOutboxEntriesTableFilterComposer,
+          $$CircleOutboxEntriesTableOrderingComposer,
+          $$CircleOutboxEntriesTableAnnotationComposer,
+          $$CircleOutboxEntriesTableCreateCompanionBuilder,
+          $$CircleOutboxEntriesTableUpdateCompanionBuilder,
+          (
+            CircleOutboxEntry,
+            BaseReferences<
+              _$RecoveryDatabase,
+              $CircleOutboxEntriesTable,
+              CircleOutboxEntry
+            >,
+          ),
+          CircleOutboxEntry,
+          PrefetchHooks Function()
+        > {
+  $$CircleOutboxEntriesTableTableManager(
+    _$RecoveryDatabase db,
+    $CircleOutboxEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CircleOutboxEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CircleOutboxEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CircleOutboxEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> outboxId = const Value.absent(),
+                Value<String> eventType = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> createdAtUtcMs = const Value.absent(),
+                Value<int?> lastAttemptUtcMs = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CircleOutboxEntriesCompanion(
+                outboxId: outboxId,
+                eventType: eventType,
+                payloadJson: payloadJson,
+                status: status,
+                createdAtUtcMs: createdAtUtcMs,
+                lastAttemptUtcMs: lastAttemptUtcMs,
+                errorMessage: errorMessage,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String outboxId,
+                required String eventType,
+                required String payloadJson,
+                required String status,
+                required int createdAtUtcMs,
+                Value<int?> lastAttemptUtcMs = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CircleOutboxEntriesCompanion.insert(
+                outboxId: outboxId,
+                eventType: eventType,
+                payloadJson: payloadJson,
+                status: status,
+                createdAtUtcMs: createdAtUtcMs,
+                lastAttemptUtcMs: lastAttemptUtcMs,
+                errorMessage: errorMessage,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CircleOutboxEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$RecoveryDatabase,
+      $CircleOutboxEntriesTable,
+      CircleOutboxEntry,
+      $$CircleOutboxEntriesTableFilterComposer,
+      $$CircleOutboxEntriesTableOrderingComposer,
+      $$CircleOutboxEntriesTableAnnotationComposer,
+      $$CircleOutboxEntriesTableCreateCompanionBuilder,
+      $$CircleOutboxEntriesTableUpdateCompanionBuilder,
+      (
+        CircleOutboxEntry,
+        BaseReferences<
+          _$RecoveryDatabase,
+          $CircleOutboxEntriesTable,
+          CircleOutboxEntry
+        >,
+      ),
+      CircleOutboxEntry,
+      PrefetchHooks Function()
+    >;
 
 class $RecoveryDatabaseManager {
   final _$RecoveryDatabase _db;
@@ -10981,4 +11743,6 @@ class $RecoveryDatabaseManager {
       $$RaidDamageReceiptsTableTableManager(_db, _db.raidDamageReceipts);
   $$RaidVictoryReceiptsTableTableManager get raidVictoryReceipts =>
       $$RaidVictoryReceiptsTableTableManager(_db, _db.raidVictoryReceipts);
+  $$CircleOutboxEntriesTableTableManager get circleOutboxEntries =>
+      $$CircleOutboxEntriesTableTableManager(_db, _db.circleOutboxEntries);
 }
