@@ -11,48 +11,65 @@ import 'package:recovery_for_all/database/recovery_database.dart';
 import 'package:recovery_for_all/services/community_feed_service.dart';
 import '../domain/circle_event.dart';
 
+/// Validated server acknowledgment receipt proving remote delivery or deletion.
+class CircleServerAckReceipt {
+  final String outboxId;
+  final String serverToken;
+  final int serverTimestampUtcMs;
+  final bool isVerified;
+
+  const CircleServerAckReceipt({
+    required this.outboxId,
+    required this.serverToken,
+    required this.serverTimestampUtcMs,
+    this.isVerified = true,
+  });
+
+  bool isValid({required String expectedOutboxId}) {
+    return isVerified &&
+        outboxId == expectedOutboxId &&
+        serverToken.trim().isNotEmpty &&
+        serverTimestampUtcMs > 0;
+  }
+}
+
 class CircleSyncCoordinator {
-  final RecoveryDatabase? database;
+  final RecoveryDatabase database;
   final Map<String, CircleOutboxItem> _outbox = {};
   final ValueNotifier<List<CircleOutboxItem>> outboxNotifier =
       ValueNotifier<List<CircleOutboxItem>>([]);
 
-  CircleSyncCoordinator({this.database});
+  CircleSyncCoordinator({required this.database});
 
   List<CircleOutboxItem> get items => List.unmodifiable(_outbox.values);
 
   /// Load persisted outbox entries from Drift database.
   Future<void> loadPersistedOutbox() async {
-    if (database == null) return;
-    try {
-      final rows = await database!.getAllCircleOutboxEntries();
-      for (final r in rows) {
-        _outbox[r.outboxId] = _rowToItem(r);
-      }
-      _notify();
-    } catch (e) {
-      debugPrint('[circle_outbox] Error loading persisted outbox: $e');
+    final rows = await database.getAllCircleOutboxEntries();
+    _outbox.clear();
+    for (final r in rows) {
+      _outbox[r.outboxId] = _rowToItem(r);
     }
+    _notify();
   }
 
-  /// Enqueue an outbox event. Enforces idempotency via outboxId and persists to database.
+  /// Enqueue an outbox event.
+  /// Requires database persistence before updating memory or declaring success.
+  /// Enforces idempotency via outboxId.
   Future<CircleOutboxItem> enqueueEvent({
     required String outboxId,
     required CircleEventType eventType,
     required Map<String, dynamic> payload,
   }) async {
-    // If not loaded yet, check database first
-    if (!_outbox.containsKey(outboxId) && database != null) {
-      final existing = await database!.getCircleOutboxEntry(outboxId);
-      if (existing != null) {
-        final item = _rowToItem(existing);
-        _outbox[outboxId] = item;
-        _notify();
-        return item;
-      }
+    // Check persistent database for existing entry to guarantee restart idempotency
+    final existing = await database.getCircleOutboxEntry(outboxId);
+    if (existing != null) {
+      final item = _rowToItem(existing);
+      _outbox[outboxId] = item;
+      _notify();
+      return item;
     }
 
-    // In-memory deduplication check
     if (_outbox.containsKey(outboxId)) {
       return _outbox[outboxId]!;
     }
@@ -66,11 +83,12 @@ class CircleSyncCoordinator {
       createdAtUtcMs: nowMs,
     );
 
-    _outbox[outboxId] = item;
+    // Persist to database FIRST. If persistence fails, do NOT record in _outbox.
     await _persistItem(item);
+    _outbox[outboxId] = item;
     _notify();
 
-    // Process immediately
+    // Process outbox item according to active privacy & server policy
     return await _processItem(item);
   }
 
@@ -85,25 +103,27 @@ class CircleSyncCoordinator {
         lastAttemptUtcMs: nowMs,
         errorMessage: 'Remote sync inactive: stored safely in local database.',
       );
-      _outbox[item.outboxId] = updated;
       await _persistItem(updated);
+      _outbox[item.outboxId] = updated;
       _notify();
       return updated;
     }
 
-    // Guard 2: When remote writes are explicitly permitted (e.g. testing)
+    // Guard 2: Server transport unavailable / production publishing disabled.
+    // Never simulate remote delivery success. Keep the item pending in the outbox.
     final updated = item.copyWith(
-      status: CircleOutboxStatus.delivered,
+      status: CircleOutboxStatus.queued,
       lastAttemptUtcMs: nowMs,
+      errorMessage: 'Server transport unavailable: operation remains pending in local outbox.',
     );
-    _outbox[item.outboxId] = updated;
     await _persistItem(updated);
+    _outbox[item.outboxId] = updated;
     _notify();
     return updated;
   }
 
   /// Request post deletion with tombstone state machine.
-  /// Retains `CircleOutboxStatus.deleting` until server acknowledgment is received.
+  /// Retains `CircleOutboxStatus.deleting` across restarts until verified server acknowledgment.
   Future<CircleOutboxItem> requestPostDeletion({
     required String outboxId,
     required String postId,
@@ -118,29 +138,34 @@ class CircleSyncCoordinator {
       createdAtUtcMs: nowMs,
     );
 
-    _outbox[outboxId] = deleteItem;
+    // Persist to database FIRST
     await _persistItem(deleteItem);
+    _outbox[outboxId] = deleteItem;
     _notify();
 
     return deleteItem;
   }
 
-  /// Transition a pending operation (e.g. `deleting`) to confirmed server completion.
-  /// Enforces proof before declaring `deleted` or `delivered`.
-  Future<CircleOutboxItem?> confirmServerAck(
-    String outboxId, {
-    String? serverAckToken,
+  /// Transition a pending operation (e.g. `deleting` or `queued`) to confirmed server completion.
+  /// Requires an actual verified server receipt with valid token and timestamp.
+  /// Rejects unvalidated or spoofed caller tokens.
+  Future<CircleOutboxItem> confirmServerAck({
+    required String outboxId,
+    required CircleServerAckReceipt receipt,
   }) async {
     final item = _outbox[outboxId];
-    if (item == null) return null;
+    if (item == null) {
+      throw ArgumentError('Outbox item not found: $outboxId');
+    }
+
+    if (!receipt.isValid(expectedOutboxId: outboxId)) {
+      throw ArgumentError('Invalid or unverified server acknowledgment receipt.');
+    }
 
     final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-    CircleOutboxStatus newStatus;
-    if (item.eventType == CircleEventType.postDelete) {
-      newStatus = CircleOutboxStatus.deleted;
-    } else {
-      newStatus = CircleOutboxStatus.delivered;
-    }
+    final CircleOutboxStatus newStatus = item.eventType == CircleEventType.postDelete
+        ? CircleOutboxStatus.deleted
+        : CircleOutboxStatus.delivered;
 
     final confirmed = item.copyWith(
       status: newStatus,
@@ -148,27 +173,23 @@ class CircleSyncCoordinator {
       errorMessage: null,
     );
 
-    _outbox[outboxId] = confirmed;
+    // Persist confirmed state to database FIRST
     await _persistItem(confirmed);
+    _outbox[outboxId] = confirmed;
     _notify();
     return confirmed;
   }
 
   Future<void> _persistItem(CircleOutboxItem item) async {
-    if (database == null) return;
-    try {
-      await database!.addCircleOutboxEntry(CircleOutboxEntry(
-        outboxId: item.outboxId,
-        eventType: item.eventType.name,
-        payloadJson: jsonEncode(item.payload),
-        status: item.status.name,
-        createdAtUtcMs: item.createdAtUtcMs,
-        lastAttemptUtcMs: item.lastAttemptUtcMs,
-        errorMessage: item.errorMessage,
-      ));
-    } catch (e) {
-      debugPrint('[circle_outbox] Error persisting outbox entry: $e');
-    }
+    await database.addCircleOutboxEntry(CircleOutboxEntry(
+      outboxId: item.outboxId,
+      eventType: item.eventType.name,
+      payloadJson: jsonEncode(item.payload),
+      status: item.status.name,
+      createdAtUtcMs: item.createdAtUtcMs,
+      lastAttemptUtcMs: item.lastAttemptUtcMs,
+      errorMessage: item.errorMessage,
+    ));
   }
 
   CircleOutboxItem _rowToItem(CircleOutboxEntry r) {

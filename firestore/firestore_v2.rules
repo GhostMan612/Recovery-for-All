@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // DEFAULT DENY BACKSTOP
+    // =====================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =====================================================================
+    // CIRCLE PROTOCOL V2 — Server-authoritative, owner-bound community feed
+    // (Proposed & verified under local emulator; NOT deployed to production)
+    //
+    // Differences from legacy community_feeds:
+    // 1. Creation requires authenticated session AND `request.resource.data.ownerUid == request.auth.uid`.
+    // 2. OwnerUid and creation metadata are permanently immutable.
+    // 3. Deletion is strictly owner-bound: `resource.data.ownerUid == request.auth.uid`.
+    // 4. Reactions are partitioned into a subcollection with docId = {actorUid}_{kind}.
+    //    Only the authentic actor may write or toggle their own reaction.
+    // 5. Reports are write-only for reporters and completely unreadable by clients.
+    // =====================================================================
+    match /circle_v2/posts/{postId} {
+      // Shared read across authenticated circle members
+      allow read: if request.auth != null;
+
+      // Create: Owner-bound creation. Caller MUST authenticate and match ownerUid.
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['ownerUid', 'authorAlias', 'body', 'createdAt', 'status'])
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.body is string
+                    && request.resource.data.body.size() > 0
+                    && request.resource.data.body.size() <= 480
+                    && request.resource.data.authorAlias is string
+                    && request.resource.data.authorAlias.size() > 0
+                    && request.resource.data.authorAlias.size() <= 32
+                    && request.resource.data.createdAt is int
+                    && request.resource.data.status == 'visible';
+
+      // Update: Immutable ownership & authorship. Non-owners cannot update posts.
+      allow update: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.authorAlias == resource.data.authorAlias
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Delete: Strictly owner-bound deletion.
+      allow delete: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid;
+
+      // Reactions subcollection: Path and document ID bind to actorUid
+      match /reactions/{reactionId} {
+        allow read: if request.auth != null;
+
+        allow create, update: if request.auth != null
+                              && request.resource.data.actorUid == request.auth.uid
+                              && reactionId.matches('^' + request.auth.uid + '_[a-zA-Z0-9]+$');
+
+        allow delete: if request.auth != null
+                      && resource.data.actorUid == request.auth.uid;
+      }
+
+      // Reports subcollection: Client cannot read reports; reporters can only create their own
+      match /reports/{reporterUid} {
+        allow read: if false;
+
+        allow create: if request.auth != null
+                      && reporterUid == request.auth.uid
+                      && request.resource.data.reporterUid == request.auth.uid
+                      && request.resource.data.keys().hasAll(['reporterUid', 'reasonCode', 'createdAt']);
+
+        allow update, delete: if false;
+      }
+    }
+
+    // =====================================================================
+    // LEGACY COMMUNITY FEEDS (v1)
+    // NOTE: Legacy community_feeds documents lack authenticated ownerUid.
+    // They do NOT provide owner-bound creation or deletion.
+    // In v2 rules, legacy creation and deletion are closed.
+    // =====================================================================
+    match /community_feeds/{docId} {
+      allow read: if request.auth != null;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // =====================================================================
+    // CARE ALERTS — Private distress signals partitioned by caller UID
+    // =====================================================================
+    match /care_alerts/{uid} {
+      allow create: if request.auth != null
+                    && uid == request.auth.uid
+                    && request.resource.data.createdAt is int;
+
+      allow read, update, delete: if false;
+    }
+
+    // =====================================================================
+    // SPONSOR BUNDLES — Private clinical step-work bundles partitioned by UID
+    // =====================================================================
+    match /sponsor_bundles/{ownerUid} {
+      allow create: if request.auth != null
+                    && ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.bundle is string
+                    && request.resource.data.sponsorCode is string;
+
+      allow read: if request.auth != null && ownerUid == request.auth.uid;
+
+      allow update, delete: if request.auth != null && ownerUid == request.auth.uid;
+    }
+
+    match /sponsorBundles/{sponsorUid}/inbox/{docId} {
+      allow read: if request.auth != null && sponsorUid == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && sponsorUid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.bundle is string
+                    && request.resource.data.sponsorCode is string;
+
+      allow update: if request.auth != null
+                    && sponsorUid == request.auth.uid
+                    && resource.data.status == 'pending'
+                    && request.resource.data.status == 'signed'
+                    && request.resource.data.confirmation is string
+                    && request.resource.data.bundle == resource.data.bundle
+                    && request.resource.data.sponsorCode == resource.data.sponsorCode
+                    && request.resource.data.sponseeAlias == resource.data.sponseeAlias
+                    && request.resource.data.step == resource.data.step
+                    && request.resource.data.title == resource.data.title
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if request.auth != null && sponsorUid == request.auth.uid;
+    }
+  }
+}

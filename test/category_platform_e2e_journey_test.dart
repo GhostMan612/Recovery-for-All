@@ -89,6 +89,39 @@ void main() {
       expect(pet.sparks, 10);
     });
 
+    test('Path A2: Intent-bound journal reward binding survives retries and prevents double awards', () async {
+      const userText = 'Clean and sober 30 days today!';
+      final intentHash = (userText.hashCode & 0x7FFFFFFF).toRadixString(16);
+      final minuteBucket = DateTime.now().millisecondsSinceEpoch ~/ 60000;
+      final entryId = 'journal_${intentHash}_$minuteBucket';
+      final stableEventId = 'action_reward_$entryId';
+
+      // First save attempt
+      final coordinator = RecoveryActionCoordinator(database: db);
+      final action1 = RecoveryAction(
+        eventId: stableEventId,
+        actionType: RecoveryActionType.journal,
+        createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        origin: ActionOrigin.localUi,
+      );
+      final res1 = await coordinator.processAction(action1);
+      expect(res1.outcome, RewardOutcome.granted);
+      expect(res1.sparksAwarded, 10);
+      expect(res1.xpAwarded, 25);
+
+      // Simulated network retry or rapid button repeat of the exact same user intent
+      final actionRetry = RecoveryAction(
+        eventId: stableEventId,
+        actionType: RecoveryActionType.journal,
+        createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        origin: ActionOrigin.localUi,
+      );
+      final resRetry = await coordinator.processAction(actionRetry);
+      expect(resRetry.outcome, RewardOutcome.alreadyApplied);
+      expect(resRetry.sparksAwarded, 0);
+      expect(resRetry.xpAwarded, 0);
+    });
+
     test('Path B: Meeting reachability, planning, and navigation fallback (Phase 2)', () async {
       final recoveryMeeting = RecoveryMeeting(
         id: 'tsml_aa_minnesota:mtg-889',
@@ -166,7 +199,7 @@ void main() {
       );
 
       expect(find.text('St. Paul Sunrise Group'), findsOneWidget);
-      expect(find.textContaining('AA • Starts in 45m'), findsOneWidget);
+      expect(find.textContaining('AA \u2022 Starts in 45m'), findsOneWidget);
 
       final directionsBtn = find.text('Open External Directions (Google Maps)');
       expect(directionsBtn, findsOneWidget);
@@ -198,7 +231,7 @@ void main() {
       expect(restartedCoordinator.items.length, 1);
       expect(restartedCoordinator.items.first.outboxId, 'draft-durable-1');
 
-      // 3. Deletion state accuracy: request marks as deleting, requires proof before deleted
+      // 3. Deletion state accuracy: request marks as deleting, requires verified proof before deleted
       final pendingDeletion = await restartedCoordinator.requestPostDeletion(
         outboxId: 'del-flow-1',
         postId: 'post-xyz',
@@ -210,9 +243,18 @@ void main() {
       final delRow = await db.getCircleOutboxEntry('del-flow-1');
       expect(delRow?.status, 'deleting');
 
-      // Server acknowledgment promotes to deleted
-      final tombstone = await restartedCoordinator.confirmServerAck('del-flow-1');
-      expect(tombstone?.status, CircleOutboxStatus.deleted);
+      // Server acknowledgment promotes to deleted only with verified receipt
+      final receipt = CircleServerAckReceipt(
+        outboxId: 'del-flow-1',
+        serverToken: 'ack_token_123',
+        serverTimestampUtcMs: DateTime.now().millisecondsSinceEpoch,
+        isVerified: true,
+      );
+      final tombstone = await restartedCoordinator.confirmServerAck(
+        outboxId: 'del-flow-1',
+        receipt: receipt,
+      );
+      expect(tombstone.status, CircleOutboxStatus.deleted);
 
       final finalDelRow = await db.getCircleOutboxEntry('del-flow-1');
       expect(finalDelRow?.status, 'deleted');

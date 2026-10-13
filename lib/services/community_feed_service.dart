@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/privacy/privacy_capability.dart';
 import '../database/recovery_database.dart';
+import '../features/circle/data/circle_sync_coordinator.dart';
+import '../features/circle/domain/circle_event.dart';
 import 'safety_guardrail_service.dart';
 
 enum FeedComposeResult {
@@ -163,6 +165,8 @@ class CommunityFeedService {
   }
 
   final RecoveryDatabase database;
+  late final CircleSyncCoordinator outboxCoordinator =
+      CircleSyncCoordinator(database: database);
   final ValueNotifier<CircleConnectionStatus> _connectionStatusNotifier =
       ValueNotifier<CircleConnectionStatus>(CircleConnectionStatus.localOnly);
   bool _isDisposed = false;
@@ -547,7 +551,24 @@ class CommunityFeedService {
       createdAt: (at ?? DateTime.now()).millisecondsSinceEpoch,
     );
 
+    // Save to local feed database
     await database.addFeedPost(post);
+
+    // Persist to durable Circle outbox
+    await outboxCoordinator.enqueueEvent(
+      outboxId: post.id,
+      eventType: CircleEventType.postCreate,
+      payload: {
+        'id': post.id,
+        'authorAlias': post.authorAlias,
+        'kind': post.kind,
+        'body': post.body,
+        'shapeJson': post.shapeJson,
+        'needsSupport': post.needsSupport,
+        'status': post.status,
+        'createdAt': post.createdAt,
+      },
+    );
 
     if (remoteWritesDisabled) {
       debugPrint('[circle] Interim mode: post saved locally only (remote writes disabled)');
@@ -657,5 +678,15 @@ class CommunityFeedService {
 
   Future<void> hide(String postId) async {
     await database.setPostStatus(postId, 'hidden');
+  }
+
+  /// Request post deletion with tombstone state machine in the durable outbox.
+  Future<void> requestDeletePost(String postId, {required String ownerUid}) async {
+    await database.setPostStatus(postId, 'hidden');
+    await outboxCoordinator.requestPostDeletion(
+      outboxId: 'del_$postId',
+      postId: postId,
+      ownerUid: ownerUid,
+    );
   }
 }

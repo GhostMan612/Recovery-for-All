@@ -1,3 +1,4 @@
+// lib/screens/journal_screen.dart
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
@@ -43,6 +44,7 @@ class _JournalScreenState extends State<JournalScreen> {
   String _firstEntryPin = '';
   bool _pinError = false;
   bool _resettingBiometric = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -148,48 +150,63 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _saveEntry() async {
+    if (_isSaving) return;
     final text = _contentController.text.trim();
     if (text.isEmpty || _masterKey == null) return;
 
-    final encryptedReflection =
-        await JournalCryptoService.encrypt(text, _masterKey!);
+    setState(() => _isSaving = true);
+    try {
+      final encryptedReflection =
+          await JournalCryptoService.encrypt(text, _masterKey!);
 
-    final entry = JournalEntry(
-      id: UniqueKey().toString(),
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      moodRating: _selectedMood,
-      contentEncrypted: encryptedReflection,
-      isSyncedToCloud: false,
-    );
+      // Stable intent-bound entry ID derived from content and time window
+      final intentHash = (text.hashCode & 0x7FFFFFFF).toRadixString(16);
+      final minuteBucket = DateTime.now().millisecondsSinceEpoch ~/ 60000;
+      final entryId = 'journal_${intentHash}_$minuteBucket';
+      final eventId = 'action_reward_$entryId';
 
-    final eventId = RecoveryAction.generateEventId();
-    await widget.database.addJournalEntry(entry);
-    if (!mounted) return;
-
-    final coordinator = RecoveryActionCoordinator(database: widget.database);
-    final action = RecoveryAction(
-      eventId: eventId,
-      actionType: RecoveryActionType.journal,
-      createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
-      origin: ActionOrigin.localUi,
-    );
-    final result = await coordinator.processAction(action);
-    _contentController.clear();
-    setState(() {
-      _selectedMood = 3;
-    });
-
-    if (mounted) {
-      final sparks = result.sparksAwarded;
-      final xp = result.xpAwarded;
-      final levelSuffix = result.leveledUp ? ' • LEVEL UP!' : '';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(sparks > 0
-              ? 'Reflection securely encrypted and saved · +$sparks Sparks · +$xp XP$levelSuffix${result.raidSuffix}'
-              : 'Reflection securely encrypted and saved'),
-        ),
+      final entry = JournalEntry(
+        id: entryId,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        moodRating: _selectedMood,
+        contentEncrypted: encryptedReflection,
+        isSyncedToCloud: false,
       );
+
+      // Persist entry atomically (insertOnConflictUpdate prevents duplicates/crashes on retry)
+      await widget.database
+          .into(widget.database.journalEntries)
+          .insertOnConflictUpdate(entry);
+
+      final coordinator = RecoveryActionCoordinator(database: widget.database);
+      final action = RecoveryAction(
+        eventId: eventId,
+        actionType: RecoveryActionType.journal,
+        createdAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        origin: ActionOrigin.localUi,
+      );
+      final result = await coordinator.processAction(action);
+      _contentController.clear();
+      setState(() {
+        _selectedMood = 3;
+      });
+
+      if (mounted) {
+        final sparks = result.sparksAwarded;
+        final xp = result.xpAwarded;
+        final levelSuffix = result.leveledUp ? ' \u2022 LEVEL UP!' : '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(sparks > 0
+                ? 'Reflection securely encrypted and saved \u00b7 +$sparks Sparks \u00b7 +$xp XP$levelSuffix${result.raidSuffix}'
+                : 'Reflection securely encrypted and saved'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -197,7 +214,7 @@ class _JournalScreenState extends State<JournalScreen> {
     final key = _masterKey;
     if (key == null) {
       return JournalCryptoService.decryptLegacy(ciphertext) ??
-          '[Locked — unlock the journal to read this entry]';
+          '[Locked \u2014 unlock the journal to read this entry]';
     }
     return await JournalCryptoService.decrypt(ciphertext, key) ??
         '[Encrypted entry could not be opened with this key]';
@@ -314,8 +331,8 @@ class _JournalScreenState extends State<JournalScreen> {
       final (title, hint, buttonLabel) = switch (_gate) {
         _JournalGate.loading => (
             'Journal Privacy Wall',
-            'Checking your vault…',
-            '…'
+            'Checking your vault\u2026',
+            '\u2026'
           ),
         _JournalGate.setupPin => (
             'Choose Your Journal PIN',
@@ -430,7 +447,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   TextButton(
                     onPressed: _resettingBiometric ? null : _forgotPin,
                     child: Text(
-                      _resettingBiometric ? 'Checking…' : 'Forgot PIN?',
+                      _resettingBiometric ? 'Checking\u2026' : 'Forgot PIN?',
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.primary, fontSize: 13),
                     ),
@@ -477,7 +494,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   return const AppEmptyState(
                     icon: Icons.menu_book_outlined,
                     title: 'No reflections logged yet',
-                    message: 'Speak your mind freely — nothing leaves this device.',
+                    message: 'Speak your mind freely \u2014 nothing leaves this device.',
                   );
                 }
 
@@ -636,8 +653,18 @@ class _JournalScreenState extends State<JournalScreen> {
               const SizedBox(width: 8),
               IconButton(
                 tooltip: 'Save reflection',
-                icon: Icon(Icons.send_rounded, color: Theme.of(context).colorScheme.primary),
-                onPressed: _saveEntry,
+                icon: _isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      )
+                    : Icon(Icons.send_rounded,
+                        color: Theme.of(context).colorScheme.primary),
+                onPressed: _isSaving ? null : _saveEntry,
               ),
             ],
           ),
