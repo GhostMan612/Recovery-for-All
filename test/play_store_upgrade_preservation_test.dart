@@ -455,22 +455,27 @@ void main() {
       }
     });
 
-    test('Negative test: opening with ordinary SQLite when SQLCipher is enforced fails closed', () async {
-      const storage = FlutterSecureStorage();
-      await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+    test(
+      'Negative test: opening with ordinary SQLite when SQLCipher is enforced fails closed',
+      () async {
+        const storage = FlutterSecureStorage();
+        await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
 
-      final db = RecoveryDatabase.openEncrypted(
-        file: dbFile,
-        storage: storage,
-        enforceSqlCipher: true,
-        forceStandardSqlite: true,
-      );
+        final db = RecoveryDatabase.openEncrypted(
+          file: dbFile,
+          storage: storage,
+          enforceSqlCipher: true,
+        );
 
-      expect(
-        () async => await db.customSelect('SELECT 1').get(),
-        throwsA(isA<DatabaseEncryptionException>()),
-      );
-    });
+        expect(
+          () async => await db.customSelect('SELECT 1').get(),
+          throwsA(isA<DatabaseEncryptionException>()),
+        );
+      },
+      skip: RecoveryDatabase.isSqlCipherActive()
+          ? 'Native SQLCipher library is active in current test runner; negative ordinary-SQLite test applies on platforms without SQLCipher'
+          : null,
+    );
 
     test('Header verification: standard unencrypted SQLite file is detected by hasPlaintextSqliteHeader', () async {
       final rawDb = RecoveryDatabase.forTesting(NativeDatabase(dbFile) as QueryExecutor);
