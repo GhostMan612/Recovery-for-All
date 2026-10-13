@@ -562,7 +562,18 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   // ---- Recovery Circle feed ----
 
-  Future<int> addFeedPost(FeedPost post) => into(feedPosts).insert(post, mode: InsertMode.insertOrReplace);
+  Future<int> addFeedPost(FeedPost post) async {
+    final existing = await getFeedPost(post.id);
+    if (existing != null) {
+      if (existing.authorAlias != post.authorAlias || existing.body != post.body) {
+        throw StateError(
+          'Post collision detected: existing post ${post.id} cannot be overwritten by a different post.',
+        );
+      }
+      return 0; // Idempotent retry of identical post
+    }
+    return into(feedPosts).insert(post);
+  }
 
   /// Single post read, for moderation paths and tests.
   Future<FeedPost?> getFeedPost(String id) =>

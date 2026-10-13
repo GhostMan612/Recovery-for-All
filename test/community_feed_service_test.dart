@@ -124,7 +124,7 @@ void main() {
       final stream = feed.watchMergedFeed();
       final completer = Completer<List<FeedPost>>();
       final sub = stream.listen((posts) {
-        if (!completer.isCompleted) completer.complete(posts);
+        if (posts.isNotEmpty && !completer.isCompleted) completer.complete(posts);
       });
 
       await feed.compose(authorAlias: 'LocalUser', body: 'Local post only');

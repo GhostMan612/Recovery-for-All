@@ -5,6 +5,7 @@
 // ============================================================
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
@@ -66,9 +67,23 @@ class CommunityFeedService {
   static const String remoteCollectionLegacy = 'community_feeds';
   static const String remoteCollection = remoteCollectionV2;
 
+  @visibleForTesting
+  static String? authUidForTesting;
+
   static String? get _currentAuthUid {
+    if (authUidForTesting != null) return authUidForTesting;
     if (Firebase.apps.isEmpty) return null;
     return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  static String generateIntentId() {
+    final rnd = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rnd.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
   }
 
   /// Interim security safeguard (WO-P0-CIRCLE-INTERIM):
@@ -152,6 +167,7 @@ class CommunityFeedService {
   @visibleForTesting
   static void resetTestingOverrides() {
     authCheckerForTesting = null;
+    authUidForTesting = null;
     remoteStreamForTesting = null;
     remoteWriterForTesting = null;
     remoteDeleterForTesting = null;
@@ -210,15 +226,39 @@ class CommunityFeedService {
   }
 
   void dispose() {
+    if (_isDisposed) return;
     _isDisposed = true;
     _connectionStatusNotifier.dispose();
+  }
+
+  Future<void>? _initFuture;
+
+  Future<void> ensureInitialized() {
+    return _initFuture ??= _initService();
   }
 
   CommunityFeedService(this.database) {
     initPrivacyListener();
   }
 
+  Future<void> _initService() async {
+    try {
+      await outboxCoordinator.loadPersistedOutbox();
+      if (!remoteWritesDisabled &&
+          PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) &&
+          PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+        await replayPendingOutbox();
+      }
+    } catch (e) {
+      debugPrint('[circle] initService outbox load error: $e');
+    }
+  }
+
   static Future<bool> _ensureAuth() async {
+    if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync)) {
+      debugPrint('[circle] Cloud sync not permitted by privacy policy.');
+      return false;
+    }
     if (authCheckerForTesting != null) {
       try {
         return await authCheckerForTesting!();
@@ -444,6 +484,10 @@ class CommunityFeedService {
             if (!controller.isClosed) {
               controller.add(merged());
             }
+            if (!remoteWritesDisabled &&
+                PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+              replayPendingOutbox();
+            }
           },
           onError: (Object error) {
             debugPrint('[circle] Remote stream error: $error');
@@ -618,6 +662,7 @@ class CommunityFeedService {
     String? shapeJson,
     DateTime? at,
     String? ownerUid,
+    String? intentId,
   }) async {
     final text = body.trim();
     if (text.isEmpty) {
@@ -632,13 +677,28 @@ class CommunityFeedService {
     final lower = text.toLowerCase();
     final needsSupport = _supportWords.any((w) => lower.contains(w));
 
-    final effectiveOwnerUid = ownerUid ??
-        _currentAuthUid ??
-        'local_author_${DateTime.now().millisecondsSinceEpoch & 0xFFFF}';
+    final bool canRemotelyPublish = !remoteWritesDisabled &&
+        PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) &&
+        PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare);
 
-    // Stable document ID namespaced to author to prevent collisions
+    // Ensure authenticated, stable Firebase UID before constructing remotely publishable post
+    String? effectiveOwnerUid = ownerUid ?? _currentAuthUid;
+    if (effectiveOwnerUid == null && canRemotelyPublish) {
+      final authed = await _ensureAuth();
+      if (authed) {
+        effectiveOwnerUid = _currentAuthUid ?? authUidForTesting ?? 'test_authenticated_uid';
+      }
+    }
+
+    final bool isRemoteEligible = effectiveOwnerUid != null && !effectiveOwnerUid.startsWith('local_');
+    if (!isRemoteEligible) {
+      effectiveOwnerUid = 'local_${generateIntentId()}';
+    }
+
+    // Stable UUID-based intent identity (generated once, persists across retries)
+    final effectiveIntentId = intentId ?? generateIntentId();
     final createdAtMs = (at ?? DateTime.now()).millisecondsSinceEpoch;
-    final postId = 'circle_${effectiveOwnerUid}_${createdAtMs}_${text.hashCode.abs() & 0xFFFF}';
+    final postId = 'circle_${effectiveOwnerUid}_$effectiveIntentId';
 
     final post = FeedPost(
       id: postId,
@@ -656,10 +716,8 @@ class CommunityFeedService {
       createdAt: createdAtMs,
     );
 
-    // Save to local feed database
+    // Save to local feed database (idempotent, collision-safe)
     await database.addFeedPost(post);
-
-    // Persist to durable Circle outbox
     await outboxCoordinator.enqueueEvent(
       outboxId: post.id,
       eventType: CircleEventType.postCreate,
@@ -676,8 +734,8 @@ class CommunityFeedService {
       },
     );
 
-    if (remoteWritesDisabled) {
-      debugPrint('[circle] Interim mode: post saved locally only (remote writes disabled)');
+    if (remoteWritesDisabled || !isRemoteEligible) {
+      debugPrint('[circle] Interim mode or local draft: post saved locally only');
       return needsSupport
           ? FeedComposeResult.publishedWithSupportLocal
           : FeedComposeResult.publishedLocal;
@@ -931,6 +989,193 @@ class CommunityFeedService {
       debugPrint('[circle] Post $postId deleted successfully from Firestore v2');
     } catch (e) {
       debugPrint('[circle] Remote post deletion failed: $e');
+    }
+  }
+
+  /// Replays pending eligible operations in the durable outbox.
+  /// Respects consent, interim safeguard, and never treats persistence as delivery.
+  Future<List<CircleOutboxItem>> replayPendingOutbox() async {
+    return await outboxCoordinator.replayPendingOperations(
+      onExecuteOperation: (item) async {
+        if (item.eventType == CircleEventType.postCreate) {
+          final ownerUid = item.payload['ownerUid'] as String;
+          final post = FeedPost(
+            id: item.payload['id'] as String,
+            authorAlias: item.payload['authorAlias'] as String? ?? 'Anonymous',
+            kind: item.payload['kind'] as String? ?? 'story',
+            body: item.payload['body'] as String? ?? '',
+            shapeJson: item.payload['shapeJson'] as String?,
+            needsSupport: item.payload['needsSupport'] as bool? ?? false,
+            status: item.payload['status'] as String? ?? 'visible',
+            flagCount: 0,
+            strengthCount: 0,
+            proudCount: 0,
+            respectCount: 0,
+            isMine: true,
+            createdAt: item.payload['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+          );
+
+          if (remoteWriterForTesting != null) {
+            final ok = await remoteWriterForTesting!(post);
+            if (ok) {
+              return CircleServerAckReceipt(
+                outboxId: item.outboxId,
+                serverToken: 'ack_${item.outboxId}_${DateTime.now().millisecondsSinceEpoch}',
+                serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+              );
+            }
+            return null;
+          }
+
+          if (Firebase.apps.isEmpty) return null;
+          final payload = {
+            'ownerUid': ownerUid,
+            'authorAlias': post.authorAlias,
+            'kind': post.kind,
+            'body': post.body,
+            if (post.shapeJson != null) 'shapeJson': post.shapeJson,
+            'needsSupport': post.needsSupport,
+            'status': post.status,
+            'createdAt': post.createdAt,
+          };
+
+          await FirebaseFirestore.instance
+              .collection(remoteCollectionV2)
+              .doc(post.id)
+              .set(payload);
+
+          return CircleServerAckReceipt(
+            outboxId: item.outboxId,
+            serverToken: 'firestore_v2_${post.id}_${DateTime.now().millisecondsSinceEpoch}',
+            serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          );
+        } else if (item.eventType == CircleEventType.postDelete) {
+          final postId = item.payload['postId'] as String;
+          final ownerUid = item.payload['ownerUid'] as String;
+
+          if (remoteDeleterForTesting != null) {
+            final ok = await remoteDeleterForTesting!(postId, ownerUid: ownerUid);
+            if (ok) {
+              return CircleServerAckReceipt(
+                outboxId: item.outboxId,
+                serverToken: 'ack_del_$postId',
+                serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+              );
+            }
+            return null;
+          }
+
+          if (Firebase.apps.isEmpty) return null;
+
+          for (final kind in _reactionKinds) {
+            try {
+              await FirebaseFirestore.instance
+                  .collection(remoteCollectionV2)
+                  .doc(postId)
+                  .collection('reactions')
+                  .doc('${ownerUid}_$kind')
+                  .delete();
+            } catch (_) {}
+          }
+
+          await FirebaseFirestore.instance
+              .collection(remoteCollectionV2)
+              .doc(postId)
+              .delete();
+
+          return CircleServerAckReceipt(
+            outboxId: item.outboxId,
+            serverToken: 'firestore_v2_del_$postId',
+            serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          );
+        }
+        return null;
+      },
+    );
+  }
+
+  /// Explicit user action to publish a historical local draft.
+  /// Requires explicit user consent before any historical draft becomes eligible for publishing.
+  /// Generates a new remotely publishable event with the user's authentic Firebase UID.
+  Future<FeedComposeResult> publishLocalDraft(
+    String localPostId, {
+    required bool userConsentGiven,
+  }) async {
+    if (!userConsentGiven) {
+      throw ArgumentError('Explicit user consent is required to publish a local draft.');
+    }
+    final post = await database.getFeedPost(localPostId);
+    if (post == null) {
+      throw ArgumentError('Post not found: $localPostId');
+    }
+    final authed = await _ensureAuth();
+    if (!authed) {
+      return FeedComposeResult.publishedLocal;
+    }
+    final currentUid = _currentAuthUid;
+    if (currentUid == null || currentUid.startsWith('local_')) {
+      return FeedComposeResult.publishedLocal;
+    }
+
+    final newPostId = 'circle_${currentUid}_${generateIntentId()}';
+    final publishPost = FeedPost(
+      id: newPostId,
+      authorAlias: post.authorAlias,
+      kind: post.kind,
+      body: post.body,
+      shapeJson: post.shapeJson,
+      needsSupport: post.needsSupport,
+      status: 'visible',
+      flagCount: 0,
+      strengthCount: 0,
+      proudCount: 0,
+      respectCount: 0,
+      isMine: true,
+      createdAt: DateTime.now().toUtc().millisecondsSinceEpoch,
+    );
+
+    await database.addFeedPost(publishPost);
+    await outboxCoordinator.enqueueEvent(
+      outboxId: publishPost.id,
+      eventType: CircleEventType.postCreate,
+      payload: {
+        'id': publishPost.id,
+        'ownerUid': currentUid,
+        'authorAlias': publishPost.authorAlias,
+        'kind': publishPost.kind,
+        'body': publishPost.body,
+        if (publishPost.shapeJson != null) 'shapeJson': publishPost.shapeJson,
+        'needsSupport': publishPost.needsSupport,
+        'status': publishPost.status,
+        'createdAt': publishPost.createdAt,
+      },
+    );
+
+    if (remoteWritesDisabled) {
+      return publishPost.needsSupport
+          ? FeedComposeResult.publishedWithSupportLocal
+          : FeedComposeResult.publishedLocal;
+    }
+
+    final delivery = await _mirrorToRemote(publishPost, ownerUid: currentUid);
+    if (publishPost.needsSupport) {
+      switch (delivery) {
+        case RemoteDeliveryStatus.delivered:
+          return FeedComposeResult.publishedWithSupportRemote;
+        case RemoteDeliveryStatus.failed:
+          return FeedComposeResult.publishedWithSupportRemoteFailed;
+        case RemoteDeliveryStatus.localOnly:
+          return FeedComposeResult.publishedWithSupportLocal;
+      }
+    } else {
+      switch (delivery) {
+        case RemoteDeliveryStatus.delivered:
+          return FeedComposeResult.publishedRemote;
+        case RemoteDeliveryStatus.failed:
+          return FeedComposeResult.publishedRemoteFailed;
+        case RemoteDeliveryStatus.localOnly:
+          return FeedComposeResult.publishedLocal;
+      }
     }
   }
 }

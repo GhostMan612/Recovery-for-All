@@ -330,6 +330,51 @@ await runTest('Sponsor bundle read by unauthorized peer is denied', async () => 
   await assertFails(getDoc(bundleRef));
 });
 
+// 11. Two authenticated identities with identical content create distinct posts without collision
+await runTest('Two distinct users can create posts with identical content under their own identities', async () => {
+  const alice = testEnv.authenticatedContext('user_alice_777');
+  const bob = testEnv.authenticatedContext('user_bob_888');
+  const identicalBody = 'Staying strong and clean today!';
+
+  const alicePostRef = doc(alice.firestore(), 'circle_v2/circle_user_alice_777_uuid_aaa');
+  await assertSucceeds(setDoc(alicePostRef, {
+    ownerUid: 'user_alice_777',
+    authorAlias: 'Alice A',
+    body: identicalBody,
+    createdAt: 1729000000001,
+    status: 'visible'
+  }));
+
+  const bobPostRef = doc(bob.firestore(), 'circle_v2/circle_user_bob_888_uuid_bbb');
+  await assertSucceeds(setDoc(bobPostRef, {
+    ownerUid: 'user_bob_888',
+    authorAlias: 'Bob B',
+    body: identicalBody,
+    createdAt: 1729000000002,
+    status: 'visible'
+  }));
+});
+
+// 12. User B cannot overwrite User A's post even with identical content
+await runTest('User B is denied attempting to overwrite User A post with identical content', async () => {
+  const bob = testEnv.authenticatedContext('user_bob_888');
+  const alicePostRef = doc(bob.firestore(), 'circle_v2/circle_user_alice_777_uuid_aaa');
+  await assertFails(setDoc(alicePostRef, {
+    ownerUid: 'user_alice_777',
+    authorAlias: 'Bob B',
+    body: 'Staying strong and clean today!',
+    createdAt: 1729000000003,
+    status: 'visible'
+  }));
+});
+
+// 13. User B cannot delete User A's post
+await runTest('User B is denied deleting User A post', async () => {
+  const bob = testEnv.authenticatedContext('user_bob_888');
+  const alicePostRef = doc(bob.firestore(), 'circle_v2/circle_user_alice_777_uuid_aaa');
+  await assertFails(deleteDoc(alicePostRef));
+});
+
 await testEnv.cleanup();
 
 console.log(`\n[EMULATOR MATRIX SUMMARY] Total: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`);

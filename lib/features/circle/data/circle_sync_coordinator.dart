@@ -221,6 +221,78 @@ class CircleSyncCoordinator {
     outboxNotifier.value = List.unmodifiable(_outbox.values.toList());
   }
 
+  /// Replay eligible pending operations (queued or deleting).
+  /// - Respects interim safeguard and consent.
+  /// - Excludes localDraft (must never be silently published).
+  /// - Requires authentic receipt for transitions to delivered or \deleted\.
+  Future<List<CircleOutboxItem>> replayPendingOperations({
+    required Future<CircleServerAckReceipt?> Function(CircleOutboxItem item) onExecuteOperation,
+  }) async {
+    if (CommunityFeedService.remoteWritesDisabled) {
+      debugPrint('[circle] Outbox replay skipped: remote writes disabled.');
+      return const [];
+    }
+
+    if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+        !PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+      debugPrint('[circle] Outbox replay skipped: privacy consent not granted.');
+      return const [];
+    }
+
+    await loadPersistedOutbox();
+
+    final eligible = _outbox.values.where((item) {
+      if (item.status == CircleOutboxStatus.queued) {
+        final ownerUid = item.payload['ownerUid'] as String?;
+        if (ownerUid == null || ownerUid.startsWith('local_')) {
+          return false;
+        }
+        return true;
+      }
+      if (item.status == CircleOutboxStatus.deleting) {
+        return true;
+      }
+      return false;
+    }).toList();
+
+    final List<CircleOutboxItem> completed = [];
+
+    for (final item in eligible) {
+      if (!PrivacyCapabilityService.isGrantedSync(PrivacyCapability.cloudSync) ||
+          !PrivacyCapabilityService.isGrantedSync(PrivacyCapability.circleShare)) {
+        debugPrint('[circle] Outbox replay halted: privacy consent revoked mid-flight.');
+        break;
+      }
+
+      final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
+      try {
+        final receipt = await onExecuteOperation(item);
+        if (receipt != null && receipt.isValid(expectedOutboxId: item.outboxId)) {
+          final confirmed = await confirmServerAck(outboxId: item.outboxId, receipt: receipt);
+          completed.add(confirmed);
+        } else {
+          final updated = item.copyWith(
+            lastAttemptUtcMs: nowMs,
+            errorMessage: 'Server acknowledgment not received on replay attempt.',
+          );
+          await _persistItem(updated);
+          _outbox[item.outboxId] = updated;
+          _notify();
+        }
+      } catch (e) {
+        final updated = item.copyWith(
+          lastAttemptUtcMs: nowMs,
+          errorMessage: 'Replay operation error: $e',
+        );
+        await _persistItem(updated);
+        _outbox[item.outboxId] = updated;
+        _notify();
+      }
+    }
+
+    return completed;
+  }
+
   void clearForTesting() {
     _outbox.clear();
     _notify();
