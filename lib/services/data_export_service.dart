@@ -100,6 +100,18 @@ class DataExportService {
       }
     }
 
+    // Recovery actions & progression (Privacy-first: anonymous date, no location, no PII)
+    final actions = await database.select(database.recoveryActions).get();
+    if (actions.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('=== RECOVERY ACTIONS ===');
+      buffer.writeln('Action Type,Date,Proof Tier');
+      for (final a in actions) {
+        final date = DateTime.fromMillisecondsSinceEpoch(a.createdAtUtcMs);
+        buffer.writeln('${a.actionType},${date.toIso8601String().split("T").first},${a.proofTier}');
+      }
+    }
+
     // Write to temp file
     final dir = await getTemporaryDirectory();
     final file = File(
