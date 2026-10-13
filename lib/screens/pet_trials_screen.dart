@@ -10,7 +10,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/dashboard_providers.dart';
+import '../core/providers.dart' show databaseProvider;
 import '../core/theme/app_colors.dart';
+import '../features/game/application/battle_session_service.dart';
+import '../features/game/data/battle_catalog.dart';
+import '../features/game/domain/battle_action.dart';
+import '../features/game/domain/battle_state.dart';
 import '../services/feedback_service.dart';
 // Imported for the `RecoveryPet` TYPE only. This screen must not read pet
 // state from the service — see the class doc below — but the type is declared
@@ -18,47 +23,6 @@ import '../services/feedback_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/themed_background.dart' show appReduceMotion;
 import '../widgets/trial_monster_painter.dart';
-
-enum _BattlePhase { playerTurn, enemyTurn, victory, defeat }
-
-class _Ability {
-  final String name;
-  final int focusCost;
-  final int minDamage;
-  final int maxDamage;
-  final bool heals;
-  final bool shields;
-  const _Ability(this.name,
-      {required this.focusCost, this.minDamage = 0, this.maxDamage = 0,
-       this.heals = false, this.shields = false});
-}
-
-class _Monster {
-  final String name;
-  final int maxHp;
-  final int minDamage;
-  final int maxDamage;
-  final bool heals;
-  const _Monster(this.name,
-      {required this.maxHp, required this.minDamage, required this.maxDamage,
-       this.heals = false});
-}
-
-class _BattleState {
-  _BattlePhase phase = _BattlePhase.playerTurn;
-  int resolve = 0;
-  int maxResolve = 0;
-  int focus = 2;
-  int enemyHp = 0;
-  bool shieldActive = false;
-  _Monster monster =
-      const _Monster('Craving Wraith', maxHp: 40, minDamage: 4, maxDamage: 9);
-  final List<String> log = [];
-  void addLog(String msg) {
-    log.insert(0, msg);
-    if (log.length > 20) log.removeLast();
-  }
-}
 
 class _Pop {
   final String text;
@@ -91,8 +55,10 @@ class PetTrialsScreen extends ConsumerStatefulWidget {
 class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     with TickerProviderStateMixin {
   RecoveryPet? get _pet => ref.watch(dashboardDataProvider).pet;
-  _BattleState? _battle;
+  BattleState? _battle;
   bool _busy = false;
+  BattleDifficulty _selectedDifficulty = BattleDifficulty.standard;
+  bool _quietMode = false;
   late AnimationController _breath;
   late AnimationController _shake;
   late AnimationController _flash;
@@ -101,38 +67,12 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
   double _lunge = 0;
   final List<_Pop> _pops = [];
 
-  static const int _maxBattlesPerDay = 3;
-  static const String _keyBattles = 'pet_trials_battles_v1';
+  TrialMonsterKind _kindFor(BattleMonster m) => m.kind;
 
-  static const List<_Ability> _abilities = [
-    _Ability('Take a Breath', focusCost: 0),
-    _Ability('Grounding Shield', focusCost: 1, shields: true),
-    _Ability('Meeting Rally', focusCost: 2, minDamage: 12, maxDamage: 20),
-    _Ability('Gratitude Heal', focusCost: 2, heals: true),
-    _Ability('Step Strike', focusCost: 3, minDamage: 25, maxDamage: 40),
-  ];
-
-  static const List<_Monster> _monsterPool = [
-    _Monster('Craving Wraith', maxHp: 40, minDamage: 4, maxDamage: 9),
-    _Monster('Trigger Hound', maxHp: 30, minDamage: 6, maxDamage: 11),
-    _Monster('Isolation Fog',
-        maxHp: 55, minDamage: 3, maxDamage: 8, heals: true),
-  ];
-
-  static const _Monster _reaper = _Monster('Relapse Reaper',
-      maxHp: 90, minDamage: 8, maxDamage: 14);
-
-  TrialMonsterKind _kindFor(_Monster m) {
-    if (m == _reaper) return TrialMonsterKind.reaper;
-    if (m.name.contains('Hound')) return TrialMonsterKind.hound;
-    if (m.name.contains('Fog')) return TrialMonsterKind.fog;
-    return TrialMonsterKind.wraith;
-  }
-
-  Color _colorFor(_Monster m) {
-    if (m == _reaper) return Theme.of(context).colorScheme.error;
-    if (m.name.contains('Hound')) return AppColors.monsterHound;
-    if (m.name.contains('Fog')) return Theme.of(context).colorScheme.primary;
+  Color _colorFor(BattleMonster m) {
+    if (m.kind == TrialMonsterKind.reaper) return Theme.of(context).colorScheme.error;
+    if (m.kind == TrialMonsterKind.hound) return AppColors.monsterHound;
+    if (m.kind == TrialMonsterKind.fog) return Theme.of(context).colorScheme.primary;
     return Theme.of(context).colorScheme.outline;
   }
 
@@ -152,14 +92,19 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     });
     _flash.addListener(() => setState(() => _hitFlash = 1 - _flash.value));
     _maybeShowTutorial();
+    _restoreActiveSession();
+  }
+
+  Future<void> _restoreActiveSession() async {
+    final active = await BattleSessionService.loadActiveSession();
+    if (mounted && active != null) {
+      setState(() => _battle = active);
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // The monster's idle breath used to start in initState and run forever.
-    // Start it only once the context is available, and only if the user has
-    // not asked for reduced motion.
     if (!appReduceMotion(context) && !_breath.isAnimating) {
       _breath.repeat();
     } else if (appReduceMotion(context) && _breath.isAnimating) {
@@ -194,7 +139,7 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Text(
-            'Focus is your inner steadiness. You start each battle with 2 Focus '
+            'Focus is your inner steadiness. You start each battle with 2-3 Focus '
             'and gain +1 every turn (max 5). Every coping skill costs Focus — '
             'plan your moves.\n\n'
             'Take a Breath restores +2 Focus (free, always available).\n'
@@ -246,8 +191,6 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
   }
 
   void _doShake() {
-    // Screen shake on a craving surface is the highest-risk motion in the app.
-    // Honour the system reduce-motion setting.
     if (appReduceMotion(context)) return;
     _shake.forward(from: 0);
   }
@@ -263,133 +206,86 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     if (mounted) setState(() => _lunge = 0);
   }
 
-  Future<int> _battlesToday() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    if (prefs.getString('${_keyBattles}_date') != today) return 0;
-    return prefs.getInt('${_keyBattles}_count') ?? 0;
-  }
-
-  Future<void> _incrementBattles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    await prefs.setString('${_keyBattles}_date', today);
-    await prefs.setInt('${_keyBattles}_count', await _battlesToday() + 1);
-  }
-
-  void _startBattle() {
+  Future<void> _startBattle() async {
     final pet = _pet;
     if (pet == null || _busy) return;
-    final monster =
-        pet.bond >= 50 && math.Random().nextBool() ? _reaper : _pickMonster();
-    final maxResolve = 30 + (pet.energy * 0.7).round();
+    _busy = true;
+
+    final db = ref.read(databaseProvider);
+    final state = await BattleSessionService.startSession(
+      db: db,
+      petEnergy: pet.energy,
+      petBond: pet.bond,
+      petSparks: pet.sparks,
+      difficulty: _selectedDifficulty,
+      isQuietMode: _quietMode,
+    );
+
     setState(() {
-      _battle = _BattleState()
-        ..resolve = maxResolve
-        ..maxResolve = maxResolve
-        ..enemyHp = monster.maxHp
-        ..monster = monster
-        ..phase = _BattlePhase.playerTurn;
-      _battle!.addLog('A ${monster.name} emerges from the shadows.');
+      _battle = state;
+      _busy = false;
     });
-    _incrementBattles();
   }
 
-  _Monster _pickMonster() {
-    if ((_pet?.sparks ?? 0) ~/ 100 >= 5) {
-      return _monsterPool[math.Random().nextInt(_monsterPool.length)];
-    }
-    return _monsterPool[math.Random().nextInt(2)];
-  }
-
-  Future<void> _useAbility(_Ability ability) async {
+  Future<void> _useAbility(BattleAction ability) async {
     final battle = _battle;
-    if (battle == null || _busy || battle.phase != _BattlePhase.playerTurn) return;
+    if (battle == null || _busy || battle.phase != BattlePhase.playerTurn) return;
     if (battle.focus < ability.focusCost) return;
     _busy = true;
-    final rng = math.Random();
 
-    // 0-cost breathe: free Focus regen to escape 0/1 soft-lock
-    if (ability.focusCost == 0) {
-      battle.focus = math.min(5, battle.focus + 2);
-      battle.addLog('You breathe and center — Focus restored (+2).');
+    // Trigger visual/haptic feedback for player action
+    if (ability.type == BattleActionType.takeBreath) {
       _spawnPop('+2 Focus', Theme.of(context).colorScheme.primary);
       await FeedbackService.battleShield();
     } else if (ability.heals) {
-      battle.resolve = math.min(battle.maxResolve, battle.resolve + 15);
-      battle.addLog('15 Resolve restored by ${ability.name}.');
       _spawnPop('+15', Theme.of(context).colorScheme.tertiary);
       await FeedbackService.battleHeal();
-      battle.focus = math.max(0, battle.focus - ability.focusCost);
     } else if (ability.shields) {
-      battle.shieldActive = true;
-      battle.addLog('Grounding Shield raised.');
       _spawnPop('Shield', Theme.of(context).colorScheme.tertiary);
       await FeedbackService.battleShield();
-      battle.focus = math.max(0, battle.focus - ability.focusCost);
+    } else if (ability.isEscape) {
+      _spawnPop('Safe Exit', Theme.of(context).colorScheme.outline);
+    } else if (ability.isReflection) {
+      _spawnPop('Mindful', Theme.of(context).colorScheme.primary);
     } else {
-      final dmg = ability.minDamage +
-          rng.nextInt(ability.maxDamage - ability.minDamage + 1);
-      battle.enemyHp = math.max(0, battle.enemyHp - dmg);
-      battle.addLog('${ability.name} deals $dmg damage!');
       _doLunge();
       _doFlash();
-      _spawnPop('-$dmg', Theme.of(context).colorScheme.primary);
+      _spawnPop('Hit!', Theme.of(context).colorScheme.primary);
       await FeedbackService.battleHit();
-      battle.focus = math.max(0, battle.focus - ability.focusCost);
     }
-    setState(() {});
 
-    if (battle.enemyHp <= 0) {
-      battle.phase = _BattlePhase.victory;
-      battle.addLog('The ${battle.monster.name} fades. You stood your ground.');
-      _spawnPop('Victory!', Colors.white);
-      await RecoveryPetService.logBattleWin();
-      await FeedbackService.milestone();
+    // Pure reducer evaluates turn and monster reaction
+    final nextState = BattleSessionService.dispatch(battle, ability);
+    setState(() => _battle = nextState);
+
+    if (nextState.isTerminal) {
+      final db = ref.read(databaseProvider);
+      await BattleSessionService.completeSession(db, nextState);
+
+      if (nextState.phase == BattlePhase.victory ||
+          nextState.phase == BattlePhase.quietComplete) {
+        _spawnPop('Victory!', Colors.white);
+        await FeedbackService.milestone();
+      } else if (nextState.phase == BattlePhase.learnedDefeat) {
+        await FeedbackService.battleDefeat();
+      }
       _busy = false;
       setState(() {});
       return;
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    // Delay for enemy attack juice if battle continues
+    await Future<void>.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
-    battle.phase = _BattlePhase.enemyTurn;
-    setState(() {});
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-
-    if (battle.monster.heals && rng.nextBool()) {
-      final heal = 5 + rng.nextInt(4);
-      battle.enemyHp = math.min(battle.monster.maxHp, battle.enemyHp + heal);
-      battle.addLog('${battle.monster.name} absorbs $heal HP.');
-      _spawnPop('+$heal', _colorFor(battle.monster));
-    } else {
-      var dmg = battle.monster.minDamage +
-          rng.nextInt(battle.monster.maxDamage - battle.monster.minDamage + 1);
-      if (battle.shieldActive) {
-        dmg = (dmg * 0.3).round();
-        battle.shieldActive = false;
-        battle.addLog('Grounding Shield absorbed most of the hit!');
-        _spawnPop('-$dmg blocked', Theme.of(context).colorScheme.tertiary);
+    if (!nextState.isQuietMode) {
+      if (nextState.shieldActive) {
+        _spawnPop('Blocked', Theme.of(context).colorScheme.tertiary);
       } else {
-        battle.addLog('${battle.monster.name} deals $dmg damage.');
-        _spawnPop('-$dmg', Theme.of(context).colorScheme.error);
         _doShake();
         _doFlash();
       }
-      battle.resolve = math.max(0, battle.resolve - dmg);
     }
-    battle.focus = math.min(5, battle.focus + 1);
-    battle.phase = _BattlePhase.playerTurn;
     _busy = false;
-
-    if (battle.resolve <= 0) {
-      battle.phase = _BattlePhase.defeat;
-      battle.addLog(
-          'The ${battle.monster.name} retreats. Your companion learned something.');
-      await RecoveryPetService.logBattleLearned();
-      await FeedbackService.battleDefeat();
-    }
     setState(() {});
   }
 
@@ -423,19 +319,19 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
 
   Widget _buildLobby(RecoveryPet pet) {
     return FutureBuilder<int>(
-      future: _battlesToday(),
+      future: BattleSessionService.getBattlesToday(),
       builder: (context, snapshot) {
         final battles = snapshot.data ?? 0;
-        final remaining = _maxBattlesPerDay - battles;
+        final remaining = BattleSessionService.maxBattlesPerDay - battles;
         return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.shield_outlined,
                     size: 56, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text('Trials of the Path',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
@@ -445,9 +341,9 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                 Text(
                   remaining > 0
                       ? '$remaining trials remaining today.\n'
-                          'Face an urge monster using your coping skills.'
+                          'Face a coping hurdle or practice quiet reflection.'
                       : 'You have faced enough for today.\n'
-                          'Rest — your companion is proud.',
+                          'Quiet reflection is always open.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -455,7 +351,7 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                       height: 1.5),
                 ),
                 const SizedBox(height: 16),
-                // R19: Gear score & path level display
+                // Gear score & path level display
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -503,13 +399,30 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: _maybeShowTutorial,
-                  icon: const Icon(Icons.info_outline, size: 16),
-                  label: const Text('How to play'),
+                // Difficulty selection & quiet mode
+                SegmentedButton<BattleDifficulty>(
+                  segments: const [
+                    ButtonSegment(value: BattleDifficulty.guided, label: Text('Guided')),
+                    ButtonSegment(value: BattleDifficulty.standard, label: Text('Standard')),
+                    ButtonSegment(value: BattleDifficulty.challenge, label: Text('Challenge')),
+                  ],
+                  selected: {_selectedDifficulty},
+                  onSelectionChanged: (val) {
+                    setState(() => _selectedDifficulty = val.first);
+                  },
                 ),
                 const SizedBox(height: 12),
-                if (remaining > 0)
+                SwitchListTile(
+                  title: const Text('Quiet / Reflection Mode',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Non-combat mindful coping with equal growth',
+                      style: TextStyle(fontSize: 12)),
+                  value: _quietMode,
+                  onChanged: (val) => setState(() => _quietMode = val),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 16),
+                if (remaining > 0 || _quietMode)
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -518,9 +431,9 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       ),
-                      icon: const Icon(Icons.shield_outlined),
-                      label: const Text('Begin Trial',
-                          style: TextStyle(
+                      icon: Icon(_quietMode ? Icons.self_improvement : Icons.shield_outlined),
+                      label: Text(_quietMode ? 'Begin Reflection' : 'Begin Trial',
+                          style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16)),
                       onPressed: _startBattle,
                     ),
@@ -533,8 +446,11 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     );
   }
 
-  Widget _buildBattle(_BattleState battle) {
+  Widget _buildBattle(BattleState battle) {
     final monsterColor = _colorFor(battle.monster);
+    final availableActions =
+        BattleCatalog.actionsForSession(isQuietMode: battle.isQuietMode);
+
     return Transform.translate(
       offset: Offset(_shakeX, 0),
       child: Padding(
@@ -560,21 +476,22 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: battle.enemyHp / battle.monster.maxHp,
+                      value: battle.monster.maxHp > 0
+                          ? battle.monster.currentHp / battle.monster.maxHp
+                          : 0.0,
                       minHeight: 8,
                       backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                       color: monsterColor,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text('${battle.enemyHp} / ${battle.monster.maxHp} HP',
+                  Text('${battle.monster.currentHp} / ${battle.monster.maxHp} HP',
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            // Monster stage — the heart of the juice
             _buildMonsterStage(battle, monsterColor),
             const SizedBox(height: 12),
             Expanded(
@@ -587,18 +504,12 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                   border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 child: ListView.builder(
-                  itemCount: battle.log.length,
+                  itemCount: battle.battleLog.length,
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      battle.log[index],
+                      battle.battleLog[index],
                       style: TextStyle(
-                          // onPrimary, not Colors.white. The most recent log
-                          // line is emphasised with `primary`, a LIGHT tone in
-                          // light mode. Same pairing bug as the chat bubble and
-                          // the FilterChips: the newest line of a raid battle —
-                          // the thing the player is watching — was invisible
-                          // in light mode.
                           color: index == 0
                               ? Theme.of(context).colorScheme.onPrimary
                               : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -638,7 +549,9 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                     borderRadius: BorderRadius.circular(4),
                     child: ExcludeSemantics(
                       child: LinearProgressIndicator(
-                        value: battle.resolve / battle.maxResolve,
+                        value: battle.maxResolve > 0
+                            ? battle.resolve / battle.maxResolve
+                            : 0.0,
                         minHeight: 8,
                         backgroundColor: Theme.of(context).colorScheme.outlineVariant,
                         color: Theme.of(context).colorScheme.tertiary,
@@ -646,90 +559,86 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // The five pips are pure colour, so a screen reader read
-                  // "Focus" and nothing else. State the value.
                   Semantics(
                     label: 'Focus ${battle.focus} of 5',
                     child: Row(
-                    children: [
-                      Text('Focus',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
-                      const SizedBox(width: 8),
-                      for (var i = 0; i < 5; i++)
-                        ExcludeSemantics(
-                          child: Container(
-                          margin: const EdgeInsets.only(right: 4),
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i < battle.focus
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.transparent,
-                            border: Border.all(
+                      children: [
+                        Text('Focus',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
+                        const SizedBox(width: 8),
+                        for (var i = 0; i < 5; i++)
+                          ExcludeSemantics(
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 4),
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
                                 color: i < battle.focus
                                     ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).colorScheme.outlineVariant),
-                            boxShadow: i < battle.focus
-                                ? [
-                                    BoxShadow(
-                                        color: Theme.of(context).colorScheme.primary
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 4)
-                                  ]
-                                : null,
-                          ),
-                        ),
-                        ),
-                      const Spacer(),
-                      Text('+1 / turn',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontSize: 12)),
-                      if (battle.shieldActive) ...[
-                        const SizedBox(width: 10),
-                        Semantics(
-                          label: battle.shieldActive
-                              ? 'Shield active, blocks the next hit'
-                              : 'Shield',
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Theme.of(context).colorScheme.tertiary),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ExcludeSemantics(
-                                  child: Icon(Icons.shield,
-                                      size: 12, color: Theme.of(context).colorScheme.tertiary),
-                                ),
-                                SizedBox(width: 4),
-                                Text('Shield',
-                                    style: TextStyle(
-                                        color: Theme.of(context).colorScheme.tertiary, fontSize: 12)),
-                              ],
+                                    : Colors.transparent,
+                                border: Border.all(
+                                    color: i < battle.focus
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.outlineVariant),
+                                boxShadow: i < battle.focus
+                                    ? [
+                                        BoxShadow(
+                                            color: Theme.of(context).colorScheme.primary
+                                                .withValues(alpha: 0.5),
+                                            blurRadius: 4)
+                                      ]
+                                    : null,
+                              ),
                             ),
                           ),
-                        ),
+                        const Spacer(),
+                        Text('+1 / turn',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontSize: 12)),
+                        if (battle.shieldActive) ...[
+                          const SizedBox(width: 10),
+                          Semantics(
+                            label: 'Shield active, blocks the next hit',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Theme.of(context).colorScheme.tertiary),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ExcludeSemantics(
+                                    child: Icon(Icons.shield,
+                                        size: 12, color: Theme.of(context).colorScheme.tertiary),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text('Shield',
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.tertiary, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            if (battle.phase == _BattlePhase.playerTurn)
+            if (battle.phase == BattlePhase.playerTurn)
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final ability in _abilities)
+                  for (final ability in availableActions)
                     _AbilityButton(
                       ability: ability,
                       enabled: battle.focus >= ability.focusCost && !_busy,
@@ -737,27 +646,25 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                     ),
                 ],
               )
-            else if (battle.phase == _BattlePhase.victory ||
-                battle.phase == _BattlePhase.defeat)
+            else if (battle.isTerminal)
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: battle.phase == _BattlePhase.victory
+                    backgroundColor: (battle.phase == BattlePhase.victory ||
+                            battle.phase == BattlePhase.quietComplete)
                         ? Theme.of(context).colorScheme.tertiary
                         : Theme.of(context).colorScheme.surfaceContainer,
-                    // onTertiary / onSurfaceVariant, not Colors.white: M3
-                    // tertiary is a light tone in light mode. This is the
-                    // "Victory — return" button, i.e. the end of the raid the
-                    // player just fought.
-                    foregroundColor: battle.phase == _BattlePhase.victory
+                    foregroundColor: (battle.phase == BattlePhase.victory ||
+                            battle.phase == BattlePhase.quietComplete)
                         ? Theme.of(context).colorScheme.onTertiary
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () => setState(() => _battle = null),
                   child: Text(
-                      battle.phase == _BattlePhase.victory
+                      (battle.phase == BattlePhase.victory ||
+                              battle.phase == BattlePhase.quietComplete)
                           ? 'Victory — return'
                           : 'Learned something — return',
                       style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -769,7 +676,7 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     );
   }
 
-  Widget _buildMonsterStage(_BattleState battle, Color monsterColor) {
+  Widget _buildMonsterStage(BattleState battle, Color monsterColor) {
     return SizedBox(
       height: 200,
       child: AnimatedBuilder(
@@ -777,7 +684,6 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
         builder: (context, _) => Stack(
           fit: StackFit.expand,
           children: [
-            // Ambience backdrop
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CustomPaint(
@@ -785,7 +691,6 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                     t: _breath.value, tint: monsterColor),
               ),
             ),
-            // Monster
             Center(
               child: Transform.translate(
                 offset: Offset(_lunge, 0),
@@ -805,7 +710,6 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                 ),
               ),
             ),
-            // Damage pops
             for (final pop in _pops)
               Positioned(
                 left: 0,
@@ -825,13 +729,12 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                                 Shadow(
                                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                                     blurRadius: 6,
-                                    offset: Offset(0, 1))
+                                    offset: const Offset(0, 1))
                               ])),
                     ),
                   ),
                 ),
               ),
-            // Shield ring overlay
             if (battle.shieldActive)
               Positioned.fill(
                 child: IgnorePointer(
@@ -864,7 +767,7 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
 }
 
 class _AbilityButton extends StatelessWidget {
-  final _Ability ability;
+  final BattleAction ability;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -874,8 +777,6 @@ class _AbilityButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      // An unaffordable ability previously announced as a live button that
-      // did nothing, because the disabled state was only a null onTap.
       button: true,
       enabled: enabled,
       label: '${ability.name}, ${ability.focusCost} Focus',
@@ -901,8 +802,6 @@ class _AbilityButton extends StatelessWidget {
               children: [
                 Text(ability.name,
                     style: TextStyle(
-                        // onPrimary, not Colors.white: the ability card's fill
-                        // is `primary`, a light tone in light mode.
                         color: enabled
                             ? Theme.of(context).colorScheme.onPrimary
                             : Theme.of(context).colorScheme.outline,
@@ -937,7 +836,11 @@ class _AbilityButton extends StatelessWidget {
                     ? 'Block next hit'
                     : ability.heals
                         ? 'Restore 15 Resolve'
-                        : '${ability.minDamage}–${ability.maxDamage} dmg',
+                        : ability.isEscape
+                            ? 'Safe Exit'
+                            : ability.isReflection
+                                ? 'Mindful Step'
+                                : '${ability.minDamage}–${ability.maxDamage} dmg',
                 style: TextStyle(
                     color: enabled ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.outline,
                     fontSize: 12)),
