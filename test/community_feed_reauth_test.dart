@@ -335,7 +335,13 @@ void main() {
 
         await tester.enterText(find.byType(TextField), 'Local journal draft');
         await pumpFrames(tester, 2);
-        await tester.tap(find.text('Share with the circle'));
+        final buttonFinder = find.byWidgetPredicate(
+          (w) => w is ElevatedButton &&
+                 (w.child is Text &&
+                  ((w.child as Text).data == 'Save to local circle' ||
+                   (w.child as Text).data == 'Share with the circle')),
+        );
+        await tester.tap(buttonFinder);
         await pumpFrames(tester, 12);
 
         // Expect local-only confirmation message (does not falsely claim remote sharing)
@@ -349,6 +355,7 @@ void main() {
     testWidgets('Independent circleShare authorization on explicit remote compose attempt',
         (tester) async {
       try {
+        CommunityFeedService.allowRemoteWritesForTesting = true;
         CommunityFeedService.authCheckerForTesting = () async => true;
         final remoteController = StreamController<List<FeedPost>>.broadcast();
         addTearDown(remoteController.close);
@@ -425,6 +432,7 @@ void main() {
     testWidgets('Truthful delivery reporting: remote write failure shows error feedback',
         (tester) async {
       try {
+        CommunityFeedService.allowRemoteWritesForTesting = true;
         CommunityFeedService.authCheckerForTesting = () async => true;
         final remoteController = StreamController<List<FeedPost>>.broadcast();
         addTearDown(remoteController.close);
@@ -466,6 +474,7 @@ void main() {
     testWidgets('Circle share authorization persistence failure falls back to local save truthfully',
         (tester) async {
       try {
+        CommunityFeedService.allowRemoteWritesForTesting = true;
         CommunityFeedService.authCheckerForTesting = () async => true;
         final remoteController = StreamController<List<FeedPost>>.broadcast();
         addTearDown(remoteController.close);
@@ -517,6 +526,109 @@ void main() {
         expect(find.text('Shared with the circle.'), findsNothing);
       } finally {
         PrivacyCapabilityService.persistenceOverrideForTesting = null;
+        await tester.pumpWidget(const SizedBox());
+        await pumpFrames(tester, 2);
+      }
+    });
+  });
+
+  group('Recovery Circle — Interim Local-Only Safeguard UI (WO-P0-CIRCLE-INTERIM)', () {
+    testWidgets('Composer makes local save clear, omits circleShare prompt, and saves locally',
+        (tester) async {
+      try {
+        CommunityFeedService.authCheckerForTesting = () async => true;
+        final remoteController = StreamController<List<FeedPost>>.broadcast();
+        addTearDown(remoteController.close);
+        CommunityFeedService.remoteStreamForTesting = () => remoteController.stream;
+
+        await tester.runAsync(() async {
+          await PrivacyCapabilityService.setConsent(
+            PrivacyCapability.cloudSync,
+            ConsentState.granted,
+          );
+        });
+
+        await tester.pumpWidget(createSubject());
+        remoteController.add(const <FeedPost>[]);
+        await pumpUntilStatus(tester, feed, CircleConnectionStatus.connected);
+
+        // Open composer
+        await tester.tap(find.byType(FloatingActionButton));
+        await pumpFrames(tester, 6);
+
+        // Verify subtitle clearly states local-only persistence
+        expect(
+            find.text(
+                'Saved to this device only \u00b7 remote publishing paused \u00b7 no location required'),
+            findsOneWidget);
+
+        // Verify submit button explicitly states local circle
+        expect(find.text('Save to local circle'), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'Private note on device');
+        await pumpFrames(tester, 2);
+
+        // Tap submit
+        await tester.tap(find.text('Save to local circle'));
+        await pumpFrames(tester, 12);
+
+        // circleShare prompt was NEVER shown
+        final shareDisclosure =
+            PrivacyCapabilityState.disclosures[PrivacyCapability.circleShare]!;
+        expect(find.text(shareDisclosure.title), findsNothing);
+
+        // Feedback confirms saved locally
+        expect(find.text('Saved to your local circle.'), findsOneWidget);
+        expect(find.text('Shared with the circle.'), findsNothing);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await pumpFrames(tester, 2);
+      }
+    });
+
+    testWidgets('Reactions are presented as paused and disabled in interim mode',
+        (tester) async {
+      try {
+        await feed.compose(authorAlias: 'Author', body: 'Story with reactions');
+
+        await tester.pumpWidget(createSubject());
+        await pumpFrames(tester, 3);
+
+        // Verify reaction buttons are disabled and semantics reflect paused status
+        for (final kind in ['strength', 'proud', 'respect']) {
+          final button = tester.widget<InkWell>(
+            find.byKey(Key('reaction_${kind}_button')),
+          );
+          expect(button.onTap, isNull,
+              reason: '$kind reaction must be non-operational in interim mode');
+        }
+        expect(
+            find.bySemanticsLabel(RegExp(r'strength.*reactions paused')),
+            findsOneWidget);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await pumpFrames(tester, 2);
+      }
+    });
+
+    testWidgets('Local post deletion explicitly confirms device deletion without remote claim',
+        (tester) async {
+      try {
+        await feed.compose(authorAlias: 'Author', body: 'Post to delete');
+
+        await tester.pumpWidget(createSubject());
+        await pumpFrames(tester, 3);
+
+        expect(find.text('Post to delete'), findsOneWidget);
+
+        // Find and tap local delete icon
+        await tester.tap(find.byTooltip('Delete your local post'));
+        await pumpFrames(tester, 6);
+
+        // Feedback specifically confirms deletion from this device only
+        expect(find.text('Post deleted from your device.'), findsOneWidget);
+        expect(find.text('Post to delete'), findsNothing);
+      } finally {
         await tester.pumpWidget(const SizedBox());
         await pumpFrames(tester, 2);
       }

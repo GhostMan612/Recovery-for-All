@@ -379,8 +379,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
               const SizedBox(height: 4),
               Text(
                 shapeJson != null
-                    ? 'Your constellation shape rides along \u2014 day counts stay private.'
-                    : 'Alias only \u00b7 no location \u00b7 no numbers required',
+                    ? 'Your constellation shape is saved locally.'
+                    : 'Saved to this device only \u00b7 remote publishing paused \u00b7 no location required',
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12),
@@ -425,7 +425,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
                   onPressed: controller.text.trim().isEmpty
                       ? null
                       : () async {
-                          if (_feed.currentStatus ==
+                          if (!CommunityFeedService.remoteWritesDisabled &&
+                              _feed.currentStatus ==
                                   CircleConnectionStatus.connected &&
                               !PrivacyCapabilityService.isGrantedSync(
                                   PrivacyCapability.circleShare)) {
@@ -441,8 +442,12 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
                             Navigator.pop(sheetContext);
                           }
                         },
-                  child: const Text('Share with the circle',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    CommunityFeedService.remoteWritesDisabled
+                        ? 'Save to local circle'
+                        : 'Share with the circle',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -588,11 +593,13 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   }
 
   Widget _reactionButton(
-      IconData icon, String label, int count, VoidCallback onTap) {
+      IconData icon, String label, int count, VoidCallback? onTap) {
+    final bool isEnabled = onTap != null;
     return Semantics(
-      button: true,
-      label: '$label, $count',
+      button: isEnabled,
+      label: isEnabled ? '$label, $count' : '$label, $count (reactions paused)',
       child: InkWell(
+        key: Key('reaction_${label}_button'),
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: ConstrainedBox(
@@ -603,7 +610,13 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon,
-                    size: 15, color: Theme.of(context).colorScheme.primary),
+                    size: 15,
+                    color: isEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.38)),
                 const SizedBox(width: 4),
                 Text('$count',
                     style: TextStyle(
@@ -862,25 +875,52 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
               color: Theme.of(context).colorScheme.outlineVariant, height: 18),
           Row(
             children: [
-              _reactionButton(Icons.volunteer_activism_outlined, 'strength',
-                  post.strengthCount,
-                  () => _feed.react(post.id, kind: 'strength')),
-              _reactionButton(Icons.emoji_events_outlined, 'proud',
-                  post.proudCount, () => _feed.react(post.id, kind: 'proud')),
-              _reactionButton(Icons.handshake_outlined, 'respect',
-                  post.respectCount,
-                  () => _feed.react(post.id, kind: 'respect')),
+              _reactionButton(
+                Icons.volunteer_activism_outlined,
+                'strength',
+                post.strengthCount,
+                CommunityFeedService.remoteWritesDisabled
+                    ? null
+                    : () => _feed.react(post.id, kind: 'strength'),
+              ),
+              _reactionButton(
+                Icons.emoji_events_outlined,
+                'proud',
+                post.proudCount,
+                CommunityFeedService.remoteWritesDisabled
+                    ? null
+                    : () => _feed.react(post.id, kind: 'proud'),
+              ),
+              _reactionButton(
+                Icons.handshake_outlined,
+                'respect',
+                post.respectCount,
+                CommunityFeedService.remoteWritesDisabled
+                    ? null
+                    : () => _feed.react(post.id, kind: 'respect'),
+              ),
               const Spacer(),
               if (post.isMine)
                 IconButton(
-                  tooltip: 'Delete your post',
+                  tooltip: 'Delete your local post',
                   icon: Icon(Icons.delete_outline,
                       size: 16,
                       color: Theme.of(context)
                           .colorScheme
                           .onSurface
                           .withValues(alpha: 0.38)),
-                  onPressed: () => widget.database.deleteFeedPost(post.id),
+                  onPressed: () async {
+                    await widget.database.deleteFeedPost(post.id);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceContainer,
+                          content: const Text('Post deleted from your device.'),
+                        ),
+                      );
+                    }
+                  },
                 ),
             ],
           ),

@@ -11,7 +11,7 @@ import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'
-    show ValueListenable, ValueNotifier, debugPrint, visibleForTesting;
+    show ValueListenable, ValueNotifier, debugPrint, visibleForTesting, kReleaseMode;
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -61,6 +61,23 @@ class CommunityFeedService {
   static const String _keyModerator = 'feed_moderator_v1';
   static const int maxPostLength = 480;
   static const String remoteCollection = 'community_feeds';
+
+  /// Interim security safeguard (WO-P0-CIRCLE-INTERIM):
+  /// Remote mutations (publishing new posts and syncing remote reactions)
+  /// are fail-closed and disabled while server-authoritative ownership and deletion controls
+  /// (C1-C2) are being established.
+  /// Remote feed reading via watchMergedFeed() remains enabled with explicit cloudSync consent.
+  static bool get remoteWritesDisabled {
+    if (kReleaseMode) return true;
+    return !_allowRemoteWritesForTesting;
+  }
+
+  static bool _allowRemoteWritesForTesting = false;
+
+  @visibleForTesting
+  static set allowRemoteWritesForTesting(bool allow) {
+    _allowRemoteWritesForTesting = allow;
+  }
 
   static bool remoteReady = false;
 
@@ -119,6 +136,7 @@ class CommunityFeedService {
     authCheckerForTesting = null;
     remoteStreamForTesting = null;
     remoteWriterForTesting = null;
+    _allowRemoteWritesForTesting = false;
     _privacyListenerAttached = false;
     _revocationCallbacks.clear();
     _grantCallbacks.clear();
@@ -407,6 +425,11 @@ class CommunityFeedService {
   }
 
   Future<RemoteDeliveryStatus> _mirrorToRemote(FeedPost post) async {
+    if (remoteWritesDisabled) {
+      debugPrint('[circle] Interim mode: remote write skipped (post stays local)');
+      return RemoteDeliveryStatus.localOnly;
+    }
+
     final shareAllowed =
         await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);
     if (!shareAllowed) {
@@ -525,6 +548,14 @@ class CommunityFeedService {
     );
 
     await database.addFeedPost(post);
+
+    if (remoteWritesDisabled) {
+      debugPrint('[circle] Interim mode: post saved locally only (remote writes disabled)');
+      return needsSupport
+          ? FeedComposeResult.publishedWithSupportLocal
+          : FeedComposeResult.publishedLocal;
+    }
+
     final delivery = await _mirrorToRemote(post);
 
     if (needsSupport) {
@@ -575,6 +606,11 @@ class CommunityFeedService {
       return;
     }
     await database.reactToPost(postId, kind: kind, by: by);
+
+    if (remoteWritesDisabled) {
+      debugPrint('[circle] Interim mode: remote reaction sync disabled');
+      return;
+    }
 
     final shareAllowed =
         await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);

@@ -276,6 +276,7 @@ void main() {
     });
 
     test('Truthful delivery reporting: remote delivery requires acknowledgement', () async {
+      CommunityFeedService.allowRemoteWritesForTesting = true;
       CommunityFeedService.authCheckerForTesting = () async => true;
       CommunityFeedService.remoteStreamForTesting = () => const Stream<List<FeedPost>>.empty();
 
@@ -398,6 +399,7 @@ void main() {
       await remoteController.close();
     });
     test('Revocation during async auth prevents remote write and keeps post local', () async {
+      CommunityFeedService.allowRemoteWritesForTesting = true;
       var writeAttempted = false;
       CommunityFeedService.remoteWriterForTesting = (post) async {
         writeAttempted = true;
@@ -434,6 +436,7 @@ void main() {
     });
 
     test('remoteStreamForTesting existence alone does not report delivered without configured writer', () async {
+      CommunityFeedService.allowRemoteWritesForTesting = true;
       CommunityFeedService.authCheckerForTesting = () async => true;
       CommunityFeedService.remoteStreamForTesting =
           () => const Stream<List<FeedPost>>.empty();
@@ -455,6 +458,127 @@ void main() {
 
       // Without configured writer or live backend acknowledgement, remote delivery fails soft
       expect(result, FeedComposeResult.publishedRemoteFailed);
+    });
+  });
+
+  group('CommunityFeedService — Interim Local-Only Publishing Safeguard (WO-P0-CIRCLE-INTERIM)', () {
+    test('New posts save locally even when cloudSync and circleShare are both session-authorized', () async {
+      var writeAttempted = false;
+      CommunityFeedService.remoteWriterForTesting = (post) async {
+        writeAttempted = true;
+        return true;
+      };
+
+      // Explicitly authorize both capabilities in session
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.granted,
+      );
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.circleShare,
+        ConsentState.granted,
+      );
+
+      // Verify interim mode is active by default
+      expect(CommunityFeedService.remoteWritesDisabled, isTrue);
+
+      final result = await feed.compose(
+        authorAlias: 'LocalAuthor',
+        body: 'Post during interim safeguard',
+      );
+
+      // Must report publishedLocal, never remote
+      expect(result, FeedComposeResult.publishedLocal);
+      expect(writeAttempted, isFalse,
+          reason: 'Remote writer must never be invoked while interim mode is active');
+
+      // Post is persisted in local Drift database
+      final visible = await feed.visibleNow();
+      expect(visible.map((p) => p.authorAlias), contains('LocalAuthor'));
+    });
+
+    test('Interim mode disables remote reaction mutations and preserves local reaction state', () async {
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.granted,
+      );
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.circleShare,
+        ConsentState.granted,
+      );
+
+      await feed.compose(authorAlias: 'LocalAuthor', body: 'Story for reactions');
+      final post = (await feed.visibleNow()).first;
+
+      // Reacting increments local Drift database count
+      await feed.react(post.id, kind: 'strength');
+      final updated = (await feed.visibleNow()).first;
+      expect(updated.strengthCount, 1);
+    });
+
+    test('Crisis language in interim mode blocks publish completely', () async {
+      final result = await feed.compose(
+        authorAlias: 'DistressedUser',
+        body: 'i want to end my life tonight',
+      );
+
+      expect(result, FeedComposeResult.blockedCrisis);
+      final posts = await feed.visibleNow();
+      expect(posts, isEmpty);
+    });
+
+    test('Relapse language in interim mode publishes locally with support flag', () async {
+      final result = await feed.compose(
+        authorAlias: 'StrugglingUser',
+        body: 'i relapsed yesterday but trying again',
+      );
+
+      expect(result, FeedComposeResult.publishedWithSupportLocal);
+      final post = (await feed.visibleNow()).first;
+      expect(post.needsSupport, isTrue);
+    });
+
+    test('Explicitly authorized remote reads function normally during interim mode', () async {
+      CommunityFeedService.authCheckerForTesting = () async => true;
+      final remoteController = StreamController<List<FeedPost>>.broadcast();
+      CommunityFeedService.remoteStreamForTesting = () => remoteController.stream;
+
+      await feed.compose(authorAlias: 'LocalPeer', body: 'Local reflection');
+
+      final stream = feed.watchMergedFeed();
+      final emitted = <List<FeedPost>>[];
+      final sub = stream.listen((posts) => emitted.add(posts));
+
+      await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync,
+        ConsentState.granted,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      remoteController.add([
+        FeedPost(
+          id: 'remote_peer_1',
+          authorAlias: 'RemotePeer',
+          kind: 'story',
+          body: 'Shared encouragement',
+          status: 'visible',
+          flagCount: 0,
+          strengthCount: 0,
+          proudCount: 0,
+          respectCount: 0,
+          isMine: false,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          needsSupport: false,
+        )
+      ]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(emitted.last.map((p) => p.authorAlias), contains('RemotePeer'));
+      expect(emitted.last.map((p) => p.authorAlias), contains('LocalPeer'));
+
+      await sub.cancel();
+      await remoteController.close();
     });
   });
 }
