@@ -55,6 +55,10 @@ class _JournalScreenState extends State<JournalScreen> {
   Future<void> _bootstrap() async {
     final hasPin = await JournalCryptoService.hasPin();
     if (!mounted) return;
+    if (hasPin && JournalCryptoService.isSessionUnlocked) {
+      await _openSession();
+      return;
+    }
     setState(() {
       _gate = hasPin ? _JournalGate.unlock : _JournalGate.setupPin;
     });
@@ -85,6 +89,7 @@ class _JournalScreenState extends State<JournalScreen> {
           return;
         }
         await JournalCryptoService.setPin(pin);
+        JournalCryptoService.unlockSession();
         await _openSession();
       case _JournalGate.unlock:
         final ok = await JournalCryptoService.verifyPin(pin);
@@ -95,6 +100,7 @@ class _JournalScreenState extends State<JournalScreen> {
           });
           return;
         }
+        JournalCryptoService.unlockSession();
         await _openSession();
       default:
         break;
@@ -112,6 +118,7 @@ class _JournalScreenState extends State<JournalScreen> {
       );
       if (!ok) return;
       await JournalCryptoService.clearPin();
+      JournalCryptoService.lockSession();
       if (!mounted) return;
       setState(() {
         _gate = _JournalGate.setupPin;
@@ -152,6 +159,7 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   void _relock() {
+    JournalCryptoService.lockSession();
     setState(() {
       _masterKey = null;
       _gate = _JournalGate.unlock;
@@ -696,7 +704,7 @@ class _EntryText extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: SizedBox(
               width: 16,
               height: 16,

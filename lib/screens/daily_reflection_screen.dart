@@ -22,10 +22,13 @@ class DailyReflectionScreen extends StatefulWidget {
 
 class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   final TextEditingController _reflectionController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
   int _selectedMood = 3;
   int _selectedGratitude = 0;
   List<String> _journalEntries = [];
   bool _isLoading = true;
+  bool _isJournalLocked = false;
+  bool _pinError = false;
 
   final List<String> _moodLabels = ['Terrible', 'Bad', 'Okay', 'Good', 'Great'];
   final List<Color> _moodColors = AppColors.moodScale;
@@ -49,6 +52,18 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
 
   Future<void> _loadJournalEntries() async {
     try {
+      final hasPin = await JournalCryptoService.hasPin();
+      if (hasPin && !JournalCryptoService.isSessionUnlocked) {
+        if (mounted) {
+          setState(() {
+            _isJournalLocked = true;
+            _isLoading = false;
+            _journalEntries = [];
+          });
+        }
+        return;
+      }
+
       final entries = await widget.database.getRecentJournals();
       // DECRYPT before display. This list previously rendered
       // `e.contentEncrypted` raw, so users saw ciphertext instead of their own
@@ -67,10 +82,11 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
       for (final e in refreshed) {
         // `decrypt` already falls back to `decryptLegacy` for pre-ENC2_ rows.
         final plain = await JournalCryptoService.decrypt(e.contentEncrypted, key);
-        readable.add(plain ?? '[Locked — unlock the journal to read this entry]');
+        readable.add(plain ?? '[Locked \u2014 unlock the journal to read this entry]');
       }
       if (mounted) {
         setState(() {
+          _isJournalLocked = false;
           _journalEntries = readable;
           _isLoading = false;
         });
@@ -81,6 +97,34 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _verifyAndUnlockPin(String pin) async {
+    if (pin.length != JournalCryptoService.pinLength) {
+      setState(() => _pinError = true);
+      _pinController.clear();
+      return;
+    }
+    final ok = await JournalCryptoService.verifyPin(pin);
+    if (!ok) {
+      if (mounted) {
+        setState(() {
+          _pinError = true;
+          _pinController.clear();
+        });
+      }
+      return;
+    }
+    JournalCryptoService.unlockSession();
+    if (mounted) {
+      setState(() {
+        _isJournalLocked = false;
+        _pinError = false;
+        _pinController.clear();
+        _isLoading = true;
+      });
+      await _loadJournalEntries();
     }
   }
 
@@ -122,7 +166,9 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
           const SnackBar(content: Text('Reflection saved to your journal')),
         );
 
-        _loadJournalEntries();
+        if (!_isJournalLocked) {
+          _loadJournalEntries();
+        }
       }
     } on MasterKeyInaccessibleException catch (e) {
       if (mounted) {
@@ -146,6 +192,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   @override
   void dispose() {
     _reflectionController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -344,41 +391,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              if (_isLoading)
-                Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
-              else if (_journalEntries.isEmpty)
-                Center(
-                  child: Text(
-                    'No reflections yet. Start by writing your first one!',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _journalEntries.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).colorScheme.outline),
-                      ),
-                      child: Text(
-                        _journalEntries[index],
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              _buildRecentReflections(),
             ],
           ),
         ),
@@ -386,8 +399,137 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
     );
   }
 
+  Widget _buildRecentReflections() {
+    if (_isJournalLocked) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 36,
+              color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Past Reflections Locked',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _pinError
+                  ? 'Incorrect PIN. Please try again.'
+                  : 'Enter your 6-digit Journal PIN to view recent reflections.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _pinError ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 180,
+              child: TextField(
+                controller: _pinController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: JournalCryptoService.pinLength,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 18,
+                  letterSpacing: 6,
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '••••••',
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.outline,
+                    letterSpacing: 6,
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                onSubmitted: _verifyAndUnlockPin,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _verifyAndUnlockPin(_pinController.text),
+              icon: const Icon(Icons.key, size: 18),
+              label: const Text('Unlock Past Reflections'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
+    }
+
+    if (_journalEntries.isEmpty) {
+      return Center(
+        child: Text(
+          'No reflections yet. Start by writing your first one!',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _journalEntries.length,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+          ),
+          child: Text(
+            _journalEntries[index],
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   String _getMoodEmoji(int index) {
-    const emojis = ['😢', '😞', '😐', '😊', '😄'];
+    const emojis = ['\ud83d\ude22', '\ud83d\ude1e', '\ud83d\ude10', '\ud83d\ude0a', '\ud83d\ude04'];
     return emojis[index];
   }
 }

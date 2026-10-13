@@ -37,6 +37,21 @@ class JournalCryptoService {
 
   static const int pinLength = 6;
 
+  static bool _sessionUnlocked = false;
+
+  /// Whether the journal has been verified and unlocked during this active app session.
+  static bool get isSessionUnlocked => _sessionUnlocked;
+
+  /// Marks the active session as unlocked (e.g. after successful PIN verification).
+  static void unlockSession() {
+    _sessionUnlocked = true;
+  }
+
+  /// Locks the active session, requiring PIN verification before decrypting or viewing journal history.
+  static void lockSession() {
+    _sessionUnlocked = false;
+  }
+
   static Future<bool> hasPin() async {
     try {
       final hashB64 = await _storage.read(key: _keyPinHash);
@@ -59,6 +74,7 @@ class JournalCryptoService {
     final hash = await _hashPin(pin, salt);
     await _storage.write(key: _keyPinSalt, value: base64Encode(salt));
     await _storage.write(key: _keyPinHash, value: base64Encode(hash));
+    _sessionUnlocked = true;
   }
 
   static Future<void> clearPin() async {
@@ -66,6 +82,7 @@ class JournalCryptoService {
       await _storage.delete(key: _keyPinHash);
       await _storage.delete(key: _keyPinSalt);
     } catch (_) {}
+    _sessionUnlocked = false;
   }
 
   static Future<bool> verifyPin(String pin) async {

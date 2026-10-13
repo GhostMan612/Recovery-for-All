@@ -448,6 +448,33 @@ void main() {
       }
     });
 
+    test('Negative test: opening with ordinary SQLite when SQLCipher is enforced fails closed', () async {
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+
+      final db = RecoveryDatabase.openEncrypted(
+        file: dbFile,
+        storage: storage,
+        enforceSqlCipher: true,
+      );
+
+      expect(
+        () async => await db.customSelect('SELECT 1').get(),
+        throwsA(isA<DatabaseEncryptionException>()),
+      );
+    });
+
+    test('Header verification: standard unencrypted SQLite file is detected by hasPlaintextSqliteHeader', () async {
+      final rawDb = RecoveryDatabase.forTesting(NativeDatabase(dbFile) as QueryExecutor);
+      await rawDb.customStatement('CREATE TABLE test_tab (id INT PRIMARY KEY);');
+      await rawDb.close();
+
+      expect(RecoveryDatabase.hasPlaintextSqliteHeader(dbFile), isTrue);
+
+      final headerBytes = dbFile.openSync().readSync(16);
+      expect(utf8.decode(headerBytes.sublist(0, 15)), equals('SQLite format 3'));
+    });
+
     test('Real encrypted connection upgrades v13 to v15, retains data, and reopens stably', () async {
       const storage = FlutterSecureStorage();
       await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);

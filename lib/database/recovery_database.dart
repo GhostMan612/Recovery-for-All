@@ -188,9 +188,10 @@ class FellowshipSyncs extends Table {
   ///
   /// This is the field that makes the 24-hour cooldown meaningful. The old
   /// cooldown was keyed on `peerAlias`, which is a string the PEER CHOOSES —
-  /// so "BrightOak" became "BrightOak2" and the limit did not apply, and XP was
-  /// farmable at an arbitrary rate. A public key is not caller-forgeable in the
-  /// same way, so the limit now keys on something the peer cannot rename.
+  /// so "BrightOak" became "BrightOak2" defeated the 24-hour limit
+  /// completely. A public key cannot be renamed without regenerating the
+  /// install's identity, so the limit now applies to who you are, not to what
+  /// you typed.
   TextColumn get peerKeyB64 => text().nullable()();
 
   /// 1 when BOTH sides signed a nonce pair for this handshake, 0 otherwise.
@@ -310,9 +311,31 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase.openEncrypted({
     required File file,
     FlutterSecureStorage storage = const FlutterSecureStorage(),
-  }) : super(openEncryptedDatabaseConnection(file: file, storage: storage));
+    bool enforceSqlCipher = false,
+  }) : super(openEncryptedDatabaseConnection(
+          file: file,
+          storage: storage,
+          enforceSqlCipher: enforceSqlCipher,
+        ));
 
   RecoveryDatabase.forTesting(super.e);
+
+  static const List<int> kSqlitePlaintextHeader = [
+    0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, // 'SQLite f'
+    0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00, // 'ormat 3\0'
+  ];
+
+  /// Returns true if the file begins with the standard plaintext SQLite header.
+  /// An encrypted SQLCipher database file will NEVER begin with this header.
+  static bool hasPlaintextSqliteHeader(File file) {
+    if (!file.existsSync() || file.lengthSync() < 16) return false;
+    final bytes = file.openSync().readSync(16);
+    if (bytes.length < 16) return false;
+    for (var i = 0; i < 16; i++) {
+      if (bytes[i] != kSqlitePlaintextHeader[i]) return false;
+    }
+    return true;
+  }
 
   @override
   int get schemaVersion => 15;
@@ -806,6 +829,13 @@ class DatabaseKeyInaccessibleException implements Exception {
   String toString() => 'DatabaseKeyInaccessibleException: $message';
 }
 
+class DatabaseEncryptionException implements Exception {
+  final String message;
+  const DatabaseEncryptionException(this.message);
+  @override
+  String toString() => 'DatabaseEncryptionException: $message';
+}
+
 String _generateKeyHex() {
   final rnd = Random.secure();
   final bytes = List<int>.generate(32, (_) => rnd.nextInt(256));
@@ -823,6 +853,7 @@ LazyDatabase _openEncryptedConnection() {
 QueryExecutor openEncryptedDatabaseConnection({
   required File file,
   FlutterSecureStorage storage = const FlutterSecureStorage(),
+  bool enforceSqlCipher = false,
 }) {
   return LazyDatabase(() async {
     if (Platform.isAndroid) {
@@ -872,6 +903,19 @@ QueryExecutor openEncryptedDatabaseConnection({
         rawDb.execute("PRAGMA key = \"x'$key'\"");
         rawDb.execute('PRAGMA cipher_page_size = 4096');
         rawDb.execute('PRAGMA kdf_iter = 256000');
+
+        if (enforceSqlCipher || Platform.isAndroid) {
+          final cipherRows = rawDb.select('PRAGMA cipher_version');
+          if (cipherRows.isEmpty ||
+              cipherRows.first.values.isEmpty ||
+              cipherRows.first.values.first == null ||
+              cipherRows.first.values.first.toString().isEmpty) {
+            throw const DatabaseEncryptionException(
+              'SQLCipher is not active: PRAGMA cipher_version returned empty. '
+              'Standard SQLite was loaded instead, which silently ignores PRAGMA key and leaves data unencrypted.',
+            );
+          }
+        }
       },
     );
   });

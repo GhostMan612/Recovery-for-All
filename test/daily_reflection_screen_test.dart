@@ -24,6 +24,7 @@ void main() {
 
   setUp(() async {
     FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({});
+    JournalCryptoService.lockSession();
     masterKey = Uint8List.fromList(List<int>.generate(32, (i) => i + 10));
     const storage = FlutterSecureStorage();
     await storage.write(key: 'journal_master_key_v1', value: base64Encode(masterKey));
@@ -32,6 +33,7 @@ void main() {
   });
 
   tearDown(() async {
+    JournalCryptoService.lockSession();
     await db.close();
   });
 
@@ -63,7 +65,7 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await pumpUntil(tester, () => find.byType(CircularProgressIndicator).evaluate().isEmpty);
 
-      final textField = find.byType(TextField);
+      final textField = find.byType(TextField).first;
       expect(textField, findsOneWidget);
 
       await tester.enterText(textField, 'Peace is not the absence of conflict, but the presence of stillness.');
@@ -95,7 +97,7 @@ void main() {
       expect(plain, equals('Peace is not the absence of conflict, but the presence of stillness.'));
     });
 
-    testWidgets('displays decrypted content for historical plaintext and ENC_ entries', (tester) async {
+    testWidgets('displays decrypted content for historical plaintext and ENC_ entries when PIN is unconfigured', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -158,7 +160,7 @@ void main() {
       await tester.pumpWidget(buildScreen());
       await tester.pump(const Duration(milliseconds: 200));
 
-      final textField = find.byType(TextField);
+      final textField = find.byType(TextField).first;
       await tester.enterText(textField, 'New reflection during key lockout');
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -179,6 +181,97 @@ void main() {
       final entries = await db.select(db.journalEntries).get();
       expect(entries, hasLength(1));
       expect(entries.first.id, equals('existing_entry'));
+    });
+  });
+
+  group('DailyReflectionScreen Journal PIN Privacy Protection', () {
+    const validPin = '123456';
+
+    setUp(() async {
+      await JournalCryptoService.setPin(validPin);
+      JournalCryptoService.lockSession();
+    });
+
+    testWidgets('gates past reflections when PIN is set and session is locked', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // Seed a private reflection in the database
+      final encPrivate = await JournalCryptoService.encrypt('Top secret recovery thought', masterKey);
+      await db.addJournalEntry(JournalEntry(
+        id: 'secret_ref_1',
+        timestamp: DateTime.now().millisecondsSinceEpoch - 10000,
+        moodRating: 4,
+        contentEncrypted: encPrivate,
+        isSyncedToCloud: false,
+      ));
+
+      await tester.pumpWidget(buildScreen());
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // The secret reflection must NOT be visible or decrypted
+      expect(find.text('Top secret recovery thought'), findsNothing);
+
+      // The privacy gate UI must be rendered
+      expect(find.text('Past Reflections Locked'), findsOneWidget);
+      expect(find.textContaining('Enter your 6-digit Journal PIN'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Unlock Past Reflections'), findsOneWidget);
+
+      // Attempting unlock with incorrect PIN
+      final pinField = find.byType(TextField).last;
+      await tester.enterText(pinField, '999999');
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final unlockButton = find.widgetWithText(ElevatedButton, 'Unlock Past Reflections');
+      await tester.ensureVisible(unlockButton);
+      await tester.tap(unlockButton);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Incorrect PIN error shown, reflection still NOT visible
+      expect(find.text('Incorrect PIN. Please try again.'), findsOneWidget);
+      expect(find.text('Top secret recovery thought'), findsNothing);
+
+      // Now enter the correct PIN
+      await tester.enterText(pinField, validPin);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(unlockButton);
+
+      await pumpUntil(
+        tester,
+        () => find.text('Top secret recovery thought').evaluate().isNotEmpty,
+      );
+
+      // Secret reflection is now safely unlocked and visible
+      expect(find.text('Top secret recovery thought'), findsOneWidget);
+      expect(find.text('Past Reflections Locked'), findsNothing);
+    });
+
+    testWidgets('renders past reflections immediately if journal session was already unlocked', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // Unlock session prior to screen open (e.g. unlocked in JournalScreen)
+      JournalCryptoService.unlockSession();
+
+      final enc = await JournalCryptoService.encrypt('Already authenticated reflection', masterKey);
+      await db.addJournalEntry(JournalEntry(
+        id: 'auth_ref_1',
+        timestamp: DateTime.now().millisecondsSinceEpoch - 10000,
+        moodRating: 5,
+        contentEncrypted: enc,
+        isSyncedToCloud: false,
+      ));
+
+      await tester.pumpWidget(buildScreen());
+      await pumpUntil(
+        tester,
+        () => find.text('Already authenticated reflection').evaluate().isNotEmpty,
+      );
+
+      expect(find.text('Already authenticated reflection'), findsOneWidget);
+      expect(find.text('Past Reflections Locked'), findsNothing);
     });
   });
 }
