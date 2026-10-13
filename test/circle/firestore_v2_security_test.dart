@@ -37,7 +37,7 @@ void main() {
     });
 
     test('Circle v2 Rules: Owner-bound creation is strictly enforced', () {
-      expect(v2RulesContent.contains("match /circle_v2/posts/{postId}"), isTrue);
+      expect(v2RulesContent.contains("match /circle_v2/{postId}"), isTrue);
 
       // Verify ownerUid is bound to request.auth.uid
       expect(v2RulesContent.contains("request.resource.data.ownerUid == request.auth.uid"), isTrue,
@@ -57,8 +57,8 @@ void main() {
     test('Circle v2 Rules: Reactions and Reports access restrictions', () {
       // Reactions bound to actorUid
       expect(v2RulesContent.contains("request.resource.data.actorUid == request.auth.uid"), isTrue);
-      expect(v2RulesContent.contains("reactionId.matches('^' + request.auth.uid + '_[a-zA-Z0-9]+\$')"), isTrue,
-          reason: 'Reaction docId must be prefixed with actorUid to prevent cross-actor overwrites');
+      expect(v2RulesContent.contains("reactionId == request.auth.uid + '_' + request.resource.data.kind"), isTrue,
+          reason: 'Reaction docId must be bound to actorUid + kind');
 
       // Reports cannot be read by clients
       expect(v2RulesContent.contains("match /reports/{reporterUid} {\n        allow read: if false;"), isTrue,
@@ -102,7 +102,7 @@ void main() {
       }) {
         if (authUid == null) return false;
         if (data['actorUid'] != authUid) return false;
-        if (!reactionDocId.startsWith('${authUid}_')) return false;
+        if (reactionDocId != '${authUid}_${data['kind']}') return false;
         return true;
       }
 

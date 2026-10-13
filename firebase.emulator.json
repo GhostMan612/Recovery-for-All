@@ -1,0 +1,17 @@
+{
+  "firestore": {
+    "rules": "firestore/firestore_v2.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8088,
+      "host": "127.0.0.1"
+    },
+    "hub": {
+      "port": 4405
+    },
+    "logging": {
+      "port": 4505
+    }
+  }
+}
