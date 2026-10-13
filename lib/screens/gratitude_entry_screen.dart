@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../database/recovery_database.dart';
 import '../services/recovery_pet_service.dart';
+import '../services/journal_crypto_service.dart';
 
 class GratitudeEntryScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -65,7 +66,16 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
       };
 
       final String jsonPayload = jsonEncode(entryData);
-      final String encryptedPayload = "ENC_${base64.encode(utf8.encode(jsonPayload))}";
+      String encryptedPayload = "ENC_${base64.encode(utf8.encode(jsonPayload))}";
+      try {
+        final existing = await widget.database.watchRecentJournals().first;
+        final key = await JournalCryptoService.loadMasterKey(
+          hasExistingEntries: existing.isNotEmpty,
+        );
+        encryptedPayload = await JournalCryptoService.encrypt(jsonPayload, key);
+      } catch (_) {
+        // Fall back to legacy ENC_ format if master key unavailable
+      }
 
       final entry = JournalEntry(
         id: UniqueKey().toString(),

@@ -407,7 +407,7 @@ void main() {
       );
     });
 
-    test('loadMasterKey refuses to generate replacement key if existing entries are indicated', () async {
+    test('loadMasterKey refuses to generate replacement key if storage throws error and entries exist', () async {
       FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({});
       const storage = FlutterSecureStorage();
       await storage.delete(key: 'journal_master_key_v1');
@@ -426,6 +426,277 @@ void main() {
       // Second call returns identical key
       final key2 = await JournalCryptoService.loadMasterKey();
       expect(key2, equals(key));
+    });
+  });
+
+  group('Authentic SQLCipher Encrypted Database & Upgrade Safety', () {
+    late Directory tempDir;
+    late File dbFile;
+    const testDbKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('sqlcipher_upgrade_test_');
+      dbFile = File('${tempDir.path}${Platform.pathSeparator}recovery_companion_secure.db');
+      FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({});
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        try {
+          tempDir.deleteSync(recursive: true);
+        } catch (_) {}
+      }
+    });
+
+    test('Real encrypted connection upgrades v13 to v15, retains data, and reopens stably', () async {
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+
+      final masterKey = Uint8List.fromList(List<int>.generate(32, (i) => i * 3 + 1));
+      await storage.write(key: 'journal_master_key_v1', value: base64Encode(masterKey));
+
+      // 1. Seed database with v13 schema and encrypted data
+      final initialDb = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      await initialDb.customStatement('SELECT 1');
+
+      // Drop v15 additions
+      await initialDb.customStatement('DROP INDEX IF EXISTS idx_circle_outbox_status');
+      await initialDb.customStatement('DROP TABLE IF EXISTS circle_outbox_entries');
+
+      // Drop v14 additions
+      await initialDb.customStatement('DROP TABLE IF EXISTS raid_victory_receipts');
+      await initialDb.customStatement('DROP TABLE IF EXISTS raid_damage_receipts');
+      await initialDb.customStatement('DROP TABLE IF EXISTS reward_receipts');
+      await initialDb.customStatement('DROP TABLE IF EXISTS recovery_actions');
+
+      final encJournal = await JournalCryptoService.encrypt('Encrypted journal prior to upgrade', masterKey);
+      await initialDb.addJournalEntry(JournalEntry(
+        id: 'journal_sqlcipher_1',
+        timestamp: 1672531199000,
+        moodRating: 5,
+        contentEncrypted: encJournal,
+        isSyncedToCloud: false,
+      ));
+
+      await initialDb.addCounter(Counter(
+        id: 'counter_sqlcipher_1',
+        label: 'Alcohol Freedom',
+        startDateTime: 1672531199000,
+        isActive: true,
+        dailyCost: 15.5,
+      ));
+
+      await initialDb.customStatement(
+        "INSERT INTO recovery_pets (id, name, species_or_style, energy, bond, mood, sparks, unlocked_items, equipped_outfit, last_fed_at, created_at, equipped_slots_json, path_level, path_xp) "
+        "VALUES ('pet_sqlcipher_1', 'Phoenix', 'guardian', 0.95, 0.85, 'thriving', 500, '[\"crown_gold\"]', 'crown_gold', 1672531199000, 1672531199000, '{\"head\":\"crown_gold\"}', 5, 450)",
+      );
+
+      await initialDb.customStatement('PRAGMA user_version = 13');
+      await initialDb.close();
+
+      // 2. Open with v15 upgrade
+      final upgradedDb = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      await upgradedDb.customStatement('SELECT 1');
+
+      final v = (await upgradedDb.customSelect('PRAGMA user_version').getSingle()).data['user_version'] as int;
+      expect(v, equals(15));
+
+      // 3. Verify all recovery domains
+      final journals = await upgradedDb.select(upgradedDb.journalEntries).get();
+      expect(journals, hasLength(1));
+      final plain = await JournalCryptoService.decrypt(journals.first.contentEncrypted, masterKey);
+      expect(plain, equals('Encrypted journal prior to upgrade'));
+
+      final counters = await upgradedDb.select(upgradedDb.counters).get();
+      expect(counters, hasLength(1));
+      expect(counters.first.label, equals('Alcohol Freedom'));
+
+      final pets = await upgradedDb.select(upgradedDb.recoveryPets).get();
+      expect(pets, hasLength(1));
+      expect(pets.first.name, equals('Phoenix'));
+      expect(pets.first.sparks, equals(500));
+
+      // 4. Stable reopening
+      await upgradedDb.close();
+      final reopenedDb = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      final finalPets = await reopenedDb.select(reopenedDb.recoveryPets).get();
+      expect(finalPets.first.name, equals('Phoenix'));
+      await reopenedDb.close();
+    });
+
+    test('Encrypted connection fails closed and preserves file untouched when SQLCipher key is missing', () async {
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+
+      // Create existing populated database
+      final db = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      await db.customStatement('SELECT 1');
+      await db.addCounter(Counter(
+        id: 'c_protect',
+        label: 'Protected Counter',
+        startDateTime: 1672531199000,
+        isActive: true,
+        dailyCost: 10.0,
+      ));
+      await db.close();
+
+      final initialLength = dbFile.lengthSync();
+      final initialBytes = dbFile.readAsBytesSync();
+      expect(initialLength, greaterThan(0));
+
+      // Delete key from secure storage
+      await storage.delete(key: 'recovery_db_sqlcipher_key_v1');
+
+      // Attempt open: MUST throw DatabaseKeyInaccessibleException and fail closed
+      final failingDb = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      expect(
+        () async => await failingDb.customStatement('SELECT 1'),
+        throwsA(isA<DatabaseKeyInaccessibleException>()),
+      );
+
+      // Verify database file on disk is completely untouched
+      expect(dbFile.existsSync(), isTrue);
+      expect(dbFile.lengthSync(), equals(initialLength));
+      expect(dbFile.readAsBytesSync(), equals(initialBytes));
+
+      // Restore key: database is fully accessible and undamaged
+      await storage.write(key: 'recovery_db_sqlcipher_key_v1', value: testDbKey);
+      final restoredDb = RecoveryDatabase.openEncrypted(file: dbFile, storage: storage);
+      final counters = await restoredDb.select(restoredDb.counters).get();
+      expect(counters, hasLength(1));
+      expect(counters.first.label, equals('Protected Counter'));
+      await restoredDb.close();
+    });
+  });
+
+  group('Daily Reflection Encryption & Historical Upgrade Safety', () {
+    late Directory tempDir;
+    late File dbFile;
+    late Uint8List masterKey;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('reflection_crypto_test_');
+      dbFile = File('${tempDir.path}${Platform.pathSeparator}test.db');
+      FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({});
+      masterKey = Uint8List.fromList(List<int>.generate(32, (i) => i * 5 + 2));
+      const storage = FlutterSecureStorage();
+      await storage.write(key: 'journal_master_key_v1', value: base64Encode(masterKey));
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        try {
+          tempDir.deleteSync(recursive: true);
+        } catch (_) {}
+      }
+    });
+
+    test('Daily reflection encrypts new entries with ENC2_ using verified master key', () async {
+      final db = RecoveryDatabase.forTesting(NativeDatabase(dbFile) as QueryExecutor);
+      await db.customStatement('SELECT 1');
+
+      final rawText = 'Today I found peace and clarity in my journey.';
+      final encrypted = await JournalCryptoService.encrypt(rawText, masterKey);
+      expect(encrypted.startsWith('ENC2_'), isTrue);
+
+      await db.addJournalEntry(JournalEntry(
+        id: 'reflection_new_1',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        moodRating: 4,
+        contentEncrypted: encrypted,
+        isSyncedToCloud: false,
+      ));
+
+      final entries = await db.select(db.journalEntries).get();
+      expect(entries.first.contentEncrypted.startsWith('ENC2_'), isTrue);
+      final decrypted = await JournalCryptoService.decrypt(entries.first.contentEncrypted, masterKey);
+      expect(decrypted, equals(rawText));
+
+      await db.close();
+    });
+
+    test('Daily reflection preserves historical plaintext and ENC_ entries without loss', () async {
+      final db = RecoveryDatabase.forTesting(NativeDatabase(dbFile) as QueryExecutor);
+      await db.customStatement('SELECT 1');
+
+      final plainLegacy = 'Historical plaintext written before encryption requirement';
+      final encLegacy = 'ENC_${base64Encode(utf8.encode('Legacy base64 encoded reflection'))}';
+
+      await db.addJournalEntry(JournalEntry(
+        id: 'legacy_plain_1',
+        timestamp: 1670000000000,
+        moodRating: 3,
+        contentEncrypted: plainLegacy,
+        isSyncedToCloud: false,
+      ));
+
+      await db.addJournalEntry(JournalEntry(
+        id: 'legacy_enc_1',
+        timestamp: 1670000100000,
+        moodRating: 4,
+        contentEncrypted: encLegacy,
+        isSyncedToCloud: false,
+      ));
+
+      final readPlain = await JournalCryptoService.decrypt(plainLegacy, masterKey);
+      expect(readPlain, equals(plainLegacy));
+
+      final readLegacy = await JournalCryptoService.decrypt(encLegacy, masterKey);
+      expect(readLegacy, equals('Legacy base64 encoded reflection'));
+
+      await db.close();
+    });
+
+    test('upgradeHistoricalEntries idempotently upgrades legacy entries to ENC2_', () async {
+      final db = RecoveryDatabase.forTesting(NativeDatabase(dbFile) as QueryExecutor);
+      await db.customStatement('SELECT 1');
+
+      await db.addJournalEntry(JournalEntry(
+        id: 'to_upgrade_plain',
+        timestamp: 1670000000000,
+        moodRating: 3,
+        contentEncrypted: 'Raw historical reflection text',
+        isSyncedToCloud: false,
+      ));
+
+      await db.addJournalEntry(JournalEntry(
+        id: 'to_upgrade_legacy',
+        timestamp: 1670000100000,
+        moodRating: 4,
+        contentEncrypted: 'ENC_${base64Encode(utf8.encode('Legacy base64 reflection'))}',
+        isSyncedToCloud: false,
+      ));
+
+      final alreadyModern = await JournalCryptoService.encrypt('Already modern', masterKey);
+      await db.addJournalEntry(JournalEntry(
+        id: 'already_modern',
+        timestamp: 1670000200000,
+        moodRating: 5,
+        contentEncrypted: alreadyModern,
+        isSyncedToCloud: false,
+      ));
+
+      // Perform non-destructive upgrade
+      final count = await JournalCryptoService.upgradeHistoricalEntries(db, masterKey);
+      expect(count, equals(2));
+
+      // Verify all rows are now ENC2_ and decrypt accurately
+      final allEntries = await db.select(db.journalEntries).get();
+      for (final e in allEntries) {
+        expect(e.contentEncrypted.startsWith('ENC2_'), isTrue);
+      }
+
+      final decryptedPlain = await JournalCryptoService.decrypt(
+        allEntries.firstWhere((e) => e.id == 'to_upgrade_plain').contentEncrypted,
+        masterKey,
+      );
+      expect(decryptedPlain, equals('Raw historical reflection text'));
+
+      // Idempotency check: running again upgrades 0 entries
+      final secondCount = await JournalCryptoService.upgradeHistoricalEntries(db, masterKey);
+      expect(secondCount, equals(0));
+
+      await db.close();
     });
   });
 }

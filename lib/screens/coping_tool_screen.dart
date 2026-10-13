@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/recovery_database.dart';
+import '../services/journal_crypto_service.dart';
 
 class CopingToolScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -196,10 +197,19 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () async {
+              final text = 'Used ${tool['title']} coping tool';
+              String payload = text;
+              try {
+                final existing = await widget.database.watchRecentJournals().first;
+                final key = await JournalCryptoService.loadMasterKey(
+                  hasExistingEntries: existing.isNotEmpty,
+                );
+                payload = await JournalCryptoService.encrypt(text, key);
+              } catch (_) {}
               await widget.database.addJournalEntry(
                 JournalEntry(
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  contentEncrypted: 'Used ${tool['title']} coping tool',
+                  contentEncrypted: payload,
                   moodRating: 5,
                   timestamp: DateTime.now().millisecondsSinceEpoch,
                   isSyncedToCloud: false,

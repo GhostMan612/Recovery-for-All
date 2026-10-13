@@ -49,15 +49,22 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
 
   Future<void> _loadJournalEntries() async {
     try {
-      final entries = await widget.database.watchRecentJournals().first;
+      final entries = await widget.database.getRecentJournals();
       // DECRYPT before display. This list previously rendered
       // `e.contentEncrypted` raw, so users saw ciphertext instead of their own
       // writing. Mirrors journal_screen.dart `_decryptContent`.
       final key = await JournalCryptoService.loadMasterKey(
         hasExistingEntries: entries.isNotEmpty,
       );
+      // Opportunistically and idempotently upgrade any historical plaintext/legacy entries
+      // if the master key was successfully verified. Non-destructive: fails closed.
+      await JournalCryptoService.upgradeHistoricalEntries(
+        widget.database,
+        key,
+      );
+      final refreshed = await widget.database.getRecentJournals();
       final readable = <String>[];
-      for (final e in entries) {
+      for (final e in refreshed) {
         // `decrypt` already falls back to `decryptLegacy` for pre-ENC2_ rows.
         final plain = await JournalCryptoService.decrypt(e.contentEncrypted, key);
         readable.add(plain ?? '[Locked — unlock the journal to read this entry]');
@@ -78,7 +85,8 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
   }
 
   Future<void> _saveReflection() async {
-    if (_reflectionController.text.isEmpty) {
+    final text = _reflectionController.text.trim();
+    if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please write a reflection')),
       );
@@ -86,9 +94,16 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
     }
 
     try {
+      final entries = await widget.database.getRecentJournals();
+      final masterKey = await JournalCryptoService.loadMasterKey(
+        hasExistingEntries: entries.isNotEmpty,
+      );
+      final encryptedContent =
+          await JournalCryptoService.encrypt(text, masterKey);
+
       final entry = JournalEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        contentEncrypted: _reflectionController.text,
+        contentEncrypted: encryptedContent,
         moodRating: _selectedMood,
         timestamp: DateTime.now().millisecondsSinceEpoch,
         isSyncedToCloud: false,
@@ -108,6 +123,16 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> {
         );
 
         _loadJournalEntries();
+      }
+    } on MasterKeyInaccessibleException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Encryption key inaccessible. Existing journal data preserved: ${e.message}',
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

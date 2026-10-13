@@ -9,6 +9,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../database/recovery_database.dart';
 
 class MasterKeyInaccessibleException implements Exception {
   final String message;
@@ -173,6 +174,34 @@ class JournalCryptoService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Safely upgrades historical unencrypted (or legacy ENC_) journal entries to ENC2_ encryption.
+  ///
+  /// Invariants:
+  /// 1. Idempotent: entries already prefixed with 'ENC2_' are left untouched.
+  /// 2. Non-destructive: if decryption or re-encryption fails, the entry is NOT modified.
+  /// 3. Dependent on successful master key recovery: if key cannot be loaded or is invalid,
+  ///    no database records are modified.
+  static Future<int> upgradeHistoricalEntries(
+    RecoveryDatabase database,
+    Uint8List masterKey,
+  ) async {
+    final entries = await database.select(database.journalEntries).get();
+    var upgradedCount = 0;
+    for (final entry in entries) {
+      if (entry.contentEncrypted.startsWith('ENC2_')) {
+        continue;
+      }
+      final plain = await decrypt(entry.contentEncrypted, masterKey);
+      if (plain != null && plain.isNotEmpty) {
+        final reEncrypted = await encrypt(plain, masterKey);
+        final updated = entry.copyWith(contentEncrypted: reEncrypted);
+        await database.updateJournalEntry(updated);
+        upgradedCount++;
+      }
+    }
+    return upgradedCount;
   }
 
   static void _assertPinFormat(String pin) {

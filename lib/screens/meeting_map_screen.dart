@@ -20,6 +20,7 @@ import '../database/recovery_database.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/map_tile_cache.dart';
 import '../services/weather_service.dart';
+import '../services/journal_crypto_service.dart';
 import '../widgets/app_primitives.dart';
 import '../features/navigator/application/meeting_journey_planner.dart';
 import '../features/navigator/data/meeting_destination_adapter.dart';
@@ -654,12 +655,22 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
 
     final db = widget.database;
     if (db != null) {
+      final rawContent =
+          '[Meeting] ${meeting.name}: ${reflectionData.tag}${reflectionData.text.isNotEmpty ? ' — ${reflectionData.text}' : ''}';
+      String encryptedContent = rawContent;
+      try {
+        final existing = await db.watchRecentJournals().first;
+        final key = await JournalCryptoService.loadMasterKey(
+          hasExistingEntries: existing.isNotEmpty,
+        );
+        encryptedContent = await JournalCryptoService.encrypt(rawContent, key);
+      } catch (_) {}
+
       await db.addJournalEntry(JournalEntry(
         id: 'meeting_${DateTime.now().millisecondsSinceEpoch}',
         timestamp: DateTime.now().millisecondsSinceEpoch,
         moodRating: 4,
-        contentEncrypted:
-            '[Meeting] ${meeting.name}: ${reflectionData.tag}${reflectionData.text.isNotEmpty ? ' — ${reflectionData.text}' : ''}',
+        contentEncrypted: encryptedContent,
         isSyncedToCloud: false,
       ));
 

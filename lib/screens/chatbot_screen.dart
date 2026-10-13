@@ -19,6 +19,7 @@ import '../services/gguf_inference_service.dart';
 import '../services/gguf_model_service.dart';
 import '../services/ollama_service.dart';
 import '../services/safety_guardrail_service.dart';
+import '../services/journal_crypto_service.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -130,11 +131,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final SafetyAssessment assessment = SafetyGuardrailService.assessInput(text);
     if (assessment.isCrisisTriggered) {
       setState(() => _isLoading = false);
+      final crisisMsg = '[CRISIS GUARDRAIL TRIGGERED: ${assessment.matchedPattern}]';
+      String encryptedCrisis = crisisMsg;
+      try {
+        final existing = await widget.database.watchRecentJournals().first;
+        final key = await JournalCryptoService.loadMasterKey(
+          hasExistingEntries: existing.isNotEmpty,
+        );
+        encryptedCrisis = await JournalCryptoService.encrypt(crisisMsg, key);
+      } catch (_) {}
+
       final entry = JournalEntry(
         id: UniqueKey().toString(),
         timestamp: DateTime.now().millisecondsSinceEpoch,
         moodRating: 1,
-        contentEncrypted: '[CRISIS GUARDRAIL TRIGGERED: ${assessment.matchedPattern}]',
+        contentEncrypted: encryptedCrisis,
         isSyncedToCloud: false,
       );
       await widget.database.addJournalEntry(entry);
@@ -238,11 +249,20 @@ $text
         }
       }
 
+      String encryptedChat = text;
+      try {
+        final existing = await widget.database.watchRecentJournals().first;
+        final key = await JournalCryptoService.loadMasterKey(
+          hasExistingEntries: existing.isNotEmpty,
+        );
+        encryptedChat = await JournalCryptoService.encrypt(text, key);
+      } catch (_) {}
+
       final journal = JournalEntry(
         id: UniqueKey().toString(),
         timestamp: DateTime.now().millisecondsSinceEpoch,
         moodRating: 3,
-        contentEncrypted: text,
+        contentEncrypted: encryptedChat,
         isSyncedToCloud: false,
       );
       await widget.database.addJournalEntry(journal);

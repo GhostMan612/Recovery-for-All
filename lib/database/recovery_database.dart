@@ -307,6 +307,11 @@ class CircleOutboxEntries extends Table {
 class RecoveryDatabase extends _$RecoveryDatabase {
   RecoveryDatabase() : super(_openEncryptedConnection());
 
+  RecoveryDatabase.openEncrypted({
+    required File file,
+    FlutterSecureStorage storage = const FlutterSecureStorage(),
+  }) : super(openEncryptedDatabaseConnection(file: file, storage: storage));
+
   RecoveryDatabase.forTesting(super.e);
 
   @override
@@ -465,6 +470,21 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   Future<int> addJournalEntry(JournalEntry entry) =>
       into(journalEntries).insert(entry);
+
+  Future<bool> updateJournalEntry(JournalEntry entry) =>
+      update(journalEntries).replace(entry);
+
+  Future<List<JournalEntry>> getRecentJournals({int limit = 100}) {
+    return (select(journalEntries)
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.timestamp,
+                  mode: OrderingMode.desc,
+                )
+          ])
+          ..limit(limit))
+        .get();
+  }
 
   Stream<List<JournalEntry>> watchRecentJournals({int limit = 100}) {
     // "Recent" was in the name but there was no LIMIT — the fastest-growing
@@ -794,6 +814,17 @@ String _generateKeyHex() {
 
 LazyDatabase _openEncryptedConnection() {
   return LazyDatabase(() async {
+    final dbFolder = await getApplicationDocumentsDirectory().timeout(const Duration(seconds: 4));
+    final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
+    return openEncryptedDatabaseConnection(file: file);
+  });
+}
+
+QueryExecutor openEncryptedDatabaseConnection({
+  required File file,
+  FlutterSecureStorage storage = const FlutterSecureStorage(),
+}) {
+  return LazyDatabase(() async {
     if (Platform.isAndroid) {
       try {
         await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions().timeout(const Duration(seconds: 4));
@@ -803,11 +834,7 @@ LazyDatabase _openEncryptedConnection() {
       } catch (_) {}
     }
 
-    final dbFolder = await getApplicationDocumentsDirectory().timeout(const Duration(seconds: 4));
-    final file = File(p.join(dbFolder.path, 'recovery_companion_secure.db'));
     final dbFileExists = file.existsSync() && file.lengthSync() > 0;
-
-    const storage = FlutterSecureStorage();
     String? key;
     try {
       key = await storage.read(key: _kDbKeyStorageKey).timeout(const Duration(seconds: 4));
