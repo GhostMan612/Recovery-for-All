@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import com.recoveryforall.StepCounterForegroundService
+import com.recoveryforall.atlas.AtlasChannelAdapter
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -27,6 +28,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         setupStepCounterChannel(flutterEngine)
+        AtlasChannelAdapter.setup(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     private fun setupStepCounterChannel(flutterEngine: FlutterEngine) {
