@@ -13,6 +13,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/open.dart';
 import 'package:recovery_for_all/database/recovery_database.dart';
 import 'package:recovery_for_all/services/community_feed_service.dart';
 import 'package:recovery_for_all/services/journal_crypto_service.dart';
@@ -446,6 +447,12 @@ void main() {
           tempDir.deleteSync(recursive: true);
         } catch (_) {}
       }
+      if (Platform.isLinux) {
+        final lib = RecoveryDatabase.resolveLinuxSqlCipher();
+        if (lib != null) {
+          open.overrideFor(OperatingSystem.linux, () => lib);
+        }
+      }
     });
 
     test('Negative test: opening with ordinary SQLite when SQLCipher is enforced fails closed', () async {
@@ -456,6 +463,7 @@ void main() {
         file: dbFile,
         storage: storage,
         enforceSqlCipher: true,
+        forceStandardSqlite: true,
       );
 
       expect(

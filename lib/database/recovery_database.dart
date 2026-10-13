@@ -314,10 +314,12 @@ class RecoveryDatabase extends _$RecoveryDatabase {
     required File file,
     FlutterSecureStorage storage = const FlutterSecureStorage(),
     bool enforceSqlCipher = false,
+    bool forceStandardSqlite = false,
   }) : super(openEncryptedDatabaseConnection(
           file: file,
           storage: storage,
           enforceSqlCipher: enforceSqlCipher,
+          forceStandardSqlite: forceStandardSqlite,
         ));
 
   RecoveryDatabase.forTesting(super.e);
@@ -340,7 +342,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   }
 
   /// Returns true if an active SQLite connection supports SQLCipher encryption.
-  static DynamicLibrary? _resolveLinuxSqlCipher() {
+  static DynamicLibrary? resolveLinuxSqlCipher() {
     if (!Platform.isLinux) return null;
     for (final name in [
       'libsqlcipher.so',
@@ -360,7 +362,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
   static bool isSqlCipherActive() {
     try {
       if (Platform.isLinux) {
-        final lib = _resolveLinuxSqlCipher();
+        final lib = resolveLinuxSqlCipher();
         if (lib != null) {
           open.overrideFor(OperatingSystem.linux, () => lib);
         }
@@ -894,6 +896,7 @@ QueryExecutor openEncryptedDatabaseConnection({
   required File file,
   FlutterSecureStorage storage = const FlutterSecureStorage(),
   bool enforceSqlCipher = false,
+  bool forceStandardSqlite = false,
 }) {
   return LazyDatabase(() async {
     if (Platform.isAndroid) {
@@ -903,10 +906,18 @@ QueryExecutor openEncryptedDatabaseConnection({
       try {
         open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
       } catch (_) {}
-    } else if (Platform.isLinux) {
-      final lib = RecoveryDatabase._resolveLinuxSqlCipher();
+    } else if (Platform.isLinux && !forceStandardSqlite) {
+      final lib = RecoveryDatabase.resolveLinuxSqlCipher();
       if (lib != null) {
         open.overrideFor(OperatingSystem.linux, () => lib);
+      }
+    } else if (Platform.isLinux && forceStandardSqlite) {
+      try {
+        open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlite3.so.0'));
+      } catch (_) {
+        try {
+          open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlite3.so'));
+        } catch (_) {}
       }
     }
 
