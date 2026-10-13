@@ -62,7 +62,14 @@ enum CircleConnectionStatus {
 class CommunityFeedService {
   static const String _keyModerator = 'feed_moderator_v1';
   static const int maxPostLength = 480;
-  static const String remoteCollection = 'community_feeds';
+  static const String remoteCollectionV2 = 'circle_v2';
+  static const String remoteCollectionLegacy = 'community_feeds';
+  static const String remoteCollection = remoteCollectionV2;
+
+  static String? get _currentAuthUid {
+    if (Firebase.apps.isEmpty) return null;
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
 
   /// Interim security safeguard (WO-P0-CIRCLE-INTERIM):
   /// Remote mutations (publishing new posts and syncing remote reactions)
@@ -134,10 +141,22 @@ class CommunityFeedService {
   static Future<bool> Function(FeedPost post)? remoteWriterForTesting;
 
   @visibleForTesting
+  static Future<bool> Function(String postId, {required String ownerUid})? remoteDeleterForTesting;
+
+  @visibleForTesting
+  static Future<bool> Function(String postId, {required String kind, required String actorUid, required bool isAdd})? remoteReactorForTesting;
+
+  @visibleForTesting
+  static Future<bool> Function(String postId, {required String reasonCode, required String reporterUid, String? notes})? remoteReporterForTesting;
+
+  @visibleForTesting
   static void resetTestingOverrides() {
     authCheckerForTesting = null;
     remoteStreamForTesting = null;
     remoteWriterForTesting = null;
+    remoteDeleterForTesting = null;
+    remoteReactorForTesting = null;
+    remoteReporterForTesting = null;
     _allowRemoteWritesForTesting = false;
     _privacyListenerAttached = false;
     _revocationCallbacks.clear();
@@ -242,38 +261,101 @@ class CommunityFeedService {
     if (Firebase.apps.isEmpty) {
       return const Stream<List<FeedPost>>.empty();
     }
-    return FirebaseFirestore.instance
-        .collection(remoteCollection)
+    // Stream both v2 and legacy community feeds, merging into unified chronological feed
+    final v2Stream = FirebaseFirestore.instance
+        .collection(remoteCollectionV2)
         .orderBy('createdAt', descending: true)
         .limit(100)
         .snapshots()
-        .map((snap) {
-      return snap.docs.map((doc) {
-        final data = doc.data();
-        try {
-          if (data['status'] != null && data['status'] != 'visible') {
-            return null;
-          }
-          return FeedPost(
-            id: doc.id,
-            authorAlias: (data['authorAlias'] ?? 'Anonymous') as String,
-            kind: (data['kind'] ?? 'story') as String,
-            body: (data['body'] ?? '') as String,
-            shapeJson: data['shapeJson'] as String?,
-            needsSupport: (data['needsSupport'] ?? false) as bool,
-            status: 'visible',
-            flagCount: 0,
-            strengthCount: (data['strengthCount'] ?? 0) as int,
-            proudCount: (data['proudCount'] ?? 0) as int,
-            respectCount: (data['respectCount'] ?? 0) as int,
-            createdAt: (data['createdAt'] ?? 0) as int,
-            isMine: false,
-          );
-        } catch (_) {
+        .map((snap) => _mapSnapToPosts(snap, isV2: true));
+
+    final legacyStream = FirebaseFirestore.instance
+        .collection(remoteCollectionLegacy)
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((snap) => _mapSnapToPosts(snap, isV2: false));
+
+    late StreamController<List<FeedPost>> controller;
+    List<FeedPost> v2Posts = const <FeedPost>[];
+    List<FeedPost> legacyPosts = const <FeedPost>[];
+    StreamSubscription<List<FeedPost>>? v2Sub;
+    StreamSubscription<List<FeedPost>>? legacySub;
+
+    void emitMerged() {
+      if (controller.isClosed) return;
+      final byId = <String, FeedPost>{};
+      for (final p in legacyPosts) {
+        byId[p.id] = p;
+      }
+      for (final p in v2Posts) {
+        byId[p.id] = p;
+      }
+      final sorted = byId.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      controller.add(sorted);
+    }
+
+    controller = StreamController<List<FeedPost>>(
+      onListen: () {
+        v2Sub = v2Stream.listen(
+          (posts) {
+            v2Posts = posts;
+            emitMerged();
+          },
+          onError: (Object e) {
+            debugPrint('[circle] v2 feed error: $e');
+          },
+        );
+        legacySub = legacyStream.listen(
+          (posts) {
+            legacyPosts = posts;
+            emitMerged();
+          },
+          onError: (Object e) {
+            debugPrint('[circle] legacy feed error: $e');
+          },
+        );
+      },
+      onCancel: () async {
+        await v2Sub?.cancel();
+        await legacySub?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  static List<FeedPost> _mapSnapToPosts(QuerySnapshot<Map<String, dynamic>> snap, {required bool isV2}) {
+    final currentUid = _currentAuthUid;
+    return snap.docs.map((doc) {
+      final data = doc.data();
+      try {
+        if (data['status'] != null && data['status'] != 'visible') {
           return null;
         }
-      }).whereType<FeedPost>().toList();
-    });
+        final ownerUid = data['ownerUid'] as String?;
+        final isMine = isV2 && currentUid != null && ownerUid == currentUid;
+
+        return FeedPost(
+          id: doc.id,
+          authorAlias: (data['authorAlias'] ?? 'Anonymous') as String,
+          kind: (data['kind'] ?? 'story') as String,
+          body: (data['body'] ?? '') as String,
+          shapeJson: data['shapeJson'] as String?,
+          needsSupport: (data['needsSupport'] ?? false) as bool,
+          status: 'visible',
+          flagCount: 0,
+          strengthCount: (data['strengthCount'] ?? 0) as int,
+          proudCount: (data['proudCount'] ?? 0) as int,
+          respectCount: (data['respectCount'] ?? 0) as int,
+          createdAt: (data['createdAt'] ?? 0) as int,
+          isMine: isMine,
+        );
+      } catch (_) {
+        return null;
+      }
+    }).whereType<FeedPost>().toList();
   }
 
   Stream<List<FeedPost>> watchMergedFeed() {
@@ -428,7 +510,7 @@ class CommunityFeedService {
     return controller.stream;
   }
 
-  Future<RemoteDeliveryStatus> _mirrorToRemote(FeedPost post) async {
+  Future<RemoteDeliveryStatus> _mirrorToRemote(FeedPost post, {required String ownerUid}) async {
     if (remoteWritesDisabled) {
       debugPrint('[circle] Interim mode: remote write skipped (post stays local)');
       return RemoteDeliveryStatus.localOnly;
@@ -467,7 +549,16 @@ class CommunityFeedService {
     if (remoteWriterForTesting != null) {
       try {
         final ok = await remoteWriterForTesting!(post);
-        return ok ? RemoteDeliveryStatus.delivered : RemoteDeliveryStatus.failed;
+        if (ok) {
+          final receipt = CircleServerAckReceipt(
+            outboxId: post.id,
+            serverToken: 'ack_${post.id}_${DateTime.now().millisecondsSinceEpoch}',
+            serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          );
+          await outboxCoordinator.confirmServerAck(outboxId: post.id, receipt: receipt);
+          return RemoteDeliveryStatus.delivered;
+        }
+        return RemoteDeliveryStatus.failed;
       } catch (e) {
         debugPrint('[circle] remoteWriterForTesting threw: $e');
         return RemoteDeliveryStatus.failed;
@@ -480,27 +571,32 @@ class CommunityFeedService {
         return RemoteDeliveryStatus.failed;
       }
       final payload = {
+        'ownerUid': ownerUid,
         'authorAlias': post.authorAlias,
         'kind': post.kind,
         'body': post.body,
-        'shapeJson': post.shapeJson,
+        if (post.shapeJson != null) 'shapeJson': post.shapeJson,
         'needsSupport': post.needsSupport,
         'status': post.status,
-        'strengthCount': post.strengthCount,
-        'proudCount': post.proudCount,
-        'respectCount': post.respectCount,
         'createdAt': post.createdAt,
       };
 
       await FirebaseFirestore.instance
-          .collection(remoteCollection)
+          .collection(remoteCollectionV2)
           .doc(post.id)
           .set(payload);
 
-      debugPrint('[circle] mirrored to Firestore successfully: ${post.id}');
+      final receipt = CircleServerAckReceipt(
+        outboxId: post.id,
+        serverToken: 'firestore_v2_${post.id}_${DateTime.now().millisecondsSinceEpoch}',
+        serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+      );
+      await outboxCoordinator.confirmServerAck(outboxId: post.id, receipt: receipt);
+
+      debugPrint('[circle] mirrored to Firestore v2 successfully: ${post.id}');
       return RemoteDeliveryStatus.delivered;
     } catch (e) {
-      debugPrint('[circle] mirror FAILED (post stays local): $e');
+      debugPrint('[circle] mirror to Firestore v2 FAILED (post stays local): $e');
       return RemoteDeliveryStatus.failed;
     }
   }
@@ -521,6 +617,7 @@ class CommunityFeedService {
     String kind = 'story',
     String? shapeJson,
     DateTime? at,
+    String? ownerUid,
   }) async {
     final text = body.trim();
     if (text.isEmpty) {
@@ -535,8 +632,16 @@ class CommunityFeedService {
     final lower = text.toLowerCase();
     final needsSupport = _supportWords.any((w) => lower.contains(w));
 
+    final effectiveOwnerUid = ownerUid ??
+        _currentAuthUid ??
+        'local_author_${DateTime.now().millisecondsSinceEpoch & 0xFFFF}';
+
+    // Stable document ID namespaced to author to prevent collisions
+    final createdAtMs = (at ?? DateTime.now()).millisecondsSinceEpoch;
+    final postId = 'circle_${effectiveOwnerUid}_${createdAtMs}_${text.hashCode.abs() & 0xFFFF}';
+
     final post = FeedPost(
-      id: 'feed_${DateTime.now().millisecondsSinceEpoch}_${text.hashCode & 0xFFFF}',
+      id: postId,
       authorAlias: _cleanAlias(authorAlias),
       kind: kind,
       body: text.substring(0, text.length.clamp(1, maxPostLength)),
@@ -548,7 +653,7 @@ class CommunityFeedService {
       proudCount: 0,
       respectCount: 0,
       isMine: true,
-      createdAt: (at ?? DateTime.now()).millisecondsSinceEpoch,
+      createdAt: createdAtMs,
     );
 
     // Save to local feed database
@@ -560,10 +665,11 @@ class CommunityFeedService {
       eventType: CircleEventType.postCreate,
       payload: {
         'id': post.id,
+        'ownerUid': effectiveOwnerUid,
         'authorAlias': post.authorAlias,
         'kind': post.kind,
         'body': post.body,
-        'shapeJson': post.shapeJson,
+        if (post.shapeJson != null) 'shapeJson': post.shapeJson,
         'needsSupport': post.needsSupport,
         'status': post.status,
         'createdAt': post.createdAt,
@@ -577,7 +683,7 @@ class CommunityFeedService {
           : FeedComposeResult.publishedLocal;
     }
 
-    final delivery = await _mirrorToRemote(post);
+    final delivery = await _mirrorToRemote(post, ownerUid: effectiveOwnerUid);
 
     if (needsSupport) {
       switch (delivery) {
@@ -620,7 +726,12 @@ class CommunityFeedService {
 
   static const Set<String> _reactionKinds = {'strength', 'proud', 'respect'};
 
-  Future<void> react(String postId, {required String kind, int by = 1}) async {
+  Future<void> react(
+    String postId, {
+    required String kind,
+    int by = 1,
+    String? actorUid,
+  }) async {
     // Validate reaction kind before local and remote writes to prevent desync
     if (!_reactionKinds.contains(kind)) {
       debugPrint('[circle] ignoring unknown reaction kind "$kind"');
@@ -649,27 +760,87 @@ class CommunityFeedService {
       return;
     }
 
+    final effectiveActorUid = actorUid ?? _currentAuthUid;
+    if (effectiveActorUid == null) {
+      debugPrint('[circle] Reaction remote sync requires authenticated actorUid');
+      return;
+    }
+
+    if (remoteReactorForTesting != null) {
+      await remoteReactorForTesting!(
+        postId,
+        kind: kind,
+        actorUid: effectiveActorUid,
+        isAdd: by > 0,
+      );
+      return;
+    }
+
     // Skip unmocked live Firestore network calls in unit/widget test environments
     if (remoteStreamForTesting != null) return;
 
     try {
-      final fieldName = '${kind}Count';
-      await FirebaseFirestore.instance
-          .collection(remoteCollection)
+      final reactionRef = FirebaseFirestore.instance
+          .collection(remoteCollectionV2)
           .doc(postId)
-          .update({
-        fieldName: FieldValue.increment(by),
-      });
+          .collection('reactions')
+          .doc('${effectiveActorUid}_$kind');
+
+      if (by > 0) {
+        await reactionRef.set({
+          'actorUid': effectiveActorUid,
+          'kind': kind,
+          'createdAt': DateTime.now().toUtc().millisecondsSinceEpoch,
+        });
+      } else {
+        await reactionRef.delete();
+      }
     } catch (e) {
       debugPrint('[circle] Cloud reaction sync failed: $e');
     }
   }
 
-  /// Mirror moderation action to the local row only.
-  /// Remote status writes are denied by security rules until networked
-  /// moderation is implemented (pet-store-rules C5).
-  Future<void> flag(String postId) async {
+  /// Mirror moderation action to the local row.
+  /// Remote report write enters private review subcollection without altering post status.
+  Future<void> flag(String postId, {String? reporterUid, String reasonCode = 'inappropriate', String? notes}) async {
     await database.flagPost(postId);
+
+    if (remoteWritesDisabled) return;
+    final cloudAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+    if (!cloudAllowed) return;
+    final authed = await _ensureAuth();
+    if (!authed) return;
+
+    final effectiveReporterUid = reporterUid ?? _currentAuthUid;
+    if (effectiveReporterUid == null) return;
+
+    if (remoteReporterForTesting != null) {
+      await remoteReporterForTesting!(
+        postId,
+        reasonCode: reasonCode,
+        reporterUid: effectiveReporterUid,
+        notes: notes,
+      );
+      return;
+    }
+
+    if (remoteStreamForTesting != null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection(remoteCollectionV2)
+          .doc(postId)
+          .collection('reports')
+          .doc(effectiveReporterUid)
+          .set({
+        'reporterUid': effectiveReporterUid,
+        'reasonCode': reasonCode,
+        'createdAt': DateTime.now().toUtc().millisecondsSinceEpoch,
+        'notes': ?notes,
+      });
+    } catch (e) {
+      debugPrint('[circle] Remote report submission failed: $e');
+    }
   }
 
   Future<void> approve(String postId) async {
@@ -681,6 +852,11 @@ class CommunityFeedService {
   }
 
   /// Request post deletion with tombstone state machine in the durable outbox.
+  /// Handles Firestore subcollection semantics:
+  /// - Author deletes their own reactions (if present).
+  /// - Author deletes the parent post document /circle_v2/{postId}.
+  /// - Unlists post and subcollections permanently from the feed.
+  /// - Moderation reports remain stored in the private review vault for safety compliance.
   Future<void> requestDeletePost(String postId, {required String ownerUid}) async {
     await database.setPostStatus(postId, 'hidden');
     await outboxCoordinator.requestPostDeletion(
@@ -688,5 +864,73 @@ class CommunityFeedService {
       postId: postId,
       ownerUid: ownerUid,
     );
+
+    if (remoteWritesDisabled) {
+      debugPrint('[circle] Interim mode: remote deletion queued in local outbox');
+      return;
+    }
+
+    final shareAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.circleShare);
+    if (!shareAllowed) return;
+
+    final cloudAllowed =
+        await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
+    if (!cloudAllowed) return;
+
+    final authed = await _ensureAuth();
+    if (!authed) return;
+
+    if (remoteDeleterForTesting != null) {
+      final ok = await remoteDeleterForTesting!(postId, ownerUid: ownerUid);
+      if (ok) {
+        final receipt = CircleServerAckReceipt(
+          outboxId: 'del_$postId',
+          serverToken: 'ack_del_$postId',
+          serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        );
+        await outboxCoordinator.confirmServerAck(
+          outboxId: 'del_$postId',
+          receipt: receipt,
+        );
+      }
+      return;
+    }
+
+    if (remoteStreamForTesting != null) return;
+
+    try {
+      // 1. Author removes their own reaction if present
+      for (final kind in _reactionKinds) {
+        try {
+          await FirebaseFirestore.instance
+              .collection(remoteCollectionV2)
+              .doc(postId)
+              .collection('reactions')
+              .doc('${ownerUid}_$kind')
+              .delete();
+        } catch (_) {}
+      }
+
+      // 2. Author deletes parent post document
+      await FirebaseFirestore.instance
+          .collection(remoteCollectionV2)
+          .doc(postId)
+          .delete();
+
+      // 3. Confirm deletion in outbox with verified receipt
+      final receipt = CircleServerAckReceipt(
+        outboxId: 'del_$postId',
+        serverToken: 'firestore_v2_del_$postId',
+        serverTimestampUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+      );
+      await outboxCoordinator.confirmServerAck(
+        outboxId: 'del_$postId',
+        receipt: receipt,
+      );
+      debugPrint('[circle] Post $postId deleted successfully from Firestore v2');
+    } catch (e) {
+      debugPrint('[circle] Remote post deletion failed: $e');
+    }
   }
 }

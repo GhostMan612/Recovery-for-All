@@ -562,7 +562,7 @@ class RecoveryDatabase extends _$RecoveryDatabase {
 
   // ---- Recovery Circle feed ----
 
-  Future<int> addFeedPost(FeedPost post) => into(feedPosts).insert(post);
+  Future<int> addFeedPost(FeedPost post) => into(feedPosts).insert(post, mode: InsertMode.insertOrReplace);
 
   /// Single post read, for moderation paths and tests.
   Future<FeedPost?> getFeedPost(String id) =>

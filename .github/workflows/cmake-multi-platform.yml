@@ -35,6 +35,8 @@ jobs:
           flutter --version
           dart --version
           python3 --version
+          node --version
+          npm --version
       - name: Resolve dependencies
         run: flutter pub get
       - name: Analyze
@@ -49,6 +51,11 @@ jobs:
           python3 tools/selftest_invariant14.py
           python3 tools/verify_phase0_contracts.py
           python3 tools/verify_category_overlay.py
+      - name: Run Firestore Rules Emulator Security Matrix
+        run: |
+          npm --prefix test/rules ci
+          npx -y firebase-tools setup:emulators:firestore
+          npx -y firebase-tools emulators:exec --config firebase.emulator.json --only firestore "node test/rules/firestore_v2_security_matrix.mjs"
 
 # This CI does not build a signed release, deploy Firestore rules, or prove
 # on-device behavior. It may expose pre-existing Linux/dependency failures.
