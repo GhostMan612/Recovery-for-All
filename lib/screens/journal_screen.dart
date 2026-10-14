@@ -82,7 +82,11 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
   }
 
   Future<void> _bootstrap() async {
-    final status = await JournalCryptoService.checkPinStatus();
+    final entries = await widget.database.getRecentJournals();
+    final hasHistory = entries.isNotEmpty;
+    final status = await JournalCryptoService.checkPinStatus(
+      hasExistingEntries: hasHistory,
+    );
     if (!mounted) return;
     if (status == JournalPinStatus.configured && JournalCryptoService.isSessionUnlocked) {
       await _openSession();
@@ -91,6 +95,7 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
     setState(() {
       _gate = switch (status) {
         JournalPinStatus.unconfigured => _JournalGate.setupPin,
+        JournalPinStatus.unconfiguredWithHistory => _JournalGate.setupPin,
         JournalPinStatus.configured => _JournalGate.unlock,
         JournalPinStatus.corruptedOrInaccessible => _JournalGate.error,
       };
@@ -107,9 +112,12 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
     }
     switch (_gate) {
       case _JournalGate.setupPin:
-        final status = await JournalCryptoService.checkPinStatus();
-        if (status != JournalPinStatus.unconfigured) {
-          // Cannot configure PIN if already configured or storage corrupted
+        final entries = await widget.database.getRecentJournals();
+        final status = await JournalCryptoService.checkPinStatus(
+          hasExistingEntries: entries.isNotEmpty,
+        );
+        if (status == JournalPinStatus.corruptedOrInaccessible ||
+            status == JournalPinStatus.configured) {
           await _bootstrap();
           return;
         }
@@ -119,6 +127,7 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
           _pinError = false;
           _pinController.clear();
         });
+        return;
       case _JournalGate.confirmPin:
         if (pin != _firstEntryPin) {
           setState(() {
@@ -132,6 +141,7 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
         await JournalCryptoService.setPin(pin);
         JournalCryptoService.unlockSession();
         await _openSession();
+        return;
       case _JournalGate.unlock:
         final ok = await JournalCryptoService.verifyPin(pin);
         if (!ok) {
@@ -143,8 +153,10 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
         }
         JournalCryptoService.unlockSession();
         await _openSession();
+        return;
       case _JournalGate.error:
         await _bootstrap();
+        return;
       default:
         break;
     }
@@ -182,7 +194,7 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
 
   Future<void> _openSession() async {
     try {
-      final entries = await widget.database.watchRecentJournals().first;
+      final entries = await widget.database.getRecentJournals();
       final key = await JournalCryptoService.loadMasterKey(
         hasExistingEntries: entries.isNotEmpty,
       );

@@ -657,22 +657,22 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
     if (db != null) {
       final rawContent =
           '[Meeting] ${meeting.name}: ${reflectionData.tag}${reflectionData.text.isNotEmpty ? ' — ${reflectionData.text}' : ''}';
-      String encryptedContent = rawContent;
       try {
-        final existing = await db.watchRecentJournals().first;
+        final existing = await db.getRecentJournals();
         final key = await JournalCryptoService.loadMasterKey(
           hasExistingEntries: existing.isNotEmpty,
         );
-        encryptedContent = await JournalCryptoService.encrypt(rawContent, key);
-      } catch (_) {}
-
-      await db.addJournalEntry(JournalEntry(
-        id: 'meeting_${DateTime.now().millisecondsSinceEpoch}',
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        moodRating: 4,
-        contentEncrypted: encryptedContent,
-        isSyncedToCloud: false,
-      ));
+        final encryptedContent = await JournalCryptoService.encrypt(rawContent, key);
+        await db.addJournalEntry(JournalEntry(
+          id: 'meeting_${DateTime.now().millisecondsSinceEpoch}',
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          moodRating: 4,
+          contentEncrypted: encryptedContent,
+          isSyncedToCloud: false,
+        ));
+      } catch (e) {
+        debugPrint('[MeetingMap] Optional journal logging skipped due to encryption error: $e');
+      }
 
       final coordinator = RecoveryActionCoordinator(database: db);
       final eventId = RecoveryAction.generateEventId();

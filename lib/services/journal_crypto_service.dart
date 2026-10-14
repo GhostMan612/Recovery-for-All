@@ -8,6 +8,7 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../database/recovery_database.dart';
 
@@ -20,9 +21,13 @@ class MasterKeyInaccessibleException implements Exception {
 }
 
 enum JournalPinStatus {
-  /// Both hash and salt keys are completely absent from secure storage.
-  /// Represents a fresh installation where the user has not yet configured a PIN.
+  /// Both hash and salt keys are completely absent from secure storage, and no
+  /// historical journal records exist. Represents a fresh install without configured PIN.
   unconfigured,
+
+  /// Both hash and salt keys are absent, BUT historical journal entries exist in the database.
+  /// Requires explicit PIN enrollment before revealing history to prevent unauthorized access.
+  unconfiguredWithHistory,
 
   /// Both hash and salt keys are present, well-formed, and valid.
   configured,
@@ -64,6 +69,29 @@ class JournalCryptoService {
     sessionUnlockedNotifier.value = true;
   }
 
+  /// Centralized app-wide lifecycle observer that automatically locks the journal session
+  /// whenever the application transitions to background, paused, or hidden state.
+  /// Works globally across the entire app even when neither journal screen is mounted.
+  static AppLifecycleListener? _lifecycleListener;
+
+  static void initLifecycleObserver() {
+    _lifecycleListener?.dispose();
+    _lifecycleListener = AppLifecycleListener(
+      onStateChange: (state) {
+        if (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.inactive) {
+          lockSession();
+        }
+      },
+    );
+  }
+
+  static void disposeLifecycleObserver() {
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
+  }
+
   /// Locks the active session, requiring PIN verification before decrypting or viewing journal history.
   static void lockSession() {
     _sessionUnlocked = false;
@@ -71,7 +99,7 @@ class JournalCryptoService {
   }
 
   /// Inspects secure storage to determine PIN status with fail-closed semantics.
-  static Future<JournalPinStatus> checkPinStatus() async {
+  static Future<JournalPinStatus> checkPinStatus({bool hasExistingEntries = false}) async {
     try {
       final hashB64 = await _storage.read(key: _keyPinHash);
       final saltB64 = await _storage.read(key: _keyPinSalt);
@@ -79,8 +107,11 @@ class JournalCryptoService {
       final hasHash = hashB64 != null && hashB64.isNotEmpty;
       final hasSalt = saltB64 != null && saltB64.isNotEmpty;
 
-      // Both missing => genuinely unconfigured fresh install
+      // Both missing => unconfigured (differentiated by whether history exists)
       if (!hasHash && !hasSalt) {
+        if (hasExistingEntries) {
+          return JournalPinStatus.unconfiguredWithHistory;
+        }
         return JournalPinStatus.unconfigured;
       }
 
@@ -103,10 +134,11 @@ class JournalCryptoService {
   }
 
   /// Backward-compatible check that fails closed:
-  /// Returns false ONLY when the PIN is genuinely unconfigured.
-  /// Returns true when the PIN is configured OR when metadata is corrupted/inaccessible.
-  static Future<bool> hasPin() async {
-    final status = await checkPinStatus();
+  /// Returns false ONLY when the PIN is genuinely unconfigured on a clean install.
+  /// Returns true when the PIN is configured, when metadata is corrupted/inaccessible,
+  /// or when historical entries exist requiring PIN enrollment before reveal.
+  static Future<bool> hasPin({bool hasExistingEntries = false}) async {
+    final status = await checkPinStatus(hasExistingEntries: hasExistingEntries);
     return status != JournalPinStatus.unconfigured;
   }
 

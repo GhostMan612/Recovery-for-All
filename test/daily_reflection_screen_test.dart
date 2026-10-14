@@ -97,7 +97,7 @@ void main() {
       expect(plain, equals('Peace is not the absence of conflict, but the presence of stillness.'));
     });
 
-    testWidgets('displays decrypted content for historical plaintext and ENC_ entries when PIN is unconfigured', (tester) async {
+    testWidgets('requires PIN enrollment before displaying historical entries when PIN is unconfigured', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -121,19 +121,38 @@ void main() {
       ));
 
       await tester.pumpWidget(buildScreen());
+      await pumpUntil(
+        tester,
+        () => find.text('PIN Enrollment Required').evaluate().isNotEmpty,
+      );
 
-      // Await historical decryption and display
+      // Reflections MUST remain locked and concealed before PIN enrollment
+      expect(find.text('Historical raw plaintext reflection'), findsNothing);
+      expect(find.text('Legacy base64 reflection'), findsNothing);
+      expect(find.text('PIN Enrollment Required'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Set PIN & Access Reflections'), findsOneWidget);
+
+      // Now enroll a new 6-digit PIN
+      final pinField = find.byType(TextField).last;
+      await tester.enterText(pinField, '123456');
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final enrollButton = find.widgetWithText(ElevatedButton, 'Set PIN & Access Reflections');
+      await tester.ensureVisible(enrollButton);
+      await tester.tap(enrollButton);
+
       await pumpUntil(
         tester,
         () => find.text('Historical raw plaintext reflection').evaluate().isNotEmpty,
       );
 
-      // Both historical entries must be rendered as readable plaintext, never raw ciphertext or error
+      // Both historical entries must now be rendered as readable plaintext, preserving all records
       expect(find.text('Historical raw plaintext reflection'), findsOneWidget);
       expect(find.text('Legacy base64 reflection'), findsOneWidget);
 
-      // After loading, historical entries are upgraded to ENC2_
+      // After loading, historical entries are safely upgraded to ENC2_
       final updatedEntries = await db.select(db.journalEntries).get();
+      expect(updatedEntries, hasLength(2));
       for (final e in updatedEntries) {
         expect(e.contentEncrypted.startsWith('ENC2_'), isTrue);
       }

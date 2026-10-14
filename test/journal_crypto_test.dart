@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recovery_for_all/services/journal_crypto_service.dart';
 
@@ -27,6 +28,42 @@ void main() {
     test('no PIN exists before first-run setup', () async {
       expect(await JournalCryptoService.checkPinStatus(), JournalPinStatus.unconfigured);
       expect(await JournalCryptoService.hasPin(), isFalse);
+    });
+
+    test('unconfigured PIN with existing historical entries requires enrollment', () async {
+      expect(
+        await JournalCryptoService.checkPinStatus(hasExistingEntries: true),
+        JournalPinStatus.unconfiguredWithHistory,
+      );
+      expect(
+        await JournalCryptoService.hasPin(hasExistingEntries: true),
+        isTrue,
+        reason: 'Must fail closed to protect historical entries',
+      );
+
+      // User safely enrolls a new PIN
+      await JournalCryptoService.setPin('123456');
+      expect(await JournalCryptoService.checkPinStatus(hasExistingEntries: true), JournalPinStatus.configured);
+      expect(JournalCryptoService.isSessionUnlocked, isTrue);
+      expect(await JournalCryptoService.verifyPin('123456'), isTrue);
+    });
+
+    test('centralized lifecycle observer locks session on backgrounding', () {
+      JournalCryptoService.initLifecycleObserver();
+      addTearDown(JournalCryptoService.disposeLifecycleObserver);
+
+      JournalCryptoService.unlockSession();
+      expect(JournalCryptoService.isSessionUnlocked, isTrue);
+
+      // Simulate app backgrounding
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      expect(JournalCryptoService.isSessionUnlocked, isFalse);
+
+      JournalCryptoService.unlockSession();
+      expect(JournalCryptoService.isSessionUnlocked, isTrue);
+
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      expect(JournalCryptoService.isSessionUnlocked, isFalse);
     });
 
     test('setPin then verify — right and wrong answers', () async {

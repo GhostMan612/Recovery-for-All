@@ -66,16 +66,11 @@ class _GratitudeEntryScreenState extends State<GratitudeEntryScreen> {
       };
 
       final String jsonPayload = jsonEncode(entryData);
-      String encryptedPayload = "ENC_${base64.encode(utf8.encode(jsonPayload))}";
-      try {
-        final existing = await widget.database.watchRecentJournals().first;
-        final key = await JournalCryptoService.loadMasterKey(
-          hasExistingEntries: existing.isNotEmpty,
-        );
-        encryptedPayload = await JournalCryptoService.encrypt(jsonPayload, key);
-      } catch (_) {
-        // Fall back to legacy ENC_ format if master key unavailable
-      }
+      final existing = await widget.database.getRecentJournals();
+      final key = await JournalCryptoService.loadMasterKey(
+        hasExistingEntries: existing.isNotEmpty,
+      );
+      final encryptedPayload = await JournalCryptoService.encrypt(jsonPayload, key);
 
       final entry = JournalEntry(
         id: UniqueKey().toString(),

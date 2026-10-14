@@ -198,27 +198,32 @@ class _CopingToolScreenState extends State<CopingToolScreen> {
           ElevatedButton.icon(
             onPressed: () async {
               final text = 'Used ${tool['title']} coping tool';
-              String payload = text;
               try {
-                final existing = await widget.database.watchRecentJournals().first;
+                final existing = await widget.database.getRecentJournals();
                 final key = await JournalCryptoService.loadMasterKey(
                   hasExistingEntries: existing.isNotEmpty,
                 );
-                payload = await JournalCryptoService.encrypt(text, key);
-              } catch (_) {}
-              await widget.database.addJournalEntry(
-                JournalEntry(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  contentEncrypted: payload,
-                  moodRating: 5,
-                  timestamp: DateTime.now().millisecondsSinceEpoch,
-                  isSyncedToCloud: false,
-                ),
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Coping activity logged to your journal')),
+                final payload = await JournalCryptoService.encrypt(text, key);
+                await widget.database.addJournalEntry(
+                  JournalEntry(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    contentEncrypted: payload,
+                    moodRating: 5,
+                    timestamp: DateTime.now().millisecondsSinceEpoch,
+                    isSyncedToCloud: false,
+                  ),
                 );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Coping activity logged to your journal')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Unable to encrypt and log session: $e')),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, minimumSize: const Size(double.infinity, 50)),

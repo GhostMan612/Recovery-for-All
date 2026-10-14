@@ -29,6 +29,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
   bool _isLoading = true;
   bool _isJournalLocked = false;
   bool _isVaultInaccessible = false;
+  bool _isEnrollmentRequired = false;
   bool _pinError = false;
 
   final List<String> _moodLabels = ['Terrible', 'Bad', 'Okay', 'Good', 'Great'];
@@ -89,12 +90,18 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
 
   Future<void> _loadJournalEntries() async {
     try {
-      final status = await JournalCryptoService.checkPinStatus();
-      if (status != JournalPinStatus.unconfigured && !JournalCryptoService.isSessionUnlocked) {
+      final entries = await widget.database.getRecentJournals();
+      final hasHistory = entries.isNotEmpty;
+      final status = await JournalCryptoService.checkPinStatus(
+        hasExistingEntries: hasHistory,
+      );
+
+      if (status == JournalPinStatus.corruptedOrInaccessible) {
         if (mounted) {
           setState(() {
             _isJournalLocked = true;
-            _isVaultInaccessible = (status == JournalPinStatus.corruptedOrInaccessible);
+            _isVaultInaccessible = true;
+            _isEnrollmentRequired = false;
             _isLoading = false;
             _journalEntries = [];
           });
@@ -102,12 +109,26 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
         return;
       }
 
-      final entries = await widget.database.getRecentJournals();
+      if ((status == JournalPinStatus.configured ||
+              status == JournalPinStatus.unconfiguredWithHistory) &&
+          !JournalCryptoService.isSessionUnlocked) {
+        if (mounted) {
+          setState(() {
+            _isJournalLocked = true;
+            _isVaultInaccessible = false;
+            _isEnrollmentRequired = (status == JournalPinStatus.unconfiguredWithHistory);
+            _isLoading = false;
+            _journalEntries = [];
+          });
+        }
+        return;
+      }
+
       // DECRYPT before display. This list previously rendered
       // `e.contentEncrypted` raw, so users saw ciphertext instead of their own
       // writing. Mirrors journal_screen.dart `_decryptContent`.
       final key = await JournalCryptoService.loadMasterKey(
-        hasExistingEntries: entries.isNotEmpty,
+        hasExistingEntries: hasHistory,
       );
       // Opportunistically and idempotently upgrade any historical plaintext/legacy entries
       // if the master key was successfully verified. Non-destructive: fails closed.
@@ -124,7 +145,9 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
       }
 
       if (!mounted) return;
-      if (status != JournalPinStatus.unconfigured && !JournalCryptoService.isSessionUnlocked) {
+      if ((status == JournalPinStatus.configured ||
+              status == JournalPinStatus.unconfiguredWithHistory) &&
+          !JournalCryptoService.isSessionUnlocked) {
         setState(() {
           _isJournalLocked = true;
           _isLoading = false;
@@ -136,6 +159,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
       setState(() {
         _isJournalLocked = false;
         _isVaultInaccessible = false;
+        _isEnrollmentRequired = false;
         _journalEntries = readable;
         _isLoading = false;
       });
@@ -154,6 +178,28 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
       _pinController.clear();
       return;
     }
+    if (_isEnrollmentRequired) {
+      try {
+        await JournalCryptoService.setPin(pin);
+        JournalCryptoService.unlockSession();
+        if (mounted) {
+          setState(() {
+            _isJournalLocked = false;
+            _isEnrollmentRequired = false;
+            _pinError = false;
+            _pinController.clear();
+            _isLoading = true;
+          });
+          await _loadJournalEntries();
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _pinError = true);
+        }
+      }
+      return;
+    }
+
     final ok = await JournalCryptoService.verifyPin(pin);
     if (!ok) {
       if (mounted) {
@@ -454,7 +500,11 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
             ),
             const SizedBox(height: 12),
             Text(
-              _isVaultInaccessible ? 'Vault Storage Inaccessible' : 'Past Reflections Locked',
+              _isVaultInaccessible
+                  ? 'Vault Storage Inaccessible'
+                  : _isEnrollmentRequired
+                      ? 'PIN Enrollment Required'
+                      : 'Past Reflections Locked',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 16,
@@ -465,9 +515,11 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
             Text(
               _isVaultInaccessible
                   ? 'Secure storage could not verify your PIN metadata. Past reflections remain sealed to protect your privacy.'
-                  : _pinError
-                      ? 'Incorrect PIN. Please try again.'
-                      : 'Enter your 6-digit Journal PIN to view recent reflections.',
+                  : _isEnrollmentRequired
+                      ? 'Your journal contains historical reflections. Choose a 6-digit PIN to secure and access your entries.'
+                      : _pinError
+                          ? 'Incorrect PIN. Please try again.'
+                          : 'Enter your 6-digit Journal PIN to view recent reflections.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _pinError || _isVaultInaccessible ? AppColors.moodNeedHelp : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -514,7 +566,7 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
               ElevatedButton.icon(
                 onPressed: () => _verifyAndUnlockPin(_pinController.text),
                 icon: const Icon(Icons.key, size: 18),
-                label: const Text('Unlock Past Reflections'),
+                label: Text(_isEnrollmentRequired ? 'Set PIN & Access Reflections' : 'Unlock Past Reflections'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   foregroundColor: Theme.of(context).colorScheme.primary,

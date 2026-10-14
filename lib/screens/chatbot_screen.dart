@@ -132,23 +132,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (assessment.isCrisisTriggered) {
       setState(() => _isLoading = false);
       final crisisMsg = '[CRISIS GUARDRAIL TRIGGERED: ${assessment.matchedPattern}]';
-      String encryptedCrisis = crisisMsg;
       try {
-        final existing = await widget.database.watchRecentJournals().first;
+        final existing = await widget.database.getRecentJournals();
         final key = await JournalCryptoService.loadMasterKey(
           hasExistingEntries: existing.isNotEmpty,
         );
-        encryptedCrisis = await JournalCryptoService.encrypt(crisisMsg, key);
-      } catch (_) {}
-
-      final entry = JournalEntry(
-        id: UniqueKey().toString(),
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        moodRating: 1,
-        contentEncrypted: encryptedCrisis,
-        isSyncedToCloud: false,
-      );
-      await widget.database.addJournalEntry(entry);
+        final encryptedCrisis = await JournalCryptoService.encrypt(crisisMsg, key);
+        final entry = JournalEntry(
+          id: UniqueKey().toString(),
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          moodRating: 1,
+          contentEncrypted: encryptedCrisis,
+          isSyncedToCloud: false,
+        );
+        await widget.database.addJournalEntry(entry);
+      } catch (e) {
+        debugPrint('[Chatbot] Optional crisis journal log skipped due to encryption error: $e');
+      }
       if (mounted) _showSOSBottomSheet(context);
       return;
     }
@@ -249,23 +249,23 @@ $text
         }
       }
 
-      String encryptedChat = text;
       try {
-        final existing = await widget.database.watchRecentJournals().first;
+        final existing = await widget.database.getRecentJournals();
         final key = await JournalCryptoService.loadMasterKey(
           hasExistingEntries: existing.isNotEmpty,
         );
-        encryptedChat = await JournalCryptoService.encrypt(text, key);
-      } catch (_) {}
-
-      final journal = JournalEntry(
-        id: UniqueKey().toString(),
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        moodRating: 3,
-        contentEncrypted: encryptedChat,
-        isSyncedToCloud: false,
-      );
-      await widget.database.addJournalEntry(journal);
+        final encryptedChat = await JournalCryptoService.encrypt(text, key);
+        final journal = JournalEntry(
+          id: UniqueKey().toString(),
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          moodRating: 3,
+          contentEncrypted: encryptedChat,
+          isSyncedToCloud: false,
+        );
+        await widget.database.addJournalEntry(journal);
+      } catch (e) {
+        debugPrint('[Chatbot] Optional chat journal log skipped due to encryption error: $e');
+      }
 
       if (!mounted) return;
       setState(() {

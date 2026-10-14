@@ -23,9 +23,11 @@ import 'services/hardware_tier_service.dart';
 import 'services/sos_notification_service.dart';
 import 'services/recovery_pet_service.dart';
 import 'services/step_counter_service.dart';
+import 'services/journal_crypto_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  JournalCryptoService.initLifecycleObserver();
   await HardwareTierService.initialize();
   await PrivacyCapabilityService.initialize();
 

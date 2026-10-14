@@ -121,7 +121,7 @@ Keep it concise, empathetic, and free of medical advice or sycophancy.
   static Future<void> saveToJournal(RecoveryDatabase db, String chronicle) async {
     String sealed;
     try {
-      final entries = await db.watchRecentJournals().first;
+      final entries = await db.getRecentJournals();
       final key = await JournalCryptoService.loadMasterKey(
         hasExistingEntries: entries.isNotEmpty,
       );
