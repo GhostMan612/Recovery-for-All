@@ -2,6 +2,20 @@
 
 Flutter app (Android-first, offline-first addiction-recovery companion).
 
+## OPERATING PHILOSOPHY: PROGRESS, NOT PERFECTION (CANONICAL MANDATE)
+
+> **"Progress, Not Perfection"** — AA Big Book & Recovery Community Core Principle.
+> Refuse to let the pursuit of perfection prevent delivery.
+
+**"Progress, Not Perfection" is the binding development standard across all agent sessions (Antigravity, Claude, Copilot, GPT, etc.):**
+1. **Build what was planned:** Strict scope freeze on approved work orders. Do not expand requirements or reopen finished scopes mid-flight.
+2. **Test what matters:** Focus on real user features, preventing actual data loss, and essential security. Refuse speculative test suite bloat.
+3. **One verification cycle:** Run the end-of-plan gate batch ONCE at the end. If acceptance criteria pass, the work order is DONE and closed.
+4. **Discoveries go to the backlog:** Edge cases, hypothetical risks, and future improvements go to the backlog. They never stop or derail the active phase.
+5. **Keep moving:** Ship vertical slices. Refuse to let perfectionism block progress and delivery.
+
+---
+
 **Cold start: read `SESSION_HANDOFF.md` FIRST** — current state,
 environment facts (Ollama port, device fleet), next moves, and the
 end-of-session checklist. Keep it updated every session.

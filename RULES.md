@@ -4,6 +4,21 @@
 
 ---
 
+## 0. OPERATING PHILOSOPHY: PROGRESS, NOT PERFECTION (CANONICAL MANDATE)
+
+> **"Progress, Not Perfection"** — Core recovery principle (AA Big Book) & canonical development standard.
+> Refuse to let the pursuit of perfection prevent delivery.
+
+From this point forward, every developer, architect, and AI agent (Antigravity, Claude, Copilot, GPT, etc.) is bound by this operating standard:
+
+1. **Build what was planned.** No expanding scope halfway through implementation. Once a work order or phase plan is approved, a strict scope freeze applies.
+2. **Test what matters.** Focus verification on actual feature functionality, real user data preservation, and essential security — never on theoretical perfection or speculative edge cases. Do not inflate test counts beyond what acceptance criteria require.
+3. **One verification cycle.** Targeted checks, analyzer, test suite, and invariant gates run ONCE, batched at the very end of the plan. If defined acceptance criteria pass, the work order / phase CLOSES.
+4. **Discoveries go to the backlog.** New ideas, potential enhancements, and non-critical edge cases discovered during implementation or verification do NOT derail or delay the current phase. File them in the backlog unless they represent a demonstrably dangerous defect or direct data loss.
+5. **Keep moving.** A completed, functional improvement in the hands of users is infinitely more valuable than an endlessly refined implementation that never leaves development. Exercising restraint — knowing when something is good enough to move forward — is a mandatory duty.
+
+---
+
 ## 1. ABSOLUTE RULES (never violated, no exceptions)
 
 ### 1.1 External directories are READ-ONLY
@@ -157,6 +172,7 @@ Do not install software, modify system settings, or write to new locations outsi
 
 ### 4.3 Verification law
 No feature is *reported done* until `flutter analyze` reports zero issues AND `flutter test` passes — and those two numbers are collected **once, at the end**, not per feature. Evidence before status flips; the evidence is a single end-of-plan run, and a run is only meaningful if it is the one that closes the plan. Mid-plan runs produce stale signal that must then be re-derived, and they are what turns a three-day plan into a three-day wait.
+**Progress, Not Perfection:** Once the defined acceptance criteria and gates pass, close the work order. Do not invent new requirements or re-audit passing deliverables.
 
 ### 4.4 Scope law
 Big ideas go into `blueprints/roadmap-v2.md` with phased plans first. Ship vertical slices; never let polish precede a working build.
