@@ -31,6 +31,8 @@ node_modules/
 .pub-cache/
 .pub/
 /build/
+release_backups/
+*.aab
 
 # Android/Gradle local state
 **/android/**/gradle-wrapper.jar
