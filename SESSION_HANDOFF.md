@@ -1124,3 +1124,8 @@ the screen has a running `AnimationController`.
    `flutter analyze` (zero) + `flutter test` + both Python gates
 5. Commit by explicit path, message = gates status only
 6. Leave the tree clean — no uncommitted work overnight
+
+
+## Remote audit — sponsor relay/workbook privacy work order (2026-11-11)
+
+**Planning only / P0:** `blueprints/category-platform/phase-0/SPONSOR_RELAY_SECURITY_WORK_ORDER.md` records mismatched Firestore owner/inbox paths, missing trusted fanout, plaintext `SharedPreferences` worksheet storage and direct JSON cloud bundle, plus gated workchain SR-A–SR-E for containment, migration, encryption, identity, receipt and cleanup. No implementation, deployment, or source-level privacy fix is claimed by this planning PR.
