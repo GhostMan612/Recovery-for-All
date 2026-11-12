@@ -508,10 +508,9 @@ class GgufModelService {
   /// [isCancelled] to true.
   ///
   /// Storage is governed by [_ensureBudget]: a self-imposed ceiling on total
-  /// bytes in the model directory, with largest-first eviction of other models
-  /// to make room. The header advertised "Storage management (private app dir,
-  /// not Downloads)" while there was none of it — no quota, no eviction — and
-  /// the four catalog entries total ~4.6 GB.
+  /// bytes in the private model directory. On insufficient headroom it refuses
+  /// the transfer without deleting any installed model. The user may delete
+  /// models explicitly from Settings before retrying.
   ///
   /// A genuinely full *volume* cannot be predicted from Dart, so the write
   /// stream is also watched for ENOSPC and reported as such rather than as
