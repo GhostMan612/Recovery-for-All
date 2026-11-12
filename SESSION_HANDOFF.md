@@ -1126,6 +1126,11 @@ the screen has a running `AnimationController`.
 6. Leave the tree clean — no uncommitted work overnight
 
 
+## Remote audit — sponsor relay/workbook privacy work order (2026-11-11)
+
+**Planning only / P0:** `blueprints/category-platform/phase-0/SPONSOR_RELAY_SECURITY_WORK_ORDER.md` records mismatched Firestore owner/inbox paths, missing trusted fanout, plaintext `SharedPreferences` worksheet storage and direct JSON cloud bundle, plus gated workchain SR-A–SR-E for containment, migration, encryption, identity, receipt and cleanup. No implementation, deployment, or source-level privacy fix is claimed by this planning PR.
+
+
 ## Remote audit candidate — unused local embedding simulation removal (2026-11-11)
 
 **Proposed / CI pending:** The standalone `LocalEmbeddingService` claimed to load BGE-Small / MiniLM and produce semantic vectors, but only slept 600 ms before computing deterministic pseudo-random 384-element vectors from `String.hashCode`. Repository-wide symbol inspection found no clients of `DenseVector`, `EmbeddedChunk` or `generateEmbedding`; the only external reference was an unused `localEmbeddingServiceProvider`. This maintenance PR removes both the dead implementation and unused provider. It does **not** add embeddings, semantic retrieval, tokenizer assets, ONNX, or a native inference runtime. Reintroduce only as a new implementation with tested model artifacts, deterministic cross-platform inference and semantic-quality benchmarks. Git history retains the prior implementation if needed for reference.
