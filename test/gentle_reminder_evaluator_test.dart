@@ -91,6 +91,26 @@ void main() {
           reason: 'tomorrow is the seven-day milestone');
     });
 
+    test('late-night milestone start uses the scheduled time zone', () {
+      final chicago = tz.getLocation('America/Chicago');
+      final started = tz.TZDateTime(chicago, 2026, 3, 3, 23, 30);
+      final eve = tz.TZDateTime(chicago, 2026, 3, 9, 8, 0);
+      final counter = Counter(
+        id: 'SAMPLE_counter',
+        label: 'SAMPLE',
+        startDateTime: started.millisecondsSinceEpoch,
+        isActive: true,
+        dailyCost: 0,
+      );
+      final payload = GentleReminderService.evaluateNotificationPayload(
+        counters: [counter],
+        now: eve,
+      );
+      expect(payload.route, 'reflection',
+          reason: 'March 9 is day 6 in Chicago even though the timestamp '
+              'falls on March 4 in UTC');
+    });
+
     test('spring-forward reminder remains at requested local hour', () {
       final chicago = tz.getLocation('America/Chicago');
       final now = tz.TZDateTime(chicago, 2026, 3, 7, 9, 0);
