@@ -1,6 +1,6 @@
 # WO-CIRCLE-AUTH — Verified Firebase connection-state lifecycle
 
-**State:** Design only / requires implementation and two-device sign-off  
+**State:** P1 false-ready boolean fix implemented in this PR; typed-state expansion and two-device sign-off outstanding  
 **Priority:** P1 remote-state truth / network privacy  
 **Parent:** [WO-P0-CIRCLE](CIRCLE_EXECUTION_WORK_ORDER.md)  
 **Baseline:** Recovery for All `main` `2a763ef6fafdfa9af64d8615691d8292279bb77a`
@@ -10,7 +10,7 @@
 `lib/services/community_feed_service.dart` defines `remoteReady` and
 `isRemoteAvailable()` as a boolean network-readiness signal. Its
 `initPrivacyListener` calls `onGrantCloud()` directly whenever current-session
-`cloudSync` authorization is granted, and `onGrantCloud()` sets
+`cloudSync` authorization is granted, and `onGrantCloud()` historically set
 `remoteReady = true`. Neither callback establishes that Firebase SDK
 initialization succeeded, that a valid anonymous user exists, or that a
 Firestore listener has connected. The actual `_ensureAuth` code may sign in
@@ -23,6 +23,16 @@ can contradict the truth displayed by a specific feed instance.
 **This does not mean remote publishing is enabled:** the release guard
 `CommunityFeedService.remoteWritesDisabled` remains true, and this work
 order must preserve that guard.
+
+## Applied in this PR — truthful ready flag
+
+- `CommunityFeedService.onGrantCloud()` now clears `remoteReady` and requests connection via existing listeners; consent never creates a connected state.
+- `watchMergedFeed()` marks the flag ready only on its first authenticated remote stream snapshot; errors, revocation and subscription cancellation clear it.
+- `main.dart` no longer claims Circle has a connected feed simply because Firebase anonymous authentication succeeded at boot.
+- Existing consent and community tests now verify that consent/auth failure cannot make the flag true, while a subscribed result can; revocation and cancellation revoke readiness.
+- The shipping release's remote-write disable guard is unchanged.
+
+**Remaining follow-up:** A1's richer typed snapshot, UID identity lifecycle, multiple concurrent listener accounting, offline recovery/device verification and trusted remote publishing remain **unimplemented**. This PR closes the immediate false-connection claim only, not the full Circle security work order.
 
 ## Implementation design, in order
 
