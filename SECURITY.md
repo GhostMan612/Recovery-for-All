@@ -30,21 +30,11 @@ Recovery for All is **offline-first**. The primary attack surface is *local devi
 - Biometric + 6-digit PIN gate (`JournalCryptoService`)
 - No analytics, no tracking SDKs, no third-party crash reporters
 
-Firebase (`google-services.json`) is **optional**. If present, Firestore rules
-enforce per-owner access by binding a **path segment** to `request.auth.uid`
-(`firestore/firestore.rules`) — not a blanket `request.auth != null`. Anonymous
-auth establishes *a* session, never ownership, so a rules check that only asks
-whether someone is signed in authorises every authenticated user for every
-document; the deployed rules instead partition sponsor bundles by uid in the
-path. Community-feed writes are field-scoped so one user cannot rewrite
-another's alias or body. If `google-services.json` is absent, the app runs fully
-local and no Firestore traffic occurs at all.
+Firebase (`google-services.json`) is **optional**. The tracked [`firebase.json`](firebase.json) selects [`firestore/firestore_v2.rules`](firestore/firestore_v2.rules) as the rules file for the next CLI deployment. [`firestore/firestore.rules`](firestore/firestore.rules) is a separate, older tracked file; do not mistake it for the configured deployment target.
 
-These rules are **deployed** to `recovery-for-all-c2ee8` via
-`firebase deploy --only firestore:rules`, which requires the repo's
-`firebase.json` (it is minimal on purpose — firestore rules only). Re-deploy
-from source rather than editing in the console, or the console copy and the
-repo will diverge again.
+The **v2 rules in source** deny unlisted operations by default; bind Circle v2 post creation and deletion to the authenticated `ownerUid`; prohibit client post updates; restrict reactions to an actor UID and approved type; and prevent client reads of reports. Legacy `community_feeds` is readable to authenticated clients but not writable under v2. Sponsor bundles are restricted by UID-bearing paths. An authenticated Firebase session, including anonymous authentication, **does not independently prove membership in a trusted Circle or a person's identity**. See the [Phase 0 Circle threat model](blueprints/category-platform/phase-0/CIRCLE_THREAT_MODEL.md) for remaining trust limitations.
+
+**Source code and deployment are different evidence.** This document does not establish that `firestore_v2.rules` is currently deployed to any live Firebase project. Verify the active Firebase project, deployed rules revision, emulator security matrix and rollback plan before a production cutover. The app currently **disables remote Circle mutations in release builds** through `CommunityFeedService.remoteWritesDisabled`; local compose and an outbox do not prove remote delivery or deletion. Firebase network operations must also satisfy the app's explicit privacy-capability gates. Without `google-services.json`, the app cannot initialize this Firebase integration.
 
 ## Peer-to-Peer Attestation — What It Does and Does Not Prove
 
@@ -79,4 +69,4 @@ this feature as identity verification.
 
 - `android/app/google-services.json` is **gitignored** — never commit your own file
 - `android/key.properties` and `*.jks` / `*.keystore` are **gitignored** — signing keys never enter git history
-- `blueprints/` and internal prompts (`AGENTS.md`, `CLAUDE.md`, `RULES.md`) contain proprietary product reasoning and are gitignored before any public mirror
+- The repository is currently **public**. `AGENTS.md`, `RULES.md`, `SESSION_HANDOFF.md` and some `blueprints/` files are tracked and publicly visible; other sensitive strategy files are deliberately gitignored. Never assume a tracked document is private.
