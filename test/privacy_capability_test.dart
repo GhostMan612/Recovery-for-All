@@ -83,6 +83,15 @@ void main() {
       expect(state.getConsent(PrivacyCapability.cloudSync), equals(ConsentState.denied));
     });
 
+    test('Firebase disclosure does not promise unimplemented journal backup', () {
+      final disclosure =
+          PrivacyCapabilityState.disclosures[PrivacyCapability.cloudSync]!;
+      expect(disclosure.description.toLowerCase(), contains('community'));
+      expect(disclosure.description.toLowerCase(), contains('not back up'));
+      expect(disclosure.transmittedData.toLowerCase(),
+          isNot(contains('encrypted recovery journals')));
+    });
+
     test('Disclosures are complete and descriptive for every capability', () {
       for (final cap in PrivacyCapability.values) {
         final disclosure = PrivacyCapabilityState.disclosures[cap];
