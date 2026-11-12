@@ -159,8 +159,10 @@ void main() {
         ConsentState.granted,
       );
 
-      // Status should become connecting while awaiting first response
+      // Status should become connecting while awaiting first response.
+      // Consent without an authenticated remote snapshot is not readiness.
       expect(feed.currentStatus, CircleConnectionStatus.connecting);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Allow attachRemote to complete auth and attach listener
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -185,6 +187,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue,
+          reason: 'a real subscribed feed result establishes readiness');
       final latest = emittedLists.last;
       expect(latest.any((p) => p.authorAlias == 'CloudPeer'), isTrue);
       expect(latest.any((p) => p.authorAlias == 'LocalUser'), isTrue);
@@ -210,6 +214,7 @@ void main() {
 
       // Must remain in connecting state until a response actually arrives
       expect(feed.currentStatus, CircleConnectionStatus.connecting);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Response arrives
       remoteController.add(const <FeedPost>[]);
