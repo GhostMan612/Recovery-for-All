@@ -268,7 +268,7 @@ class MeetingFinderService {
     if (raw == null) return List<String>.from(defaultSources);
     try {
       final list = (jsonDecode(raw) as List).map((e) => e.toString()).toList();
-      return list.isEmpty ? List<String>.from(defaultSources) : list;
+      return list; // An explicit [] is an intentional opt-out, not reset-to-default.
     } catch (_) {
       return List<String>.from(defaultSources);
     }
@@ -466,6 +466,17 @@ class MeetingFinderService {
     return 'Other';
   }
 
+  /// Apply selected pathways before contacting third-party feed servers.
+  /// No matching source means no network request, not a fallback to all feeds.
+  @visibleForTesting
+  static List<String> sourcesForFellowships(
+      List<String> sources, Set<String>? fellowships) {
+    if (fellowships == null || fellowships.isEmpty) return sources;
+    return sources
+        .where((url) => fellowships.contains(fellowshipForSource(url)))
+        .toList();
+  }
+
   /// Downloads every enabled source and rebuilds the local cache.
   Future<List<RecoveryMeeting>> refresh(
       {double? lat, double? lng, Set<String>? fellowships}) async {
@@ -475,14 +486,12 @@ class MeetingFinderService {
       return _cachedMeetings();
     }
 
-    var sources = await getSources();
-    // Tailored downloads: skip directories whose fellowship is not in the
-    // user's chosen pathways — never download data they won't see.
-    if (fellowships != null && fellowships.isNotEmpty) {
-      final filtered = sources
-          .where((url) => fellowships.contains(fellowshipForSource(url)))
-          .toList();
-      if (filtered.isNotEmpty) sources = filtered;
+    final sources = sourcesForFellowships(
+        await getSources(), fellowships);
+    if (sources.isEmpty) {
+      // No enabled or matching sources: keep cached offline directory rather
+      // than silently contacting every default feed.
+      return _cachedMeetings();
     }
     final all = <String, RecoveryMeeting>{};
     var sourcesOk = 0;
