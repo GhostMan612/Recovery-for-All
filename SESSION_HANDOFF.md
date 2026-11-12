@@ -1124,3 +1124,8 @@ the screen has a running `AnimationController`.
    `flutter analyze` (zero) + `flutter test` + both Python gates
 5. Commit by explicit path, message = gates status only
 6. Leave the tree clean — no uncommitted work overnight
+
+
+## Remote audit candidate — meeting directory coordinate range (2026-11-11)
+
+**Proposed / CI pending:** The untrusted TSML/BMLT feed parser accepts numeric coordinates without range validation, and `RecoveryMeeting.hasLocation` previously considered any non-(0,0) pair mapped — including latitude 91, longitude -181 or non-finite values — with potential map projection or distance errors. The fix rejects out-of-range/non-finite coordinates from map/distance usage while preserving the meeting record as unlocated/online. Valid one-zero pairs (Equator or Greenwich meridian) remain valid. New host unit coverage checks malformed and valid pairs. No live meeting feed or Android map check has been performed.
