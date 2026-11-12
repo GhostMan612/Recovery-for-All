@@ -119,7 +119,8 @@ class GgufModelService {
       minTier: DeviceTier.medium,
       contextWindow: 4096,
       quantization: 'Q4_K_M',
-      sha256Hex: '9b06391b17444a1ea4d0747145b54722b57bd32df715cc436d6011b8c356622a', // TODO: populate after verified download
+      sha256Hex:
+          '9b06391b17444a1ea4d0747145b54722b57bd32df715cc436d6011b8c356622a',
     ),
     GgufModelInfo(
       id: 'qwen35_08b',
