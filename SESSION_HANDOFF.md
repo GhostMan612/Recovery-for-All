@@ -1124,3 +1124,8 @@ the screen has a running `AnimationController`.
    `flutter analyze` (zero) + `flutter test` + both Python gates
 5. Commit by explicit path, message = gates status only
 6. Leave the tree clean — no uncommitted work overnight
+
+
+## Remote audit candidate — unused local embedding simulation removal (2026-11-11)
+
+**Proposed / CI pending:** The standalone `LocalEmbeddingService` claimed to load BGE-Small / MiniLM and produce semantic vectors, but only slept 600 ms before computing deterministic pseudo-random 384-element vectors from `String.hashCode`. Repository-wide symbol inspection found no clients of `DenseVector`, `EmbeddedChunk` or `generateEmbedding`; the only external reference was an unused `localEmbeddingServiceProvider`. This maintenance PR removes both the dead implementation and unused provider. It does **not** add embeddings, semantic retrieval, tokenizer assets, ONNX, or a native inference runtime. Reintroduce only as a new implementation with tested model artifacts, deterministic cross-platform inference and semantic-quality benchmarks. Git history retains the prior implementation if needed for reference.
