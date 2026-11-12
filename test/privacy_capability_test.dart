@@ -291,6 +291,7 @@ void main() {
         'privacy_consent_v1_remoteWeather': 'granted',
         'privacy_consent_v1_cloudSync': 'granted',
         'privacy_consent_v1_circleShare': 'granted',
+        'privacy_consent_v1_careAlertShare': 'granted',
         'privacy_consent_v1_directoryRefresh': 'granted',
         'privacy_consent_v1_onlineTiles': 'granted',
         'privacy_consent_v1_externalNavigation': 'granted',
