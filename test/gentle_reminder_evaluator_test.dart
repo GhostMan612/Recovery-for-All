@@ -8,6 +8,8 @@
 // milestone-eve boundary math.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:recovery_for_all/services/gentle_reminder_service.dart';
 import 'package:recovery_for_all/services/recovery_pet_service.dart';
 import 'package:recovery_for_all/database/recovery_database.dart';
@@ -75,6 +77,53 @@ void main() {
     final l = s.toLowerCase();
     return shamePhrases.any(l.contains);
   }
+
+  group('DST-stable calendar and wall-clock reminders', () {
+    setUpAll(tzdata.initializeTimeZones);
+
+    test('a six-calendar-day span can be less than six 24-hour days', () {
+      final chicago = tz.getLocation('America/Chicago');
+      final start = tz.TZDateTime(chicago, 2026, 3, 3, 0, 0);
+      final eve = tz.TZDateTime(chicago, 2026, 3, 9, 0, 0);
+      expect(eve.difference(start).inDays, 5,
+          reason: 'spring-forward removes an hour');
+      expect(GentleReminderService.calendarDaysBetween(start, eve), 6,
+          reason: 'tomorrow is the seven-day milestone');
+    });
+
+    test('spring-forward reminder remains at requested local hour', () {
+      final chicago = tz.getLocation('America/Chicago');
+      final now = tz.TZDateTime(chicago, 2026, 3, 7, 9, 0);
+      final next = GentleReminderService.nextWallClockOccurrence(
+        now, 8 * 60,
+      );
+      expect((next.year, next.month, next.day), (2026, 3, 8));
+      expect((next.hour, next.minute), (8, 0));
+    });
+
+    test('fall-back reminder remains at requested local hour', () {
+      final chicago = tz.getLocation('America/Chicago');
+      final now = tz.TZDateTime(chicago, 2026, 10, 31, 9, 0);
+      final next = GentleReminderService.nextWallClockOccurrence(
+        now, 8 * 60,
+      );
+      expect((next.year, next.month, next.day), (2026, 11, 1));
+      expect((next.hour, next.minute), (8, 0));
+    });
+
+    test('invalid daily minutes reject rather than overflowing dates', () {
+      final chicago = tz.getLocation('America/Chicago');
+      final now = tz.TZDateTime(chicago, 2026, 11, 12, 8, 0);
+      expect(
+        () => GentleReminderService.nextWallClockOccurrence(now, -1),
+        throwsRangeError,
+      );
+      expect(
+        () => GentleReminderService.nextWallClockOccurrence(now, 1440),
+        throwsRangeError,
+      );
+    });
+  });
 
   group('GentleReminderService.evaluateNotificationPayload', () {
     test('Struggling pet → grounding copy, never shaming', () {
