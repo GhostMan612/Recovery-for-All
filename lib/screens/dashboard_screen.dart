@@ -675,7 +675,7 @@ Future<void> _handleWalk() async {
           .collection('care_alerts')
           .doc(uid)
           .collection('alerts')
-          .doc('alert_${activatedAt}')
+          .doc('alert_$activatedAt')
           .set({
         'createdAt': activatedAt,
         'triggeredAt': activatedAt,
