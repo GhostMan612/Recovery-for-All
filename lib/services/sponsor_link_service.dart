@@ -100,6 +100,12 @@ class SignedConfirmation {
 }
 
 class SponsorLinkService {
+  /// Existing relay paths are not a trusted sponsor delivery protocol:
+  /// nested owner writes lack deployed-rule acceptance evidence, the inbox
+  /// has no authenticated fanout, and the bundle payload is plaintext JSON.
+  /// Keep all runtime relay entry points fail-closed until WO-SR-00 is complete.
+  static bool get cloudRelayAvailable => false;
+
   static const String _keyPrivate = 'sponsor_link_private_v1';
   static const String _keyPublic = 'sponsor_link_public_v1';
   static const String _keySponsor = 'sponsor_registered_v1';
@@ -157,6 +163,7 @@ class SponsorLinkService {
     if (authCheckerForTesting != null) {
       return authCheckerForTesting!();
     }
+    if (!cloudRelayAvailable) return false;
     try {
       if (Firebase.apps.isEmpty) return false;
       final cloudAllowed =
@@ -361,6 +368,7 @@ class SponsorLinkService {
     required String title,
     required String bundleJson,
   }) async {
+    if (!cloudRelayAvailable) return null;
     final authed = await _ensureAuth();
     if (!authed) return null;
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -390,6 +398,7 @@ class SponsorLinkService {
     required String bundleDocId,
     required String bundleJson,
   }) async {
+    if (!cloudRelayAvailable) return false;
     final authed = await _ensureAuth();
     if (!authed) return false;
     final uid = FirebaseAuth.instance.currentUser?.uid;

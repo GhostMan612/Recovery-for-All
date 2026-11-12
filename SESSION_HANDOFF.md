@@ -1146,6 +1146,21 @@ the screen has a running `AnimationController`.
 **Proposed / integrated-branch CI pending (isolated PR CI passed):** Previously the chatbot and weekly chronicle could send user text/metrics to the hard-coded HTTP LAN endpoint `192.168.4.144:8000`, without a distinct session consent gate. This candidate removes that default and fallback network destination; an endpoint must now be explicitly configured with `--dart-define=RFA_OLLAMA_BASE_URL=<url>`, and the user must separately grant `ollamaBridge` in Network & Privacy for each process session. All three transport entrypoints fail closed before constructing an HTTP request. Revocation checks streaming before further text is yielded. The scripted/TFLite/GGUF local fallbacks remain intact; actual LAN model connectivity and device behavior have not been verified. Do not describe this as local on-device inference or assume plain HTTP is encrypted.
 
 
+## Remote audit candidate — journal CSV export hardening (2026-11-11)
+
+**Proposed / CI pending:** `DataExportService.exportCsv` previously attempted base64-decoding `ENC2_` AES-GCM ciphertext instead of using the journal master key, and wrote untrusted labels/content into CSV cells without formula neutralization. New export requires the already-unlocked journal session, decrypts all entries with `JournalCryptoService`, fails without emitting a file if decryption fails, escapes all user-controlled text, and removes the temporary share file in a `finally` block. Summary export remains separately available. User-facing copy now warns that the CSV contains sensitive private writing. No signed release or device/share-sheet verification is claimed.
+
+
+## Remote audit candidate — sponsor relay containment (2026-11-11)
+
+**Proposed / CI pending:** Sponsor step-work sharing previously copied plaintext worksheets to the clipboard **and** silently attempted a Firestore upload when Firebase and a sponsor existed, with a false “sent to sponsor” success message. The source-verified relay has no trusted owner-to-sponsor fanout or E2E ciphertext. This PR fails closed on sponsor upload/sign operations before Firebase auth, removes cloud uploads from manual copy, hides the nonoperational live inbox while preserving manual bundle review/sign-off, and tests remote write refusal. Plaintext worksheet SharedPreferences storage remains a separate P0 migration in `blueprints/category-platform/phase-0/SPONSOR_RELAY_SECURITY_WORK_ORDER.md` and is not solved here. No live Firestore deployment or physical device verification claimed.
+
+
+## Remote audit candidate — cached GGUF integrity (2026-11-11)
+
+**Proposed / CI pending:** GGUF catalog downloads have published SHA-256 digests after PR #5, but `downloadModel` short-circuited on any existing file and `getModelPath` returned unverified bytes to native inference. This PR streams full-file SHA-256 for cached models before enabling readiness or loading. Corrupt existing files fail closed; a subsequent download request removes only the known invalid public-model cache and redownloads verified bytes. Model-ID allowlisting guards file lookup, deletion and sizing from traversal; stored prefs alone no longer mean a model is ready. This intentionally incurs a disk-read/validation delay for large models; device performance and any future caching of validated digests must be designed without weakening integrity. No model binary or Android device verified.
+
+
 ## Remote audit candidate — meeting source identity (2026-11-11)
 
 **Proposed / CI pending:** `parseTsmlFeed` used `name.hashCode` when a source provided neither `slug` nor `id`, producing identical identities for separate same-named meetings and relying on a value not guaranteed persistent across processes. `refresh` also merged records with `all[m.id] = m`, dropping unrelated meetings when different feeds reused a slug. This PR uses stable SHA-256 fallback identities derived from fellowship, schedule, address, coordinates and conference URL, and source-scoped in-memory merge keys. Existing explicit published IDs remain unchanged for persistence compatibility. Full typed FeedId/source provenance in cached objects remains a later navigation work order. No live multi-fellowship directory integration/device test claimed.
