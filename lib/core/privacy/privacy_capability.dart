@@ -15,6 +15,7 @@ enum PrivacyCapability {
   remoteWeather,
   cloudSync,
   circleShare,
+  ollamaBridge,
   directoryRefresh,
   onlineTiles,
   externalNavigation;
@@ -138,6 +139,17 @@ class PrivacyCapabilityState {
       transmittedData: 'Chosen alias, post text, and peer reactions',
       recipient: 'Recovery Circle Firestore collection',
       fallback: 'Community feed remains visible locally without publishing outwards.',
+    ),
+    PrivacyCapability.ollamaBridge: PrivacyDisclosure(
+      title: 'Optional Ollama Server (Network AI)',
+      description:
+          'Allows chatbot messages and recovery-summary metrics to be sent to a separately configured Ollama server. The server may be on another device; the connection may use unencrypted HTTP.',
+      transmittedData:
+          'Chat message text and optional weekly recovery metrics (wellness averages, activity counts and milestones)',
+      recipient:
+          'The Ollama server configured by the app build; inspect the configured server and its trust before enabling',
+      fallback:
+          'Scripted coaching, on-device GGUF/TFLite and local weekly reflections remain available without contacting Ollama.',
     ),
     PrivacyCapability.directoryRefresh: PrivacyDisclosure(
       title: 'Meeting Directory Updates',
