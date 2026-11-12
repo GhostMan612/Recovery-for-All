@@ -103,7 +103,13 @@ class GentleReminderService {
 
   /// Tomorrow is a milestone anniversary? Checks 1,7,30,60,90,182,365,730 days.
   static bool _isMilestoneEve(Counter c, DateTime now) {
-    final start = DateTime.fromMillisecondsSinceEpoch(c.startDateTime);
+    // The scheduled notification has its own IANA time zone. Convert the
+    // stored timestamp into that SAME zone before extracting its date, or
+    // late-night starts move to the next day when device/CI time zones differ.
+    final start = now is tz.TZDateTime
+        ? tz.TZDateTime.fromMillisecondsSinceEpoch(
+            now.location, c.startDateTime)
+        : DateTime.fromMillisecondsSinceEpoch(c.startDateTime);
     final days = calendarDaysBetween(start, now);
     const milestones = [1, 7, 30, 60, 90, 182, 365, 730];
     for (final m in milestones) {
