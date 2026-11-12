@@ -191,7 +191,8 @@ void main() {
       final set = await GgufModelService().getDownloadedModels();
       expect(set, {'gemma3_270m', 'smollm2_17b'});
       expect(
-          await GgufModelService().isModelDownloaded('smollm2_17b'), isTrue);
+          await GgufModelService().isModelDownloaded('smollm2_17b'), isFalse,
+          reason: 'a registry marker alone cannot prove disk integrity');
     });
   });
 
@@ -207,20 +208,33 @@ void main() {
       await f.writeAsBytes(const [1, 2, 3, 4]);
       expect(await GgufModelService().getModelSizeOnDisk('gemma3_270m'), 4);
       final path = await GgufModelService().getModelPath('gemma3_270m');
-      expect(path, isNotNull);
-      expect(path!.path, endsWith('gemma3_270m.gguf'));
+      expect(path, isNull,
+          reason: 'a four-byte file is not a verified model');
     });
 
-    test('downloadModel short-circuits true when file already on disk',
-        () async {
+    test('cached corrupt models are never marked ready or loadable', () async {
       final dir = Directory('${tempDir.path}/gguf_models');
       await dir.create(recursive: true);
       await File('${dir.path}/smollm2_17b.gguf').writeAsBytes(const [9]);
-      final model =
-          GgufModelService.catalog.firstWhere((m) => m.id == 'smollm2_17b');
-      final ok = await GgufModelService().downloadModel(model);
-      expect(ok, isTrue,
-          reason: 'pre-seeded file must satisfy download without network');
+      final svc = GgufModelService();
+      expect(await svc.isModelReady('smollm2_17b'), isFalse);
+      expect(await svc.getModelPath('smollm2_17b'), isNull);
+    });
+
+    test('cached file hashing uses streamed real SHA-256 validation', () async {
+      final f = File('${tempDir.path}/SAMPLE_hash_check.bin');
+      await f.writeAsBytes(const [97, 98, 99]); // abc
+      const knownDigest =
+          'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
+      final svc = GgufModelService();
+      expect(await svc.verifyFileDigestForTest(f, knownDigest), isTrue);
+      await f.writeAsBytes(const [97, 98, 100]); // abd
+      expect(await svc.verifyFileDigestForTest(f, knownDigest), isFalse);
+    });
+
+    test('model IDs cannot traverse outside the cache directory', () async {
+      expect(await GgufModelService().getModelPath('../journal'), isNull);
+      expect(await GgufModelService().isModelReady('../../secret'), isFalse);
     });
 
     test('deleteModel removes both the file and the registry entry',
