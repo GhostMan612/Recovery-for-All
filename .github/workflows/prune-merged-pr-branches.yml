@@ -40,6 +40,11 @@ jobs:
               'fix/meeting-coordinate-bounds-20261111',
               'security/ollama-prompt-consent-and-explicit-endpoint-20261111',
               'maintenance/prune-reviewed-merged-branches-20261111',
+              'security/journal-export-decrypt-and-csv-injection-20261111',
+              'security/sponsor-relay-failclosed-manual-20261111',
+              'security/gguf-cached-integrity-on-load-20261111',
+              'fix/meeting-fallback-and-source-identity-20261111',
+              'maintenance/prune-merged-audit-prs-11-to-14-20261111',
             ];
             const prs = await github.paginate(github.rest.pulls.list, {
               owner, repo, state: 'all', per_page: 100,
