@@ -25,10 +25,7 @@ final databaseProvider = Provider<RecoveryDatabase>((ref) {
 });
 
 final ollamaServiceProvider = Provider<OllamaService>((ref) {
-  return OllamaService(
-    baseUrl: 'http://192.168.4.144:8000',
-    modelName: 'qwen2.5',
-  );
+  return OllamaService();
 });
 
 final llamaFfiServiceProvider = Provider<LlamaFfiService>((ref) {
