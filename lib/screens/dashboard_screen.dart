@@ -787,8 +787,8 @@ Future<void> _handleWalk() async {
                         subtitle: 'Suicide & Crisis Lifeline · 24/7',
                         onTap: () {
                           Navigator.pop(sheetContext);
-                          // Real activation: alert the sponsor, start the
-                          // lifeline, then dial.
+                          // Real activation: optional cloud record only; start the
+                          // local lifeline and dial without waiting.
                           unawaited(_writeCareAlert());
                           SosNotificationService.startPersistentSos();
                           _callNumber('988');
