@@ -500,7 +500,6 @@ class GgufModelService {
     GgufModelInfo model,
     String targetPath,
   ) async {
-    final dir = await _modelDir();
     return _ensureBudget(model, targetPath);
   }
 
