@@ -1126,6 +1126,21 @@ the screen has a running `AnimationController`.
 6. Leave the tree clean — no uncommitted work overnight
 
 
+## Remote audit — sponsor relay/workbook privacy work order (2026-11-11)
+
+**Planning only / P0:** `blueprints/category-platform/phase-0/SPONSOR_RELAY_SECURITY_WORK_ORDER.md` records mismatched Firestore owner/inbox paths, missing trusted fanout, plaintext `SharedPreferences` worksheet storage and direct JSON cloud bundle, plus gated workchain SR-A–SR-E for containment, migration, encryption, identity, receipt and cleanup. No implementation, deployment, or source-level privacy fix is claimed by this planning PR.
+
+
+## Remote audit candidate — unused local embedding simulation removal (2026-11-11)
+
+**Proposed / CI pending:** The standalone `LocalEmbeddingService` claimed to load BGE-Small / MiniLM and produce semantic vectors, but only slept 600 ms before computing deterministic pseudo-random 384-element vectors from `String.hashCode`. Repository-wide symbol inspection found no clients of `DenseVector`, `EmbeddedChunk` or `generateEmbedding`; the only external reference was an unused `localEmbeddingServiceProvider`. This maintenance PR removes both the dead implementation and unused provider. It does **not** add embeddings, semantic retrieval, tokenizer assets, ONNX, or a native inference runtime. Reintroduce only as a new implementation with tested model artifacts, deterministic cross-platform inference and semantic-quality benchmarks. Git history retains the prior implementation if needed for reference.
+
+
+## Remote audit candidate — meeting directory coordinate range (2026-11-11)
+
+**Proposed / CI pending:** The untrusted TSML/BMLT feed parser accepts numeric coordinates without range validation, and `RecoveryMeeting.hasLocation` previously considered any non-(0,0) pair mapped — including latitude 91, longitude -181 or non-finite values — with potential map projection or distance errors. The fix rejects out-of-range/non-finite coordinates from map/distance usage while preserving the meeting record as unlocated/online. Valid one-zero pairs (Equator or Greenwich meridian) remain valid. New host unit coverage checks malformed and valid pairs. No live meeting feed or Android map check has been performed.
+
+
 ## Remote audit candidate — Ollama network prompt privacy (2026-11-11)
 
 **Proposed / CI pending:** Previously the chatbot and weekly chronicle could send user text/metrics to the hard-coded HTTP LAN endpoint `192.168.4.144:8000`, without a distinct session consent gate. This candidate removes that default and fallback network destination; an endpoint must now be explicitly configured with `--dart-define=RFA_OLLAMA_BASE_URL=<url>`, and the user must separately grant `ollamaBridge` in Network & Privacy for each process session. All three transport entrypoints fail closed before constructing an HTTP request. Revocation checks streaming before further text is yielded. The scripted/TFLite/GGUF local fallbacks remain intact; actual LAN model connectivity and device behavior have not been verified. Do not describe this as local on-device inference or assume plain HTTP is encrypted.

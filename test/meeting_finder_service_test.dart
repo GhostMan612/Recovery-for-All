@@ -86,6 +86,35 @@ void main() {
     expect(m.address, contains('Saint Paul'));
   });
 
+  test('rejects malformed meeting coordinates without hiding online meetings', () {
+    final entries = MeetingFinderService.parseTsmlFeed([
+      {'name': 'Out of Range Latitude', 'latitude': 91.0, 'longitude': -93.0},
+      {'name': 'Out of Range Longitude', 'latitude': 44.9, 'longitude': -181.0},
+      {'name': 'No Location', 'latitude': 0.0, 'longitude': 0.0},
+      {'name': 'Equator Meeting', 'latitude': 0.0, 'longitude': -78.0},
+      {'name': 'Prime Meridian Meeting', 'latitude': 51.0, 'longitude': 0.0},
+      {'name': 'Valid Meeting', 'latitude': 44.9, 'longitude': -93.1},
+    ]);
+    expect(entries, hasLength(6));
+    expect(entries[0].hasLocation, isFalse);
+    expect(entries[1].hasLocation, isFalse);
+    expect(entries[2].hasLocation, isFalse);
+    expect(entries[3].hasLocation, isTrue);
+    expect(entries[4].hasLocation, isTrue);
+    expect(entries[5].hasLocation, isTrue);
+
+    final notFinite = RecoveryMeeting(
+      id: 'non-finite',
+      name: 'Non-finite Coordinates',
+      latitude: double.nan,
+      longitude: double.infinity,
+      type: 'In person',
+      time: '',
+      address: '',
+    );
+    expect(notFinite.hasLocation, isFalse);
+  });
+
   test('sortByDistance puts located meetings first, nearest at top', () {
     final meetings = [
       RecoveryMeeting(
