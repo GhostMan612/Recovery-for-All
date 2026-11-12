@@ -277,7 +277,6 @@ class MeetingFinderService {
   /// Cleartext feed endpoints can receive location-scoped meeting queries.
   /// Keep legacy insecure entries visible in Settings for cleanup, but never
   /// issue a directory request to them.
-  @visibleForTesting
   static bool isSecureFeedUrl(String raw) {
     if (raw != raw.trim()) return false;
     try {
@@ -513,7 +512,6 @@ class MeetingFinderService {
       // No enabled, secure, or matching sources: keep the cached offline
       // directory rather than silently contacting every default feed.
       return _cachedMeetings();
-    }
     }
     final all = <String, RecoveryMeeting>{};
     var sourcesOk = 0;
