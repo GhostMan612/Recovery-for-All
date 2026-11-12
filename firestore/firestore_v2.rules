@@ -93,11 +93,30 @@ service cloud.firestore {
 
     // =====================================================================
     // CARE ALERTS — Private distress signals partitioned by caller UID
+    // Dashboard writes to nested /alerts/{alertId}; the parent create-only
+    // rule remains for legacy compatibility. Neither path is a sponsor inbox.
     // =====================================================================
     match /care_alerts/{uid} {
       allow create: if request.auth != null
                     && uid == request.auth.uid
                     && request.resource.data.createdAt is int;
+
+      allow read, update, delete: if false;
+    }
+
+    match /care_alerts/{uid}/alerts/{alertId} {
+      allow create: if request.auth != null
+                    && uid == request.auth.uid
+                    && alertId.matches('alert_[0-9]+')
+                    && request.resource.data.keys()
+                         .hasAll(['createdAt', 'triggeredAt', 'type'])
+                    && request.resource.data.keys()
+                         .hasOnly(['createdAt', 'triggeredAt', 'type'])
+                    && request.resource.data.createdAt is int
+                    && request.resource.data.triggeredAt is int
+                    && request.resource.data.createdAt > 0
+                    && request.resource.data.triggeredAt >= request.resource.data.createdAt
+                    && request.resource.data.type == 'sos_triggered';
 
       allow read, update, delete: if false;
     }

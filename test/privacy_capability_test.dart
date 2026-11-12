@@ -96,6 +96,38 @@ void main() {
     });
   });
 
+  group('SOS care alert independent authorization', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('cloud consent alone never authorizes SOS disclosure', () async {
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isFalse);
+      expect(await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.cloudSync, ConsentState.granted), isTrue);
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isFalse);
+      expect(await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.careAlertShare, ConsentState.granted), isTrue);
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isTrue);
+      expect(await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.careAlertShare, ConsentState.denied), isTrue);
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isFalse);
+    });
+
+    test('old persisted grants never authorize care alert after cold restart', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_cloudSync': 'granted',
+        'privacy_consent_v1_careAlertShare': 'granted',
+      });
+      await PrivacyCapabilityService.loadState();
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isFalse);
+    });
+
+    test('care alert consent alone never authorizes cloud operation', () async {
+      expect(await PrivacyCapabilityService.setConsent(
+        PrivacyCapability.careAlertShare, ConsentState.granted), isTrue);
+      expect(PrivacyCapabilityService.canShareCareAlertSync(), isFalse);
+    });
+  });
+
   group('Slice A: Session Authorization & Cold-Start Policy (WO-P0-PRIVACY-DURABILITY)', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
@@ -259,6 +291,7 @@ void main() {
         'privacy_consent_v1_remoteWeather': 'granted',
         'privacy_consent_v1_cloudSync': 'granted',
         'privacy_consent_v1_circleShare': 'granted',
+        'privacy_consent_v1_careAlertShare': 'granted',
         'privacy_consent_v1_directoryRefresh': 'granted',
         'privacy_consent_v1_onlineTiles': 'granted',
         'privacy_consent_v1_externalNavigation': 'granted',

@@ -1121,3 +1121,8 @@ the screen has a running `AnimationController`.
    `flutter analyze` (zero) + `flutter test` + both Python gates
 5. Commit by explicit path, message = gates status only
 6. Leave the tree clean — no uncommitted work overnight
+
+
+## Remote audit candidate — SOS care-alert path and permission (2026-11-11)
+
+**Proposed / pending CI and owner review; NOT deployed:** The dashboard previously attempted Firestore writes at `care_alerts/{uid}/alerts/{alertId}`, while v2 rules allowed creation only at `care_alerts/{uid}`. Existing emulator coverage missed the nested path. This proposal adds strict nested rules, nine emulator cases, and a separate `careAlertShare` capability required alongside `cloudSync`. The event upload no longer includes sponsor code or alias. Local calls and the notification lifeline never wait for this optional upload. **No app user or sponsor can read these records under the proposed rules. This is not a sponsor notification or delivery receipt.** Trusted recipient routing, retention/deletion, throttling, actual deployment and physical-device evidence remain separately blocked.
