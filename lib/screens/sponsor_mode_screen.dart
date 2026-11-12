@@ -272,6 +272,7 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (SponsorLinkService.cloudRelayAvailable) ...[
                 Text('Pending Sign-Offs (Live)',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -329,6 +330,17 @@ class _SponsorModeScreenState extends State<SponsorModeScreen> {
                     );
                   },
                 ),
+                ] else ...[
+                  Text(
+                    'Cloud sign-offs are unavailable. Review bundles sent to you directly, '
+                    'then return the signed code to your sponsee.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
