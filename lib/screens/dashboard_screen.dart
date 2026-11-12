@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 
 import '../core/icon_registry.dart';
+import '../core/privacy/privacy_capability.dart';
 import '../core/dashboard_providers.dart';
 import '../core/meeting_radius_logic.dart';
 import '../core/theme/app_colors.dart';
@@ -650,8 +651,9 @@ Future<void> _handleWalk() async {
   // SOS safety layer
   // ------------------------------------------------------------------
 
-  /// When the user actually reaches for help, write a care alert to
-  /// Firestore so the sponsor's app can pick it up (v1: console-visible).
+  /// Optional Firestore SOS event for explicitly authorized users.
+  /// This is server-side storage only: there is no sponsor inbox or remote
+  /// delivery acknowledgment. The local lifeline and phone calls never wait.
   ///
   /// Phase 10: this used to fire when the SOS *sheet opened*, so anyone who
   /// peeked at their options and closed it sent their sponsor a false alarm.
@@ -659,31 +661,28 @@ Future<void> _handleWalk() async {
   /// persistent SOS lifeline. Deliberately NOT fired by "Nearest Meetings" or
   /// "Crisis Resources", which are browsing, not asking for help.
   Future<void> _writeCareAlert() async {
+    if (!PrivacyCapabilityService.canShareCareAlertSync()) return;
     final sponsor = await SponsorLinkService.registeredSponsor();
-    if (sponsor == null) return;
-    if (!CommunityFeedService.remoteReady) return;
+    if (sponsor == null || !CommunityFeedService.isRemoteAvailable()) return;
     try {
-      // Partitioned by the sender's uid in the path: `care_alerts/{uid}/alerts`.
-      // The old flat `care_alerts` collection was readable by every signed-in
-      // user, which means a distress signal — the most sensitive thing this app
-      // can emit — was world-readable to anyone who signed up. The rules now
-      // create-only, sender-scoped, and unreadable even by the sender.
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
+      // Revalidate after asynchronous sponsor lookup and immediately before
+      // the write; revocation must block any newly initiated upload.
+      if (!PrivacyCapabilityService.canShareCareAlertSync()) return;
+      final activatedAt = DateTime.now().toUtc().millisecondsSinceEpoch;
       await FirebaseFirestore.instance
           .collection('care_alerts')
           .doc(uid)
           .collection('alerts')
-          .doc('alert_${DateTime.now().millisecondsSinceEpoch}')
+          .doc('alert_${activatedAt}')
           .set({
-        'sponsorCode': sponsor.pairingCode,
-        'sponsorAlias': sponsor.alias,
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'triggeredAt': DateTime.now().millisecondsSinceEpoch,
+        'createdAt': activatedAt,
+        'triggeredAt': activatedAt,
         'type': 'sos_triggered',
       });
     } catch (_) {
-      // Care alerts are best-effort; SOS works regardless.
+      // Best-effort optional server record only. SOS calling works regardless.
     }
   }
 

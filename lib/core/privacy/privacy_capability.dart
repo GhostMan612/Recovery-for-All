@@ -15,6 +15,7 @@ enum PrivacyCapability {
   remoteWeather,
   cloudSync,
   circleShare,
+  careAlertShare,
   directoryRefresh,
   onlineTiles,
   externalNavigation;
@@ -139,6 +140,16 @@ class PrivacyCapabilityState {
       recipient: 'Recovery Circle Firestore collection',
       fallback: 'Community feed remains visible locally without publishing outwards.',
     ),
+    PrivacyCapability.careAlertShare: PrivacyDisclosure(
+      title: 'Optional SOS Care Alert Record',
+      description:
+          'When you tap Call 988 or Call Sponsor, a linked sponsor lets this app store an SOS event in Firebase. This does not notify your sponsor or confirm anyone received help.',
+      transmittedData:
+          'Firebase account UID, SOS event type, and activation timestamp. No sponsor code, alias, phone number, location, or journal content.',
+      recipient: 'Firebase Cloud Firestore (not a live sponsor inbox)',
+      fallback:
+          'Your calls and local SOS lifeline work normally; no cloud SOS event is stored.',
+    ),
     PrivacyCapability.directoryRefresh: PrivacyDisclosure(
       title: 'Meeting Directory Updates',
       description:
@@ -256,6 +267,12 @@ class PrivacyCapabilityService {
   static bool isGrantedSync(PrivacyCapability capability) {
     return _sessionAuthorizations[capability] == ConsentState.granted;
   }
+
+  /// Care-alert uploads require two independent session permissions.
+  /// A generic cloud-sync grant never authorizes disclosure of an SOS event.
+  static bool canShareCareAlertSync() =>
+      isGrantedSync(PrivacyCapability.cloudSync) &&
+      isGrantedSync(PrivacyCapability.careAlertShare);
 
   /// Retrieves effective session [ConsentState] for [capability].
   static Future<ConsentState> getConsent(PrivacyCapability capability) async {

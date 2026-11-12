@@ -307,6 +307,82 @@ await runTest('Care alert read is denied (distress signal privacy)', async () =>
   await assertFails(getDoc(alertRef));
 });
 
+// Exercise the exact nested path written by DashboardScreen, not only the parent.
+await runTest('Nested care alert can be created by its authenticated owner', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const at = Date.now();
+  await assertSucceeds(setDoc(
+    doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10001'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered'}
+  ));
+});
+
+await runTest('Second distinct nested care alert can be created', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const at = Date.now();
+  await assertSucceeds(setDoc(
+    doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10002'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered'}
+  ));
+});
+
+await runTest('Nested care alert cannot be forged by another user', async () => {
+  const mallory = testEnv.authenticatedContext('mallory_999');
+  const at = Date.now();
+  await assertFails(setDoc(
+    doc(mallory.firestore(), 'care_alerts/alice_123/alerts/alert_10003'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered'}
+  ));
+});
+
+await runTest('Nested care alert requires authentication', async () => {
+  const anon = testEnv.unauthenticatedContext();
+  const at = Date.now();
+  await assertFails(setDoc(
+    doc(anon.firestore(), 'care_alerts/alice_123/alerts/alert_10004'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered'}
+  ));
+});
+
+await runTest('Nested care alert rejects sponsor identifying data', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const at = Date.now();
+  await assertFails(setDoc(
+    doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10005'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered', sponsorCode: 'SAMPLE_SECRET_PAIRING_CODE'}
+  ));
+});
+
+await runTest('Nested care alert rejects invalid event type', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const at = Date.now();
+  await assertFails(setDoc(
+    doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10006'),
+    {createdAt: at, triggeredAt: at, type: 'other_event'}
+  ));
+});
+
+await runTest('Nested care alert rejects invalid document ID', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const at = Date.now();
+  await assertFails(setDoc(
+    doc(alice.firestore(), 'care_alerts/alice_123/alerts/unbounded_event'),
+    {createdAt: at, triggeredAt: at, type: 'sos_triggered'}
+  ));
+});
+
+await runTest('Nested care alert is unreadable even to its owner', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  await assertFails(getDoc(doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10001')));
+});
+
+await runTest('Nested care alert cannot be updated or deleted by owner', async () => {
+  const alice = testEnv.authenticatedContext('alice_123');
+  const ref = doc(alice.firestore(), 'care_alerts/alice_123/alerts/alert_10001');
+  await assertFails(updateDoc(ref, {type: 'other_event'}));
+  await assertFails(deleteDoc(ref));
+});
+
 await runTest('Sponsor bundle creation by owner succeeds', async () => {
   const alice = testEnv.authenticatedContext('alice_123');
   const bundleRef = doc(alice.firestore(), 'sponsor_bundles/alice_123');
