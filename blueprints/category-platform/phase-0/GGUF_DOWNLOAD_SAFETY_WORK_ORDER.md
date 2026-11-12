@@ -1,12 +1,21 @@
 # WO-GGUF-01 — Non-destructive local model download and storage budgeting
 
 **Priority:** P1 data preservation and device storage  
-**State:** DESIGN ONLY; no production-code changes in this PR  
+**State:** P1 non-destructive budget preflight implemented in this PR; remaining download lifecycle hardening tracked below  
 **Evidence:** `lib/services/gguf_model_service.dart::_ensureBudget`, `downloadModel`, `isModelReady`, `test/gguf_services_test.dart`, and Settings' GGUF model-management actions.
 
 ## Verified failure mode
 
-The model budget is 3 GiB, and `_ensureBudget` currently frees space by **deleting other downloaded `.gguf` files, largest first, *before* the replacement model download starts**. Network timeout, cancellation, corrupt digest, DNS failure, ENOSPC or a user leaving the download can therefore leave the device with neither the newly requested model nor its previously installed working model. The tests currently assert that eviction succeeds but do not cover preservation when the subsequent download fails. A separate integrity PR (#13, merged) checks pinned SHA-256 of existing model files before inference; this protects trust, not availability.
+The model budget is 3 GiB. Before this PR, `_ensureBudget` freed space by **deleting other downloaded `.gguf` files, largest first, *before* the replacement model download started**. Network timeout, cancellation, corrupt digest, DNS failure, ENOSPC or a user leaving the download can therefore leave the device with neither the newly requested model nor its previously installed working model. The previous tests asserted that eviction succeeded. This PR replaces those assertions with preservation and no-registry-mutation tests. A separate integrity PR (#13, merged) checks pinned SHA-256 of existing model files before inference; this protects trust, not availability.
+
+## Applied code and regression coverage in this PR
+
+- `lib/services/gguf_model_service.dart`: replaced destructive largest-first eviction with a read-only peak-budget gate that counts existing `.gguf` and `.tmp` files plus the requested model and 64 MiB margin.
+- Failed budget preflight now preserves existing files and registry and reports required/available space plus an explicit Settings deletion path. Existing model bytes are not discounted because a complete validated temporary download must coexist with the original.
+- `test/gguf_services_test.dart`: checks over-budget refusal, both existing files and preference registry preserved, and replacement peak-budget refusal with original file intact.
+- Pre-existing explicit Settings model deletion remains available.
+
+**Not implemented in this PR:** concurrent download reservations, a persistent download transaction state machine, actual free-space probe, streaming-size ceiling, or low-storage physical-device acceptance. These remain below as follow-up hardening; do not mark the whole work order closed based only on host CI.
 
 ## Proposed policy and explicit decision
 
