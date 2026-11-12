@@ -5,9 +5,8 @@
 
 // lib/services/data_export_service.dart
 //
-// Exports all recovery data as CSV for sharing with therapists,
-// counselors, or healthcare providers. Privacy-first: only anonymous
-// data leaves the device (no identity fields, no location).
+// Creates a user-directed recovery CSV export. It may include sensitive
+// journal text and labels; only share after reviewing the destination.
 
 import 'dart:io';
 
