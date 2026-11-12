@@ -274,6 +274,23 @@ class MeetingFinderService {
     }
   }
 
+  /// Cleartext feed endpoints can receive location-scoped meeting queries.
+  /// Keep legacy insecure entries visible in Settings for cleanup, but never
+  /// issue a directory request to them.
+  @visibleForTesting
+  static bool isSecureFeedUrl(String raw) {
+    if (raw != raw.trim()) return false;
+    try {
+      final uri = Uri.parse(raw);
+      return uri.scheme == 'https' &&
+          uri.host.isNotEmpty &&
+          uri.userInfo.isEmpty &&
+          !uri.hasFragment;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> setSources(List<String> urls) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySources, jsonEncode(urls));
@@ -486,12 +503,17 @@ class MeetingFinderService {
       return _cachedMeetings();
     }
 
-    final sources = sourcesForFellowships(
-        await getSources(), fellowships);
+    final configuredSources = await getSources();
+    final secureSources = configuredSources.where(isSecureFeedUrl).toList();
+    if (secureSources.length != configuredSources.length) {
+      debugPrint('[meetings] Skipped insecure or malformed saved feed URLs');
+    }
+    final sources = sourcesForFellowships(secureSources, fellowships);
     if (sources.isEmpty) {
-      // No enabled or matching sources: keep cached offline directory rather
-      // than silently contacting every default feed.
+      // No enabled, secure, or matching sources: keep the cached offline
+      // directory rather than silently contacting every default feed.
       return _cachedMeetings();
+    }
     }
     final all = <String, RecoveryMeeting>{};
     var sourcesOk = 0;
