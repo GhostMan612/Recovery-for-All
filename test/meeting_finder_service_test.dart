@@ -46,6 +46,21 @@ void main() {
         reason: 'fictional recovery meetings must never route donations');
   });
 
+  test('partial or empty feed refresh must preserve the existing directory', () {
+    expect(MeetingFinderService.shouldKeepExistingCache(
+      attemptedSources: 10, successfulSources: 1, resultCount: 100,
+    ), isTrue, reason: 'one live feed must not overwrite a full cache');
+    expect(MeetingFinderService.shouldKeepExistingCache(
+      attemptedSources: 10, successfulSources: 0, resultCount: 0,
+    ), isTrue, reason: 'offline errors must preserve the cache');
+    expect(MeetingFinderService.shouldKeepExistingCache(
+      attemptedSources: 10, successfulSources: 5, resultCount: 100,
+    ), isFalse, reason: 'half of the sources form an accepted refresh');
+    expect(MeetingFinderService.shouldKeepExistingCache(
+      attemptedSources: 1, successfulSources: 1, resultCount: 3,
+    ), isFalse);
+  });
+
   test('parses Meeting Guide / TSML feed entries (AA sheet style)', () {
     final meetings = MeetingFinderService.parseTsmlFeed([
       {
