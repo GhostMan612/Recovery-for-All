@@ -149,7 +149,17 @@ class RecoveryMeeting {
     this.seventhTraditionUrl,
   });
 
-  bool get hasLocation => latitude != 0 || longitude != 0;
+  /// Exclude missing and malformed directory coordinates from map/distance use.
+  /// The (0,0) pair is a sentinel for meetings without location data; a
+  /// single zero latitude/longitude is valid near the Equator/Greenwich.
+  bool get hasLocation =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180 &&
+      (latitude != 0 || longitude != 0);
 
   bool get isDated => day != null && minutes != null;
 
