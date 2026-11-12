@@ -37,7 +37,7 @@ class OllamaService {
         uri.hasFragment) {
       throw StateError('No valid Ollama server URL is configured.');
     }
-    return Uri.parse('${endpoint}/api/${action}');
+    return Uri.parse('$endpoint/api/$action');
   }
 
   Future<String> generateResponse(
