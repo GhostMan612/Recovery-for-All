@@ -1134,3 +1134,8 @@ the screen has a running `AnimationController`.
 ## Remote audit candidate — unused local embedding simulation removal (2026-11-11)
 
 **Proposed / CI pending:** The standalone `LocalEmbeddingService` claimed to load BGE-Small / MiniLM and produce semantic vectors, but only slept 600 ms before computing deterministic pseudo-random 384-element vectors from `String.hashCode`. Repository-wide symbol inspection found no clients of `DenseVector`, `EmbeddedChunk` or `generateEmbedding`; the only external reference was an unused `localEmbeddingServiceProvider`. This maintenance PR removes both the dead implementation and unused provider. It does **not** add embeddings, semantic retrieval, tokenizer assets, ONNX, or a native inference runtime. Reintroduce only as a new implementation with tested model artifacts, deterministic cross-platform inference and semantic-quality benchmarks. Git history retains the prior implementation if needed for reference.
+
+
+## Remote audit candidate — meeting directory coordinate range (2026-11-11)
+
+**Proposed / CI pending:** The untrusted TSML/BMLT feed parser accepts numeric coordinates without range validation, and `RecoveryMeeting.hasLocation` previously considered any non-(0,0) pair mapped — including latitude 91, longitude -181 or non-finite values — with potential map projection or distance errors. The fix rejects out-of-range/non-finite coordinates from map/distance usage while preserving the meeting record as unlocated/online. Valid one-zero pairs (Equator or Greenwich meridian) remain valid. New host unit coverage checks malformed and valid pairs. No live meeting feed or Android map check has been performed.
