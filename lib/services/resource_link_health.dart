@@ -5,11 +5,10 @@
 
 // lib/services/resource_link_health.dart
 //
-// Link-rot prevention at runtime (resource-system.md §3–4):
-//   * Cached health per URL: {ok: bool, at: epochMs}, TTL 30 days.
-//   * Silent staggered refresh of expired entries on screen open
-//     (capped per pass — never hammer).
-//   * Explicit full verification from Settings ("tap of a button").
+// Resource link health stays offline during browsing:
+//   * Cached health per URL: {ok: bool, at: epochMs}.
+//   * No silent network checks when Literature or Community screens open.
+//   * Explicit user-initiated verification from Settings only.
 //   * Offline / transport failure NEVER marks a link broken — absence
 //     of evidence stays absence. Only an explicit bad status flags it.
 
@@ -36,8 +35,6 @@ class ResourceLinkHealth {
   static final ResourceLinkHealth instance = ResourceLinkHealth._();
 
   static const String _key = 'resource_link_health_v1';
-  static const Duration ttl = Duration(days: 30);
-  static const int _maxChecksPerPass = 20;
   static const Duration _timeout = Duration(seconds: 10);
 
   static Map<String, LinkHealth> _cache = {};
@@ -152,42 +149,6 @@ class ResourceLinkHealth {
           resp.statusCode == 429;
     } catch (_) {
       return null;
-    }
-  }
-
-  /// Refresh expired entries (screen-open pass). Returns how many were
-  /// actually re-checked this pass.
-  /// Gap G: already async (non-blocking) + staggered 250ms + 20 cap;
-  /// true `compute()` Isolate is WRONG for http (async + SharedPreferences
-  /// not sendable) — HTTP is I/O-bound, not CPU. Keep async, HEAD-first.
-  Future<int> ensureFresh(List<String> urls) async {
-    if (_busy) return 0;
-    _busy = true;
-    try {
-      await _load();
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final stale = urls
-          .where((u) =>
-              !_cache.containsKey(u) ||
-              now - (_cache[u]?.checkedAtMs ?? 0) > ttl.inMilliseconds)
-          .take(_maxChecksPerPass)
-          .toList();
-      var checked = 0;
-      for (final url in stale) {
-        final verdict = await checkUrl(url);
-        if (verdict != null) {
-          _cache[url] = LinkHealth(
-              ok: verdict, checkedAtMs: DateTime.now().millisecondsSinceEpoch);
-          checked++;
-          // Persist incrementally so navigation away keeps progress.
-          await _persist();
-        }
-        // Stagger — be a polite guest.
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-      }
-      return checked;
-    } finally {
-      _busy = false;
     }
   }
 
