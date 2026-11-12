@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/resources/resource_policy.dart';
 import '../data/recovery_literature.dart';
 import '../data/recovery_resources.dart';
 
@@ -106,52 +107,55 @@ class ResourceLinkHealth {
     return newest;
   }
 
-  /// Single live check. Returns true/false on a definitive HTTP answer,
-  /// null when we simply could not reach the internet (inconclusive).
-  /// ASK-6: HEAD first (bandwidth), fallback to GET Range on 405.
-  Future<bool?> checkUrl(String url) async {
-    // Try HEAD first (saves bandwidth); many CDNs/servers reject HEAD with 405.
-    Future<http.Response> doHead() => http
-        .head(Uri.parse(url), headers: {
-          'User-Agent': 'Mozilla/5.0 (RecoveryForAll link checker)',
+  /// One explicit health check. Never follow redirects, transmit to an
+  /// insecure URL or download the response body merely to inspect status.
+  ///
+  /// null means unknown, including a redirected resource: a redirect's
+  /// destination must be reviewed separately, not silently fetched.
+  /// [client] supports deterministic host tests without real network calls.
+  Future<bool?> checkUrl(String url, {http.Client? client}) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        ResourcePolicy.defaultPolicy.unsafeHttpsReason(uri) != null) {
+      return null;
+    }
+
+    final activeClient = client ?? http.Client();
+
+    Future<int?> getStatus(String method) async {
+      try {
+        final request = http.Request(method, uri)
+          ..followRedirects = false
+          ..maxRedirects = 0;
+        request.headers.addAll({
+          'User-Agent': 'RecoveryForAll link checker',
           'Accept': '*/*',
-        })
-        .timeout(_timeout)
-        .catchError((_) => http.Response('', 0));
-    Future<http.Response> doGet() => http
-        .get(Uri.parse(url), headers: {
-          'Range': 'bytes=0-1023',
-          'User-Agent': 'Mozilla/5.0 (RecoveryForAll link checker)',
-          'Accept': '*/*',
-        })
-        .timeout(_timeout)
-        .catchError((_) => http.Response('', 0));
+          if (method == 'GET') 'Range': 'bytes=0-1023',
+        });
+        final response =
+            await activeClient.send(request).timeout(_timeout);
+        // A Range header can be ignored by the server. Do not buffer a
+        // potentially multi-GB response just to determine its HTTP status.
+        final subscription = response.stream.listen((_) {});
+        await subscription.cancel();
+        return response.statusCode;
+      } catch (_) {
+        return null;
+      }
+    }
 
     try {
-      var resp = await doHead();
-      if (resp.statusCode == 405 || resp.statusCode == 501) {
-        resp = await doGet();
-      } else if (resp.statusCode == 0) {
-        // Transport failure on HEAD (offline/DNS) — don't try GET
-        return null;
-      } else if (resp.statusCode >= 200 && resp.statusCode < 400) {
-        return true;
-      } else if (resp.statusCode == 429) {
-        return true; // rate-limited means EXISTS
-      } else if (resp.statusCode >= 400) {
-        // 4xx/5xx on HEAD may be HEAD-specific; fallback once to GET
-        final getResp = await doGet();
-        if (getResp.statusCode == 0) return null;
-        return getResp.statusCode >= 200 && getResp.statusCode < 400 ||
-            getResp.statusCode == 405 ||
-            getResp.statusCode == 429;
+      final head = await getStatus('HEAD');
+      if (head == null || (head >= 300 && head < 400)) return null;
+      if ((head >= 200 && head < 300) || head == 429) return true;
+      if (head == 405 || head == 501 || head >= 400) {
+        final get = await getStatus('GET');
+        if (get == null || (get >= 300 && get < 400)) return null;
+        return (get >= 200 && get < 300) || get == 429;
       }
-      if (resp.statusCode == 0) return null;
-      return resp.statusCode >= 200 && resp.statusCode < 400 ||
-          resp.statusCode == 405 ||
-          resp.statusCode == 429;
-    } catch (_) {
       return null;
+    } finally {
+      if (client == null) activeClient.close();
     }
   }
 
