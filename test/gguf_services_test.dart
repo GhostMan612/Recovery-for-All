@@ -253,9 +253,12 @@ void main() {
 
       expect(await GgufModelService().getModelSizeOnDisk('phi4mini'), 0);
       expect(await GgufModelService().isModelDownloaded('phi4mini'), isFalse);
-      // Untouched sibling survives.
+      // Untouched registry marker survives. Readiness is independently false
+      // until an actual matching model file has been verified on disk.
+      expect(await GgufModelService().getDownloadedModels(),
+          contains('gemma3_270m'));
       expect(
-          await GgufModelService().isModelDownloaded('gemma3_270m'), isTrue);
+          await GgufModelService().isModelDownloaded('gemma3_270m'), isFalse);
     });
 
     test('deleting a model that was never stored does not throw', () async {
