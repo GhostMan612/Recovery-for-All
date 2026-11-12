@@ -264,6 +264,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
       expect(emitted.last.map((p) => p.authorAlias), contains('RemotePeer'));
 
       // REVOKE cloudSync
@@ -273,6 +274,7 @@ void main() {
       );
 
       expect(feed.currentStatus, CircleConnectionStatus.localOnly);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
       expect(emitted.last.map((p) => p.authorAlias), contains('LocalUser'));
       expect(emitted.last.map((p) => p.authorAlias), isNot(contains('RemotePeer')));
 
@@ -340,8 +342,9 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      // Auth failed, status transitions to error
+      // Auth failed, status transitions to error without false readiness.
       expect(feed.currentStatus, CircleConnectionStatus.error);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Network recovers, user retries
       shouldFailAuth = false;
@@ -367,8 +370,10 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
 
       await sub.cancel();
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
       await remoteController.close();
     });
 
@@ -579,6 +584,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
       expect(emitted.last.map((p) => p.authorAlias), contains('RemotePeer'));
       expect(emitted.last.map((p) => p.authorAlias), contains('LocalPeer'));
 
