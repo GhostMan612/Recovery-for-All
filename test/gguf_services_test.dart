@@ -235,6 +235,12 @@ void main() {
     test('model IDs cannot traverse outside the cache directory', () async {
       expect(await GgufModelService().getModelPath('../journal'), isNull);
       expect(await GgufModelService().isModelReady('../../secret'), isFalse);
+      final outside = File('${tempDir.path}/SAMPLE_private.gguf');
+      await outside.writeAsBytes(const [1, 2, 3]);
+      await GgufModelService().deleteModel('../SAMPLE_private');
+      expect(await outside.exists(), isTrue,
+          reason: 'path traversal must never delete files outside gguf_models');
+      expect(await GgufModelService().getModelSizeOnDisk('../SAMPLE_private'), 0);
     });
 
     test('deleteModel removes both the file and the registry entry',
