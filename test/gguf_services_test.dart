@@ -279,9 +279,8 @@ void main() {
     // check entirely. These tests exercise the budget directly so that a
     // regression in it cannot hide behind that short-circuit again.
     //
-    // Budget is 3 GB with 64 MB of write slack. A 2.7 GB model therefore needs
-    // 2764 MB, and 3072 - 2764 = 308 MB of headroom — which is what makes the
-    // eviction arithmetic in the third case non-obvious and worth pinning.
+    // Budget is 3 GB with 64 MB of write slack. Preflight must preserve
+    // existing models and account for temporary download peak usage.
 
     Future<Directory> emptyModelDir() async {
       final dir = Directory('${tempDir.path}/gguf_models');
@@ -325,26 +324,29 @@ void main() {
           reason: '3 GB of .tmp plus a 241 MB model must exceed the 3 GB budget');
     });
 
-    test('over-budget download evicts other models, largest first', () async {
+    test('over-budget preflight preserves every existing model and preference',
+        () async {
       final dir = await emptyModelDir();
-      await _sparseFile('${dir.path}/small.gguf', 300 * 1024 * 1024);
-      await _sparseFile('${dir.path}/large.gguf', 1500 * 1024 * 1024);
+      final small = await _sparseFile(
+          '${dir.path}/small.gguf', 300 * 1024 * 1024);
+      final large = await _sparseFile(
+          '${dir.path}/large.gguf', 1500 * 1024 * 1024);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('gguf_downloaded_v1', '["gemma3_270m"]');
 
-      // 1800 MB used, needs 2764 MB, budget 3072 MB.
-      //   Evicting the 1500 MB file first: 300 + 2764 = 3064 <= 3072. Done.
-      //   Evicting only the 300 MB file: 1500 + 2764 = 4264 > 3072, so a
-      //     SECOND eviction would be needed — and there is none left.
-      // So this case pins the ORDER, not just the outcome: one eviction must be
-      // enough, and it must be the large one.
       final err = await GgufModelService().ensureBudgetForTest(
         phi4,
         '${dir.path}/${phi4.id}.gguf',
       );
-      expect(err, isNull);
-      expect(File('${dir.path}/large.gguf').existsSync(), isFalse,
-          reason: 'largest-first: a single eviction was sufficient');
-      expect(File('${dir.path}/small.gguf').existsSync(), isTrue,
-          reason: 'the smaller model must survive when one eviction suffices');
+      expect(err, isNotNull);
+      expect(err, contains('No models were deleted'));
+      expect(await small.exists(), isTrue);
+      expect(await large.exists(), isTrue);
+      expect(await small.length(), 300 * 1024 * 1024);
+      expect(await large.length(), 1500 * 1024 * 1024);
+      expect(prefs.getString('gguf_downloaded_v1'),
+          '["gemma3_270m"]',
+          reason: 'refused downloads may not rewrite existing model registry');
     });
 
     test('a model larger than the whole budget reports a usable message',
@@ -374,23 +376,22 @@ void main() {
               'it failed');
     });
 
-    test('replacing an already-downloaded model does not need 2x the space',
+    test('replacement peak budget counts existing file and preserves it',
         () async {
       final dir = await emptyModelDir();
       final target = await _sparseFile(
           '${dir.path}/${phi4.id}.gguf', 2700 * 1024 * 1024);
 
-      // 2700 MB on disk, budget 3072 MB. The download needs 2764 MB, which
-      // would be 5464 MB if the existing file counted against us. It is the
-      // SAME bytes being replaced, so it must be discounted — otherwise a
-      // legitimate re-download can never pass its own check, and the only way
-      // to "fix" that would be to raise the budget past every model.
+      // Promotion is not in-place: the .tmp must be fully downloaded and
+      // validated BEFORE rename. Preflight must conservatively count both.
       final err =
           await GgufModelService().ensureBudgetForTest(phi4, target.path);
-      expect(err, isNull);
-      expect(target.existsSync(), isTrue,
-          reason: 'the budget check must not evict the file it is replacing');
+      expect(err, isNotNull);
+      expect(err, contains('existing model is preserved'));
+      expect(await target.exists(), isTrue);
+      expect(await target.length(), 2700 * 1024 * 1024);
     });
+
   });
 
   group('GgufInferenceService fail-safe contract', () {
