@@ -13,7 +13,7 @@ Recovery for All combines recovery tools, a gentle companion RPG, local-first pe
 | Personal recovery | Counters, guided exercises, journaling, reflection, goal setting and recovery resources | Outcomes are personal; no clinical efficacy claim |
 | Multiple pathways | Pathway-tailored resources and meeting feeds covering multiple fellowships | Source coverage and availability vary by area and pathway |
 | Companion RPG | Sparks, Bond, Path XP, pets, cosmetics and turn-based Trials | A unified idempotent event/reward ledger is **planned**, not yet delivered |
-| Peer support | Alias-based Recovery Circle, local feed and optional Firestore mirror; signed sponsor/fellowship workflows | Remote moderation, deletion and reaction integrity need hardening before expansion |
+| Peer support | Alias-based Recovery Circle and local feed; release cloud writes remain disabled pending trust controls; manual signed sponsor/fellowship workflows | Remote moderation, deletion and reaction integrity need hardening before expansion |
 | Meeting discovery | Cached directories, map tiles, filters, local meeting markers, weather chip | Present directions may open an **external** map; native transit itinerary integration is **planned** |
 | Offline capability | Local journal, companion, skills, cached meeting data and cached map tiles | A cold offline install cannot supply uncached meetings, live traffic, weather, transit or Circle messages |
 | On-device AI | Scripted and TFLite guidance; optional local GGUF model with device and safety gates | AI is supportive, not an emergency or professional substitute |
@@ -28,7 +28,7 @@ Recovery for All combines recovery tools, a gentle companion RPG, local-first pe
 
 **Meeting Finder:** multi-source data including Minnesota-focused directories, source/cache freshness handling, OpenStreetMap/Esri tiles, optional prefetch and a map with current-weather information. External web services are involved in some online modes.
 
-**Recovery Circle:** a local-first alias feed with Strength/Proud/Respect reactions and optional Firebase synchronization. Offline composition does **not** imply a message has been delivered to another person. Remote post deletion and trusted network moderation are known gaps being addressed in Phase 0.
+**Recovery Circle:** a local-first alias feed with Strength/Proud/Respect reactions and optional consent-gated Firebase read access. Release remote publishing remains disabled pending verified server-side controls. Offline composition does **not** imply a message has been delivered to another person. Remote post deletion and trusted network moderation are known gaps being addressed in Phase 0.
 
 **Sponsor and fellowship verification:** Ed25519 signatures support exchange/approval workflows. Peer exchange signatures prove participation of signing keys, not the identity of a person or attendance at a specific meeting.
 
@@ -54,7 +54,7 @@ See [`AGENTS.md`](AGENTS.md) and [`RULES.md`](RULES.md) before executing changes
 
 Private recovery records are intended to remain in the encrypted local application database. Some optional or context-dependent features contact external providers: meeting directories, map tile hosts, weather services, external navigation and Firebase where configured. In particular, the current weather query passes latitude/longitude to Open-Meteo, and opening Google Maps shares a meeting destination with that external application. A connected Circle feed shares its selected post content and alias with Firebase.
 
-**Offline-first is not the same as network-silent.** Review [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) and the [Phase-0 data-flow inventory](blueprints/category-platform/phase-0/DATA_FLOW_AND_CONSENT.md) before enabling connected features. Explicit per-capability consent and a network-off mode remain implementation work.
+**Offline-first is not the same as network-silent.** Review [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) and the [Phase-0 data-flow inventory](blueprints/category-platform/phase-0/DATA_FLOW_AND_CONSENT.md) before enabling connected features. Session-scoped consent gates are implemented for several outbound network capabilities (including weather, meeting refresh, tiles and optional Firebase authentication); a comprehensively verified device-wide network-off guarantee remains future work. The current `cloudSync` capability does **not** synchronize private journal content.
 
 ## Licensing — clarification pending owner/legal review
 
