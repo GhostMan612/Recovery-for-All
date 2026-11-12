@@ -45,8 +45,10 @@ void main() async {
     final cloudAllowed = await PrivacyCapabilityService.isGranted(PrivacyCapability.cloudSync);
     if (cloudAllowed) {
       await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 8));
-      CommunityFeedService.remoteReady = true;
-      debugPrint('[boot] firebase: ready (cloud circle enabled)');
+      // Auth is a prerequisite, not a confirmed active Firestore feed. The
+      // stream listener marks remoteReady only after its first valid snapshot.
+      CommunityFeedService.remoteReady = false;
+      debugPrint('[boot] firebase: authenticated (Circle feed connecting on demand)');
     } else {
       CommunityFeedService.remoteReady = false;
       debugPrint('[boot] firebase: initialized (cloud sync not consented — local-first mode)');
