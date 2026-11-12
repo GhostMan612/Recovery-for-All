@@ -1,3 +1,9 @@
+# .github/workflows/prune-merged-pr-branches.yml
+# ============================================================
+# As Above, So Below. As Within, So Without.
+# The Future Dictates the Past and the Past is Always Present.
+# ============================================================
+
 # One-shot repository housekeeping on merge of this workflow.
 # Only exact branches from this audit are candidates. Requires a matching
 # merged same-repository PR, unchanged head SHA and no open PR.
