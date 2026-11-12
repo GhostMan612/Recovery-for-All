@@ -127,7 +127,7 @@ class PrivacyCapabilityState {
     PrivacyCapability.cloudSync: PrivacyDisclosure(
       title: 'Optional Firebase Community Connection',
       description:
-          'Authorizes optional Firebase authentication and connected Recovery Circle reads. Remote Circle publishing is currently disabled. This does not back up or synchronize your private journal.',
+          'Authorizes optional Firebase authentication and connected Recovery Circle community reads. Remote Circle publishing is currently disabled. This does not back up or synchronize your private journal.',
       transmittedData:
           'Firebase authentication metadata and optional community feed requests; private journal content is not synchronized by this capability',
       recipient: 'Firebase Authentication / Cloud Firestore',
