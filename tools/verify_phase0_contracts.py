@@ -46,7 +46,9 @@ def validate(root: Path, overlay: bool = False) -> list[str]:
     for message, good in [
         ('README must link phase-0 hub', 'phase-0/' in intro and 'blueprints/category-platform/README.md' in intro),
         ('README must not claim exclusive proprietary code under existing MIT license', 'Proprietary — Recovery for All' not in intro),
-        ('Privacy policy must mention startup Firebase anonymous auth', 'sign-in during startup' in privacy),
+        ('Privacy policy must describe consent-gated Firebase sign-in separately from startup SDK initialization',
+         'Firebase SDK initialization' in privacy and
+         'anonymous sign-in is gated on current-session' in privacy),
         ('Privacy policy must document weather coordinates', 'Open-Meteo' in privacy and 'latitude/longitude' in privacy.lower()),
         ('Privacy policy must document remote deletion gap', 'does not guarantee deletion' in privacy or 'without ensuring' in privacy),
         ('Hub must identify phase-0 source of truth', 'PHASE_0_STATUS_AND_GATES.md' in hub),
