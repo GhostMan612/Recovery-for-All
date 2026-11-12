@@ -9,7 +9,6 @@
 // counselors, or healthcare providers. Privacy-first: only anonymous
 // data leaves the device (no identity fields, no location).
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show OrderingTerm, OrderingMode;
@@ -17,11 +16,24 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../database/recovery_database.dart';
+import 'journal_crypto_service.dart';
 
 class DataExportService {
   final RecoveryDatabase database;
 
   DataExportService(this.database);
+
+  /// Quote untrusted CSV text and prevent spreadsheet formulas on import.
+  static String csvCell(String value) {
+    final trimmed = value.trimLeft();
+    final unsafe = trimmed.isNotEmpty &&
+        ('=+-@'.contains(trimmed[0]) ||
+            value.startsWith('\t') ||
+            value.startsWith('\r') ||
+            value.startsWith('\n'));
+    final safe = unsafe ? "'$value" : value;
+    return '"${safe.replaceAll('"', '""')}"';
+  }
 
   /// Generates a full CSV export and returns the file path.
   Future<String> exportCsv() async {
@@ -34,7 +46,7 @@ class DataExportService {
     for (final c in counters) {
       final date = DateTime.fromMillisecondsSinceEpoch(c.startDateTime);
       buffer.writeln(
-          '"${c.label}",${date.toIso8601String().split("T").first},${c.isActive},${c.dailyCost.toStringAsFixed(2)}');
+          '${csvCell(c.label)},${date.toIso8601String().split("T").first},${c.isActive},${c.dailyCost.toStringAsFixed(2)}');
     }
 
     // Journal entries
@@ -45,23 +57,28 @@ class DataExportService {
     buffer.writeln('');
     buffer.writeln('=== JOURNAL ENTRIES ===');
     buffer.writeln('Date,Mood (1-5),Content');
+    // A CSV export can disclose private writing; require an unlocked session
+    // and verified decryption rather than interpreting AES-GCM bytes as text.
+    if (journals.isNotEmpty && !JournalCryptoService.isSessionUnlocked) {
+      throw StateError('Unlock the journal before exporting recovery data.');
+    }
+    final journalKey = journals.isEmpty
+        ? null
+        : await JournalCryptoService.loadMasterKey(hasExistingEntries: true);
     for (final j in journals) {
-      final date = DateTime.fromMillisecondsSinceEpoch(j.timestamp);
-      // Strip ENC_ prefix for readability
-      final content = j.contentEncrypted.startsWith('ENC_')
-          ? j.contentEncrypted.substring(4)
-          : j.contentEncrypted;
-      // Base64 decode if possible
-      String readable;
-      try {
-        readable = utf8.decode(base64Decode(content));
-      } catch (_) {
-        readable = content;
+      if (!JournalCryptoService.isSessionUnlocked) {
+        throw StateError('Journal locked during export. Unlock and retry.');
       }
-      // Escape for CSV
-      final escaped = readable.replaceAll('"', '""');
+      final date = DateTime.fromMillisecondsSinceEpoch(j.timestamp);
+      final readable =
+          await JournalCryptoService.decrypt(j.contentEncrypted, journalKey!);
+      if (readable == null) {
+        throw StateError(
+          'A journal entry could not be decrypted. Export cancelled.',
+        );
+      }
       buffer.writeln(
-          '${date.toIso8601String()},${j.moodRating},"$escaped"');
+          '${date.toIso8601String()},${j.moodRating},${csvCell(readable)}');
     }
 
     // Wellness check-ins
@@ -84,7 +101,7 @@ class DataExportService {
       buffer.writeln('=== WEEKLY GOALS ===');
       buffer.writeln('Title,Current,Target,Completed');
       for (final g in goals) {
-        buffer.writeln('"${g.title}",${g.currentCount},${g.targetCount},${g.isCompleted}');
+        buffer.writeln('${csvCell(g.title)},${g.currentCount},${g.targetCount},${g.isCompleted}');
       }
     }
 
@@ -96,7 +113,7 @@ class DataExportService {
       buffer.writeln('Title,Category,Date');
       for (final s in stars) {
         final date = DateTime.fromMillisecondsSinceEpoch(s.timestamp);
-        buffer.writeln('"${s.title}",${s.category},${date.toIso8601String().split("T").first}');
+        buffer.writeln('${csvCell(s.title)},${csvCell(s.category)},${date.toIso8601String().split("T").first}');
       }
     }
 
@@ -108,8 +125,12 @@ class DataExportService {
       buffer.writeln('Action Type,Date,Proof Tier');
       for (final a in actions) {
         final date = DateTime.fromMillisecondsSinceEpoch(a.createdAtUtcMs);
-        buffer.writeln('${a.actionType},${date.toIso8601String().split("T").first},${a.proofTier}');
+        buffer.writeln('${csvCell(a.actionType)},${date.toIso8601String().split("T").first},${csvCell(a.proofTier.toString())}');
       }
+    }
+
+    if (journals.isNotEmpty && !JournalCryptoService.isSessionUnlocked) {
+      throw StateError('Journal locked during export. Unlock and retry.');
     }
 
     // Write to temp file
@@ -182,13 +203,17 @@ class DataExportService {
   /// Shares the CSV file via the native share sheet.
   Future<void> shareCsv() async {
     final path = await exportCsv();
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(path)], text: 'Recovery data export (CSV)'),
-    );
-    // Clean up temp file after sharing
     try {
-      await File(path).delete();
-    } catch (_) {}
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(path)], text: 'Recovery data export (CSV)'),
+      );
+    } finally {
+      // The export contains decrypted private writing and must not linger
+      // if the platform share sheet throws or the user cancels.
+      try {
+        await File(path).delete();
+      } catch (_) {}
+    }
   }
 
   /// Shares the text summary via the native share sheet.
