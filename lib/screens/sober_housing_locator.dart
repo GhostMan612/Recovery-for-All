@@ -58,7 +58,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Authoritative Sober Housing listings parsed directly from historical local records
+  // Historical, unverified directory snapshots. Never imply real-time availability.
   final List<SoberHouse> _soberHousesPool = [
     const SoberHouse(
       name: 'Oxford House Douglas Street',
@@ -292,6 +292,22 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
 
           const SizedBox(height: 12),
 
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+            child: Semantics(
+              label: 'Housing directory verification warning',
+              child: Text(
+                'Listings are historical, unverified directory references. '
+                'Call the provider to confirm the address, eligibility, '
+                'program rules, and available space before traveling.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+
           // Output Count Indicator
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -299,7 +315,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${processedList.length} housing locations found',
+                  '${processedList.length} historical directory entries',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 if (widget.userPosition != null)
@@ -414,18 +430,47 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
     };
   }
 
-  /// Open turn-by-turn directions to the house.
-  void _openDirections(SoberHouse house) {
+  /// A historical address must never be silently treated as a verified
+  /// current destination. Confirm with the provider before launching maps.
+  Future<void> _openDirections(SoberHouse house) async {
+    final verified = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm housing destination'),
+        content: const Text(
+          'This directory entry is not verified or real-time. '
+          'Contact the provider first to confirm the address and current '
+          'availability. Have you independently confirmed this address?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Address confirmed'),
+          ),
+        ],
+      ),
+    );
+    if (verified != true || !mounted) return;
     final uri = Uri.parse(
       'geo:${house.latitude},${house.longitude}?q=${house.latitude},${house.longitude}(${Uri.encodeComponent(house.name)})',
     );
-    launchUrl(uri, mode: LaunchMode.externalApplication).then((ok) {
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No maps app available on this device')),
         );
       }
-    });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open directions on this device')),
+      );
+    }
   }
 
   Widget _buildHouseCard(SoberHouse house, double? distance) {
@@ -513,7 +558,7 @@ class _SoberHousingLocatorScreenState extends State<SoberHousingLocatorScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Text('Primary Guidelines:', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text('Reported guidelines (verify):', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           ...house.rules.map((rule) => Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
