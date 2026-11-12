@@ -115,6 +115,60 @@ void main() {
     expect(notFinite.hasLocation, isFalse);
   });
 
+  test('fallback IDs are stable, location-aware, and distinct for same-name meetings', () {
+    final source = [
+      {
+        'name': 'SAMPLE Serenity',
+        'address': 'SAMPLE North Road',
+        'latitude': 44.91,
+        'longitude': -93.11,
+        'day': 1,
+        'time': '18:00',
+      },
+      {
+        'name': 'SAMPLE Serenity',
+        'address': 'SAMPLE South Road',
+        'latitude': 44.81,
+        'longitude': -93.21,
+        'day': 1,
+        'time': '18:00',
+      },
+      {
+        'name': 'SAMPLE Serenity',
+        'address': 'SAMPLE North Road',
+        'latitude': 44.91,
+        'longitude': -93.11,
+        'day': 3,
+        'time': '19:00',
+      },
+    ];
+    final first = MeetingFinderService.parseTsmlFeed(source, fellowship: 'AA');
+    final second = MeetingFinderService.parseTsmlFeed(source, fellowship: 'AA');
+    expect(first, hasLength(3));
+    expect(first.map((m) => m.id).toSet(), hasLength(3));
+    expect(first.map((m) => m.id).toList(),
+        second.map((m) => m.id).toList(),
+        reason: 'reloading the same feed must not change fallback identity');
+    expect(first.every((m) => m.id.startsWith('m_')), isTrue);
+
+    final otherFellowship = MeetingFinderService.parseTsmlFeed(
+        [source.first], fellowship: 'NA');
+    expect(first.first.id, isNot(otherFellowship.first.id));
+  });
+
+  test('source-scoped cache keys preserve identical published slugs across feeds', () {
+    const slug = 'SAMPLE_same_slug';
+    final first = MeetingFinderService.sourceScopedCacheKey(
+        'https://example.org/aa.json', slug);
+    final second = MeetingFinderService.sourceScopedCacheKey(
+        'https://example.org/na.json', slug);
+    expect(first, isNot(second));
+    expect(first, MeetingFinderService.sourceScopedCacheKey(
+        'https://example.org/aa.json', slug));
+    final records = <String, String>{first: 'AA', second: 'NA'};
+    expect(records, hasLength(2));
+  });
+
   test('sortByDistance puts located meetings first, nearest at top', () {
     final meetings = [
       RecoveryMeeting(

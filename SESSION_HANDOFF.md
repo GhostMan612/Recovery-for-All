@@ -1159,3 +1159,8 @@ the screen has a running `AnimationController`.
 ## Remote audit candidate — cached GGUF integrity (2026-11-11)
 
 **Proposed / CI pending:** GGUF catalog downloads have published SHA-256 digests after PR #5, but `downloadModel` short-circuited on any existing file and `getModelPath` returned unverified bytes to native inference. This PR streams full-file SHA-256 for cached models before enabling readiness or loading. Corrupt existing files fail closed; a subsequent download request removes only the known invalid public-model cache and redownloads verified bytes. Model-ID allowlisting guards file lookup, deletion and sizing from traversal; stored prefs alone no longer mean a model is ready. This intentionally incurs a disk-read/validation delay for large models; device performance and any future caching of validated digests must be designed without weakening integrity. No model binary or Android device verified.
+
+
+## Remote audit candidate — meeting source identity (2026-11-11)
+
+**Proposed / CI pending:** `parseTsmlFeed` used `name.hashCode` when a source provided neither `slug` nor `id`, producing identical identities for separate same-named meetings and relying on a value not guaranteed persistent across processes. `refresh` also merged records with `all[m.id] = m`, dropping unrelated meetings when different feeds reused a slug. This PR uses stable SHA-256 fallback identities derived from fellowship, schedule, address, coordinates and conference URL, and source-scoped in-memory merge keys. Existing explicit published IDs remain unchanged for persistence compatibility. Full typed FeedId/source provenance in cached objects remains a later navigation work order. No live multi-fellowship directory integration/device test claimed.

@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -499,7 +500,7 @@ class MeetingFinderService {
         var parsed = 0;
         for (final m in parseTsmlFeed(decoded,
             fellowship: fellowshipForSource(url))) {
-          all[m.id] = m;
+          all[sourceScopedCacheKey(url, m.id)] = m;
           parsed++;
         }
         if (parsed > 0) sourcesOk++;
@@ -531,6 +532,40 @@ class MeetingFinderService {
   // ------------------------------------------------------------------
   // Parsing (Meeting Guide / TSML spec — shared by AA feeds and BMLT v4+)
   // ------------------------------------------------------------------
+
+  /// Two distinct feeds can legitimately use the same meeting slug.
+  /// Namespace only the in-memory merge key; preserve published source IDs
+  /// on the stored record for compatibility with existing callers.
+  @visibleForTesting
+  static String sourceScopedCacheKey(String sourceUrl, String meetingId) =>
+      jsonEncode([sourceUrl, meetingId]);
+
+  /// A stable, content-derived fallback for feeds with no slug/ID. Do not use
+  /// String.hashCode: equal meeting names collide, and hashes are not a
+  /// cross-process or cross-platform persistence contract.
+  static String _fallbackMeetingId({
+    required String fellowship,
+    required String name,
+    required String address,
+    required int? day,
+    required int? minutes,
+    required double? latitude,
+    required double? longitude,
+    String? conferenceUrl,
+  }) {
+    final canonical = jsonEncode([
+      fellowship.toLowerCase(),
+      name.toLowerCase().trim(),
+      address.toLowerCase().trim(),
+      day,
+      minutes,
+      latitude?.toStringAsFixed(6),
+      longitude?.toStringAsFixed(6),
+      conferenceUrl?.trim() ?? '',
+    ]);
+    final digest = sha256.convert(utf8.encode(canonical)).toString();
+    return 'm_${digest.substring(0, 24)}';
+  }
 
   static const List<String> _weekdays = [
     'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat',
@@ -646,7 +681,16 @@ class MeetingFinderService {
       out.add(RecoveryMeeting(
         id: (raw['slug'] as String?) ??
             (raw['id']?.toString()) ??
-            'm_${name.hashCode}',
+            _fallbackMeetingId(
+              fellowship: fellowship,
+              name: name,
+              address: address,
+              day: dayIndex,
+              minutes: _parseMinutes(raw['time'] as String?),
+              latitude: lat,
+              longitude: lng,
+              conferenceUrl: conferenceUrl,
+            ),
         name: name,
         latitude: lat ?? 0,
         longitude: lng ?? 0,
