@@ -336,15 +336,61 @@ class GgufModelService {
     return list.where((e) => e != null).map((e) => e.toString()).toSet();
   }
 
+  /// A preference marker is not proof that the bytes on disk are genuine.
   Future<bool> isModelDownloaded(String modelId) async {
-    return (await getDownloadedModels()).contains(modelId);
+    final registered = await getDownloadedModels();
+    if (!registered.contains(modelId)) return false;
+    final valid = await getModelPath(modelId) != null;
+    if (!valid) {
+      registered.remove(modelId);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _keyDownloadedModels, jsonEncode(registered.toList()));
+    }
+    return valid;
   }
 
+  /// Every disk load revalidates the pinned catalog digest. This includes
+  /// files installed before SHA-256 pins were introduced in PR #5.
   Future<File?> getModelPath(String modelId) async {
+    final model = _catalogModel(modelId);
+    if (model == null) return null;
     final dir = await _modelDir();
     final file = File('${dir.path}/$modelId.gguf');
-    return file.existsSync() ? file : null;
+    try {
+      if (!await file.exists() || await file.length() <= 1000000) return null;
+      if (!await _fileMatchesDigest(file, model.sha256Hex)) return null;
+      return file;
+    } on FileSystemException {
+      return null;
+    }
   }
+
+  static GgufModelInfo? _catalogModel(String id) {
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(id)) return null;
+    for (final model in catalog) {
+      if (model.id == id) return model;
+    }
+    return null;
+  }
+
+  /// Stream the hash, never load a multi-GB model into memory.
+  Future<bool> _fileMatchesDigest(File file, String? expected) async {
+    if (expected == null ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(expected)) {
+      return false;
+    }
+    try {
+      return (await sha256.bind(file.openRead()).first).toString() == expected;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @visibleForTesting
+  Future<bool> verifyFileDigestForTest(File file, String sha256Hex) =>
+      _fileMatchesDigest(file, sha256Hex);
+
 
   Future<Directory> _modelDir() async {
     final base = await getApplicationDocumentsDirectory();
@@ -524,9 +570,23 @@ class GgufModelService {
   }) async {
     lastDownloadError = null;
     try {
+      if (_catalogModel(model.id) == null ||
+          _catalogModel(model.id)!.sha256Hex != model.sha256Hex) {
+        throw StateError('Only pinned catalog models may be downloaded.');
+      }
       final dir = await _modelDir();
       final file = File('${dir.path}/${model.id}.gguf');
-      if (file.existsSync()) return true; // already downloaded
+      if (await file.exists()) {
+        if (await _fileMatchesDigest(file, model.sha256Hex)) return true;
+        // Existing files may predate catalog checksums, be interrupted, or
+        // have suffered disk corruption. Never trust existence as readiness.
+        await file.delete();
+        final prefs = await SharedPreferences.getInstance();
+        final registered = await getDownloadedModels();
+        registered.remove(model.id);
+        await prefs.setString(
+            _keyDownloadedModels, jsonEncode(registered.toList()));
+      }
 
       final tmpFile = File('${dir.path}/${model.id}.gguf.tmp');
       if (tmpFile.existsSync()) await tmpFile.delete(); // clean stale temp
@@ -620,15 +680,9 @@ class GgufModelService {
     }
   }
 
-  /// Checks if model file exists AND is reasonably sized (>1MB).
-  /// Prevents false positives from partial/corrupt downloads.
-  Future<bool> isModelReady(String modelId) async {
-    final dir = await _modelDir();
-    final file = File('${dir.path}/$modelId.gguf');
-    if (!file.existsSync()) return false;
-    final size = await file.length();
-    return size > 1000000; // 1MB minimum
-  }
+  /// Existence and size alone cannot certify model integrity.
+  Future<bool> isModelReady(String modelId) async =>
+      await getModelPath(modelId) != null;
 
   Future<void> deleteModel(String modelId) async {
     final dir = await _modelDir();
