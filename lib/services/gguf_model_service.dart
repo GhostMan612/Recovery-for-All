@@ -685,6 +685,7 @@ class GgufModelService {
       await getModelPath(modelId) != null;
 
   Future<void> deleteModel(String modelId) async {
+    if (_catalogModel(modelId) == null) return;
     final dir = await _modelDir();
     final file = File('${dir.path}/$modelId.gguf');
     if (file.existsSync()) await file.delete();
@@ -696,6 +697,7 @@ class GgufModelService {
   }
 
   Future<int> getModelSizeOnDisk(String modelId) async {
+    if (_catalogModel(modelId) == null) return 0;
     final dir = await _modelDir();
     final file = File('${dir.path}/$modelId.gguf');
     return file.existsSync() ? file.length() : 0;
