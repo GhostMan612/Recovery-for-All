@@ -1,0 +1,82 @@
+# One-shot repository housekeeping on merge of this workflow.
+# Only exact branches from this audit are candidates. Requires a matching
+# merged same-repository PR, unchanged head SHA and no open PR.
+name: Prune confirmed merged audit branches
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/prune-merged-pr-branches.yml
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove only verified merged PR heads
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const candidates = [
+              'docs/fix-public-contribution-guidance-20261111',
+              'docs/clarify-firestore-v2-security-status-20261111',
+              'ci/pin-verified-flutter-3-47-7-20261111',
+              'security/gguf-verified-catalog-sha256-20261111',
+              'blueprint/secure-sponsor-relay-workchain-20261111',
+              'maintenance/remove-unused-mock-embedding-service-20261111',
+              'fix/meeting-coordinate-bounds-20261111',
+              'security/ollama-prompt-consent-and-explicit-endpoint-20261111',
+              'maintenance/prune-reviewed-merged-branches-20261111',
+            ];
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'all', per_page: 100,
+            });
+            const open = prs.filter(p => p.state === 'open');
+            let failures = [];
+            for (const branch of candidates) {
+              // Never prune a protected/default branch or a branch with an active PR.
+              if (['main', 'master'].includes(branch) ||
+                  open.some(p => p.head.repo?.full_name === context.repo.owner + '/' + context.repo.repo && p.head.ref === branch)) {
+                core.info('PRESERVE active/default: ' + branch);
+                continue;
+              }
+              let live;
+              try {
+                live = (await github.rest.repos.getBranch({owner, repo, branch})).data;
+              } catch (e) {
+                if (e.status === 404) {
+                  core.info('ABSENT: ' + branch);
+                  continue;
+                }
+                failures.push(branch + ': cannot inspect (' + e.status + ')');
+                continue;
+              }
+              if (live.protected) {
+                core.info('PRESERVE protected: ' + branch);
+                continue;
+              }
+              const confirmed = prs.some(p =>
+                p.state === 'closed' &&
+                p.merged_at &&
+                p.head.repo?.full_name === context.repo.owner + '/' + context.repo.repo &&
+                p.head.ref === branch &&
+                p.head.sha === live.commit.sha);
+              if (!confirmed) {
+                core.info('PRESERVE not exactly verified merged head: ' + branch);
+                continue;
+              }
+              try {
+                await github.rest.git.deleteRef({owner, repo, ref: 'heads/' + branch});
+                core.info('DELETED merged: ' + branch);
+              } catch (e) {
+                failures.push(branch + ': delete failed (' + e.status + ')');
+              }
+            }
+            if (failures.length) core.setFailed('Branch pruning failed: ' + failures.join('; '));
