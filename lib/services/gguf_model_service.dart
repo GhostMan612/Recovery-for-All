@@ -438,84 +438,38 @@ class GgufModelService {
     return total;
   }
 
-  /// Checks the download fits the budget, evicting other models if it does not.
+  /// Preflight a requested model without deleting other downloaded models.
   ///
-  /// Returns an error message, or null when the download may proceed.
+  /// A valid model is an offline resource the user may depend on. A failed,
+  /// cancelled or checksum-rejected replacement must never evict existing
+  /// models simply because the user tapped Download.
   ///
-  /// NOTE ON WHY THIS IS A BUDGET AND NOT A FREE-SPACE PROBE: Dart's
-  /// `FileStat.stat(directory).size` reports the size of the *directory entry*
-  /// — 4096 bytes on ext4/f2fs — not the free space on the volume. An earlier
-  /// version of this file compared that 4096 against the model's size and threw
-  /// "Not enough free space: 241 needed, 0 MB available" on every device, which
-  /// blocked 100% of downloads while reading as a working safety check. Dart
-  /// exposes no cross-platform free-space API (`dart:io` has no
-  /// `statvfs`), and shelling out is not an option on Android, so a
-  /// self-imposed budget plus eviction is the honest mechanism: it is
-  /// enforceable, testable, and cannot silently mis-report.
+  /// The budget accounts for peak usage: until the verified .tmp is promoted,
+  /// both the old file and the new bytes can occupy the device. Existing files
+  /// therefore cannot be subtracted from the disk census.
   ///
-  /// A genuinely full volume still surfaces as an error mid-transfer, so the
-  /// stream is also watched for ENOSPC — see [_isOutOfSpace].
+  /// This is a logical app budget, not OS free-space. A full filesystem can
+  /// still raise ENOSPC while streaming; the download path handles that.
   Future<String?> _ensureBudget(
-    Directory dir,
     GgufModelInfo model,
     String targetPath,
   ) async {
+    final used = await _bytesUsedOnDisk();
     final needed = model.fileSizeBytes + _writeSlackBytes;
-
-    // The model already on disk does not count against the budget: replacing it
-    // needs no extra room beyond the slack.
-    var used = await _bytesUsedOnDisk();
-    final existing = File(targetPath);
-    if (await existing.exists()) used -= await existing.length();
-
     if (used + needed <= storageBudgetBytes) return null;
 
-    // Evict other models, largest first, until it fits or nothing is left.
-    // Largest-first because one eviction should free the most room possible,
-    // minimising how many models the user loses to keep the one they asked for.
-    final others = <File>[];
-    await for (final entity in dir.list(followLinks: false)) {
-      if (entity is! File) continue;
-      if (!entity.path.toLowerCase().endsWith('.gguf')) continue;
-      if (entity.path == targetPath) continue;
-      others.add(entity);
-    }
-    others.sort((a, b) => b.lengthSync().compareTo(a.lengthSync()));
-
-    final prefs = await SharedPreferences.getInstance();
-    final downloaded = await getDownloadedModels();
-    var freed = 0;
-    for (final victim in others) {
-      if (used - freed + needed <= storageBudgetBytes) break;
-      final size = victim.lengthSync();
-      try {
-        await victim.delete();
-      } on FileSystemException {
-        // Could not remove it (still open, or the FS refused) — keep going and
-        // see whether a smaller victim frees enough.
-        continue;
-      }
-      freed += size;
-      // Keep the prefs mirror honest, or the model list shows a model whose
-      // file no longer exists — a state `isModelReady` already guards against,
-      // but only after a wasted round trip.
-      final id = victim.uri.pathSegments.last.replaceAll(RegExp(r'\.gguf$'), '');
-      downloaded.remove(id);
-      debugPrint('[gguf] evicted $id (${(size / (1024 * 1024)).round()} MB) '
-          'to make room for ${model.id}');
-    }
-
-    used -= freed;
-    if (used + needed <= storageBudgetBytes) {
-      await prefs.setString(
-          _keyDownloadedModels, jsonEncode(downloaded.toList()));
-      return null;
-    }
-
-    return 'Not enough storage: ${model.fileSizeMb} MB needed, and the '
-        '${(storageBudgetBytes / (1024 * 1024)).round()} MB budget has only '
-        '${((storageBudgetBytes - used) / (1024 * 1024)).round()} MB free. '
-        'Delete a downloaded model to free space.';
+    final available = storageBudgetBytes > used
+        ? storageBudgetBytes - used
+        : 0;
+    final replacing = await File(targetPath).exists();
+    return 'Not enough storage for ${model.name}: needs '
+        '${(needed / (1024 * 1024)).ceil()} MB including temporary '
+        'download overhead, but only '
+        '${(available / (1024 * 1024)).floor()} MB remains in the '
+        '${storageBudgetBytes ~/ (1024 * 1024)} MB app budget. '
+        '${replacing ? 'Your existing model is preserved. ' : ''}'
+        'No models were deleted. Delete a downloaded model explicitly '
+        'in Settings or choose a smaller model, then retry.';
   }
 
   /// Whether [e] is an out-of-space failure from the write side.
@@ -547,7 +501,7 @@ class GgufModelService {
     String targetPath,
   ) async {
     final dir = await _modelDir();
-    return _ensureBudget(dir, model, targetPath);
+    return _ensureBudget(model, targetPath);
   }
 
 /// Downloads a model with streaming progress. Returns true on success.
@@ -591,7 +545,7 @@ class GgufModelService {
       final tmpFile = File('${dir.path}/${model.id}.gguf.tmp');
       if (tmpFile.existsSync()) await tmpFile.delete(); // clean stale temp
 
-      final budgetError = await _ensureBudget(dir, model, file.path);
+      final budgetError = await _ensureBudget(model, file.path);
       if (budgetError != null) throw Exception(budgetError);
 
       final client = http.Client();
