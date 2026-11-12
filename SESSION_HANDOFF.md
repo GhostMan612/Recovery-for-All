@@ -1149,3 +1149,8 @@ the screen has a running `AnimationController`.
 ## Remote audit candidate — journal CSV export hardening (2026-11-11)
 
 **Proposed / CI pending:** `DataExportService.exportCsv` previously attempted base64-decoding `ENC2_` AES-GCM ciphertext instead of using the journal master key, and wrote untrusted labels/content into CSV cells without formula neutralization. New export requires the already-unlocked journal session, decrypts all entries with `JournalCryptoService`, fails without emitting a file if decryption fails, escapes all user-controlled text, and removes the temporary share file in a `finally` block. Summary export remains separately available. User-facing copy now warns that the CSV contains sensitive private writing. No signed release or device/share-sheet verification is claimed.
+
+
+## Remote audit candidate — sponsor relay containment (2026-11-11)
+
+**Proposed / CI pending:** Sponsor step-work sharing previously copied plaintext worksheets to the clipboard **and** silently attempted a Firestore upload when Firebase and a sponsor existed, with a false “sent to sponsor” success message. The source-verified relay has no trusted owner-to-sponsor fanout or E2E ciphertext. This PR fails closed on sponsor upload/sign operations before Firebase auth, removes cloud uploads from manual copy, hides the nonoperational live inbox while preserving manual bundle review/sign-off, and tests remote write refusal. Plaintext worksheet SharedPreferences storage remains a separate P0 migration in `blueprints/category-platform/phase-0/SPONSOR_RELAY_SECURITY_WORK_ORDER.md` and is not solved here. No live Firestore deployment or physical device verification claimed.

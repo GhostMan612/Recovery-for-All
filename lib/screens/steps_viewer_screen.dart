@@ -8,7 +8,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/resources/resource_request.dart';
@@ -86,7 +85,6 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
   Map<String, List<String>> _worksheets = {};
   Set<int> _signoffs = {};
   Map<int, String> _bundles = {};
-  final Map<int, String> _bundleDocIds = {};
 
   @override
   void initState() {
@@ -213,31 +211,16 @@ class _StepsViewerScreenState extends State<StepsViewerScreen> {
     readable.writeln('RC-END');
     await Clipboard.setData(ClipboardData(text: readable.toString()));
 
-    // Also share via Firestore if cloud is available (real-time transport)
-    final sponsor = await SponsorLinkService.registeredSponsor();
-    String? cloudMsg;
-    if (sponsor != null && Firebase.apps.isNotEmpty) {
-      final profile = await SharedPreferences.getInstance();
-      final alias = profile.getString('sponsee_alias') ?? 'Anonymous';
-      final docId = await SponsorLinkService.shareBundleViaCloud(
-        sponsorCode: sponsor.pairingCode,
-        sponseeAlias: alias,
-        step: number,
-        title: _steps.firstWhere((s) => s.number == number).title,
-        bundleJson: bundle,
-      );
-      if (docId != null) {
-        _bundleDocIds[number] = docId;
-        cloudMsg = 'Bundle sent to sponsor via cloud.';
-      }
-    }
-
+    // Copying a bundle is an explicit, local-only action. The legacy relay
+    // has no trusted sponsor delivery or end-to-end encryption, so do not
+    // attempt a network write or imply that a sponsor received anything.
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-        content: Text(cloudMsg ??
-            'Bundle copied — send it to your sponsor. Redeem their signed code here after.'),
+        content: const Text(
+          'Bundle copied. Send it to your sponsor yourself and redeem their signed code here.',
+        ),
       ),
     );
   }
