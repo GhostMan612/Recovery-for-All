@@ -79,6 +79,16 @@ void main() {
       }
     });
 
+    test('all shipped model downloads have a pinned SHA-256 digest', () {
+      expect(GgufModelService.catalog, hasLength(4));
+      for (final model in GgufModelService.catalog) {
+        expect(model.sha256Hex, isNotNull,
+            reason: '${model.id} must not skip download integrity verification');
+        expect(model.sha256Hex, matches(RegExp(r'^[0-9a-f]{64}$')),
+            reason: '${model.id} must have a complete SHA-256 checksum');
+      }
+    });
+
     test('tier ordering matches device fleet mapping', () {
       final byId = {for (final m in GgufModelService.catalog) m.id: m};
       expect(byId['gemma3_270m']!.minTier, DeviceTier.medium);

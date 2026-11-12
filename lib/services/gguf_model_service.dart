@@ -100,8 +100,10 @@ class GgufModelService {
   // Adaptive defaulting (Gemini ASK-1 Option 3): Gemma 3 270M QAT fits ~350 MB RSS
   // on 4 GB Moto G 2025. We KEEP opt-in (privacy/metered-data) but surface a
   // one-time suggestion for medium tier instead of silent auto-download.
-  // SHA-256 TODO: fill from `sha256sum` of verified HF download; when present
-  // downloadModel will verify and retry once (see downloadModel below).
+  // SHA-256 values are pinned to the published Hugging Face file metadata.
+  // downloadModel streams SHA-256 verification before promoting a .tmp file.
+  // An upstream replacement fails verification rather than silently changing
+  // the on-device model. Cached older files still need separate revalidation.
 
   static const List<GgufModelInfo> catalog = [
     GgufModelInfo(
@@ -117,7 +119,8 @@ class GgufModelService {
       minTier: DeviceTier.medium,
       contextWindow: 4096,
       quantization: 'Q4_K_M',
-      sha256Hex: null, // TODO: populate after verified download
+      sha256Hex:
+          '9b06391b17444a1ea4d0747145b54722b57bd32df715cc436d6011b8c356622a',
     ),
     GgufModelInfo(
       id: 'qwen35_08b',
@@ -130,7 +133,7 @@ class GgufModelService {
       minTier: DeviceTier.medium,
       contextWindow: 8192,
       quantization: 'Q4_K_M',
-      sha256Hex: null,
+      sha256Hex: 'bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517',
     ),
     GgufModelInfo(
       id: 'smollm2_17b',
@@ -143,7 +146,7 @@ class GgufModelService {
       minTier: DeviceTier.high,
       contextWindow: 8192,
       quantization: 'Q4_K_M',
-      sha256Hex: null,
+      sha256Hex: 'decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33',
     ),
     GgufModelInfo(
       id: 'phi4mini',
@@ -156,7 +159,7 @@ class GgufModelService {
       minTier: DeviceTier.premium,
       contextWindow: 16384,
       quantization: 'Q4_K_M',
-      sha256Hex: null,
+      sha256Hex: '01999f17c39cc3074afae5e9c539bc82d45f2dd7faa3917c66cbef76fce8c0c2',
     ),
   ];
 
