@@ -1139,3 +1139,8 @@ the screen has a running `AnimationController`.
 ## Remote audit candidate — meeting directory coordinate range (2026-11-11)
 
 **Proposed / CI pending:** The untrusted TSML/BMLT feed parser accepts numeric coordinates without range validation, and `RecoveryMeeting.hasLocation` previously considered any non-(0,0) pair mapped — including latitude 91, longitude -181 or non-finite values — with potential map projection or distance errors. The fix rejects out-of-range/non-finite coordinates from map/distance usage while preserving the meeting record as unlocated/online. Valid one-zero pairs (Equator or Greenwich meridian) remain valid. New host unit coverage checks malformed and valid pairs. No live meeting feed or Android map check has been performed.
+
+
+## Remote audit candidate — Ollama network prompt privacy (2026-11-11)
+
+**Proposed / integrated-branch CI pending (isolated PR CI passed):** Previously the chatbot and weekly chronicle could send user text/metrics to the hard-coded HTTP LAN endpoint `192.168.4.144:8000`, without a distinct session consent gate. This candidate removes that default and fallback network destination; an endpoint must now be explicitly configured with `--dart-define=RFA_OLLAMA_BASE_URL=<url>`, and the user must separately grant `ollamaBridge` in Network & Privacy for each process session. All three transport entrypoints fail closed before constructing an HTTP request. Revocation checks streaming before further text is yielded. The scripted/TFLite/GGUF local fallbacks remain intact; actual LAN model connectivity and device behavior have not been verified. Do not describe this as local on-device inference or assume plain HTTP is encrypted.

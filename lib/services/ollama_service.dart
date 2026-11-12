@@ -5,14 +5,13 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/privacy/privacy_capability.dart';
 
+/// Optional network inference on an independently configured Ollama server.
+/// No server is contacted without explicit consent for the current session.
 class OllamaService {
-  /// R24 Sovereign Mantle bridge: primary is your LAN Ollama at
-  /// 192.168.4.144:8000 (qwen2.5 for Pathfinder God / Sovereign Tagger).
-  /// Fallback loopback 127.0.0.1:11450 is kept for dev outside LAN.
-  /// Optional feature: unreachable server falls back to scripted coach.
-  static const String defaultBaseUrl = 'http://192.168.4.144:8000';
-  static const String fallbackBaseUrl = 'http://127.0.0.1:11450';
+  static const String defaultBaseUrl =
+      String.fromEnvironment('RFA_OLLAMA_BASE_URL', defaultValue: '');
   static const String defaultModelName = 'qwen2.5';
 
   final String baseUrl;
@@ -23,66 +22,73 @@ class OllamaService {
     this.modelName = defaultModelName,
   });
 
-  Future<String> generateResponse(String prompt, {Map<String, dynamic>? options}) async {
-    // Try primary Sovereign Mantle endpoint, fallback to loopback
-    for (final candidate in [baseUrl, if (baseUrl != fallbackBaseUrl) fallbackBaseUrl]) {
-      try {
-        final url = Uri.parse('$candidate/api/generate');
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'model': modelName,
-            'prompt': prompt,
-            'stream': false,
-            'options': ?options,
-          }),
-        ).timeout(const Duration(seconds: 20));
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          return data['response'] as String;
-        } else {
-          throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
-        }
-      } catch (e) {
-        if (candidate == fallbackBaseUrl || candidate == baseUrl && baseUrl == fallbackBaseUrl) rethrow;
-        // Try fallback on network failure
-        continue;
-      }
+  Uri _authorizedEndpoint(String action) {
+    if (!PrivacyCapabilityService.isGrantedSync(
+        PrivacyCapability.ollamaBridge)) {
+      throw StateError('Ollama network use requires explicit session consent.');
     }
-    throw Exception('Ollama unreachable (tried $baseUrl and $fallbackBaseUrl)');
+    final endpoint = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final uri = Uri.tryParse(endpoint);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw StateError('No valid Ollama server URL is configured.');
+    }
+    return Uri.parse('$endpoint/api/$action');
   }
 
-  Future<String> chat(List<Map<String, String>> messages, {Map<String, dynamic>? options}) async {
-    for (final candidate in [baseUrl, if (baseUrl != fallbackBaseUrl) fallbackBaseUrl]) {
-      try {
-        final url = Uri.parse('$candidate/api/chat');
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'model': modelName,
-            'messages': messages,
-            'stream': false,
-            'options': ?options,
-          }),
-        ).timeout(const Duration(seconds: 20));
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          return data['message']['content'] as String;
-        } else {
-          throw Exception('Ollama API error: ${response.statusCode} - ${response.body}');
-        }
-      } catch (e) {
-        if (candidate == fallbackBaseUrl || baseUrl == fallbackBaseUrl) rethrow;
-        continue;
-      }
+  Future<String> generateResponse(
+    String prompt, {
+    Map<String, dynamic>? options,
+  }) async {
+    final url = _authorizedEndpoint('generate');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': modelName,
+        'prompt': prompt,
+        'stream': false,
+        'options': ?options,
+      }),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw StateError('Ollama API returned HTTP ${response.statusCode}.');
     }
-    throw Exception('Ollama unreachable');
+    final data = jsonDecode(response.body);
+    return data['response'] as String;
   }
 
-  Stream<String> chatStream(List<Map<String, String>> messages, {Map<String, dynamic>? options}) async* {
-    final url = Uri.parse('$baseUrl/api/chat');
+  Future<String> chat(
+    List<Map<String, String>> messages, {
+    Map<String, dynamic>? options,
+  }) async {
+    final url = _authorizedEndpoint('chat');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': modelName,
+        'messages': messages,
+        'stream': false,
+        'options': ?options,
+      }),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw StateError('Ollama API returned HTTP ${response.statusCode}.');
+    }
+    final data = jsonDecode(response.body);
+    return data['message']['content'] as String;
+  }
+
+  Stream<String> chatStream(
+    List<Map<String, String>> messages, {
+    Map<String, dynamic>? options,
+  }) async* {
+    final url = _authorizedEndpoint('chat');
     final request = http.Request('POST', url)
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
@@ -92,33 +98,32 @@ class OllamaService {
         'options': ?options,
       });
 
-    // Hoisted and closed in a finally. The inline `http.Client()` was never
-    // closed on any path — success, error, or early break of the await-for —
-    // so every streamed reply leaked a connection and its socket until the GC
-    // finalizer got round to it. On the error path the body was also never
-    // drained, so the connection could not be reused at all.
     final client = http.Client();
     try {
-      final response = await client.send(request);
-
-      if (response.statusCode == 200) {
-        final stream = response.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter());
-        await for (final line in stream) {
-          if (line.trim().isEmpty) continue;
-          try {
-            final data = jsonDecode(line);
-            final msg = data['message'];
-            if (msg is! Map) continue;
-            final content = msg['content'];
-            if (content is String && content.isNotEmpty) yield content;
-          } catch (_) {
-            // A partial or non-JSON keep-alive line must not kill the stream.
-          }
+      final response = await client.send(request).timeout(
+        const Duration(seconds: 20),
+      );
+      if (response.statusCode != 200) {
+        throw StateError('Ollama stream returned HTTP ${response.statusCode}.');
+      }
+      final stream = response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+      await for (final line in stream) {
+        if (!PrivacyCapabilityService.isGrantedSync(
+            PrivacyCapability.ollamaBridge)) {
+          throw StateError('Ollama authorization was revoked during streaming.');
         }
-      } else {
-        throw Exception('Ollama API stream error: ${response.statusCode}');
+        if (line.trim().isEmpty) continue;
+        try {
+          final data = jsonDecode(line);
+          final msg = data['message'];
+          if (msg is! Map) continue;
+          final content = msg['content'];
+          if (content is String && content.isNotEmpty) yield content;
+        } catch (_) {
+          // A partial or non-JSON keep-alive line must not kill the stream.
+        }
       }
     } finally {
       client.close();

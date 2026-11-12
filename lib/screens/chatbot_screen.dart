@@ -442,7 +442,9 @@ $text
         title: const Text('Recovery Companion'),
         actions: [
           IconButton(
-            tooltip: _preferDeepChat ? 'Deep chat on (local Ollama)' : 'Scripted coach only',
+            tooltip: _preferDeepChat
+                ? 'Optional Ollama: requires Network & Privacy consent and a configured server'
+                : 'Scripted coach only',
             onPressed: () {
               setState(() => _preferDeepChat = !_preferDeepChat);
             },

@@ -66,7 +66,7 @@ Keep it concise, empathetic, and free of medical advice or sycophancy.
 """;
 
     try {
-      // 4. Route to Sovereign Mantle / Local Inference (Ollama primary 192.168.4.144:8000)
+      // 4. Optional configured Ollama with separate session consent; scripted fallback stays local
       final ollama = OllamaService();
       final response = await ollama.generateResponse(prompt).timeout(const Duration(seconds: 25));
       if (response.trim().isNotEmpty) return response.trim();
