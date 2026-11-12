@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/llama_ffi_service.dart';
-import '../services/local_embedding_service.dart';
 import '../services/meeting_finder_service.dart';
 import '../services/nwi_progress_service.dart';
 import '../services/ollama_service.dart';
@@ -35,10 +34,6 @@ final llamaFfiServiceProvider = Provider<LlamaFfiService>((ref) {
   final service = LlamaFfiService();
   ref.onDispose(() => service.unloadModel());
   return service;
-});
-
-final localEmbeddingServiceProvider = Provider<LocalEmbeddingService>((ref) {
-  return LocalEmbeddingService();
 });
 
 final meetingFinderServiceProvider = Provider<MeetingFinderService>((ref) {
