@@ -1144,3 +1144,8 @@ the screen has a running `AnimationController`.
 ## Remote audit candidate — Ollama network prompt privacy (2026-11-11)
 
 **Proposed / integrated-branch CI pending (isolated PR CI passed):** Previously the chatbot and weekly chronicle could send user text/metrics to the hard-coded HTTP LAN endpoint `192.168.4.144:8000`, without a distinct session consent gate. This candidate removes that default and fallback network destination; an endpoint must now be explicitly configured with `--dart-define=RFA_OLLAMA_BASE_URL=<url>`, and the user must separately grant `ollamaBridge` in Network & Privacy for each process session. All three transport entrypoints fail closed before constructing an HTTP request. Revocation checks streaming before further text is yielded. The scripted/TFLite/GGUF local fallbacks remain intact; actual LAN model connectivity and device behavior have not been verified. Do not describe this as local on-device inference or assume plain HTTP is encrypted.
+
+
+## Remote audit candidate — journal CSV export hardening (2026-11-11)
+
+**Proposed / CI pending:** `DataExportService.exportCsv` previously attempted base64-decoding `ENC2_` AES-GCM ciphertext instead of using the journal master key, and wrote untrusted labels/content into CSV cells without formula neutralization. New export requires the already-unlocked journal session, decrypts all entries with `JournalCryptoService`, fails without emitting a file if decryption fails, escapes all user-controlled text, and removes the temporary share file in a `finally` block. Summary export remains separately available. User-facing copy now warns that the CSV contains sensitive private writing. No signed release or device/share-sheet verification is claimed.

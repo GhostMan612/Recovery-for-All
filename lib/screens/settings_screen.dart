@@ -1072,7 +1072,9 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                         } catch (e) {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Export failed: $e')));
+                              SnackBar(content: Text(e is StateError
+                                  ? 'Unlock your journal before exporting CSV.'
+                                  : 'Export unavailable. Check secure storage and retry.')));
                         }
                       },
                     ),
@@ -1092,7 +1094,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                         } catch (e) {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Export failed: $e')));
+                              SnackBar(content: Text('Summary export unavailable. Please retry.')));
                         }
                       },
                     ),
