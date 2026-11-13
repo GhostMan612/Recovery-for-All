@@ -36,6 +36,16 @@ void main() {
         sources, null), sources);
   });
 
+  test('offline SAMPLE meeting fixtures never advertise payment destinations', () {
+    final fixtures = MeetingFinderService.sampleDirectory(44.9, -93.2);
+    expect(fixtures, isNotEmpty);
+    expect(fixtures.every((m) => m.id.startsWith('sample_meeting_')),
+        isTrue);
+    expect(fixtures.every((m) => m.name.startsWith('SAMPLE')), isTrue);
+    expect(fixtures.every((m) => m.seventhTraditionUrl == null), isTrue,
+        reason: 'fictional recovery meetings must never route donations');
+  });
+
   test('parses Meeting Guide / TSML feed entries (AA sheet style)', () {
     final meetings = MeetingFinderService.parseTsmlFeed([
       {

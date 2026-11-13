@@ -899,21 +899,22 @@ class MeetingFinderService {
   static double _rad(double d) => d * math.pi / 180.0;
 
   /// Built-in synthetic fallback (SAMPLE data only) for cold offline start.
+  /// No payment links: fabricated meetings must never solicit donations.
   static List<RecoveryMeeting> sampleDirectory(double lat, double lng) {
     const templates = [
-      {'name': 'SAMPLE Sunrise Serenity', 'type': 'AA · Open Discussion', 'time': 'Daily · 7:00 AM', 'fellowship': 'AA', 'seventhTraditionUrl': 'https://venmo.com/sunrise-serenity-aa'},
-      {'name': 'SAMPLE New Beginnings', 'type': 'NA · Step Study', 'time': 'Mon & Thu · 6:30 PM', 'fellowship': 'NA', 'seventhTraditionUrl': 'https://paypal.me/newbeginnings-na'},
+      {'name': 'SAMPLE Sunrise Serenity', 'type': 'AA · Open Discussion', 'time': 'Daily · 7:00 AM', 'fellowship': 'AA', 'seventhTraditionUrl': null},
+      {'name': 'SAMPLE New Beginnings', 'type': 'NA · Step Study', 'time': 'Mon & Thu · 6:30 PM', 'fellowship': 'NA', 'seventhTraditionUrl': null},
       {'name': 'SAMPLE Midday Reset', 'type': 'SMART · CBT Tools', 'time': 'Tue & Fri · 12:15 PM', 'fellowship': 'SMART', 'seventhTraditionUrl': null},
-      {'name': 'SAMPLE Still Water Sangha', 'type': 'Dharma · Meditation', 'time': 'Wed · 6:00 PM', 'fellowship': 'Dharma', 'seventhTraditionUrl': 'https://venmo.com/stillwater-dharma'},
+      {'name': 'SAMPLE Still Water Sangha', 'type': 'Dharma · Meditation', 'time': 'Wed · 6:00 PM', 'fellowship': 'Dharma', 'seventhTraditionUrl': null},
       {'name': 'SAMPLE Four Directions Circle', 'type': 'Wellbriety · Medicine Wheel', 'time': 'Sun · 4:00 PM', 'fellowship': 'Wellbriety', 'seventhTraditionUrl': null},
-      {'name': 'SAMPLE Open Hearts Group', 'type': 'AA · Speaker Meeting', 'time': 'Sat · 8:00 PM', 'fellowship': 'AA', 'seventhTraditionUrl': 'https://paypal.me/openhearts-aa'},
+      {'name': 'SAMPLE Open Hearts Group', 'type': 'AA · Speaker Meeting', 'time': 'Sat · 8:00 PM', 'fellowship': 'AA', 'seventhTraditionUrl': null},
       {'name': 'SAMPLE Evening Anchors', 'type': 'NA · Open Discussion', 'time': 'Nightly · 9:00 PM', 'fellowship': 'NA', 'seventhTraditionUrl': null},
-      {'name': 'SAMPLE Secular Path', 'type': 'Secular · Check-in', 'time': 'Thu · 7:30 PM', 'fellowship': 'AllRecovery', 'seventhTraditionUrl': 'https://venmo.com/secularpath'},
-      {'name': 'SAMPLE Crystal Clear', 'type': 'CMA · Step Study', 'time': 'Tue · 7:00 PM', 'fellowship': 'CMA', 'seventhTraditionUrl': 'https://paypal.me/crystalclear-cma'},
+      {'name': 'SAMPLE Secular Path', 'type': 'Secular · Check-in', 'time': 'Thu · 7:30 PM', 'fellowship': 'AllRecovery', 'seventhTraditionUrl': null},
+      {'name': 'SAMPLE Crystal Clear', 'type': 'CMA · Step Study', 'time': 'Tue · 7:00 PM', 'fellowship': 'CMA', 'seventhTraditionUrl': null},
       {'name': 'SAMPLE Cocaine Free', 'type': 'CA · Open Discussion', 'time': 'Wed · 7:30 PM', 'fellowship': 'CA', 'seventhTraditionUrl': null},
-      {'name': 'SAMPLE Food Freedom', 'type': 'OA · Big Book Study', 'time': 'Sat · 10:00 AM', 'fellowship': 'OA', 'seventhTraditionUrl': 'https://venmo.com/foodfreedom-oa'},
+      {'name': 'SAMPLE Food Freedom', 'type': 'OA · Big Book Study', 'time': 'Sat · 10:00 AM', 'fellowship': 'OA', 'seventhTraditionUrl': null},
       {'name': 'SAMPLE Family Recovery', 'type': 'Al-Anon · Family Group', 'time': 'Mon · 6:00 PM', 'fellowship': 'AlAnon', 'seventhTraditionUrl': null},
-      {'name': 'SAMPLE LifeRing Circle', 'type': 'LifeRing · Secular Support', 'time': 'Fri · 7:00 PM', 'fellowship': 'LifeRing', 'seventhTraditionUrl': 'https://paypal.me/lifering-circle'},
+      {'name': 'SAMPLE LifeRing Circle', 'type': 'LifeRing · Secular Support', 'time': 'Fri · 7:00 PM', 'fellowship': 'LifeRing', 'seventhTraditionUrl': null},
     ];
     return [
       for (var i = 0; i < templates.length; i++)
