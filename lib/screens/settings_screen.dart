@@ -568,10 +568,12 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (url == null || url.isEmpty) return;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!MeetingFinderService.isSecureFeedUrl(url)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Feed URL must start with http(s)://')),
+        const SnackBar(content: Text(
+          'Feed URL must use HTTPS without embedded credentials or fragments.',
+        )),
       );
       return;
     }

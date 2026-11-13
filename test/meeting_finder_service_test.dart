@@ -61,6 +61,21 @@ void main() {
     ), isFalse);
   });
 
+  test('untrusted custom directory endpoints must use HTTPS', () {
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'https://example.org/SAMPLE-meetings.json'), isTrue);
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'http://example.org/SAMPLE-meetings.json'), isFalse);
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'https://user:password@example.org/SAMPLE-meetings.json'), isFalse);
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'https://example.org/SAMPLE-meetings.json#fragment'), isFalse);
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'javascript:alert(1)'), isFalse);
+    expect(MeetingFinderService.isSecureFeedUrl(
+        'not a URL'), isFalse);
+  });
+
   test('parses Meeting Guide / TSML feed entries (AA sheet style)', () {
     final meetings = MeetingFinderService.parseTsmlFeed([
       {
