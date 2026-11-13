@@ -60,11 +60,9 @@ class _LiteratureLibraryScreenState extends State<LiteratureLibraryScreen> {
       _paths = paths;
       _loaded = true;
     });
-    // Silent staggered refresh of expired entries; never blocks reading.
-    final service = ResourceLinkHealth.instance;
-    unawaited(service
-        .ensureFresh(RecoveryLiterature.allUrls)
-        .then((_) => _refreshHealth()));
+    // Opening a resource list never silently contacts third-party websites.
+    // Read the last manually verified status from local preferences only.
+    unawaited(_refreshHealth());
   }
 
   Future<void> _refreshHealth() async {

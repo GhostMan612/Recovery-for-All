@@ -63,10 +63,8 @@ class _CommunityResourcesScreenState extends State<CommunityResourcesScreen> {
       _paths = paths;
       _loaded = true;
     });
-    final service = ResourceLinkHealth.instance;
-    unawaited(service
-        .ensureFresh(RecoveryResources.allUrls)
-        .then((_) => _refreshHealth()));
+    // Keep browsing fully local; no automatic HEAD/GET probes on screen open.
+    unawaited(_refreshHealth());
   }
 
   Future<void> _refreshHealth() async {

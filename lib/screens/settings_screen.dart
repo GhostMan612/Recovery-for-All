@@ -259,6 +259,29 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _verifyResourceLinks() async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Check external resource links?'),
+        content: const Text(
+          'This contacts third-party recovery websites to check whether '
+          'their pages respond. Those websites can see your network address '
+          'and request metadata. No journal content is included.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Check links'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) return;
+
     final urls = ResourceLinkHealth.allRegistryUrls();
     ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Checking ${urls.length} links…')));
