@@ -4,10 +4,37 @@
 // ============================================================
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:recovery_for_all/services/meeting_finder_service.dart';
 
 void main() {
   final service = MeetingFinderService();
+
+  test('clearing every directory stays empty after persisted reload', () async {
+    SharedPreferences.setMockInitialValues({});
+    expect(await service.getSources(), MeetingFinderService.defaultSources);
+
+    await service.setSources([]);
+    expect(await service.getSources(), isEmpty,
+        reason: 'an explicit user opt-out must not re-enable default feeds');
+
+    await service.setSources(['https://example.org/SAMPLE-aa.json']);
+    expect(await service.getSources(),
+        ['https://example.org/SAMPLE-aa.json']);
+  });
+
+  test('pathway filter never widens to all directories when none matches', () {
+    const sources = [
+      'https://aaminnesota.org/tsml.json',
+      'https://bmlt.naminnesota.org/tsml.json',
+    ];
+    expect(MeetingFinderService.sourcesForFellowships(
+        sources, {'LifeRing'}), isEmpty);
+    expect(MeetingFinderService.sourcesForFellowships(
+        sources, {'AA'}), [sources.first]);
+    expect(MeetingFinderService.sourcesForFellowships(
+        sources, null), sources);
+  });
 
   test('parses Meeting Guide / TSML feed entries (AA sheet style)', () {
     final meetings = MeetingFinderService.parseTsmlFeed([
