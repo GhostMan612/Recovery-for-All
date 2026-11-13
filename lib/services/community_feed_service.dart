@@ -122,7 +122,9 @@ class CommunityFeedService {
   }
 
   static void onGrantCloud() {
-    remoteReady = true;
+    // Session consent only authorizes an attempt. A live authenticated
+    // Firestore snapshot, not consent alone, is the proof of connectivity.
+    remoteReady = false;
     for (final cb in List.of(_grantCallbacks)) {
       try {
         cb();
@@ -425,6 +427,7 @@ class CommunityFeedService {
 
     void cancelRemote() {
       attachEpoch++;
+      remoteReady = false;
       remoteSub?.cancel();
       remoteSub = null;
       hasRemote = false;
@@ -480,6 +483,7 @@ class CommunityFeedService {
             }
             latestRemote = list;
             hasRemote = true;
+            remoteReady = true;
             _setStatus(CircleConnectionStatus.connected);
             if (!controller.isClosed) {
               controller.add(merged());
@@ -492,6 +496,7 @@ class CommunityFeedService {
           onError: (Object error) {
             debugPrint('[circle] Remote stream error: $error');
             if (epoch == attachEpoch) {
+              remoteReady = false;
               _setStatus(CircleConnectionStatus.error);
             }
             if (!controller.isClosed) {
@@ -503,6 +508,7 @@ class CommunityFeedService {
       } catch (e) {
         debugPrint('[circle] Remote stream setup threw: $e');
         if (epoch == attachEpoch) {
+          remoteReady = false;
           _setStatus(CircleConnectionStatus.error);
         }
         if (!controller.isClosed) {
@@ -544,6 +550,7 @@ class CommunityFeedService {
       },
       onCancel: () async {
         cancelled = true;
+        remoteReady = false;
         _revocationCallbacks.remove(cancelRemote);
         _grantCallbacks.remove(attachRemote);
         await localSub.cancel();

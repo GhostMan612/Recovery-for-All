@@ -159,8 +159,10 @@ void main() {
         ConsentState.granted,
       );
 
-      // Status should become connecting while awaiting first response
+      // Status should become connecting while awaiting first response.
+      // Consent without an authenticated remote snapshot is not readiness.
       expect(feed.currentStatus, CircleConnectionStatus.connecting);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Allow attachRemote to complete auth and attach listener
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -185,6 +187,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue,
+          reason: 'a real subscribed feed result establishes readiness');
       final latest = emittedLists.last;
       expect(latest.any((p) => p.authorAlias == 'CloudPeer'), isTrue);
       expect(latest.any((p) => p.authorAlias == 'LocalUser'), isTrue);
@@ -210,6 +214,7 @@ void main() {
 
       // Must remain in connecting state until a response actually arrives
       expect(feed.currentStatus, CircleConnectionStatus.connecting);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Response arrives
       remoteController.add(const <FeedPost>[]);
@@ -259,6 +264,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
       expect(emitted.last.map((p) => p.authorAlias), contains('RemotePeer'));
 
       // REVOKE cloudSync
@@ -268,6 +274,7 @@ void main() {
       );
 
       expect(feed.currentStatus, CircleConnectionStatus.localOnly);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
       expect(emitted.last.map((p) => p.authorAlias), contains('LocalUser'));
       expect(emitted.last.map((p) => p.authorAlias), isNot(contains('RemotePeer')));
 
@@ -335,8 +342,9 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      // Auth failed, status transitions to error
+      // Auth failed, status transitions to error without false readiness.
       expect(feed.currentStatus, CircleConnectionStatus.error);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
 
       // Network recovers, user retries
       shouldFailAuth = false;
@@ -362,8 +370,10 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
 
       await sub.cancel();
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse);
       await remoteController.close();
     });
 
@@ -574,6 +584,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(feed.currentStatus, CircleConnectionStatus.connected);
+      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
       expect(emitted.last.map((p) => p.authorAlias), contains('RemotePeer'));
       expect(emitted.last.map((p) => p.authorAlias), contains('LocalPeer'));
 

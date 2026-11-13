@@ -356,8 +356,8 @@ void main() {
         ConsentState.granted,
       );
 
-      expect(CommunityFeedService.isRemoteAvailable(), isTrue,
-          reason: 'CommunityFeedService must dynamically synchronize when cloudSync is granted');
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse,
+          reason: 'Grant authorizes an attempt, not a verified authenticated snapshot');
     });
 
     test('Revoking cloudSync immediately triggers onRevokeCloud and cancels remote listeners', () async {
@@ -379,7 +379,8 @@ void main() {
         PrivacyCapability.cloudSync,
         ConsentState.granted,
       );
-      expect(CommunityFeedService.isRemoteAvailable(), isTrue);
+      expect(CommunityFeedService.isRemoteAvailable(), isFalse,
+          reason: 'Cloud grant alone is never proof of connection');
 
       // Simulate a revocation callback from an active stream listener
       CommunityFeedService.initPrivacyListener();
