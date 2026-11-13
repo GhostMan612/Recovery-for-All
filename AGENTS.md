@@ -20,8 +20,13 @@ Flutter app (Android-first, offline-first addiction-recovery companion).
 environment facts (Ollama port, device fleet), next moves, and the
 end-of-session checklist. Keep it updated every session.
 
-Read `CLAUDE.md` too — its §1–§4 (token conservation, filtered CLI output,
-explicit-path commits) and **§5 Build Boundary** are binding:
+When a local `CLAUDE.md` is available, read it too — its §1–§4
+(token conservation, filtered CLI output, explicit-path commits) and
+**§5 Build Boundary** supplement this handbook. That file is **not tracked
+on remote `main`** in the November 2026 audit; agents working from GitHub
+must use tracked `RULES.md` as canonical instead of failing or fabricating
+missing content. See `blueprints/DOC_REFERENCE_AUDIT.md` for other historical
+untracked references:
 
 - **Builds are PRE-AUTHORIZED.** On 2026-09-30 the user granted **standing
   permission** to build binaries without asking again: `flutter build apk
