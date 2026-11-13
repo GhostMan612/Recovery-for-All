@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../database/recovery_database.dart';
 import '../services/journal_crypto_service.dart';
+import '../services/journal_presentation_formatter.dart';
 
 class DailyReflectionScreen extends StatefulWidget {
   final RecoveryDatabase database;
@@ -141,7 +142,11 @@ class _DailyReflectionScreenState extends State<DailyReflectionScreen> with Widg
       for (final e in refreshed) {
         // `decrypt` already falls back to `decryptLegacy` for pre-ENC2_ rows.
         final plain = await JournalCryptoService.decrypt(e.contentEncrypted, key);
-        readable.add(plain ?? '[Locked \u2014 unlock the journal to read this entry]');
+        if (plain != null) {
+          readable.add(JournalPresentationFormatter.format(plain));
+        } else {
+          readable.add('[Locked \u2014 unlock the journal to read this entry]');
+        }
       }
 
       if (!mounted) return;

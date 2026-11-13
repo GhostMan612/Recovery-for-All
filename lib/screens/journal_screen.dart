@@ -11,6 +11,7 @@ import 'package:local_auth/local_auth.dart';
 import '../database/recovery_database.dart';
 import '../core/theme/app_colors.dart';
 import '../services/journal_crypto_service.dart';
+import '../services/journal_presentation_formatter.dart';
 import '../services/narrative_export_service.dart';
 import '../services/recovery_pet_service.dart';
 import '../widgets/app_primitives.dart';
@@ -289,14 +290,20 @@ class _JournalScreenState extends State<JournalScreen> with WidgetsBindingObserv
   Future<String> _decryptContent(String ciphertext) async {
     final key = _masterKey;
     if (key == null || !JournalCryptoService.isSessionUnlocked) {
-      return JournalCryptoService.decryptLegacy(ciphertext) ??
-          '[Locked \u2014 unlock the journal to read this entry]';
+      final legacy = JournalCryptoService.decryptLegacy(ciphertext);
+      if (legacy != null) {
+        return JournalPresentationFormatter.format(legacy);
+      }
+      return '[Locked \u2014 unlock the journal to read this entry]';
     }
     final plain = await JournalCryptoService.decrypt(ciphertext, key);
     if (!JournalCryptoService.isSessionUnlocked) {
       return '[Locked \u2014 unlock the journal to read this entry]';
     }
-    return plain ?? '[Encrypted entry could not be opened with this key]';
+    if (plain != null) {
+      return JournalPresentationFormatter.format(plain);
+    }
+    return '[Encrypted entry could not be opened with this key]';
   }
 
   Future<void> _showChronicleGenerator(BuildContext context) async {
