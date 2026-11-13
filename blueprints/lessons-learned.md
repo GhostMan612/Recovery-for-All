@@ -1434,3 +1434,28 @@ not a comment to any parser that is not specifically forgiving, and
   avoidable if you verify the *specific property you changed*. Here that was
   `drawable/ic_stat_sos` in the shipped resource table. Checking "the app runs"
   would have passed with the bug intact.
+
+## L46 — A rebase conflict can silently re-open a bug the base already fixed (Nov 13, 2026)
+
+- **What happened:** merging #21 (`security: skip cleartext meeting feeds`)
+  onto a `main` that already contained #18 (`fix: pathway filter must not widen
+  to all directories`) produced a conflict in
+  `MeetingFinderService.refresh()`. #21's side carried the older shape:
+  `if (filtered.isNotEmpty) sources = filtered;` — which falls back to **all**
+  sources when no source matches the chosen pathway. Taking that side would have
+  re-enabled exactly the silent network fan-out #18 had just removed. The
+  correct resolution was neither side alone: apply #21's `isSecureFeedUrl`
+  filter **and** #18's `sourcesForFellowships` gate, with an empty result still
+  returning the cached directory.
+- **Why it matters:** Git resolves text, not intent. A conflict hunk that
+  compiles and whose tests pass can still delete a behavioural guarantee added
+  by the other branch, because the guarantee lives in a *shape* (no fallback,
+  early return) rather than in a type. The rebase also left a stray closing
+  brace from the removed `if`; only reading the resolved block caught it.
+- **The rule:** when two branches touch the same function, resolve by writing
+  down both invariants in plain language first, then build the merged block to
+  satisfy both. Do not pick "ours" or "theirs" because one side is newer.
+  Re-read the post-conflict block in full (including the lines just outside the
+  markers) before continuing the rebase, and let CI prove the combined tree.
+  The same trap applies when squash-merging a PR whose base already contains a
+  competing fix.
