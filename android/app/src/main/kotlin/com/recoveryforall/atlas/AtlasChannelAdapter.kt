@@ -80,7 +80,9 @@ class AtlasChannelAdapter private constructor(private val context: Context) : Me
 
             "cancelRequest" -> {
                 val requestId = call.argument<String>("requestId") ?: ""
-                result.success(mapOf("cancelRequested" to true, "requestId" to requestId))
+                // The Atlas SDK is not linked, so no native journey exists to
+                // cancel. Never report a cancellation that did not happen.
+                result.success(mapOf("cancelRequested" to false, "requestId" to requestId))
             }
 
             "getOfflineStatus" -> {
