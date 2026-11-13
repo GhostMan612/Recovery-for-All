@@ -167,6 +167,10 @@ class JourneyLeg {
   final int endUtcMs;
   final String? routeLabel;
   final int? distanceMeters;
+  final double? fromLat;
+  final double? fromLon;
+  final double? toLat;
+  final double? toLon;
 
   const JourneyLeg({
     required this.mode,
@@ -176,7 +180,14 @@ class JourneyLeg {
     required this.endUtcMs,
     this.routeLabel,
     this.distanceMeters,
+    this.fromLat,
+    this.fromLon,
+    this.toLat,
+    this.toLon,
   });
+
+  bool get isTransit => mode == 'bus' || mode == 'rail' || mode == 'other_transit';
+  bool get isWalk => mode == 'walk';
 
   factory JourneyLeg.fromMap(Map<String, dynamic> map) {
     return JourneyLeg(
@@ -187,6 +198,10 @@ class JourneyLeg {
       endUtcMs: (map['endUtcMs'] as num?)?.toInt() ?? 0,
       routeLabel: map['routeLabel'] as String?,
       distanceMeters: (map['distanceMeters'] as num?)?.toInt(),
+      fromLat: (map['fromLat'] as num?)?.toDouble(),
+      fromLon: (map['fromLon'] as num?)?.toDouble(),
+      toLat: (map['toLat'] as num?)?.toDouble(),
+      toLon: (map['toLon'] as num?)?.toDouble(),
     );
   }
 
@@ -198,6 +213,10 @@ class JourneyLeg {
         'endUtcMs': endUtcMs,
         if (routeLabel != null) 'routeLabel': routeLabel,
         if (distanceMeters != null) 'distanceMeters': distanceMeters,
+        if (fromLat != null) 'fromLat': fromLat,
+        if (fromLon != null) 'fromLon': fromLon,
+        if (toLat != null) 'toLat': toLat,
+        if (toLon != null) 'toLon': toLon,
       };
 }
 
@@ -208,7 +227,7 @@ class JourneyOption {
   final int arriveUtcMs;
   final int walkMeters;
   final int transferCount;
-  final String transferConfidence; // 'high', 'medium', 'low', 'scheduled_unknown'
+  final String transferConfidence; // 'high', 'medium', 'low', 'scheduled_unknown', 'direct_walk'
   final List<JourneyLeg> legs;
 
   const JourneyOption({
@@ -220,6 +239,17 @@ class JourneyOption {
     required this.transferConfidence,
     required this.legs,
   });
+
+  bool get isDirectWalk =>
+      transferConfidence == 'direct_walk' ||
+      (legs.length == 1 && legs.first.mode == 'walk' && transferCount == 0);
+
+  int get transitLegCount => legs.where((l) => l.isTransit).length;
+
+  int get durationMinutes {
+    if (arriveUtcMs <= departUtcMs) return 0;
+    return ((arriveUtcMs - departUtcMs) / 60000).round();
+  }
 
   factory JourneyOption.fromMap(Map<String, dynamic> map) {
     return JourneyOption(

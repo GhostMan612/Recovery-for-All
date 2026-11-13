@@ -27,6 +27,7 @@ void main() {
       expect(result.status, MeetingScheduleStatus.unknown);
       expect(result.nextOccurrence, isNull);
       expect(result.isHappeningSoon(), isFalse);
+      expect(result.timeZone, 'America/Chicago');
     });
 
     test('resolves future meeting occurring later today', () {
@@ -138,6 +139,53 @@ void main() {
 
       expect(result.status, MeetingScheduleStatus.scheduled);
       expect(result.nextOccurrence, DateTime(2026, 10, 14, 12, 0)); // Wednesday Oct 14
+    });
+
+    test('stale schedule marks isStaleSchedule true and appends (cached)', () {
+      final reference = DateTime(2026, 10, 12, 12, 0);
+
+      const staleMeeting = MeetingDestination(
+        sourceId: 'src1',
+        sourceMeetingId: 'm1',
+        name: 'Stale Cached Meeting',
+        fellowship: 'AA',
+        meetingType: 'Discussion',
+        latitude: 44.97,
+        longitude: -93.26,
+        address: 'Minneapolis',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        sourceFreshness: 'stale',
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = MeetingScheduleResolver.resolveNextOccurrence(
+        staleMeeting,
+        referenceTime: reference,
+      );
+
+      expect(result.isStaleSchedule, isTrue);
+      expect(result.statusDescription, contains('(cached)'));
+    });
+
+    test('out-of-bounds schedule falls back to unknown without inventing start time', () {
+      const invalidScheduleMeeting = MeetingDestination(
+        sourceId: 'src1',
+        sourceMeetingId: 'm1',
+        name: 'Corrupted Schedule Meeting',
+        fellowship: 'AA',
+        meetingType: 'Discussion',
+        latitude: 44.97,
+        longitude: -93.26,
+        address: 'Minneapolis',
+        dayOfWeek: 99, // Corrupted day
+        minuteOfDay: 2000, // Corrupted minutes
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = MeetingScheduleResolver.resolveNextOccurrence(invalidScheduleMeeting);
+      expect(result.status, MeetingScheduleStatus.unknown);
+      expect(result.nextOccurrence, isNull);
     });
   });
 }

@@ -87,6 +87,10 @@ void main() {
                       'endUtcMs': 1791753000000,
                       'routeLabel': 'Route 5',
                       'distanceMeters': 3200,
+                      'fromLat': 44.9778,
+                      'fromLon': -93.2650,
+                      'toLat': 44.9800,
+                      'toLon': -93.2700,
                     }
                   ],
                 }
@@ -233,6 +237,12 @@ void main() {
       expect(opt.legs.length, 1);
       expect(opt.legs.first.mode, 'bus');
       expect(opt.legs.first.routeLabel, 'Route 5');
+      expect(opt.legs.first.fromLat, 44.9778);
+      expect(opt.legs.first.fromLon, -93.2650);
+      expect(opt.legs.first.toLat, 44.9800);
+      expect(opt.legs.first.toLon, -93.2700);
+      expect(opt.legs.first.isTransit, isTrue);
+      expect(opt.legs.first.isWalk, isFalse);
     });
 
     test('cancelRequest returns success boolean', () async {
@@ -244,6 +254,11 @@ void main() {
       final offline = await bridge.getOfflineStatus(feedId: 'metro_transit_mn');
       expect(offline.staticNetwork, 'cached');
       expect(offline.routing, 'available');
+      // The native side sends BOTH keys and they carry different values.
+      // Pinned because a copy-paste once read map['staticNetwork'] into basemap,
+      // which silently reported "cached" instead of "cached_tiles" and passed
+      // every other assertion in this file.
+      expect(offline.basemap, 'cached_tiles');
       expect(offline.dataAgeSeconds, 1200);
     });
 

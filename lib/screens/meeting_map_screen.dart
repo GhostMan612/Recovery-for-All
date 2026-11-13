@@ -25,8 +25,14 @@ import '../widgets/app_primitives.dart';
 import '../features/navigator/application/meeting_journey_planner.dart';
 import '../features/navigator/data/meeting_destination_adapter.dart';
 import '../features/navigator/ui/widgets/journey_sheet.dart';
+import '../features/navigator/data/atlas_dtos.dart';
+import '../features/navigator/ui/widgets/journey_weather_card.dart';
 import '../features/progression/application/recovery_action_coordinator.dart';
 import '../features/progression/domain/recovery_action.dart';
+import '../features/navigator/ui/meeting_search_delegate.dart';
+import '../features/navigator/domain/street_route.dart';
+import '../features/navigator/application/street_route_provider.dart';
+import '../features/navigator/ui/widgets/street_route_preview_sheet.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
@@ -40,11 +46,13 @@ import '../features/progression/domain/recovery_action.dart';
 class MeetingMapScreen extends ConsumerStatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
+  final StreetRouteProvider? streetRouteProvider;
 
   const MeetingMapScreen({
     super.key,
     required this.initialMeetings,
     this.database,
+    this.streetRouteProvider,
   });
 
   @override
@@ -71,6 +79,12 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   bool _isLoading = true;
   String _loadStage = 'Finding you…';
   bool _showMapView = false;
+  JourneyOption? _selectedJourneyOption;
+  StreetRoute? _selectedStreetRoute;
+  late StreetRouteProvider _streetRouteProvider =
+      widget.streetRouteProvider ?? const OfflineStreetRouteProvider();
+  RecoveryMeeting? _selectedMeeting;
+  (double, double)? _manualOrigin;
 
   // Filters. Seeded from the shared provider in initState so the map opens
   // showing the radius the dashboard is already using.
@@ -122,14 +136,20 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // ------------------------------------------------------------------
 
   Future<void> _initialize() async {
+    if (widget.streetRouteProvider != null) {
+      _streetRouteProvider = widget.streetRouteProvider!;
+    } else {
+      _streetRouteProvider = await DevRoutingConfig.resolveProvider();
+    }
     // Staged loading: the screen must always *feel* alive — each stage
     // shows for at least 400 ms so it never flashes by unreadably.
     await _stage('Finding you…');
-    final (lat, lng) = await _resolveLocation();
+    final pos = await _resolveLocation();
     // Store the fix so _me (user pin, distances, recenter) comes alive.
-    _currentPosition = (lat, lng);
+    _currentPosition = pos;
     if (mounted) setState(() {});
     await _stage('Fetching meetings…');
+    final (lat, lng) = pos ?? const (44.9778, -93.2650);
     await _load(lat, lng);
     await _stage('Rendering map');
   }
@@ -142,7 +162,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
     if (floor > Duration.zero) await Future<void>.delayed(floor);
   }
 
-  Future<(double, double)> _resolveLocation({bool forceFresh = false}) async {
+  Future<(double, double)?> _resolveLocation({bool forceFresh = false}) async {
     try {
       // Location SERVICES off (GPS toggle) is not a permission problem —
       // surface it distinctly instead of a generic failure.
@@ -152,7 +172,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
           setState(() =>
               _locationDebug = 'Location services OFF — enable GPS and retry');
         }
-        return const (44.9778, -93.2650);
+        return null;
       }
 
       var permission = await Geolocator.checkPermission();
@@ -168,7 +188,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
         if (mounted) {
           setState(() => _locationDebug = 'Permission: $permission');
         }
-        return const (44.9778, -93.2650);
+        return null;
       }
 
       // Fast path: last-known position (instant if GPS was used recently).
@@ -218,7 +238,7 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
       if (mounted) {
         setState(() => _locationDebug = 'GPS FAILED: $e — tap for details');
       }
-      return const (44.9778, -93.2650);
+        return null;
     }
   }
 
@@ -288,7 +308,9 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
 
   List<RecoveryMeeting> get _visible {
     final me = _me;
+    final selected = _selectedMeeting;
     return _base.where((m) {
+      if (selected != null && m.id == selected.id) return true;
       final city = _cityOf(m) ?? 'Unknown';
       if (_cityFilter != 'All' && city != _cityFilter) return false;
       if (m.hasLocation && me != null) return _distanceMi(m, me) <= _radiusMi;
@@ -430,10 +452,12 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
 
   Future<void> _recenter() async {
     // Explicit recenter = fresh GPS fix, never the stale cache.
-    final (lat, lng) = await _resolveLocation(forceFresh: true);
-    setState(() => _currentPosition = (lat, lng));
-    _rebuildMarkers(); // user pin + distances recompute
-    _mapController.move(ll.LatLng(lat, lng), 14);
+    final pos = await _resolveLocation(forceFresh: true);
+    if (pos != null) {
+      setState(() => _currentPosition = pos);
+      _rebuildMarkers(); // user pin + distances recompute
+      _mapController.move(ll.LatLng(pos.$1, pos.$2), 14);
+    }
   }
 
   void _resetNorth() {
@@ -457,10 +481,124 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   // Directions + attendance
   // ------------------------------------------------------------------
 
-  Future<void> _openDirections(RecoveryMeeting meeting) async {
+  Future<void> _promptManualOrigin(RecoveryMeeting meeting) async {
+    const hubs = [
+      ('Minneapolis Alano Club', 44.9606, -93.2778),
+      ('Nicollet Mall & 7th St', 44.9765, -93.2725),
+      ('Saint Paul Union Depot', 44.9482, -93.0863),
+      ('Uptown Transit Station', 44.9484, -93.2982),
+    ];
+
+    final picked = await showDialog<(double, double)>(
+      context: context,
+      builder: (dialogCtx) => SimpleDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          'Choose Starting Point',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: Text(
+              'Select a transit hub to plan routes without device GPS:',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          for (final hub in hubs)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogCtx, (hub.$2, hub.$3)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.place_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      hub.$1,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _manualOrigin = picked);
+      await _openDirections(meeting);
+    }
+  }
+
+  Future<bool> _ensureRemoteRoutingConsent() async {
+    final consent = ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteRouting);
+    if (consent) return true;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        title: Text(
+          'Online Street Routing',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '${PrivacyCapability.remoteRouting.disclosure.description}\n\n'
+          'Transmitted: ${PrivacyCapability.remoteRouting.disclosure.transmittedData}\n'
+          'Recipient: ${PrivacyCapability.remoteRouting.disclosure.recipient}',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: () async {
+              final ok = await ref.read(privacyCapabilityProvider.notifier).setConsent(
+                    PrivacyCapability.remoteRouting,
+                    ConsentState.granted,
+                  );
+              if (ctx.mounted) Navigator.pop(ctx, ok);
+            },
+            child: const Text('Allow & Calculate'),
+          ),
+        ],
+      ),
+    );
+    return proceed == true;
+  }
+
+  Future<bool> _ensureExternalNavigationConsent() async {
     final consent = ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.externalNavigation);
-    if (!consent) {
-      final proceed = await showDialog<bool>(
+    if (consent) return true;
+
+final proceed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
@@ -506,16 +644,44 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
           ],
         ),
       );
-      if (proceed != true) return;
+      return proceed == true;
+  }
+
+  Future<void> _openDirections(
+    RecoveryMeeting meeting, {
+    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+  }) async {
+
+    // Weather context (optional, non-blocking)
+    JourneyWeatherData? weatherData;
+    if (meeting.hasLocation && ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather)) {
+      try {
+        final weatherResult = await WeatherService.fetchWeather(lat: meeting.latitude, lng: meeting.longitude);
+        if (weatherResult.isAvailable) {
+          weatherData = JourneyWeatherData(
+            temperatureFahrenheit: weatherResult.temperatureF,
+            conditionSummary: weatherResult.summary ?? 'Forecast available',
+            source: 'Open-Meteo',
+            fetchedAt: DateTime.now(),
+            isStale: false,
+          );
+        }
+      } catch (_) {}
     }
-    final destination = MeetingDestinationAdapter.fromRecoveryMeeting(meeting);
-    final originLat = _currentPosition?.$1 ?? 44.9778;
-    final originLon = _currentPosition?.$2 ?? -93.2650;
+
+    final isStale = await MeetingFinderService().isCacheStale();
+    final destination = MeetingDestinationAdapter.fromRecoveryMeeting(
+      meeting,
+      freshness: isStale ? 'stale' : 'fresh',
+    );
+    final originLat = _currentPosition?.$1 ?? _manualOrigin?.$1;
+    final originLon = _currentPosition?.$2 ?? _manualOrigin?.$2;
     final planner = MeetingJourneyPlanner();
     final planResult = await planner.planJourneyForMeeting(
       destination: destination,
       originLat: originLat,
       originLon: originLon,
+      planningMode: planningMode,
     );
 
     if (!mounted) return;
@@ -527,23 +693,203 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
       builder: (sheetCtx) => SafeArea(
         child: JourneySheet(
           planResult: planResult,
+          weather: weatherData,
+          selectedJourneyId: _selectedJourneyOption?.journeyId,
+          onTogglePlanningMode: (newMode) {
+            Navigator.pop(sheetCtx);
+            _openDirections(meeting, planningMode: newMode);
+          },
+          onSelectOption: (option) {
+            Navigator.pop(sheetCtx);
+            setState(() {
+              _selectedJourneyOption = option;
+              _selectedStreetRoute = null;
+              _selectedMeeting = meeting;
+              _showMapView = true;
+            });
+            if (meeting.hasLocation) {
+              _mapController.move(ll.LatLng(meeting.latitude, meeting.longitude), 13.0);
+            }
+          },
+          onSelectManualOrigin: () {
+            Navigator.pop(sheetCtx);
+            _promptManualOrigin(meeting);
+          },
           onLaunchExternalDirections: () async {
             Navigator.pop(sheetCtx);
-            final Uri uri;
-            if (meeting.hasLocation) {
-              uri = Uri.parse(
-                  'https://www.google.com/maps/dir/?api=1&destination=${meeting.latitude},${meeting.longitude}');
+            await _launchExternalDirections(meeting, travelMode: 'walking');
+          },
+          onLaunchModeDirections: (mode) async {
+            Navigator.pop(sheetCtx);
+            if (mode == 'walking' || mode == 'driving') {
+              await _requestStreetRoute(
+                meeting,
+                mode: mode == 'walking' ? StreetRouteMode.walking : StreetRouteMode.driving,
+              );
             } else {
-              uri = Uri.parse(
-                  'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(meeting.address)}');
+              await _launchExternalDirections(meeting, travelMode: mode);
             }
-            try {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            } catch (_) {}
           },
         ),
       ),
     );
+  }
+
+  Future<void> _requestStreetRoute(
+    RecoveryMeeting meeting, {
+    required StreetRouteMode mode,
+  }) async {
+    final originLat = _currentPosition?.$1 ?? _manualOrigin?.$1;
+    final originLon = _currentPosition?.$2 ?? _manualOrigin?.$2;
+
+    if (originLat == null || originLon == null) {
+      await _promptManualOrigin(meeting);
+      return;
+    }
+
+    if (!meeting.hasLocation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          content: const Text('This meeting does not have physical location coordinates.'),
+        ),
+      );
+      return;
+    }
+
+    if (_streetRouteProvider.isRemote) {
+      final consentOk = await _ensureRemoteRoutingConsent();
+      if (!consentOk) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              content: const Text('Online street routing was not authorized.'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final result = await _streetRouteProvider.calculateRoute(
+      mode: mode,
+      originLat: originLat,
+      originLon: originLon,
+      destinationLat: meeting.latitude,
+      destinationLon: meeting.longitude,
+    );
+
+    if (!mounted) return;
+
+    if (result.isSuccess && result.route != null) {
+      setState(() {
+        _selectedStreetRoute = result.route;
+        _selectedJourneyOption = null;
+        _selectedMeeting = meeting;
+        _showMapView = true;
+      });
+
+      _mapController.move(ll.LatLng(meeting.latitude, meeting.longitude), 14.0);
+      await _showStreetRouteSheet(result.route!, meeting);
+    } else {
+      final reason = result.errorMessage ?? 'Street routing engine is currently unavailable.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          content: Text(
+            reason,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          action: SnackBarAction(
+            label: 'Google Maps',
+            textColor: Theme.of(context).colorScheme.primary,
+            onPressed: () => _launchExternalDirections(
+              meeting,
+              travelMode: mode == StreetRouteMode.walking ? 'walking' : 'driving',
+            ),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showStreetRouteSheet(StreetRoute route, RecoveryMeeting meeting) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => SafeArea(
+        child: StreetRoutePreviewSheet(
+          route: route,
+          onShowOnMap: () => Navigator.pop(sheetCtx),
+          onOpenExternalNavigation: () async {
+            Navigator.pop(sheetCtx);
+            await _launchExternalDirections(
+              meeting,
+              travelMode: route.mode == StreetRouteMode.walking ? 'walking' : 'driving',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSearch() async {
+    final selected = await showSearch<RecoveryMeeting?>(
+      context: context,
+      delegate: MeetingSearchDelegate(
+        meetings: _base,
+        userLocation: _currentPosition,
+      ),
+    );
+
+    if (selected != null && mounted) {
+      await _selectAndFocusMeeting(selected);
+    }
+  }
+
+  Future<void> _selectAndFocusMeeting(RecoveryMeeting meeting) async {
+    setState(() {
+      _selectedMeeting = meeting;
+      _showMapView = true;
+      final meetingCity = _cityOf(meeting);
+      if (_cityFilter != 'All' && meetingCity != null && meetingCity != _cityFilter) {
+        _cityFilter = 'All';
+      }
+    });
+
+    _rebuildMarkers();
+
+    if (meeting.hasLocation) {
+      _mapController.move(ll.LatLng(meeting.latitude, meeting.longitude), 15.0);
+      await _openDirections(meeting);
+    } else {
+      _showMeetingDetails(meeting);
+    }
+  }
+
+  Future<void> _launchExternalDirections(
+    RecoveryMeeting meeting, {
+    String travelMode = 'walking',
+  }) async {
+    final consentOk = await _ensureExternalNavigationConsent();
+    if (!consentOk) return;
+
+    final Uri uri;
+    if (meeting.hasLocation) {
+      final lat = meeting.latitude;
+      final lon = meeting.longitude;
+      uri = Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=$travelMode');
+    } else {
+      final query = Uri.encodeComponent(meeting.address);
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    }
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   Future<void> _joinZoomMeeting(String url) async {
@@ -818,6 +1164,13 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   }
 
   void _showMeetingDetails(RecoveryMeeting meeting) {
+    if (_selectedMeeting != null && _selectedMeeting!.id != meeting.id) {
+      setState(() {
+        _selectedJourneyOption = null;
+        _selectedStreetRoute = null;
+        _selectedMeeting = meeting;
+      });
+    }
     final now = DateTime.now();
     final live = MeetingFinderService.isInProgress(meeting, now);
     final label = MeetingFinderService.upcomingLabel(meeting, now);
@@ -1099,7 +1452,8 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                   onChanged: (v) async {
                     setSheet(() => _showAllTime = v);
                     setState(() => _showAllTime = v);
-                    final (lat, lng) = await _resolveLocation();
+                    final pos = await _resolveLocation();
+                    final (lat, lng) = pos ?? const (44.9778, -93.2650);
                     await _load(lat, lng);
                   },
                 ),
@@ -1262,10 +1616,11 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
       if (!m.hasLocation) continue;
       final color = _pinColor(m);
       final live = MeetingFinderService.isInProgress(m, now);
+      final isSelected = m.id == _selectedMeeting?.id;
       markers.add(Marker(
         point: ll.LatLng(m.latitude, m.longitude),
-        width: 32,
-        height: 32,
+        width: isSelected ? 40 : 32,
+        height: isSelected ? 40 : 32,
         child: GestureDetector(
           onTap: () => _showMeetingDetails(m),
           child: Container(
@@ -1273,12 +1628,14 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
               shape: BoxShape.circle,
               color: color,
               border: Border.all(
-                  color: live ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                  width: live ? 2.2 : 1.4),
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : (live ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                  width: isSelected ? 3.0 : (live ? 2.2 : 1.4)),
             ),
             child: Icon(
                 m.type.contains('Online') ? Icons.videocam : Icons.groups_2,
-                size: 15,
+                size: isSelected ? 20 : 15,
                 color: _pinIconColor(color)),
           ),
         ),
@@ -1313,6 +1670,13 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
         title: const Text('Meeting Finder'),
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Search meetings',
+            icon: Icon(
+                Icons.search,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+            onPressed: _openSearch,
+          ),
           IconButton(
             tooltip: _showMapView ? 'Show list' : 'Show map',
             icon: Icon(
@@ -1381,6 +1745,149 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   }
 
   Widget _buildMap(int liveCount, List<RecoveryMeeting> visible) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final polyLines = <Polyline>[];
+    final routeMarkers = <Marker>[];
+
+    if (_selectedStreetRoute != null && _selectedStreetRoute!.isVerifiedGeometry) {
+      final streetPoints = _selectedStreetRoute!.geometry
+          .map((p) => ll.LatLng(p.$1, p.$2))
+          .toList();
+      if (streetPoints.length >= 2) {
+        final isWalking = _selectedStreetRoute!.mode == StreetRouteMode.walking;
+        polyLines.add(Polyline(
+          points: streetPoints,
+          strokeWidth: 4.5,
+          color: isWalking ? colorScheme.secondary : colorScheme.primary,
+          pattern: isWalking
+              ? StrokePattern.dashed(segments: const [8, 4])
+              : const StrokePattern.solid(),
+        ));
+      }
+
+      routeMarkers.add(Marker(
+        key: const ValueKey('street_route_origin_marker'),
+        point: ll.LatLng(_selectedStreetRoute!.originLat, _selectedStreetRoute!.originLon),
+        width: 32,
+        height: 32,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.secondary,
+            border: Border.all(color: colorScheme.onSecondary, width: 2),
+          ),
+          child: Icon(
+            Icons.my_location,
+            size: 16,
+            color: colorScheme.onSecondary,
+          ),
+        ),
+      ));
+
+      routeMarkers.add(Marker(
+        key: const ValueKey('street_route_destination_marker'),
+        point: ll.LatLng(_selectedStreetRoute!.destinationLat, _selectedStreetRoute!.destinationLon),
+        width: 34,
+        height: 34,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.primary,
+            border: Border.all(color: colorScheme.onPrimary, width: 2),
+          ),
+          child: Icon(
+            Icons.place,
+            size: 18,
+            color: colorScheme.onPrimary,
+          ),
+        ),
+      ));
+    }
+
+    if (_selectedJourneyOption != null) {
+      for (final leg in _selectedJourneyOption!.legs) {
+        if (leg.fromLat != null && leg.fromLon != null && leg.toLat != null && leg.toLon != null) {
+          final pts = [
+            ll.LatLng(leg.fromLat!, leg.fromLon!),
+            ll.LatLng(leg.toLat!, leg.toLon!),
+          ];
+          if (leg.isTransit) {
+            polyLines.add(Polyline(
+              points: pts,
+              strokeWidth: 4.5,
+              color: colorScheme.primary,
+            ));
+            routeMarkers.add(Marker(
+              point: pts.first,
+              width: 28,
+              height: 28,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary,
+                  border: Border.all(color: colorScheme.onPrimary, width: 1.5),
+                ),
+                child: Icon(
+                  leg.mode == 'rail' ? Icons.directions_railway : Icons.directions_bus,
+                  size: 16,
+                  color: colorScheme.onPrimary,
+                ),
+              ),
+            ));
+          }
+          // MANDATE: When leg is NOT transit (e.g. walking leg), do NOT draw a polyline!
+          // Straight-line paths through buildings and terrain are strictly excluded.
+          // Origin and destination markers are displayed instead.
+        }
+      }
+
+      // Display origin marker at route start
+      final firstLeg = _selectedJourneyOption!.legs.firstOrNull;
+      if (firstLeg?.fromLat != null && firstLeg?.fromLon != null) {
+        routeMarkers.add(Marker(
+          key: const ValueKey('route_origin_marker'),
+          point: ll.LatLng(firstLeg!.fromLat!, firstLeg.fromLon!),
+          width: 32,
+          height: 32,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.secondary,
+              border: Border.all(color: colorScheme.onSecondary, width: 2),
+            ),
+            child: Icon(
+              Icons.my_location,
+              size: 16,
+              color: colorScheme.onSecondary,
+            ),
+          ),
+        ));
+      }
+
+      // Display destination marker at meeting location
+      if (_selectedMeeting != null && _selectedMeeting!.hasLocation) {
+        routeMarkers.add(Marker(
+          key: const ValueKey('route_destination_marker'),
+          point: ll.LatLng(_selectedMeeting!.latitude, _selectedMeeting!.longitude),
+          width: 34,
+          height: 34,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primary,
+              border: Border.all(color: colorScheme.onPrimary, width: 2),
+            ),
+            child: Icon(
+              Icons.place,
+              size: 18,
+              color: colorScheme.onPrimary,
+            ),
+          ),
+        ));
+      }
+    }
+
     return Stack(
       children: [
         Positioned.fill(
@@ -1415,6 +1922,10 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
                     keepBuffer: index == 0 ? 2 : 1,
                     tileProvider: CachedTileProvider(layer: layer.id),
                   ),
+              if (polyLines.isNotEmpty)
+                PolylineLayer(polylines: polyLines),
+              if (routeMarkers.isNotEmpty)
+                MarkerLayer(markers: routeMarkers),
               MarkerLayer(
                 markers: _userMarkers,
               ),
@@ -1477,10 +1988,218 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
               onTap: _promptEnableTiles,
             ),
           ),
+        if (_selectedStreetRoute != null && _selectedMeeting != null)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 16,
+            child: Material(
+              elevation: 4,
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          _selectedStreetRoute!.mode == StreetRouteMode.walking
+                              ? Icons.directions_walk
+                              : Icons.directions_car,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedMeeting!.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                '${_selectedStreetRoute!.mode.displayName} route preview • ${_selectedStreetRoute!.durationMinutes} min • ${_selectedStreetRoute!.distanceMiles.toStringAsFixed(1)} mi (${_selectedStreetRoute!.totalDistanceMeters} m)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.list_alt, color: colorScheme.primary),
+                          tooltip: 'View maneuvers',
+                          onPressed: () => _showStreetRouteSheet(_selectedStreetRoute!, _selectedMeeting!),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
+                          tooltip: 'Dismiss route preview',
+                          onPressed: () {
+                            setState(() {
+                              _selectedStreetRoute = null;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_walk, size: 16),
+                          label: const Text('Walk', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _requestStreetRoute(_selectedMeeting!, mode: StreetRouteMode.walking),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_transit, size: 16),
+                          label: const Text('Transit', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _launchExternalDirections(_selectedMeeting!, travelMode: 'transit'),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_car, size: 16),
+                          label: const Text('Drive', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _requestStreetRoute(_selectedMeeting!, mode: StreetRouteMode.driving),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        if (_selectedJourneyOption != null && _selectedMeeting != null)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 16,
+            child: Material(
+              elevation: 4,
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          _selectedJourneyOption!.isDirectWalk ? Icons.place_outlined : Icons.directions_transit,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedMeeting!.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                _selectedJourneyOption!.isDirectWalk
+                                    ? 'Estimated straight-line distance: ${(_selectedJourneyOption!.walkMeters / 1000).toStringAsFixed(1)} km (no walking polyline)'
+                                    : 'Transit route preview • ${_selectedJourneyOption!.transferCount} transfers • ${(_selectedJourneyOption!.walkMeters / 1000).toStringAsFixed(1)} km walk',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.info_outline, color: colorScheme.primary),
+                          tooltip: 'View details',
+                          onPressed: () => _openDirections(_selectedMeeting!),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
+                          tooltip: 'Dismiss route preview',
+                          onPressed: () {
+                            setState(() {
+                              _selectedJourneyOption = null;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_walk, size: 16),
+                          label: const Text('Walk', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _requestStreetRoute(_selectedMeeting!, mode: StreetRouteMode.walking),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_transit, size: 16),
+                          label: const Text('Transit', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _launchExternalDirections(_selectedMeeting!, travelMode: 'transit'),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.directions_car, size: 16),
+                          label: const Text('Drive', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _requestStreetRoute(_selectedMeeting!, mode: StreetRouteMode.driving),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         if (_locationDebug.isNotEmpty)
           Positioned(
             left: 12,
-            bottom: 12,
+            bottom: ((_selectedJourneyOption != null || _selectedStreetRoute != null) && _selectedMeeting != null) ? 80 : 12,
             child: _MapChip(
               label: _locationDebug,
               onTap: () => showDialog<void>(

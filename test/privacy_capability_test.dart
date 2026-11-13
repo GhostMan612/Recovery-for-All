@@ -255,14 +255,13 @@ void main() {
     });
 
     test('Persisted settings or provider initialization alone never silently grant session access', () async {
+      // Derived from the enum, not hand-listed. The hardcoded seven-key map this
+      // replaced silently failed the moment a capability was added: the loop
+      // below iterates PrivacyCapability.values, and the new member had no
+      // fixture, so it reported `unknown` where the test expected `granted`.
       SharedPreferences.setMockInitialValues({
-        'privacy_consent_v1_remoteWeather': 'granted',
-        'privacy_consent_v1_cloudSync': 'granted',
-        'privacy_consent_v1_circleShare': 'granted',
-        'privacy_consent_v1_ollamaBridge': 'granted',
-        'privacy_consent_v1_directoryRefresh': 'granted',
-        'privacy_consent_v1_onlineTiles': 'granted',
-        'privacy_consent_v1_externalNavigation': 'granted',
+        for (final cap in PrivacyCapability.values)
+          'privacy_consent_v1_${cap.name}': 'granted',
       });
 
       final container = ProviderContainer();

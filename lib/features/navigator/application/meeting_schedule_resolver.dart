@@ -20,13 +20,19 @@ class ScheduleResolutionResult {
   final DateTime? nextOccurrence;
   final int? minutesUntil;
   final String statusDescription;
+  final String timeZone;
+  final bool isStaleSchedule;
 
   const ScheduleResolutionResult({
     required this.status,
     this.nextOccurrence,
     this.minutesUntil,
     required this.statusDescription,
+    this.timeZone = 'America/Chicago',
+    this.isStaleSchedule = false,
   });
+
+  int? get nextOccurrenceUtcMs => nextOccurrence?.toUtc().millisecondsSinceEpoch;
 
   bool isHappeningSoon({int thresholdMinutes = 60}) {
     if (status == MeetingScheduleStatus.inProgress) return true;
@@ -43,76 +49,103 @@ class MeetingScheduleResolver {
     DateTime? referenceTime,
     int meetingDurationMinutes = defaultMeetingDurationMinutes,
   }) {
+    final isStale = destination.sourceFreshness == 'stale';
+
     if (!destination.hasKnownSchedule) {
-      return const ScheduleResolutionResult(
+      return ScheduleResolutionResult(
         status: MeetingScheduleStatus.unknown,
-        statusDescription: 'Schedule unlisted or varies',
+        statusDescription: isStale ? 'Schedule unknown (cached)' : 'Schedule unknown',
+        isStaleSchedule: isStale,
+      );
+    }
+
+    final dayOfWeek = destination.dayOfWeek!;
+    final minuteOfDay = destination.minuteOfDay!;
+
+    if (dayOfWeek < 0 || dayOfWeek > 6 || minuteOfDay < 0 || minuteOfDay >= 1440) {
+      return ScheduleResolutionResult(
+        status: MeetingScheduleStatus.unknown,
+        statusDescription: isStale ? 'Schedule invalid (cached)' : 'Schedule invalid',
+        isStaleSchedule: isStale,
       );
     }
 
     final now = referenceTime ?? DateTime.now();
-    final targetDayOfWeek = destination.dayOfWeek!;
-    final targetMinuteOfDay = destination.minuteOfDay!;
 
-    final hour = targetMinuteOfDay ~/ 60;
-    final minute = targetMinuteOfDay % 60;
+    // Map TSML 0=Sunday..6=Saturday to DateTime 1=Monday..7=Sunday
+    final targetIsoWeekday = dayOfWeek == 0 ? DateTime.sunday : dayOfWeek;
+    final currentIsoWeekday = now.weekday;
 
-    // Convert 0=Sunday..6=Saturday to Dart weekday 1=Monday..7=Sunday
-    final targetDartWeekday = targetDayOfWeek == 0 ? DateTime.sunday : targetDayOfWeek;
+    int daysAhead = (targetIsoWeekday - currentIsoWeekday) % 7;
 
-    final currentDartWeekday = now.weekday;
+    final targetHour = minuteOfDay ~/ 60;
+    final targetMinute = minuteOfDay % 60;
 
-    int daysUntil = (targetDartWeekday - currentDartWeekday) % 7;
-    if (daysUntil < 0) daysUntil += 7;
-
-    // Candidate occurrence today or on the target day this week
-    final candidateDate = now.add(Duration(days: daysUntil));
-    final occurrence = DateTime(
-      candidateDate.year,
-      candidateDate.month,
-      candidateDate.day,
-      hour,
-      minute,
+    var candidate = DateTime(
+      now.year,
+      now.month,
+      now.day + daysAhead,
+      targetHour,
+      targetMinute,
     );
 
-    final diffMinutes = occurrence.difference(now).inMinutes;
+    final duration = Duration(minutes: meetingDurationMinutes);
+    final meetingEnd = candidate.add(duration);
 
-    if (daysUntil == 0) {
-      // It's today!
-      if (diffMinutes > 0) {
-        return ScheduleResolutionResult(
-          status: MeetingScheduleStatus.scheduled,
-          nextOccurrence: occurrence,
-          minutesUntil: diffMinutes,
-          statusDescription: 'Starts in $diffMinutes min',
-        );
-      } else if (diffMinutes >= -meetingDurationMinutes) {
-        // Started within meeting duration
+    if (daysAhead == 0) {
+      if (now.isAfter(candidate) && now.isBefore(meetingEnd)) {
         return ScheduleResolutionResult(
           status: MeetingScheduleStatus.inProgress,
-          nextOccurrence: occurrence,
+          nextOccurrence: candidate,
           minutesUntil: 0,
-          statusDescription: 'In progress (${-diffMinutes}m in)',
+          statusDescription: _formatStatusDescription(candidate, MeetingScheduleStatus.inProgress, isStale),
+          isStaleSchedule: isStale,
         );
-      } else {
-        // Concluded earlier today; next occurrence is next week
-        final nextWeekOccurrence = occurrence.add(const Duration(days: 7));
-        final nextDiffMinutes = nextWeekOccurrence.difference(now).inMinutes;
+      } else if (now.isAfter(meetingEnd)) {
+        // Rollover to same day next week
+        candidate = candidate.add(const Duration(days: 7));
         return ScheduleResolutionResult(
           status: MeetingScheduleStatus.concludedToday,
-          nextOccurrence: nextWeekOccurrence,
-          minutesUntil: nextDiffMinutes,
-          statusDescription: 'Concluded today; next in 7 days',
+          nextOccurrence: candidate,
+          minutesUntil: candidate.difference(now).inMinutes,
+          statusDescription: _formatStatusDescription(candidate, MeetingScheduleStatus.concludedToday, isStale),
+          isStaleSchedule: isStale,
         );
       }
-    } else {
-      // Future day this week
-      return ScheduleResolutionResult(
-        status: MeetingScheduleStatus.scheduled,
-        nextOccurrence: occurrence,
-        minutesUntil: diffMinutes,
-        statusDescription: 'In $daysUntil days (${occurrence.month}/${occurrence.day})',
-      );
     }
+
+    final minutesUntil = candidate.difference(now).inMinutes;
+
+    return ScheduleResolutionResult(
+      status: MeetingScheduleStatus.scheduled,
+      nextOccurrence: candidate,
+      minutesUntil: minutesUntil,
+      statusDescription: _formatStatusDescription(candidate, MeetingScheduleStatus.scheduled, isStale),
+      isStaleSchedule: isStale,
+    );
+  }
+
+  static String _formatStatusDescription(
+    DateTime dt,
+    MeetingScheduleStatus status,
+    bool isStale,
+  ) {
+    final staleSuffix = isStale ? ' (cached)' : '';
+    if (status == MeetingScheduleStatus.inProgress) {
+      return 'In progress now$staleSuffix';
+    }
+
+    final days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    final dayName = days[dt.weekday % 7];
+
+    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+
+    if (status == MeetingScheduleStatus.concludedToday) {
+      return 'Concluded today \u2022 Next $dayName at $hour:$minute $ampm$staleSuffix';
+    }
+
+    return '$dayName at $hour:$minute $ampm$staleSuffix';
   }
 }
