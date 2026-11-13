@@ -524,9 +524,11 @@ class MeetingFinderService {
     // good cache and the stamp was refreshed, so the app reported a fresh,
     // 95%-missing directory for 24 hours. Only overwrite when we got at least
     // half the sources, or when we are topping up a cache that is itself small.
-    final halfSources = (sources.length / 2).ceil();
-    final keepOldCache = meetings.isEmpty ||
-        (sourcesOk < halfSources && sourcesOk < sources.length);
+    final keepOldCache = shouldKeepExistingCache(
+      attemptedSources: sources.length,
+      successfulSources: sourcesOk,
+      resultCount: meetings.length,
+    );
     if (!keepOldCache && meetings.isNotEmpty) {
       await _writeCacheBlob(jsonEncode([for (final m in meetings) m.toJson()]));
       final prefs = await SharedPreferences.getInstance();
@@ -535,7 +537,26 @@ class MeetingFinderService {
         DateTime.now().millisecondsSinceEpoch,
       );
     }
+    // Preserve what the user *sees*, not only the bytes on disk.
+    // Earlier code correctly kept the full cache but returned the partial
+    // feed response for the current screen, contradicting its coverage gate.
+    if (keepOldCache) {
+      final cached = await _cachedMeetings();
+      if (cached.isNotEmpty) return cached;
+    }
     return meetings;
+  }
+
+  @visibleForTesting
+  static bool shouldKeepExistingCache({
+    required int attemptedSources,
+    required int successfulSources,
+    required int resultCount,
+  }) {
+    if (resultCount == 0) return true;
+    final halfSources = (attemptedSources / 2).ceil();
+    return successfulSources < halfSources &&
+        successfulSources < attemptedSources;
   }
 
   // ------------------------------------------------------------------
