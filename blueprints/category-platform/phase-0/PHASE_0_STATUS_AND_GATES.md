@@ -48,3 +48,25 @@
 - **Verification Evidence:** Verified deterministically in `test/privacy_capability_test.dart` (`Failed revocation write preserves session denial and accurately reports storage failure without claiming save`, `Failed revocation in Riverpod keeps session denied while preserving persisted preference accuracy`) and `test/privacy_network_gating_test.dart` (zero network calls on cold start with old persisted grants across weather, tiles, directory refresh, sponsor relay, and community feed).
 
 **Do not ship Phase 0 as 'complete' on README update alone.**
+
+
+## Source/CI audit update — November 11, 2026 (America/Chicago)
+
+The status table above is the **October 2026 package snapshot**, not current deployment proof.
+As of `main` commit `2a763ef6`, GitHub Actions run
+[`43157591857`](https://github.com/GhostMan612/Recovery-for-All/actions/runs/43157591857)
+reported Flutter analyzer clean, **928 Flutter tests passed / 1 skipped**, 14/14
+architecture invariants and **33/33 Firestore emulator cases**. The older
+736/744-test references above are retained as historical figures rather than
+present-tense acceptance metrics.
+
+Source-level network consent has advanced: weather and meeting requests are
+session-gated, and Firebase anonymous sign-in at boot now requires active
+`cloudSync` authorization. **Firebase SDK initialization** is not the same
+operation as an authenticated session; a later grant does not prove that a
+Firebase user is signed in. The `cloudSync` disclosure previously promised
+encrypted journal backup, which the source does not implement; a corrective
+app-copy change is proposed separately. Community remote writes, trusted
+moderation, sponsor relay encryption, on-device networking verification, and
+real release sign-off **remain blocked**. No Firestore rules deployment is
+implied by the emulator gate.

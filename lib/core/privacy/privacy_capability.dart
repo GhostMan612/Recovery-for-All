@@ -126,12 +126,13 @@ class PrivacyCapabilityState {
       fallback: 'Map shows meeting times and directions without weather chips.',
     ),
     PrivacyCapability.cloudSync: PrivacyDisclosure(
-      title: 'Cloud Synchronization',
+      title: 'Optional Firebase Community Connection',
       description:
-          'Enables encrypted backup and multi-device synchronization for recovery journals and progress.',
-      transmittedData: 'Encrypted recovery journals, milestones, and settings',
-      recipient: 'Firebase Cloud Firestore / Authentication',
-      fallback: 'All recovery data remains securely stored on this device only.',
+          'Authorizes optional Firebase authentication and connected Recovery Circle community reads. Remote Circle publishing is currently disabled. This does not back up or synchronize your private journal.',
+      transmittedData:
+          'Firebase authentication metadata and optional community feed requests; private journal content is not synchronized by this capability',
+      recipient: 'Firebase Authentication / Cloud Firestore',
+      fallback: 'Journal and recovery records remain on this device; local recovery tools remain available.',
     ),
     PrivacyCapability.circleShare: PrivacyDisclosure(
       title: 'Recovery Circle Community Sharing',
