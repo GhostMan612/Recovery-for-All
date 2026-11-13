@@ -4,11 +4,17 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../data/atlas_dtos.dart';
 import '../data/navigator_repository.dart';
 import '../domain/meeting_destination.dart';
 import 'meeting_schedule_resolver.dart';
+
+enum JourneyPlanningMode {
+  arriveBeforeMeeting,
+  leaveNow,
+}
 
 @immutable
 class PlannedMeetingJourneyResult {
@@ -18,6 +24,7 @@ class PlannedMeetingJourneyResult {
   final String? fallbackExternalDirectionsUrl;
   final bool isRouteAvailableInApp;
   final String statusMessage;
+  final JourneyPlanningMode planningMode;
 
   const PlannedMeetingJourneyResult({
     required this.destination,
@@ -26,6 +33,7 @@ class PlannedMeetingJourneyResult {
     this.fallbackExternalDirectionsUrl,
     required this.isRouteAvailableInApp,
     required this.statusMessage,
+    this.planningMode = JourneyPlanningMode.arriveBeforeMeeting,
   });
 }
 
@@ -35,12 +43,32 @@ class MeetingJourneyPlanner {
   MeetingJourneyPlanner({NavigatorRepository? repository})
       : _repository = repository ?? NavigatorRepository();
 
+  static double calculateHaversineDistanceMeters(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLon = (lon2 - lon1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
   Future<PlannedMeetingJourneyResult> planJourneyForMeeting({
     required MeetingDestination destination,
-    required double originLat,
-    required double originLon,
+    double? originLat,
+    double? originLon,
     DateTime? referenceTime,
     int arrivalBufferMinutes = 15,
+    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+    bool includeDirectWalk = true,
   }) async {
     final schedule = MeetingScheduleResolver.resolveNextOccurrence(
       destination,
@@ -56,6 +84,7 @@ class MeetingJourneyPlanner {
         fallbackExternalDirectionsUrl: null,
         isRouteAvailableInApp: false,
         statusMessage: 'Routing unavailable: this is a synthetic fixture record.',
+        planningMode: planningMode,
       );
     }
 
@@ -71,6 +100,7 @@ class MeetingJourneyPlanner {
         fallbackExternalDirectionsUrl: null,
         isRouteAvailableInApp: false,
         statusMessage: 'Routing unavailable: $reason',
+        planningMode: planningMode,
       );
     }
 
@@ -82,16 +112,116 @@ class MeetingJourneyPlanner {
     );
     final fallbackUrl = 'https://www.google.com/maps/dir/?api=1&destination=$encodedDest';
 
-    // Calculate arrival target based on scheduled meeting time
-    final now = referenceTime ?? DateTime.now();
-    final departUtcMs = now.toUtc().millisecondsSinceEpoch;
-    int? arriveBeforeUtcMs;
-
-    if (schedule.nextOccurrence != null) {
-      final targetArrival = schedule.nextOccurrence!.subtract(
-        Duration(minutes: arrivalBufferMinutes),
+    // Guard 3: User origin coordinates must be provided (no assumed Minneapolis location)
+    if (originLat == null || originLon == null) {
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: 'Starting location not set. Enable GPS or choose a starting point to plan transit routes.',
+        planningMode: planningMode,
       );
+    }
+
+    // Guard 4: Geographic transit coverage bounds check
+    if (!destination.isWithinTransitCoverage) {
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: 'Local transit routing unavailable: destination is outside the Metro Transit regional service area. External navigation available.',
+        planningMode: planningMode,
+      );
+    }
+
+    if (originLat < MeetingDestination.metroMinLat ||
+        originLat > MeetingDestination.metroMaxLat ||
+        originLon < MeetingDestination.metroMinLon ||
+        originLon > MeetingDestination.metroMaxLon) {
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: 'Local transit routing unavailable: starting point is outside the Metro Transit regional service area. External navigation available.',
+        planningMode: planningMode,
+      );
+    }
+
+    final now = referenceTime ?? DateTime.now();
+    final nextOcc = schedule.nextOccurrence;
+
+    // Distinguish between arrive-before-meeting and leave-now planning
+    final int departUtcMs;
+    final int? arriveBeforeUtcMs;
+
+    if (planningMode == JourneyPlanningMode.arriveBeforeMeeting && nextOcc != null) {
+      final targetArrival = nextOcc.subtract(Duration(minutes: arrivalBufferMinutes));
       arriveBeforeUtcMs = targetArrival.toUtc().millisecondsSinceEpoch;
+      // Start transit search window up to 90 min before target arrival on the scheduled meeting day
+      final windowStart = targetArrival.subtract(const Duration(minutes: 90));
+      final effectiveStart = windowStart.isBefore(now) ? now : windowStart;
+      departUtcMs = effectiveStart.toUtc().millisecondsSinceEpoch;
+    } else {
+      departUtcMs = now.toUtc().millisecondsSinceEpoch;
+      arriveBeforeUtcMs = null;
+    }
+
+    // Synthesize Direct Walking Journey Option for nearby comparisons
+    JourneyOption? directWalkOption;
+    if (includeDirectWalk) {
+      final crowMeters = calculateHaversineDistanceMeters(
+        originLat,
+        originLon,
+        destination.latitude,
+        destination.longitude,
+      );
+      // Generate pedestrian direct walk option for distances within reasonable range (<= 5 km)
+      if (crowMeters <= 5000.0) {
+        final directWalkMeters = (crowMeters * 1.25).round();
+        final walkMinutes = math.max(1, (directWalkMeters / 75.0).ceil());
+
+        final int walkDepartMs;
+        final int walkArriveMs;
+
+        if (planningMode == JourneyPlanningMode.arriveBeforeMeeting && nextOcc != null) {
+          final targetArrival = nextOcc.subtract(Duration(minutes: arrivalBufferMinutes));
+          walkArriveMs = targetArrival.toUtc().millisecondsSinceEpoch;
+          walkDepartMs = targetArrival.subtract(Duration(minutes: walkMinutes)).toUtc().millisecondsSinceEpoch;
+        } else {
+          walkDepartMs = now.toUtc().millisecondsSinceEpoch;
+          walkArriveMs = now.add(Duration(minutes: walkMinutes)).toUtc().millisecondsSinceEpoch;
+        }
+
+        directWalkOption = JourneyOption(
+          journeyId: 'direct-walk',
+          departUtcMs: walkDepartMs,
+          arriveUtcMs: walkArriveMs,
+          walkMeters: directWalkMeters,
+          transferCount: 0,
+          transferConfidence: 'direct_walk',
+          legs: [
+            JourneyLeg(
+              mode: 'walk',
+              fromLabel: 'Starting Point',
+              toLabel: destination.name,
+              startUtcMs: walkDepartMs,
+              endUtcMs: walkArriveMs,
+              routeLabel: 'Estimated Distance (No street routing)',
+              distanceMeters: directWalkMeters,
+              fromLat: originLat,
+              fromLon: originLon,
+              toLat: destination.latitude,
+              toLon: destination.longitude,
+            ),
+          ],
+        );
+      }
     }
 
     final requestId = 'req-${DateTime.now().millisecondsSinceEpoch}-${destination.sourceMeetingId}';
@@ -108,30 +238,269 @@ class MeetingJourneyPlanner {
         arriveBeforeUtcMs: arriveBeforeUtcMs,
       );
 
-      if (preview != null && preview.options.isNotEmpty) {
+      final returnedOptions = preview?.options ?? const <JourneyOption>[];
+      final repairedAndDedupedTransit = _repairAndDeduplicateOptions(
+        returnedOptions,
+        destination,
+      );
+
+      final combinedOptions = <JourneyOption>[];
+      if (directWalkOption != null) {
+        combinedOptions.add(directWalkOption);
+      }
+      combinedOptions.addAll(repairedAndDedupedTransit);
+
+      if (combinedOptions.isNotEmpty) {
+        final sortedOptions = _rankJourneyOptions(
+          options: combinedOptions,
+          meetingStartMs: schedule.nextOccurrence?.toUtc().millisecondsSinceEpoch,
+          planningMode: planningMode,
+        );
+
+        final rankedPreview = JourneyPreview(
+          version: preview?.version ?? 1,
+          requestId: preview?.requestId ?? requestId,
+          meetingId: preview?.meetingId ?? destination.compositeId,
+          providerId: preview?.providerId ?? (directWalkOption != null ? 'atlas_pedestrian_planner' : 'atlas_static_planner'),
+          dataSource: preview?.dataSource ?? 'direct_walk_estimate',
+          isSynthetic: preview?.isSynthetic ?? false,
+          fetchedAtUtcMs: preview?.fetchedAtUtcMs ?? DateTime.now().millisecondsSinceEpoch,
+          freshness: preview?.freshness ?? 'fresh',
+          options: sortedOptions,
+        );
+
         return PlannedMeetingJourneyResult(
           destination: destination,
           schedule: schedule,
-          inAppPreview: preview,
+          inAppPreview: rankedPreview,
           fallbackExternalDirectionsUrl: fallbackUrl,
           isRouteAvailableInApp: true,
-          statusMessage: 'In-app transit route planned successfully.',
+          statusMessage: 'In-app route planned successfully.',
+          planningMode: planningMode,
         );
       }
     } on AtlasException catch (e) {
       debugPrint('MeetingJourneyPlanner: Atlas routing unavailable: $e');
+      final String failureMessage;
+      if (e.code == AtlasErrorCode.sdkNotInstalled) {
+        failureMessage = 'Local transit routing unavailable: Atlas engine not installed. External navigation available.';
+      } else {
+        failureMessage = 'Local transit routing unavailable: ${e.message}. External navigation available.';
+      }
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: failureMessage,
+        planningMode: planningMode,
+      );
     } catch (e) {
       debugPrint('MeetingJourneyPlanner: Unexpected routing failure: $e');
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: 'Unexpected routing failure. External navigation available.',
+        planningMode: planningMode,
+      );
     }
 
-    // Fallback mode: native routing unavailable or unlinked
+    // Direct walk fallback if no transit options returned from operational provider
+    if (directWalkOption != null) {
+      final walkPreview = JourneyPreview(
+        version: 1,
+        requestId: requestId,
+        meetingId: destination.compositeId,
+        providerId: 'atlas_pedestrian_fallback',
+        dataSource: 'direct_walk_estimate',
+        isSynthetic: false,
+        fetchedAtUtcMs: DateTime.now().millisecondsSinceEpoch,
+        freshness: 'fresh',
+        options: [directWalkOption],
+      );
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: walkPreview,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: true,
+        statusMessage: 'Estimated direct distance available. No scheduled transit route found for this time. External navigation recommended for street directions.',
+        planningMode: planningMode,
+      );
+    }
+
     return PlannedMeetingJourneyResult(
       destination: destination,
       schedule: schedule,
       inAppPreview: null,
       fallbackExternalDirectionsUrl: fallbackUrl,
       isRouteAvailableInApp: false,
-      statusMessage: 'In-app transit network unlinked. External navigation available.',
+      statusMessage: 'No scheduled transit route found for this time. External navigation available.',
+      planningMode: planningMode,
     );
+  }
+
+  /// Validates itinerary continuity and eliminates duplicate route options
+  List<JourneyOption> _repairAndDeduplicateOptions(
+    List<JourneyOption> options,
+    MeetingDestination destination,
+  ) {
+    final repairedOptions = <JourneyOption>[];
+
+    for (final opt in options) {
+      if (opt.legs.isEmpty) {
+        repairedOptions.add(opt);
+        continue;
+      }
+      final rawLegs = opt.legs;
+      final fixedLegs = <JourneyLeg>[];
+
+      for (var i = 0; i < rawLegs.length; i++) {
+        final leg = rawLegs[i];
+        var from = leg.fromLabel;
+        var to = leg.toLabel;
+
+        if (leg.isWalk) {
+          if (i == 0 && (from.isEmpty || from == 'Origin')) {
+            from = 'Starting Point';
+          }
+          if (i == rawLegs.length - 1 && (to.isEmpty || to == 'Destination')) {
+            to = destination.name;
+          }
+          if (from == to) {
+            if (i == rawLegs.length - 1) {
+              to = destination.name;
+            } else {
+              to = '$to (Transfer)';
+            }
+          }
+        }
+        fixedLegs.add(JourneyLeg(
+          mode: leg.mode,
+          fromLabel: from,
+          toLabel: to,
+          startUtcMs: leg.startUtcMs,
+          endUtcMs: leg.endUtcMs,
+          routeLabel: leg.routeLabel,
+          distanceMeters: leg.distanceMeters,
+          fromLat: leg.fromLat,
+          fromLon: leg.fromLon,
+          toLat: leg.toLat,
+          toLon: leg.toLon,
+        ));
+      }
+
+      repairedOptions.add(JourneyOption(
+        journeyId: opt.journeyId,
+        departUtcMs: opt.departUtcMs,
+        arriveUtcMs: opt.arriveUtcMs,
+        walkMeters: opt.walkMeters,
+        transferCount: opt.transferCount,
+        transferConfidence: opt.transferConfidence,
+        legs: fixedLegs,
+      ));
+    }
+
+    // Deduplicate equivalent itineraries
+    final seenSignatures = <String>{};
+    final deduplicated = <JourneyOption>[];
+
+    for (final opt in repairedOptions) {
+      final transitSig = opt.legs
+          .where((l) => l.isTransit)
+          .map((l) => '${l.routeLabel}:${l.fromLabel}->${l.toLabel}')
+          .join('|');
+      final depMin = opt.departUtcMs ~/ 60000;
+      final arrMin = opt.arriveUtcMs ~/ 60000;
+      final sig = transitSig.isEmpty
+          ? '${opt.journeyId}@$depMin-$arrMin'
+          : '$transitSig@$depMin-$arrMin';
+
+      if (seenSignatures.add(sig)) {
+        deduplicated.add(opt);
+      }
+    }
+
+    return deduplicated;
+  }
+
+  /// Compares a direct walk option against a transit option
+  int _compareDirectWalkToTransit(JourneyOption walk, JourneyOption transit) {
+    final walkDist = walk.walkMeters;
+    final transitWalk = transit.walkMeters;
+    final walkDuration = walk.durationMinutes;
+    final transitDuration = transit.durationMinutes;
+
+    // Condition 1: Transit walking burden is greater than or equal to direct walk.
+    // (e.g. Saint Paul defect: transit required 2.2 km walk vs 1.2 km direct walk)
+    if (transitWalk >= walkDist) {
+      return -1; // Direct walk strongly dominates
+    }
+
+    // Condition 2: Transit has transfers and direct walk is short (<= 1.5 km) and faster or comparable
+    if (transit.transferCount > 0 && walkDist <= 1500 && walkDuration <= (transitDuration + 5)) {
+      return -1; // Walk dominates complicated multi-leg transit
+    }
+
+    // Condition 3: Transit is significantly slower (>= 15 min longer door-to-door) for a short walk
+    if (walkDist <= 1500 && (transitDuration - walkDuration) >= 15) {
+      return -1;
+    }
+
+    // Otherwise, if transit has substantially less walking and 0 transfers, transit is preferred
+    if (transit.transferCount == 0 && transitWalk < walkDist) {
+      if (walkDist <= 400) {
+        return -1;
+      }
+      return 1; // Transit wins because it saves pedestrian exertion
+    }
+
+    // Default comparator by walking distance
+    return walkDist.compareTo(transitWalk);
+  }
+
+  /// Ranks options comparing walking-first against transit itineraries
+  List<JourneyOption> _rankJourneyOptions({
+    required List<JourneyOption> options,
+    int? meetingStartMs,
+    required JourneyPlanningMode planningMode,
+  }) {
+    final sorted = List<JourneyOption>.from(options);
+
+    sorted.sort((a, b) {
+      // 1. If planning for meeting arrival, prioritize on-time arrivals
+      if (meetingStartMs != null && planningMode == JourneyPlanningMode.arriveBeforeMeeting) {
+        final aOnTime = a.arriveUtcMs <= meetingStartMs;
+        final bOnTime = b.arriveUtcMs <= meetingStartMs;
+        if (aOnTime && !bOnTime) return -1;
+        if (!aOnTime && bOnTime) return 1;
+      }
+
+      // 2. Walking-first comparison against transit
+      if (a.isDirectWalk && !b.isDirectWalk) {
+        return _compareDirectWalkToTransit(a, b);
+      } else if (!a.isDirectWalk && b.isDirectWalk) {
+        return -_compareDirectWalkToTransit(b, a);
+      }
+
+      // 3. Fewer transfers
+      if (a.transferCount != b.transferCount) {
+        return a.transferCount.compareTo(b.transferCount);
+      }
+
+      // 4. Lower walking burden
+      if (a.walkMeters != b.walkMeters) {
+        return a.walkMeters.compareTo(b.walkMeters);
+      }
+
+      // 5. Total duration
+      return a.durationMinutes.compareTo(b.durationMinutes);
+    });
+
+    return sorted;
   }
 }

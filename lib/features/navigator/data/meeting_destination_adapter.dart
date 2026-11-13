@@ -38,11 +38,38 @@ class MeetingDestinationAdapter {
           case RecoveryFellowship.na:
             resolvedSourceId = 'bmlt_na_minnesota';
             break;
-          case RecoveryFellowship.dharma:
-            resolvedSourceId = 'dharma_minnesota';
+          case RecoveryFellowship.cma:
+            resolvedSourceId = 'cma_minnesota';
+            break;
+          case RecoveryFellowship.ca:
+            resolvedSourceId = 'ca_minnesota';
+            break;
+          case RecoveryFellowship.oa:
+            resolvedSourceId = 'oa_minnesota';
             break;
           case RecoveryFellowship.smart:
             resolvedSourceId = 'smart_minnesota';
+            break;
+          case RecoveryFellowship.dharma:
+            resolvedSourceId = 'dharma_minnesota';
+            break;
+          case RecoveryFellowship.alanon:
+            resolvedSourceId = 'alanon_minnesota';
+            break;
+          case RecoveryFellowship.allRecovery:
+            resolvedSourceId = 'allrecovery_minnesota';
+            break;
+          case RecoveryFellowship.lifering:
+            resolvedSourceId = 'lifering_minnesota';
+            break;
+          case RecoveryFellowship.wfs:
+            resolvedSourceId = 'wfs_minnesota';
+            break;
+          case RecoveryFellowship.cr:
+            resolvedSourceId = 'cr_minnesota';
+            break;
+          case RecoveryFellowship.inTheRooms:
+            resolvedSourceId = 'intherooms_directory';
             break;
           default:
             resolvedSourceId = 'curated_directory';

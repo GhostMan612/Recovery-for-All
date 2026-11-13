@@ -8,6 +8,12 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class MeetingDestination {
+  /// Regional Metro Transit service bounds (Minneapolis-St. Paul 7-county metro)
+  static const double metroMinLat = 44.60;
+  static const double metroMaxLat = 45.30;
+  static const double metroMinLon = -93.75;
+  static const double metroMaxLon = -92.75;
+
   final String sourceId;
   final String sourceMeetingId;
   final String name;
@@ -68,11 +74,26 @@ class MeetingDestination {
     return true;
   }
 
+  /// Whether destination falls within supported Metro Transit regional service coverage.
+  bool get isWithinTransitCoverage {
+    if (!hasValidCoordinates) return false;
+    return latitude >= metroMinLat &&
+        latitude <= metroMaxLat &&
+        longitude >= metroMinLon &&
+        longitude <= metroMaxLon;
+  }
+
   /// Only authentic physical meetings with valid geodata are eligible for routing.
   /// Synthetic fixtures or online-only meetings cannot initiate native routing.
   bool get isEligibleForPhysicalRouting {
     return !isSynthetic && hasValidCoordinates && !isOnlineOnly;
   }
 
-  bool get hasKnownSchedule => dayOfWeek != null && minuteOfDay != null;
+  bool get hasKnownSchedule =>
+      dayOfWeek != null &&
+      dayOfWeek! >= 0 &&
+      dayOfWeek! <= 6 &&
+      minuteOfDay != null &&
+      minuteOfDay! >= 0 &&
+      minuteOfDay! < 1440;
 }

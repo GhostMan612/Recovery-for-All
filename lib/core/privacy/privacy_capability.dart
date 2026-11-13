@@ -18,7 +18,8 @@ enum PrivacyCapability {
   ollamaBridge,
   directoryRefresh,
   onlineTiles,
-  externalNavigation;
+  externalNavigation,
+  remoteRouting;
 
   PrivacyDisclosure get disclosure => PrivacyCapabilityState.disclosures[this]!;
 }
@@ -174,6 +175,16 @@ class PrivacyCapabilityState {
       transmittedData: 'Destination meeting latitude, longitude, and street address',
       recipient: 'System default map application',
       fallback: 'Meeting addresses and cross streets are displayed on screen for manual entry.',
+    ),
+    PrivacyCapability.remoteRouting: PrivacyDisclosure(
+      title: 'Live Street Directions',
+      description:
+          'Calculates real pedestrian footpaths and driving street routes with turn-by-turn maneuvers.',
+      transmittedData:
+          'Origin and destination coordinates (latitude, longitude)',
+      recipient: 'HeiGIT OpenRouteService (api.heigit.org)',
+      fallback:
+          'Meeting addresses and direct estimates remain visible; Google Maps external directions available.',
     ),
   };
 }
