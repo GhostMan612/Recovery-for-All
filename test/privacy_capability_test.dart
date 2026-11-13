@@ -143,6 +143,66 @@ void main() {
       expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.onlineTiles), isFalse);
     });
 
+    test('Upgrade from the seven-capability model never grants remoteRouting', () async {
+      // Exactly what an install created before remoteRouting existed has on
+      // disk: seven keys and no privacy_consent_v1_remoteRouting. This is the
+      // upgrade path that adding an eighth enum member creates, and it must
+      // fail closed rather than inheriting a neighbouring grant or a default.
+      const legacyGranted = <PrivacyCapability>[
+        PrivacyCapability.remoteWeather,
+        PrivacyCapability.cloudSync,
+        PrivacyCapability.circleShare,
+        PrivacyCapability.ollamaBridge,
+        PrivacyCapability.directoryRefresh,
+        PrivacyCapability.onlineTiles,
+        PrivacyCapability.externalNavigation,
+      ];
+      SharedPreferences.setMockInitialValues({
+        for (final cap in legacyGranted)
+          'privacy_consent_v1_${cap.name}': 'granted',
+      });
+
+      final loaded = await PrivacyCapabilityService.loadState();
+
+      // The new capability has no stored value at all: unknown, not granted.
+      expect(
+        loaded.getPersistedPreference(PrivacyCapability.remoteRouting),
+        equals(ConsentState.unknown),
+      );
+      expect(loaded.isGranted(PrivacyCapability.remoteRouting), isFalse);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteRouting), isFalse);
+      expect(PrivacyCapabilityService.isGrantedSync(PrivacyCapability.remoteRouting), isFalse);
+
+      // The seven legacy grants stay readable as history and still authorize nothing.
+      for (final cap in legacyGranted) {
+        expect(loaded.getPersistedPreference(cap), equals(ConsentState.granted),
+            reason: '${cap.name} legacy preference must remain readable');
+        expect(loaded.isGranted(cap), isFalse,
+            reason: '${cap.name} legacy grant must not survive a cold restart');
+      }
+
+      // Granting a sibling in this session must not bleed into remoteRouting.
+      expect(
+        await PrivacyCapabilityService.setConsent(
+          PrivacyCapability.remoteWeather,
+          ConsentState.granted,
+        ),
+        isTrue,
+      );
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteWeather), isTrue);
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteRouting), isFalse);
+
+      // Only an explicit decision of its own authorizes it.
+      expect(
+        await PrivacyCapabilityService.setConsent(
+          PrivacyCapability.remoteRouting,
+          ConsentState.granted,
+        ),
+        isTrue,
+      );
+      expect(await PrivacyCapabilityService.isGranted(PrivacyCapability.remoteRouting), isTrue);
+    });
+
     test('Current-session explicit grant enables only the selected capability', () async {
       SharedPreferences.setMockInitialValues({
         'privacy_consent_v1_remoteWeather': 'granted',
