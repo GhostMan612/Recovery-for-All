@@ -103,8 +103,14 @@ class GentleReminderService {
 
   /// Tomorrow is a milestone anniversary? Checks 1,7,30,60,90,182,365,730 days.
   static bool _isMilestoneEve(Counter c, DateTime now) {
-    final start = DateTime.fromMillisecondsSinceEpoch(c.startDateTime);
-    final days = now.difference(DateTime(start.year, start.month, start.day)).inDays;
+    // The scheduled notification has its own IANA time zone. Convert the
+    // stored timestamp into that SAME zone before extracting its date, or
+    // late-night starts move to the next day when device/CI time zones differ.
+    final start = now is tz.TZDateTime
+        ? tz.TZDateTime.fromMillisecondsSinceEpoch(
+            now.location, c.startDateTime)
+        : DateTime.fromMillisecondsSinceEpoch(c.startDateTime);
+    final days = calendarDaysBetween(start, now);
     const milestones = [1, 7, 30, 60, 90, 182, 365, 730];
     for (final m in milestones) {
       if (days + 1 == m) return true;
@@ -112,6 +118,15 @@ class GentleReminderService {
     // Also catch if start was tomorrow's anniversary at same ms precision
     // (handles counters created exactly at midnight)
     return false;
+  }
+
+  /// Calendar-day differences, not elapsed 24-hour blocks. DST can make
+  /// an anniversary eve only 5d23h after a 6-calendar-day-old start.
+  @visibleForTesting
+  static int calendarDaysBetween(DateTime start, DateTime end) {
+    final startDate = DateTime.utc(start.year, start.month, start.day);
+    final endDate = DateTime.utc(end.year, end.month, end.day);
+    return endDate.difference(startDate).inDays;
   }
 
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -124,6 +139,28 @@ class GentleReminderService {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation(_centralTimeZone));
     _tzReady = true;
+  }
+
+  /// Find the next wall-clock occurrence in the selected IANA time zone.
+  /// Adding Duration(days: 1) instead would shift the notification by an
+  /// hour across spring-forward/fall-back boundaries.
+  @visibleForTesting
+  static tz.TZDateTime nextWallClockOccurrence(
+      tz.TZDateTime now, int minutesOfDay) {
+    if (minutesOfDay < 0 || minutesOfDay >= 24 * 60) {
+      throw RangeError.range(minutesOfDay, 0, 24 * 60 - 1,
+          'minutesOfDay');
+    }
+    tz.TZDateTime atDay(int day) => tz.TZDateTime(
+          now.location,
+          now.year,
+          now.month,
+          day,
+          minutesOfDay ~/ 60,
+          minutesOfDay % 60,
+        );
+    final today = atDay(now.day);
+    return today.isAfter(now) ? today : atDay(now.day + 1);
   }
 
   static Future<void> initialize() async {
@@ -173,17 +210,7 @@ class GentleReminderService {
 
     _ensureTimezone();
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      minutes ~/ 60,
-      minutes % 60,
-    );
-    if (!scheduled.isAfter(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
+    final scheduled = nextWallClockOccurrence(now, minutes);
 
     // R25: context-aware copy from local state (pet/wellness/milestones).
     // Fetch best-effort; on failure fall back to default rotating title.
