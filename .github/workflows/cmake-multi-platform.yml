@@ -68,7 +68,7 @@ jobs:
         run: |
           npm --prefix test/rules ci
           npx -y firebase-tools setup:emulators:firestore
-          npx -y firebase-tools emulators:exec --config firebase.emulator.json --only firestore "node test/rules/firestore_v2_security_matrix.mjs"
+          npx -y firebase-tools emulators:exec --config firebase.emulator.json --only firestore "npm --prefix test/rules test"
 
 # This CI does not build a signed release, deploy Firestore rules, or prove
 # on-device behavior. It may expose pre-existing Linux/dependency failures.

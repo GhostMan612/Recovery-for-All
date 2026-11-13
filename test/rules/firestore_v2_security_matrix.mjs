@@ -1,5 +1,7 @@
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const hostPort = process.env.FIRESTORE_EMULATOR_HOST ? process.env.FIRESTORE_EMULATOR_HOST.split(':') : ['127.0.0.1', '8088'];
@@ -8,7 +10,10 @@ const port = parseInt(hostPort[1], 10);
 
 console.log(`[TEST RUNNER] Connecting to Firestore Emulator at ${host}:${port}...`);
 
-const rules = readFileSync('firestore/firestore_v2.rules', 'utf8');
+// Resolve relative to this committed test file, not the caller's cwd.
+const rulesPath = resolve(dirname(fileURLToPath(import.meta.url)),
+    '../../firestore/firestore_v2.rules');
+const rules = readFileSync(rulesPath, 'utf8');
 
 const testEnv = await initializeTestEnvironment({
   projectId: 'recovery-for-all-c2ee8',

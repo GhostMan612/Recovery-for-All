@@ -1,15 +1,15 @@
 {
   "name": "rules",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Firestore v2 emulator security matrix for Recovery for All",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node firestore_v2_security_matrix.mjs"
   },
   "keywords": [],
   "type": "commonjs",
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
     "firebase": "^12.19.0"
-  }
+  },
+  "private": true
 }
