@@ -9,6 +9,10 @@
 // Auras play a Lottie loop when one ships for the equipped aura id;
 // everything degrades to the static painted glow when assets are missing or the
 // user prefers reduced motion.
+//
+// Ember Kit features pre-rendered 2D sprite animations (idle, joy, rest)
+// when in default form, falling back to AvatarPainter vector art when custom
+// cosmetics are equipped or on asset-load failure.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -19,17 +23,16 @@ import '../services/hardware_tier_service.dart';
 import '../services/pet_cosmetic_catalog.dart';
 import '../services/recovery_pet_service.dart';
 import 'avatar_painter.dart';
+import 'game_sprite_stage.dart';
 
-/// Companion rendering: Lottie aura + Lottie mood underlay + a fully
-/// PAINTED vector creature (AvatarPainter). There is no emoji anywhere in this
-/// widget — including the reduced-motion branch — and none left in the
-/// companion's other surfaces: item thumbnails come from `CosmeticIconPainter`
-/// and mood faces from `PetMoodGlyphPainter`.
+/// Companion rendering: Lottie aura + Lottie mood underlay + animated sprite
+/// stage (Ember Kit) or fully PAINTED vector creature (AvatarPainter).
 class AvatarVisualLayer extends StatefulWidget {
   final RecoveryPet pet;
   final double size;
   final bool showAura;
   final bool compact;
+  final bool allowSprite;
 
   const AvatarVisualLayer({
     super.key,
@@ -37,6 +40,7 @@ class AvatarVisualLayer extends StatefulWidget {
     this.size = 160,
     this.showAura = true,
     this.compact = false,
+    this.allowSprite = true,
   });
 
   /// Equipped aura id -> bundled Lottie loop. An unmapped id falls back to the
@@ -72,6 +76,70 @@ class AvatarVisualLayer extends StatefulWidget {
     return composition;
   }
 
+  /// Returns true if the pet belongs to the Ember Kit species (including legacy 'kin' default).
+  static bool isEmberKit(RecoveryPet pet) {
+    final speciesId = pet.speciesId.trim().toLowerCase();
+    return speciesId == PetSpeciesCatalog.emberKitId ||
+        speciesId == 'kin' ||
+        speciesId == 'default' ||
+        speciesId.isEmpty;
+  }
+
+  /// Returns true if the pet has equipped custom unlocked / purchased cosmetics
+  /// that deviate from starter companion forms (e.g. cloaks, robes, armor, leaf crowns, wings)
+  /// which cannot yet be faithfully displayed on the fixed sprite atlas.
+  /// Starter preset items (Pathwalker, Tidekeeper, Embersmith) are considered unadorned
+  /// baseline forms and do not suppress the 2D sprite.
+  static bool hasCustomCosmetics(RecoveryPet pet) {
+    final head = pet.slot(CosmeticCategory.headwear);
+    if (head != null &&
+        head != 'head_none' &&
+        head != 'head_cap' &&
+        head != 'head_beanie' &&
+        !head.endsWith('_none')) {
+      return true;
+    }
+
+    final acc = pet.slot(CosmeticCategory.accessory);
+    if (acc != null &&
+        acc != 'acc_none' &&
+        acc != 'acc_bag_day' &&
+        acc != 'acc_scarf' &&
+        !acc.endsWith('_none')) {
+      return true;
+    }
+
+    final top = pet.slot(CosmeticCategory.top);
+    if (top != null &&
+        top != 'top_tee_plain' &&
+        top != 'top_hoodie_soft' &&
+        top != 'top_tank' &&
+        !top.endsWith('_none')) {
+      return true;
+    }
+
+    final bottom = pet.slot(CosmeticCategory.bottom);
+    if (bottom != null &&
+        bottom != 'bottom_joggers' &&
+        bottom != 'bottom_shorts' &&
+        bottom != 'bottom_jeans' &&
+        !bottom.endsWith('_none')) {
+      return true;
+    }
+
+    final shoes = pet.slot(CosmeticCategory.shoes);
+    if (shoes != null &&
+        shoes != 'shoes_sneakers' &&
+        shoes != 'shoes_sandals' &&
+        shoes != 'shoes_bare' &&
+        shoes != 'shoes_slippers_home' &&
+        !shoes.endsWith('_none')) {
+      return true;
+    }
+
+    return false;
+  }
+
   @override
   State<AvatarVisualLayer> createState() => _AvatarVisualLayerState();
 }
@@ -105,7 +173,6 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    // disableMotion computed in build() where context is available
     _resolveAnimations(disableMotion: HardwareTierService.isLowEnd);
   }
 
@@ -168,25 +235,22 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
 
   @override
   Widget build(BuildContext context) {
-    // Two different questions, deliberately OR-ed here rather than conflated
-    // in AppMotion: the user asked for less motion, OR this device should not
-    // be animating at all.
-    final disableMotion = HardwareTierService.isLowEnd || AppMotion.reduceMotionOf(context);
-    if (disableMotion) {
+    final reduceMotion = AppMotion.reduceMotionOf(context);
+    final disableLottie = HardwareTierService.isLowEnd || reduceMotion;
+
+    final targetPet = widget.pet;
+    final size = widget.size;
+    final useSprite = widget.allowSprite &&
+        AvatarVisualLayer.isEmberKit(targetPet) &&
+        !AvatarVisualLayer.hasCustomCosmetics(targetPet);
+
+    if (reduceMotion) {
       return SizedBox(
         width: widget.size,
         height: widget.size,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // No emoji here. This path is for reduce-motion users and low-end
-            // devices — and an emoji is precisely what they may NOT be able to
-            // render (system emoji fonts vary by device and some Android builds
-            // ship a monochrome or missing glyph), so falling back to one made
-            // the *reduced* path the least reliable one. It also contradicted
-            // this widget's own contract, stated at the class declaration:
-            // "Zero emoji in the composite." The static aura below plus the
-            // painted creature is fully deterministic and needs no ticker.
             if (widget.showAura)
               CustomPaint(
                 size: Size.square(widget.size * 0.98),
@@ -194,10 +258,23 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
                   color: AvatarPainter.auraColorFor(_equippedAuraId),
                 ),
               ),
-            CustomPaint(
-              size: Size.square(widget.size),
-              painter: AvatarPainter(widget.pet),
-            ),
+            useSprite
+                ? GameSpriteStage(
+                    assetPath: EmberKitSpriteConfig.asset,
+                    startFrame: EmberKitSpriteConfig.staticFrame,
+                    frameCount: 1,
+                    staticFrame: EmberKitSpriteConfig.staticFrame,
+                    width: widget.size,
+                    height: widget.size,
+                    fallback: CustomPaint(
+                      size: Size.square(widget.size),
+                      painter: AvatarPainter(widget.pet),
+                    ),
+                  )
+                : CustomPaint(
+                    size: Size.square(widget.size),
+                    painter: AvatarPainter(widget.pet),
+                  ),
             _buildCelebrationOverlay(widget.size),
           ],
         ),
@@ -205,18 +282,63 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
     }
 
     final pet = widget.pet;
-    final size = widget.size;
 
     final lottieAura = _auraComposition;
     final showLottieAura =
-        widget.showAura && lottieAura != null && !disableMotion;
+        widget.showAura && lottieAura != null && !disableLottie;
     // Mood underlay only when it matches the CURRENT state (a resolve may
     // have raced a mood change) and the surface is large enough.
     final moodKey = _moodKey;
-    final showMoodLottie = !disableMotion &&
+    final showMoodLottie = !disableLottie &&
         !widget.compact &&
         _resolvedMoodKey == moodKey &&
         _moodComposition != null;
+
+    final Widget creatureVisual;
+    if (useSprite) {
+      final int startFrame;
+      final int frameCount;
+      final Duration frameDuration;
+      final bool loop;
+
+      if (_isCelebrating) {
+        startFrame = EmberKitSpriteConfig.joyStart;
+        frameCount = EmberKitSpriteConfig.joyCount;
+        frameDuration = EmberKitSpriteConfig.joyDuration;
+        loop = false;
+      } else if (pet.isResting) {
+        startFrame = EmberKitSpriteConfig.restStart;
+        frameCount = EmberKitSpriteConfig.restCount;
+        frameDuration = EmberKitSpriteConfig.restDuration;
+        loop = true;
+      } else {
+        startFrame = EmberKitSpriteConfig.idleStart;
+        frameCount = EmberKitSpriteConfig.idleCount;
+        frameDuration = EmberKitSpriteConfig.idleDuration;
+        loop = true;
+      }
+
+      creatureVisual = GameSpriteStage(
+        key: ValueKey('ember_kit_${startFrame}_$loop'),
+        assetPath: EmberKitSpriteConfig.asset,
+        startFrame: startFrame,
+        frameCount: frameCount,
+        frameDuration: frameDuration,
+        loop: loop,
+        staticFrame: EmberKitSpriteConfig.staticFrame,
+        width: size,
+        height: size,
+        fallback: CustomPaint(
+          size: Size.square(size),
+          painter: AvatarPainter(pet),
+        ),
+      );
+    } else {
+      creatureVisual = CustomPaint(
+        size: Size.square(size),
+        painter: AvatarPainter(pet),
+      );
+    }
 
     return SizedBox(
       width: size,
@@ -253,11 +375,8 @@ class _AvatarVisualLayerState extends State<AvatarVisualLayer>
                 ),
               ),
             ),
-          // The painted creature — every equipped slot rendered as vector art.
-          CustomPaint(
-            size: Size.square(size),
-            painter: AvatarPainter(pet),
-          ),
+          // The companion creature: animated 2D sprite or vector art fallback
+          creatureVisual,
           // Celebration overlay: flash + scale pulse when Sparks earned
           _buildCelebrationOverlay(size),
         ],

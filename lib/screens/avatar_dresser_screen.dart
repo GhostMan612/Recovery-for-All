@@ -247,7 +247,10 @@ class _AvatarDresserScreenState extends State<AvatarDresserScreen>
               // text scale rises, which measured 40px of relief at 1.6x against
               // the 28px overflow a long pet name produced at 2x.
               AvatarVisualLayer(
-                  pet: _pet, size: 150.0 - 40.0 * (textScale - 1.0)),
+                pet: _pet,
+                size: 150.0 - 40.0 * (textScale - 1.0),
+                allowSprite: false,
+              ),
               Text(
                 _pet.name,
                 textAlign: TextAlign.center,
