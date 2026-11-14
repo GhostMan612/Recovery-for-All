@@ -4,6 +4,7 @@
 // The Future Dictates the Past and the Past is Always Present.
 // ============================================================
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../data/atlas_dtos.dart';
@@ -69,6 +70,7 @@ class MeetingJourneyPlanner {
     int arrivalBufferMinutes = 15,
     JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
     bool includeDirectWalk = true,
+    Duration planTimeout = const Duration(seconds: 12),
   }) async {
     final schedule = MeetingScheduleResolver.resolveNextOccurrence(
       destination,
@@ -227,16 +229,27 @@ class MeetingJourneyPlanner {
     final requestId = 'req-${DateTime.now().millisecondsSinceEpoch}-${destination.sourceMeetingId}';
 
     try {
-      final preview = await _repository.planMeetingJourney(
-        requestId: requestId,
-        meetingId: destination.compositeId,
-        originLat: originLat,
-        originLon: originLon,
-        destinationLat: destination.latitude,
-        destinationLon: destination.longitude,
-        departAtUtcMs: departUtcMs,
-        arriveBeforeUtcMs: arriveBeforeUtcMs,
-      );
+      final preview = await _repository
+          .planMeetingJourney(
+            requestId: requestId,
+            meetingId: destination.compositeId,
+            originLat: originLat,
+            originLon: originLon,
+            destinationLat: destination.latitude,
+            destinationLon: destination.longitude,
+            departAtUtcMs: departUtcMs,
+            arriveBeforeUtcMs: arriveBeforeUtcMs,
+          )
+          .timeout(
+            planTimeout,
+            onTimeout: () async {
+              await _repository.cancelJourneyRequest(requestId);
+              throw const AtlasException(
+                code: AtlasErrorCode.timeout,
+                message: 'Transit schedule is still initializing or route calculation timed out',
+              );
+            },
+          );
 
       final returnedOptions = preview?.options ?? const <JourneyOption>[];
       final repairedAndDedupedTransit = _repairAndDeduplicateOptions(
@@ -280,22 +293,28 @@ class MeetingJourneyPlanner {
         );
       }
     } on AtlasException catch (e) {
-      debugPrint('MeetingJourneyPlanner: Atlas routing unavailable: $e');
-      final String failureMessage;
-      if (e.code == AtlasErrorCode.sdkNotInstalled) {
-        failureMessage = 'Local transit routing unavailable: Atlas engine not installed. External navigation available.';
+      if (e.code == AtlasErrorCode.noItinerary && directWalkOption != null) {
+        debugPrint(
+          'MeetingJourneyPlanner: No transit itinerary ($e); falling back to direct walk estimate.',
+        );
       } else {
-        failureMessage = 'Local transit routing unavailable: ${e.message}. External navigation available.';
+        debugPrint('MeetingJourneyPlanner: Atlas routing unavailable: $e');
+        final String failureMessage;
+        if (e.code == AtlasErrorCode.sdkNotInstalled) {
+          failureMessage = 'Local transit routing unavailable: Atlas engine not installed. External navigation available.';
+        } else {
+          failureMessage = 'Local transit routing unavailable: ${e.message}. External navigation available.';
+        }
+        return PlannedMeetingJourneyResult(
+          destination: destination,
+          schedule: schedule,
+          inAppPreview: null,
+          fallbackExternalDirectionsUrl: fallbackUrl,
+          isRouteAvailableInApp: false,
+          statusMessage: failureMessage,
+          planningMode: planningMode,
+        );
       }
-      return PlannedMeetingJourneyResult(
-        destination: destination,
-        schedule: schedule,
-        inAppPreview: null,
-        fallbackExternalDirectionsUrl: fallbackUrl,
-        isRouteAvailableInApp: false,
-        statusMessage: failureMessage,
-        planningMode: planningMode,
-      );
     } catch (e) {
       debugPrint('MeetingJourneyPlanner: Unexpected routing failure: $e');
       return PlannedMeetingJourneyResult(

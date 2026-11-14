@@ -1,0 +1,17 @@
+Metro Transit (Twin Cities) GTFS static snapshot
+================================================
+
+File:          metro_transit_regional.zip
+Source:        https://svc.metrotransit.org/mtgtfs/gtfs.zip
+Publisher:     Metro Transit, Minneapolis / St. Paul, Minnesota
+Captured:      2026-11-13T00:00:00Z
+Calendar span: 2026-10-10 through 2026-11-27 (calendar.txt)
+SHA-256:       0164765858d353001f42d66a40430d2ed6b2085cb859e0574df08b6a5ddbe2d6
+Contents:      agency, routes, trips, stop_times, stops, calendar, calendar_dates
+License:       Metro Transit open data; see https://www.metrotransit.org/developer-resources
+
+This is a bundled offline snapshot, not a live feed. It is loaded once into the
+app-private Atlas snapshot store on first launch. The bridge does NOT download
+a new feed, poll vehicle positions, or contact a routing server. Update this
+asset, the SHA-256 above, and AtlasNativeBridge.BUNDLED_FEED_CAPTURED_AT in the
+same commit when refreshing it.

@@ -14,10 +14,20 @@ import 'package:recovery_for_all/features/navigator/domain/meeting_destination.d
 class _FakeAtlasBridge extends AtlasBridge {
   final bool simulateSdkInstalled;
   final List<JourneyOption>? customOptions;
+  final Duration? simulatedDelay;
+  final AtlasErrorCode? simulateErrorCode;
+  final String? simulateErrorMessage;
   int? lastDepartAtUtcMs;
   int? lastArriveBeforeUtcMs;
+  final List<String> cancelledRequestIds = <String>[];
 
-  _FakeAtlasBridge({this.simulateSdkInstalled = true, this.customOptions});
+  _FakeAtlasBridge({
+    this.simulateSdkInstalled = true,
+    this.customOptions,
+    this.simulatedDelay,
+    this.simulateErrorCode,
+    this.simulateErrorMessage,
+  });
 
   @override
   Future<JourneyPreview> planJourney({
@@ -36,6 +46,17 @@ class _FakeAtlasBridge extends AtlasBridge {
   }) async {
     lastDepartAtUtcMs = departAtUtcMs;
     lastArriveBeforeUtcMs = arriveBeforeUtcMs;
+
+    if (simulatedDelay != null) {
+      await Future<void>.delayed(simulatedDelay!);
+    }
+
+    if (simulateErrorCode != null) {
+      throw AtlasException(
+        code: simulateErrorCode!,
+        message: simulateErrorMessage ?? 'Simulated error',
+      );
+    }
 
     if (!simulateSdkInstalled) {
       throw const AtlasException(
@@ -74,6 +95,15 @@ class _FakeAtlasBridge extends AtlasBridge {
         ),
       ],
     );
+  }
+
+  @override
+  Future<bool> cancelRequest({
+    required String requestId,
+    int apiVersion = AtlasBridge.currentApiVersion,
+  }) async {
+    cancelledRequestIds.add(requestId);
+    return true;
   }
 }
 
@@ -684,6 +714,77 @@ void main() {
       expect(result.fallbackExternalDirectionsUrl, isNotNull);
       expect(result.fallbackExternalDirectionsUrl, contains('google.com/maps/dir'));
       expect(result.statusMessage, contains('External navigation available'));
+    });
+
+    test('falls back to direct walk estimate when Atlas returns NO_ITINERARY for nearby meeting', () async {
+      final noItineraryBridge = _FakeAtlasBridge(
+        simulateErrorCode: AtlasErrorCode.noItinerary,
+        simulateErrorMessage: 'No scheduled transit service found',
+      );
+      final repo = NavigatorRepository(bridge: noItineraryBridge);
+      final planner = MeetingJourneyPlanner(repository: repo);
+
+      const destination = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '102',
+        name: 'Nearby Recovery Club',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9740,
+        longitude: -93.2550,
+        address: 'South 4th St, Minneapolis',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = await planner.planJourneyForMeeting(
+        destination: destination,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        includeDirectWalk: true,
+      );
+
+      expect(result.isRouteAvailableInApp, isTrue);
+      expect(result.inAppPreview, isNotNull);
+      expect(result.inAppPreview!.providerId, equals('atlas_pedestrian_fallback'));
+      expect(result.inAppPreview!.options, hasLength(1));
+      expect(result.inAppPreview!.options.first.journeyId, equals('direct-walk'));
+    });
+
+    test('cancels native request and falls back to external directions when planTimeout expires', () async {
+      final slowBridge = _FakeAtlasBridge(
+        simulatedDelay: const Duration(milliseconds: 200),
+      );
+      final repo = NavigatorRepository(bridge: slowBridge);
+      final planner = MeetingJourneyPlanner(repository: repo);
+
+      const destination = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '103',
+        name: 'Distant Meeting',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 45.0500,
+        longitude: -93.1500,
+        address: 'White Bear Ave, St Paul',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = await planner.planJourneyForMeeting(
+        destination: destination,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        planTimeout: const Duration(milliseconds: 25),
+      );
+
+      expect(slowBridge.cancelledRequestIds, hasLength(1));
+      expect(result.isRouteAvailableInApp, isFalse);
+      expect(result.inAppPreview, isNull);
+      expect(result.fallbackExternalDirectionsUrl, isNotNull);
+      expect(result.statusMessage, contains('timed out'));
     });
   });
 }

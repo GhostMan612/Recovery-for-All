@@ -647,16 +647,20 @@ final proceed = await showDialog<bool>(
       return proceed == true;
   }
 
-  Future<void> _openDirections(
+  Future<({PlannedMeetingJourneyResult planResult, JourneyWeatherData? weatherData})>
+  _prepareDirections(
     RecoveryMeeting meeting, {
-    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+    required JourneyPlanningMode planningMode,
   }) async {
-
     // Weather context (optional, non-blocking)
     JourneyWeatherData? weatherData;
-    if (meeting.hasLocation && ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather)) {
+    if (meeting.hasLocation &&
+        ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather)) {
       try {
-        final weatherResult = await WeatherService.fetchWeather(lat: meeting.latitude, lng: meeting.longitude);
+        final weatherResult = await WeatherService.fetchWeather(
+          lat: meeting.latitude,
+          lng: meeting.longitude,
+        ).timeout(const Duration(seconds: 4));
         if (weatherResult.isAvailable) {
           weatherData = JourneyWeatherData(
             temperatureFahrenheit: weatherResult.temperatureF,
@@ -669,7 +673,10 @@ final proceed = await showDialog<bool>(
       } catch (_) {}
     }
 
-    final isStale = await MeetingFinderService().isCacheStale();
+    var isStale = false;
+    try {
+      isStale = await MeetingFinderService().isCacheStale();
+    } catch (_) {}
     final destination = MeetingDestinationAdapter.fromRecoveryMeeting(
       meeting,
       freshness: isStale ? 'stale' : 'fresh',
@@ -683,54 +690,161 @@ final proceed = await showDialog<bool>(
       originLon: originLon,
       planningMode: planningMode,
     );
+    return (planResult: planResult, weatherData: weatherData);
+  }
 
+  Future<void> _openDirections(
+    RecoveryMeeting meeting, {
+    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+  }) async {
     if (!mounted) return;
+    final directionsFuture = _prepareDirections(
+      meeting,
+      planningMode: planningMode,
+    );
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => SafeArea(
-        child: JourneySheet(
-          planResult: planResult,
-          weather: weatherData,
-          selectedJourneyId: _selectedJourneyOption?.journeyId,
-          onTogglePlanningMode: (newMode) {
-            Navigator.pop(sheetCtx);
-            _openDirections(meeting, planningMode: newMode);
-          },
-          onSelectOption: (option) {
-            Navigator.pop(sheetCtx);
-            setState(() {
-              _selectedJourneyOption = option;
-              _selectedStreetRoute = null;
-              _selectedMeeting = meeting;
-              _showMapView = true;
-            });
-            if (meeting.hasLocation) {
-              _mapController.move(ll.LatLng(meeting.latitude, meeting.longitude), 13.0);
-            }
-          },
-          onSelectManualOrigin: () {
-            Navigator.pop(sheetCtx);
-            _promptManualOrigin(meeting);
-          },
-          onLaunchExternalDirections: () async {
-            Navigator.pop(sheetCtx);
-            await _launchExternalDirections(meeting, travelMode: 'walking');
-          },
-          onLaunchModeDirections: (mode) async {
-            Navigator.pop(sheetCtx);
-            if (mode == 'walking' || mode == 'driving') {
-              await _requestStreetRoute(
-                meeting,
-                mode: mode == 'walking' ? StreetRouteMode.walking : StreetRouteMode.driving,
-              );
-            } else {
-              await _launchExternalDirections(meeting, travelMode: mode);
-            }
-          },
-        ),
+      builder: (sheetCtx) => FutureBuilder<
+        ({PlannedMeetingJourneyResult planResult, JourneyWeatherData? weatherData})
+      >(
+        future: directionsFuture,
+        builder: (_, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done ||
+              !snapshot.hasData) {
+            final colorScheme = Theme.of(sheetCtx).colorScheme;
+            final textTheme = Theme.of(sheetCtx).textTheme;
+            return SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              meeting.name,
+                              style: textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.pop(sheetCtx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (snapshot.hasError)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'Unable to prepare transit directions right now.',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.error,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      else
+                        const AppLoadingState(
+                          message: 'Planning transit route…',
+                        ),
+                      if (meeting.hasLocation) ...[
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(sheetCtx);
+                            await _launchExternalDirections(
+                              meeting,
+                              travelMode: 'walking',
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                          ),
+                          icon: const Icon(Icons.directions),
+                          label: const Text(
+                            'Open External Directions (Google Maps)',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final data = snapshot.data!;
+          return SafeArea(
+            child: JourneySheet(
+              planResult: data.planResult,
+              weather: data.weatherData,
+              selectedJourneyId: _selectedJourneyOption?.journeyId,
+              onTogglePlanningMode: (newMode) {
+                Navigator.pop(sheetCtx);
+                _openDirections(meeting, planningMode: newMode);
+              },
+              onSelectOption: (option) {
+                Navigator.pop(sheetCtx);
+                setState(() {
+                  _selectedJourneyOption = option;
+                  _selectedStreetRoute = null;
+                  _selectedMeeting = meeting;
+                  _showMapView = true;
+                });
+                if (meeting.hasLocation) {
+                  _mapController.move(
+                    ll.LatLng(meeting.latitude, meeting.longitude),
+                    13.0,
+                  );
+                }
+              },
+              onSelectManualOrigin: () {
+                Navigator.pop(sheetCtx);
+                _promptManualOrigin(meeting);
+              },
+              onLaunchExternalDirections: () async {
+                Navigator.pop(sheetCtx);
+                await _launchExternalDirections(meeting, travelMode: 'walking');
+              },
+              onLaunchModeDirections: (mode) async {
+                Navigator.pop(sheetCtx);
+                if (mode == 'walking' || mode == 'driving') {
+                  await _requestStreetRoute(
+                    meeting,
+                    mode: mode == 'walking'
+                        ? StreetRouteMode.walking
+                        : StreetRouteMode.driving,
+                  );
+                } else {
+                  await _launchExternalDirections(meeting, travelMode: mode);
+                }
+              },
+            ),
+          );
+        },
       ),
     );
   }

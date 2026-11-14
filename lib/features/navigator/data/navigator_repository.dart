@@ -75,4 +75,12 @@ class NavigatorRepository {
       );
     }
   }
+
+  Future<bool> cancelJourneyRequest(String requestId) async {
+    try {
+      return await _bridge.cancelRequest(requestId: requestId);
+    } catch (_) {
+      return false;
+    }
+  }
 }
