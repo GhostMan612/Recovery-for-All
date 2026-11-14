@@ -547,6 +547,9 @@ at all.
   pointer: do not restart a phase from it. Its test counts are historical
   records; the current figure is at the top of the file.
 - `blueprints/dashboard-ia.md` — Path|Library tabs + modular tiles spec
+- `blueprints/SPEC_IMPLEMENTATION_LEDGER.md` — **status source of truth** for
+  spec → implementation → verification. A merged plan PR is not delivery; only
+  `RELEASED` rows have code merged and green CI on `main`.
 - `blueprints/lessons-learned.md` — mistake ledger, update on every trip
 - `SESSION_HANDOFF.md` — cold-start entry point, **update every session**
 - `AGENTS.md` — this file
@@ -589,8 +592,10 @@ it is now split in two on purpose.
 ### Per change, and every one of these are free — do them as you go
 
 1. `SESSION_HANDOFF.md` §3/§7 + the date line
-2. Tick affected `blueprints/*.md` checklist boxes
-3. Update the mistake ledger, `blueprints/lessons-learned.md`, if a trip happened
+2. Update `blueprints/SPEC_IMPLEMENTATION_LEDGER.md` when a spec's status,
+   implementation, or evidence changes. A docs-only change never advances a row.
+3. Tick affected `blueprints/*.md` checklist boxes
+4. Update the mistake ledger, `blueprints/lessons-learned.md`, if a trip happened
 
 The human never needs to say "update docs" — it is automatic.
 
