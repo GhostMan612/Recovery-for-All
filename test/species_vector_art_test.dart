@@ -149,7 +149,7 @@ void main() {
     test('the static fallback no longer renders an aura emoji', () {
       final src = codeOf('lib/widgets/avatar_visual_layer.dart');
       final staticBranch = src
-          .split('disableMotion = HardwareTierService.isLowEnd || AppMotion')
+          .split('if (reduceMotion) {')
           .elementAt(1)
           .split('final pet = widget.pet;')
           .first;

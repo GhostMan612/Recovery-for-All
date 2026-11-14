@@ -21,6 +21,7 @@ import '../services/feedback_service.dart';
 // state from the service — see the class doc below — but the type is declared
 // there, and `dashboardDataProvider` hands back that same type.
 import '../services/recovery_pet_service.dart';
+import '../widgets/game_sprite_stage.dart';
 import '../widgets/themed_background.dart' show appReduceMotion;
 import '../widgets/trial_monster_painter.dart';
 
@@ -676,6 +677,62 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
     );
   }
 
+  Widget _buildMonsterVisual(BattleState battle, Color monsterColor) {
+    final kind = _kindFor(battle.monster);
+    final fallbackPainter = TrialMonsterPainter(
+      kind: kind,
+      baseColor: Color.lerp(
+              monsterColor, Colors.white, _hitFlash * 0.55) ??
+          monsterColor,
+      t: _breath.value,
+      hitFlash: _hitFlash,
+    );
+
+    if (kind != TrialMonsterKind.wraith) {
+      return CustomPaint(painter: fallbackPainter);
+    }
+
+    final isResolved = battle.isTerminal &&
+        (battle.phase == BattlePhase.victory ||
+            battle.phase == BattlePhase.quietComplete);
+    final isHit = _hitFlash > 0.05;
+
+    final int startFrame;
+    final int frameCount;
+    final Duration frameDuration;
+    final bool loop;
+
+    if (isResolved) {
+      startFrame = CravingWraithSpriteConfig.fadeStart;
+      frameCount = CravingWraithSpriteConfig.fadeCount;
+      frameDuration = CravingWraithSpriteConfig.fadeDuration;
+      loop = false;
+    } else if (isHit) {
+      startFrame = CravingWraithSpriteConfig.hitStart;
+      frameCount = CravingWraithSpriteConfig.hitCount;
+      frameDuration = CravingWraithSpriteConfig.hitDuration;
+      loop = false;
+    } else {
+      startFrame = CravingWraithSpriteConfig.idleStart;
+      frameCount = CravingWraithSpriteConfig.idleCount;
+      frameDuration = CravingWraithSpriteConfig.idleDuration;
+      loop = true;
+    }
+
+    return GameSpriteStage(
+      key: ValueKey('wraith_${startFrame}_$loop'),
+      assetPath: CravingWraithSpriteConfig.asset,
+      startFrame: startFrame,
+      frameCount: frameCount,
+      frameDuration: frameDuration,
+      loop: loop,
+      staticFrame: CravingWraithSpriteConfig.staticFrame,
+      flashColor: isHit ? Colors.white : null,
+      flashAmount: isHit ? (_hitFlash * 0.55).clamp(0.0, 1.0) : 0.0,
+      fallback: CustomPaint(painter: fallbackPainter),
+    );
+  }
+
   Widget _buildMonsterStage(BattleState battle, Color monsterColor) {
     return SizedBox(
       height: 200,
@@ -697,16 +754,7 @@ class _PetTrialsScreenState extends ConsumerState<PetTrialsScreen>
                 child: SizedBox(
                   width: 160,
                   height: 160,
-                  child: CustomPaint(
-                    painter: TrialMonsterPainter(
-                      kind: _kindFor(battle.monster),
-                      baseColor: Color.lerp(
-                              monsterColor, Colors.white, _hitFlash * 0.55) ??
-                          monsterColor,
-                      t: _breath.value,
-                      hitFlash: _hitFlash,
-                    ),
-                  ),
+                  child: _buildMonsterVisual(battle, monsterColor),
                 ),
               ),
             ),
