@@ -17,7 +17,9 @@ import com.intellitrip.engine.AtlasEngine
 import com.intellitrip.engine.AtlasProviders
 import com.intellitrip.gtfs.GtfsFeedAcquirer
 import com.intellitrip.gtfs.PlatformFileStore
+import com.intellitrip.gtfs.StaticFeedBinaryCache
 import com.intellitrip.gtfs.StaticFeedSnapshotStore
+import com.intellitrip.gtfs.StopTimeIndexReader
 import com.intellitrip.routing.RoutingNetwork
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -598,5 +600,132 @@ class AtlasNativeBridgeTest {
         val refreshedOptions = (postRefreshPlan.value as Map<*, *>)["options"] as List<*>
         assertTrue(refreshedOptions.isNotEmpty())
         assertFalse(refreshedOptions.isEmpty())
+    }
+
+    @Test
+    fun skipsPass2WhenRemainingBudgetIsLowAndAllowsPass2WhenBudgetIsSufficient() {
+        val requestedTransfers = mutableListOf<Int?>()
+        val provider = object : RoutingProvider {
+            override val providerId = "budget-spy"
+            override suspend fun plan(request: TripPlanRequest): ProviderResult<List<JourneyOption>> {
+                requestedTransfers += request.maxTransfers
+                if (request.maxTransfers == 1) {
+                    delay(850)
+                    return ProviderResult.Success(
+                        emptyList(),
+                        FreshnessMetadata(Instant.DISTANT_PAST, Instant.DISTANT_PAST, Duration.ZERO, "budget-spy"),
+                    )
+                }
+                return ProviderResult.Success(
+                    emptyList(),
+                    FreshnessMetadata(Instant.DISTANT_PAST, Instant.DISTANT_PAST, Duration.ZERO, "budget-spy"),
+                )
+            }
+        }
+        val bridge = testBridge()
+        bridge.installEngineForTesting(
+            AtlasEngine(FeedId("metro-transit-regional"), AtlasProviders(routing = provider), offlineAvailable = true),
+            testNetwork(),
+        )
+
+        // With timeoutMs=4000ms and ~850ms spent on Pass 1, remaining budget is < MIN_PASS2_BUDGET_MS (3500ms).
+        val lowBudgetOutcome = awaitMethod(
+            bridge,
+            "planJourney",
+            mapOf(
+                "requestId" to "req-low-budget",
+                "meetingId" to "m1",
+                "origin" to mapOf("lat" to 44.9484, "lon" to -93.2982),
+                "destination" to mapOf("lat" to 44.9765, "lon" to -93.2725),
+                "departAtUtcMs" to Instant.parse("2026-11-16T13:45:00Z").toEpochMilliseconds(),
+                "timeoutMs" to 4_000L,
+            ),
+        ) as ReplyOutcome.Error
+        assertEquals("NO_ITINERARY", lowBudgetOutcome.code)
+        assertEquals(listOf<Int?>(1), requestedTransfers)
+
+        // With timeoutMs=12000ms, > 3500ms remains after Pass 1, so Pass 2 runs.
+        requestedTransfers.clear()
+        val highBudgetOutcome = awaitMethod(
+            bridge,
+            "planJourney",
+            mapOf(
+                "requestId" to "req-high-budget",
+                "meetingId" to "m1",
+                "origin" to mapOf("lat" to 44.9484, "lon" to -93.2982),
+                "destination" to mapOf("lat" to 44.9765, "lon" to -93.2725),
+                "departAtUtcMs" to Instant.parse("2026-11-16T13:45:00Z").toEpochMilliseconds(),
+                "timeoutMs" to 12_000L,
+            ),
+        ) as ReplyOutcome.Error
+        assertEquals("NO_ITINERARY", highBudgetOutcome.code)
+        assertEquals(listOf<Int?>(1, 2), requestedTransfers)
+    }
+
+    @Test
+    fun warmRestartUsesBinaryV2CacheAndUpgradesLegacyStopTimeIndex() {
+        val rootDir = Files.createTempDirectory("atlas-bridge-wo2c").toFile()
+        tempDirs += rootDir
+        val feedZip = buildMinimalGtfsZip()
+        val feedId = FeedId("metro-transit-regional")
+        val sourceUrl = "https://example.test/gtfs/${UUID.randomUUID()}.zip"
+
+        // Cold launch: seeds snapshot, writes STIDX004 index and v2 binary cache.
+        val coldBridge = AtlasNativeBridge(
+            context = null,
+            clock = { Instant.parse("2026-11-16T13:30:00Z") },
+            plannerDispatcher = Dispatchers.Default,
+            ioDispatcher = Dispatchers.IO,
+            mainDispatcher = Dispatchers.Default,
+            feedSourceUrl = sourceUrl,
+            snapshotStoreOverride = StaticFeedSnapshotStore(PlatformFileStore(rootDir.absolutePath)),
+            bundledAssetOpener = { feedZip },
+        )
+        val coldLoad = awaitMethod(coldBridge, "loadStaticNetwork", mapOf("feedId" to "default")) as ReplyOutcome.Success
+        assertEquals("ready", (coldLoad.value as Map<*, *>)["state"])
+
+        val verifyStore = StaticFeedSnapshotStore(PlatformFileStore(rootDir.absolutePath))
+        assertTrue(verifyStore.hasCurrentStopTimeIndex(feedId))
+        val cachedBytes = requireNotNull(verifyStore.readCache(feedId))
+        assertEquals(StaticFeedBinaryCache.VERSION, StaticFeedBinaryCache.versionOf(cachedBytes))
+
+        // Simulate a v0.3.1 device upgrading with an on-disk STIDX003 index header.
+        val idxFile = rootDir.walkTopDown().first { it.isFile && (it.name.endsWith(".idx") || it.name == "stop-times.idx") }
+        val idxBytes = idxFile.readBytes()
+        assertEquals("STIDX004", idxBytes.copyOfRange(0, 8).decodeToString())
+        idxBytes[7] = '3'.code.toByte()
+        idxFile.writeBytes(idxBytes)
+        assertFalse(StaticFeedSnapshotStore(PlatformFileStore(rootDir.absolutePath)).hasCurrentStopTimeIndex(feedId))
+
+        // Warm restart with NO bundledAssetOpener: must auto-reindex STIDX003 -> STIDX004 and plan cleanly.
+        val warmBridge = AtlasNativeBridge(
+            context = null,
+            clock = { Instant.parse("2026-11-16T13:30:00Z") },
+            plannerDispatcher = Dispatchers.Default,
+            ioDispatcher = Dispatchers.IO,
+            mainDispatcher = Dispatchers.Default,
+            feedSourceUrl = sourceUrl,
+            snapshotStoreOverride = StaticFeedSnapshotStore(PlatformFileStore(rootDir.absolutePath)),
+            bundledAssetOpener = null,
+        )
+        val warmLoad = awaitMethod(warmBridge, "loadStaticNetwork", mapOf("feedId" to "default")) as ReplyOutcome.Success
+        assertEquals("ready", (warmLoad.value as Map<*, *>)["state"])
+        assertTrue(StaticFeedSnapshotStore(PlatformFileStore(rootDir.absolutePath)).hasCurrentStopTimeIndex(feedId))
+
+        val zone = TimeZone.of("America/Chicago")
+        val warmPlan = awaitMethod(
+            warmBridge,
+            "planJourney",
+            mapOf(
+                "requestId" to "req-warm-wo2c",
+                "meetingId" to "m-warm",
+                "origin" to mapOf("lat" to 44.9484, "lon" to -93.2982),
+                "destination" to mapOf("lat" to 44.9765, "lon" to -93.2725),
+                "departAtUtcMs" to LocalDateTime(2026, 11, 16, 7, 45).toInstant(zone).toEpochMilliseconds(),
+            ),
+        ) as ReplyOutcome.Success
+        val options = (warmPlan.value as Map<*, *>)["options"] as List<*>
+        assertTrue(options.isNotEmpty())
+        assertTrue(StopTimeIndexReader.isCurrentFormat(rootDir.walkTopDown().first { it.isFile && (it.name.endsWith(".idx") || it.name == "stop-times.idx") }.readBytes()))
     }
 }
