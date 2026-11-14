@@ -3,15 +3,21 @@ Metro Transit (Twin Cities) GTFS static snapshot
 
 File:          metro_transit_regional.zip
 Source:        https://svc.metrotransit.org/mtgtfs/gtfs.zip
-Publisher:     Metro Transit, Minneapolis / St. Paul, Minnesota
-Captured:      2026-11-13T00:00:00Z
-Calendar span: 2026-10-10 through 2026-11-27 (calendar.txt)
-SHA-256:       0164765858d353001f42d66a40430d2ed6b2085cb859e0574df08b6a5ddbe2d6
-Contents:      agency, routes, trips, stop_times, stops, calendar, calendar_dates
+Publisher:     Metro Transit / Metropolitan Council, Minneapolis / St. Paul, Minnesota
+Feed version:  1794500765 (Last-Modified: Thu, 12 Nov 2026 18:00:39 GMT)
+Captured:      2026-11-14T08:55:36Z
+Calendar span: 2026-11-14 through 2027-01-01 (feed_info.txt / calendar.txt / calendar_dates.txt)
+Size (bytes):  29962070
+SHA-256:       6ea2819497cd88f276e7c7ea157b1b7258b4b1b1661694ab005bb7e1e1092f64
+Coverage:      8 agencies, 126 routes, 8545 stops, 40162 trips, 1932570 stop_times, 54 calendars, 178 calendar_dates, 494059 shape points
+Contents:      agency, calendar, calendar_dates, feed_info, levels, linked_datasets, notice_assignments, notices, pathways, routes, shapes, stop_amenities, stop_times, stops, trip_segments, trips, vehicles
+Integrity:     0 orphan trip_routes, 0 orphan trip_services, 0 orphan stop_time_trips, 0 orphan stop_time_stops
 License:       Metro Transit open data; see https://www.metrotransit.org/developer-resources
 
-This is a bundled offline snapshot, not a live feed. It is loaded once into the
-app-private Atlas snapshot store on first launch. The bridge does NOT download
-a new feed, poll vehicle positions, or contact a routing server. Update this
-asset, the SHA-256 above, and AtlasNativeBridge.BUNDLED_FEED_CAPTURED_AT in the
-same commit when refreshing it.
+This is a bundled offline snapshot. It is loaded once into the app-private
+Atlas snapshot store on first launch. The bridge does NOT download a new feed,
+poll vehicle positions, or make implicit network requests. Explicit user-initiated
+refreshes require granting the in-session `transitFeedRefresh` privacy
+capability in Settings, which invokes `refreshStaticFeed` against the publisher
+URL above. Update this asset, its metadata above, and
+`AtlasNativeBridge.BUNDLED_FEED_CAPTURED_AT` in the same commit when refreshing it.

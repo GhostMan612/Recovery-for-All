@@ -17,8 +17,11 @@ class _FakeAtlasBridge extends AtlasBridge {
   final Duration? simulatedDelay;
   final AtlasErrorCode? simulateErrorCode;
   final String? simulateErrorMessage;
+  final Map<String, dynamic>? simulateErrorDetails;
   int? lastDepartAtUtcMs;
   int? lastArriveBeforeUtcMs;
+  int? lastTimeoutMs;
+  final List<String> dispatchedRequestIds = <String>[];
   final List<String> cancelledRequestIds = <String>[];
 
   _FakeAtlasBridge({
@@ -27,6 +30,7 @@ class _FakeAtlasBridge extends AtlasBridge {
     this.simulatedDelay,
     this.simulateErrorCode,
     this.simulateErrorMessage,
+    this.simulateErrorDetails,
   });
 
   @override
@@ -42,10 +46,13 @@ class _FakeAtlasBridge extends AtlasBridge {
     int maxWalkMeters = 1500,
     bool allowRemote = false,
     List<String> transitModes = const ['bus', 'rail'],
+    int? timeoutMs,
     int apiVersion = AtlasBridge.currentApiVersion,
   }) async {
+    dispatchedRequestIds.add(requestId);
     lastDepartAtUtcMs = departAtUtcMs;
     lastArriveBeforeUtcMs = arriveBeforeUtcMs;
+    lastTimeoutMs = timeoutMs;
 
     if (simulatedDelay != null) {
       await Future<void>.delayed(simulatedDelay!);
@@ -55,6 +62,7 @@ class _FakeAtlasBridge extends AtlasBridge {
       throw AtlasException(
         code: simulateErrorCode!,
         message: simulateErrorMessage ?? 'Simulated error',
+        details: simulateErrorDetails,
       );
     }
 
@@ -784,7 +792,190 @@ void main() {
       expect(result.isRouteAvailableInApp, isFalse);
       expect(result.inAppPreview, isNull);
       expect(result.fallbackExternalDirectionsUrl, isNotNull);
+      expect(result.failureCode, equals(AtlasErrorCode.timeout));
       expect(result.statusMessage, contains('timed out'));
+    });
+
+    test('pre-canceled request skips native dispatch and notifies native cancel idempotently', () async {
+      final fakeBridge = _FakeAtlasBridge();
+      final repo = NavigatorRepository(bridge: fakeBridge);
+      final planner = MeetingJourneyPlanner(repository: repo);
+      final token = JourneyCancellationToken();
+      final preId = planner.allocateRequestId('104');
+
+      token.cancel();
+      token.cancel(); // idempotent repeat cancel
+
+      const destination = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '104',
+        name: 'St Paul Fellowship',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9500,
+        longitude: -93.1000,
+        address: '100 W 4th St, St Paul',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = await planner.planJourneyForMeeting(
+        destination: destination,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        requestId: preId,
+        cancellationToken: token,
+      );
+
+      expect(fakeBridge.dispatchedRequestIds, isEmpty);
+      expect(fakeBridge.cancelledRequestIds, equals([preId]));
+      expect(result.isRouteAvailableInApp, isFalse);
+      expect(result.failureCode, equals(AtlasErrorCode.canceled));
+      expect(result.statusMessage, contains('canceled'));
+    });
+
+    test('canceling an in-flight request completes with CANCELED rather than TIMEOUT or walk fallback', () async {
+      final slowBridge = _FakeAtlasBridge(
+        simulatedDelay: const Duration(seconds: 2),
+      );
+      final repo = NavigatorRepository(bridge: slowBridge);
+      final planner = MeetingJourneyPlanner(repository: repo);
+      final token = JourneyCancellationToken();
+      final preId = planner.allocateRequestId('105');
+
+      const destination = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '105',
+        name: 'Nearby Club',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9720,
+        longitude: -93.2590,
+        address: 'South 5th St, Minneapolis',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final future = planner.planJourneyForMeeting(
+        destination: destination,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        includeDirectWalk: true,
+        planTimeout: const Duration(seconds: 10),
+        requestId: preId,
+        cancellationToken: token,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      token.cancel();
+      token.cancel(); // idempotent repeat
+
+      final result = await future;
+      expect(slowBridge.dispatchedRequestIds, equals([preId]));
+      expect(slowBridge.cancelledRequestIds, equals([preId]));
+      expect(result.isRouteAvailableInApp, isFalse);
+      expect(result.inAppPreview, isNull);
+      expect(result.failureCode, equals(AtlasErrorCode.canceled));
+    });
+
+    test('missing origin stops surfaces Choose Starting Point and truthful direct-walk fallback', () async {
+      final bridge = _FakeAtlasBridge(
+        simulateErrorCode: AtlasErrorCode.noItinerary,
+        simulateErrorMessage: 'No transit stops within walk limit',
+        simulateErrorDetails: {
+          'missingReasons': ['stops-within-walk-limit', 'no-origin-stops-within-walk-limit'],
+        },
+      );
+      final planner = MeetingJourneyPlanner(repository: NavigatorRepository(bridge: bridge));
+
+      const nearbyDest = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '106',
+        name: 'Walkable Club',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9740,
+        longitude: -93.2550,
+        address: 'South 4th St, Minneapolis',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final result = await planner.planJourneyForMeeting(
+        destination: nearbyDest,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        includeDirectWalk: true,
+      );
+
+      expect(result.isRouteAvailableInApp, isTrue);
+      expect(result.hasTransitOptions, isFalse);
+      expect(result.canChooseManualOrigin, isTrue);
+      expect(result.failureCode, equals(AtlasErrorCode.noItinerary));
+      expect(result.missingReasons, contains('no-origin-stops-within-walk-limit'));
+      expect(result.statusMessage, contains('1.5 km'));
+      expect(result.statusMessage, contains('not a transit itinerary'));
+    });
+
+    test('FEED_EXPIRED surfaces expired status while keeping <= 5 km walk fallback and external Maps', () async {
+      final expiredBridge = _FakeAtlasBridge(
+        simulateErrorCode: AtlasErrorCode.feedExpired,
+        simulateErrorMessage: 'Schedule expired on 2026-11-27',
+      );
+      final planner = MeetingJourneyPlanner(repository: NavigatorRepository(bridge: expiredBridge));
+
+      const nearbyDest = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '107',
+        name: 'Walkable Club',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9740,
+        longitude: -93.2550,
+        address: 'South 4th St, Minneapolis',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final nearResult = await planner.planJourneyForMeeting(
+        destination: nearbyDest,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        includeDirectWalk: true,
+      );
+      expect(nearResult.isRouteAvailableInApp, isTrue);
+      expect(nearResult.hasTransitOptions, isFalse);
+      expect(nearResult.failureCode, equals(AtlasErrorCode.feedExpired));
+      expect(nearResult.inAppPreview?.freshness, equals('expired'));
+      expect(nearResult.fallbackExternalDirectionsUrl, contains('google.com/maps/dir'));
+
+      const farDest = MeetingDestination(
+        sourceId: 'tsml_aa_minnesota',
+        sourceMeetingId: '108',
+        name: 'St Paul Club',
+        fellowship: 'AA',
+        meetingType: 'Open',
+        latitude: 44.9500,
+        longitude: -93.1000,
+        address: 'St Paul, MN',
+        dayOfWeek: 1,
+        minuteOfDay: 19 * 60,
+        fetchedAtUtcMs: 1791750000000,
+      );
+
+      final farResult = await planner.planJourneyForMeeting(
+        destination: farDest,
+        originLat: 44.9700,
+        originLon: -93.2600,
+        includeDirectWalk: true,
+      );
+      expect(farResult.isRouteAvailableInApp, isFalse);
+      expect(farResult.failureCode, equals(AtlasErrorCode.feedExpired));
+      expect(farResult.fallbackExternalDirectionsUrl, contains('google.com/maps/dir'));
     });
   });
 }

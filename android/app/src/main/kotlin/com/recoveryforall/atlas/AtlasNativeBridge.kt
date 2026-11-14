@@ -34,19 +34,25 @@ import com.intellitrip.routing.StaticNetworkPlanner
 import com.intellitrip.routing.StopTimeSource
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
@@ -55,38 +61,101 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
+/** Single-completion bridge result seam for Flutter MethodChannel and JVM tests. */
+internal interface BridgeResult {
+    fun success(value: Any?)
+    fun error(code: String, message: String?, details: Any?)
+}
+
+internal class SingleReplyBridgeResult(
+    private val delegate: BridgeResult,
+) : BridgeResult {
+    private val replied = AtomicBoolean(false)
+
+    override fun success(value: Any?) {
+        if (replied.compareAndSet(false, true)) {
+            delegate.success(value)
+        }
+    }
+
+    override fun error(code: String, message: String?, details: Any?) {
+        if (replied.compareAndSet(false, true)) {
+            delegate.error(code, message, details)
+        }
+    }
+}
+
+private fun MethodChannel.Result.asSingleReply(): BridgeResult = SingleReplyBridgeResult(
+    object : BridgeResult {
+        override fun success(value: Any?) = this@asSingleReply.success(value)
+        override fun error(code: String, message: String?, details: Any?) =
+            this@asSingleReply.error(code, message, details)
+    },
+)
+
 /**
  * API-26+ implementation of `recoveryforall/atlas_v1`.
  *
- * The bundled static GTFS snapshot is the only data source. No remote routing,
- * no live positions and no network acquisition happen here; those need a
- * separate, explicit consent path.
+ * The bundled static GTFS snapshot is the offline default. Network acquisition
+ * runs ONLY when explicitly requested via `refreshStaticFeed` after user
+ * privacy consent; no implicit feed downloads happen at startup or during
+ * journey planning.
  */
-internal class AtlasNativeBridge(
-    private val context: Context,
+internal class AtlasNativeBridge internal constructor(
+    private val context: Context?,
+    private val clock: () -> Instant = { Clock.System.now() },
+    private val plannerDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
+    private val feedSourceUrl: String = DEFAULT_FEED_SOURCE_URL,
+    private val snapshotStoreOverride: StaticFeedSnapshotStore? = null,
+    private val bundledAssetOpener: (() -> ByteArray)? = null,
+    private val httpTransportFactory: (() -> GtfsFeedAcquirer.HttpTransport)? = null,
 ) : AtlasChannelAdapter.Delegate {
+
+    constructor(context: Context) : this(context = context, clock = { Clock.System.now() })
 
     private companion object {
         const val DEFAULT_FEED_ID = "metro-transit-regional"
         const val ASSET_PATH = "gtfs/metro_transit_regional.zip"
         const val ASSET_SOURCE_URL = "asset://gtfs/metro_transit_regional.zip"
+        const val DEFAULT_FEED_SOURCE_URL = "https://svc.metrotransit.org/mtgtfs/gtfs.zip"
+        const val USER_AGENT = "RecoveryForAll/1.0 (Android; Atlas-Bridge)"
         const val ROUTING_PROVIDER_ID = "atlas_static_planner"
+        const val DEFAULT_PLAN_TIMEOUT_MS = 12_000L
+        const val MAX_PLAN_TIMEOUT_MS = 60_000L
+        const val MAX_TRACKED_REQUEST_IDS = 512
+
+        val NO_STOP_COVERAGE_REASONS = setOf(
+            "stops-within-walk-limit",
+            "no-origin-stops-within-walk-limit",
+            "no-destination-stops-within-walk-limit",
+        )
 
         /**
          * Capture time of the bundled snapshot, not the time the app launched.
          *
-         * The asset's calendars cover 2026-10-10 through 2026-11-27; this is
-         * the date the snapshot was taken. Update it with the asset and its
+         * The asset's calendars cover 2026-11-14 through 2027-01-01; this is
+         * the snapshot timestamp. Update it with the asset and its
          * PROVENANCE.txt in the same commit.
          */
-        val BUNDLED_FEED_CAPTURED_AT: Instant = Instant.parse("2026-11-13T00:00:00Z")
+        val BUNDLED_FEED_CAPTURED_AT: Instant = Instant.parse("2026-11-14T08:55:36Z")
 
         val AGENCY_ZONE: TimeZone = TimeZone.of("America/Chicago")
     }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private class InFlightRequest(
+        val canceledByCaller: AtomicBoolean = AtomicBoolean(false),
+    ) {
+        lateinit var job: Job
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + plannerDispatcher)
     private val initMutex = Mutex()
-    private val inFlight = ConcurrentHashMap<String, Job>()
+    private val requestLock = Any()
+    private val inFlight = HashMap<String, InFlightRequest>()
+    private val preCanceled = LinkedHashSet<String>()
+    private val terminalRequests = LinkedHashSet<String>()
 
     @Volatile
     private var atlasEngine: AtlasEngine? = null
@@ -100,7 +169,9 @@ internal class AtlasNativeBridge(
     private val feedId = FeedId(DEFAULT_FEED_ID)
 
     private val snapshotStore: StaticFeedSnapshotStore by lazy {
-        StaticFeedSnapshotStore(PlatformFileStore(context.filesDir.absolutePath))
+        snapshotStoreOverride ?: StaticFeedSnapshotStore(
+            PlatformFileStore(requireNotNull(context).filesDir.absolutePath),
+        )
     }
 
     private val offlineRegistry: OfflineRegistry by lazy {
@@ -109,7 +180,7 @@ internal class AtlasNativeBridge(
 
     /** Warms the local snapshot without blocking the Flutter platform thread. */
     fun initAsync() {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             try {
                 ensureEngine(feedId)
             } catch (e: CancellationException) {
@@ -121,25 +192,42 @@ internal class AtlasNativeBridge(
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "getCapabilities" -> result.success(capabilities())
-            "loadStaticNetwork" -> handleLoadStaticNetwork(call, result)
-            "planJourney" -> handlePlanJourney(call, result)
-            "cancelRequest" -> handleCancelRequest(call, result)
-            "getOfflineStatus" -> handleOfflineStatus(call, result)
-            "getWeather" -> result.success(mapOf("status" to "unsupported"))
-            else -> result.notImplemented()
+        val args = call.arguments as? Map<*, *>
+        dispatchMethod(call.method, args, result.asSingleReply())
+    }
+
+    internal fun dispatchMethod(
+        method: String,
+        arguments: Map<*, *>?,
+        result: BridgeResult,
+    ) {
+        val reply = SingleReplyBridgeResult(result)
+        when (method) {
+            "getCapabilities" -> reply.success(capabilities())
+            "loadStaticNetwork" -> handleLoadStaticNetwork(arguments, reply)
+            "planJourney" -> handlePlanJourney(arguments, reply)
+            "cancelRequest" -> handleCancelRequest(arguments, reply)
+            "getOfflineStatus" -> handleOfflineStatus(arguments, reply)
+            "refreshStaticFeed" -> handleRefreshStaticFeed(arguments, reply)
+            "getWeather" -> reply.success(mapOf("status" to "unsupported"))
+            else -> reply.error("UNSUPPORTED_METHOD", "Unsupported method: $method", null)
         }
     }
+
+    private fun Map<*, *>?.stringArg(key: String): String? = this?.get(key) as? String
+    private fun Map<*, *>?.boolArg(key: String): Boolean? = this?.get(key) as? Boolean
+    private fun Map<*, *>?.numberArg(key: String): Number? = this?.get(key) as? Number
+    private fun Map<*, *>?.mapArg(key: String): Map<*, *>? = this?.get(key) as? Map<*, *>
+    private fun Map<*, *>?.listArg(key: String): List<*>? = this?.get(key) as? List<*>
 
     private fun capabilities(): Map<String, Any?> {
         val engine = atlasEngine
         val network = routingNetwork
         val usable = engine != null &&
             network != null &&
-            !isFeedExpired(network.metadata, Clock.System.now())
-        val hasRouting = usable && engine?.providers?.routing != null
-        val hasStatic = usable && engine?.providers?.transitStatic != null
+            !isFeedExpired(network.metadata, clock())
+        val hasRouting = usable && engine.providers.routing != null
+        val hasStatic = usable && engine.providers.transitStatic != null
         return mapOf(
             "version" to AtlasChannelAdapter.CURRENT_API_VERSION,
             "staticTransit" to hasStatic,
@@ -151,65 +239,88 @@ internal class AtlasNativeBridge(
         )
     }
 
-    private fun handleLoadStaticNetwork(call: MethodCall, result: MethodChannel.Result) {
-        val requested = call.argument<String>("feedId")?.takeIf { it.isNotBlank() } ?: DEFAULT_FEED_ID
+    private fun handleLoadStaticNetwork(arguments: Map<*, *>?, reply: BridgeResult) {
+        val requested = arguments.stringArg("feedId")?.takeIf { it.isNotBlank() } ?: DEFAULT_FEED_ID
         val target = if (requested == "default") feedId else FeedId(requested)
-        val fromCacheOnly = call.argument<Boolean>("fromCacheOnly") ?: true
+        val fromCacheOnly = arguments.boolArg("fromCacheOnly") ?: true
 
         if (target != feedId) {
-            result.success(missingStatus("unsupported_feed"))
+            reply.success(missingStatus("unsupported_feed"))
             return
         }
 
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             try {
                 val engine = ensureEngine(target)
                 val network = routingNetwork
                 if (engine == null || network == null) {
-                    sendSuccess(result, missingStatus(failureSource(fromCacheOnly)))
+                    sendSuccess(reply, missingStatus(failureSource(fromCacheOnly)))
                     return@launch
                 }
 
-                val metadata = network.metadata
-                val expired = isFeedExpired(metadata, Clock.System.now())
-                val source = if (metadata.sourceUrl?.startsWith("asset:") == true) {
-                    "bundled_asset"
-                } else {
-                    "static_gtfs"
-                }
-                sendSuccess(
-                    result,
-                    mapOf(
-                        "state" to if (expired) "expired" else "ready",
-                        "feedHash" to metadata.hash,
-                        "fetchedAt" to metadata.fetchedAt.toEpochMilliseconds(),
-                        "expiresAt" to expiresAtUtcMs(metadata),
-                        "stopCount" to network.stops.size,
-                        "source" to source,
-                    ),
-                )
+                sendSuccess(reply, statusMapForNetwork(network))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                sendError(result, "NATIVE_FAILURE", "Failed to load static network: ${e.message}", null)
+                sendError(reply, "NATIVE_FAILURE", "Failed to load static network: ${e.message}", null)
             }
         }
     }
 
-    private fun handlePlanJourney(call: MethodCall, result: MethodChannel.Result) {
-        val requestId = call.argument<String>("requestId")?.trim().orEmpty()
-        if (requestId.isEmpty()) {
-            result.error("BAD_INPUT", "requestId must not be empty", null)
-            return
+    private fun reqHash(requestId: String): String = requestId.hashCode().toUInt().toString(16)
+
+    private fun logInfo(message: String) {
+        if (context != null) {
+            runCatching { android.util.Log.i("AtlasNativeBridge", message) }
         }
-        if (inFlight.containsKey(requestId)) {
-            result.error("BAD_INPUT", "requestId is already in flight", mapOf("requestId" to requestId))
+    }
+
+    private fun recordTerminalLocked(requestId: String) {
+        terminalRequests.remove(requestId)
+        terminalRequests.add(requestId)
+        while (terminalRequests.size > MAX_TRACKED_REQUEST_IDS) {
+            val oldest = terminalRequests.first()
+            terminalRequests.remove(oldest)
+        }
+    }
+
+    private fun markPreCanceledLocked(requestId: String) {
+        preCanceled.remove(requestId)
+        preCanceled.add(requestId)
+        while (preCanceled.size > MAX_TRACKED_REQUEST_IDS) {
+            val oldest = preCanceled.first()
+            preCanceled.remove(oldest)
+        }
+    }
+
+    private fun statusMapForNetwork(network: RoutingNetwork, sourceOverride: String? = null): Map<String, Any?> {
+        val metadata = network.metadata
+        val expired = isFeedExpired(metadata, clock())
+        val source = sourceOverride ?: if (metadata.sourceUrl?.startsWith("asset:") == true) {
+            "bundled_asset"
+        } else {
+            "static_gtfs"
+        }
+        return mapOf(
+            "state" to if (expired) "expired" else "ready",
+            "feedHash" to metadata.hash,
+            "fetchedAt" to metadata.fetchedAt.toEpochMilliseconds(),
+            "expiresAt" to expiresAtUtcMs(metadata),
+            "stopCount" to network.stops.size,
+            "source" to source,
+        )
+    }
+
+    private fun handlePlanJourney(arguments: Map<*, *>?, reply: BridgeResult) {
+        val requestId = arguments.stringArg("requestId")?.trim().orEmpty()
+        if (requestId.isEmpty()) {
+            reply.error("BAD_INPUT", "requestId must not be empty", null)
             return
         }
 
-        val allowRemote = call.argument<Boolean>("allowRemote") ?: false
+        val allowRemote = arguments.boolArg("allowRemote") ?: false
         if (allowRemote) {
-            result.error(
+            reply.error(
                 "REMOTE_DISABLED",
                 "Remote routing is disabled in this build; only the bundled static planner is available.",
                 mapOf("requestId" to requestId),
@@ -217,11 +328,11 @@ internal class AtlasNativeBridge(
             return
         }
 
-        val modes = call.argument<List<*>>("transitModes")
+        val modes = arguments.listArg("transitModes")
             ?.mapNotNull { it as? String }
             ?.toSet()
         if (modes != null && (modes.isEmpty() || modes.any { it !in setOf("bus", "rail") })) {
-            result.error(
+            reply.error(
                 "BAD_INPUT",
                 "transitModes must contain 'bus' and/or 'rail'",
                 mapOf("requestId" to requestId),
@@ -229,20 +340,20 @@ internal class AtlasNativeBridge(
             return
         }
 
-        val meetingId = call.argument<String>("meetingId") ?: ""
-        val originMap = call.argument<Map<String, Any?>>("origin")
-        val destinationMap = call.argument<Map<String, Any?>>("destination")
+        val meetingId = arguments.stringArg("meetingId") ?: ""
+        val originMap = arguments.mapArg("origin")
+        val destinationMap = arguments.mapArg("destination")
         val originLat = (originMap?.get("lat") as? Number)?.toDouble()
         val originLon = (originMap?.get("lon") as? Number)?.toDouble()
         val destLat = (destinationMap?.get("lat") as? Number)?.toDouble()
         val destLon = (destinationMap?.get("lon") as? Number)?.toDouble()
 
         if (originLat == null || originLon == null || destLat == null || destLon == null) {
-            result.error("BAD_INPUT", "Missing origin or destination coordinates", null)
+            reply.error("BAD_INPUT", "Missing origin or destination coordinates", null)
             return
         }
         if (!isValidCoordinate(originLat, originLon) || !isValidCoordinate(destLat, destLon)) {
-            result.error(
+            reply.error(
                 "BAD_INPUT",
                 "Coordinates out of bounds: origin($originLat, $originLon), dest($destLat, $destLon)",
                 null,
@@ -250,30 +361,111 @@ internal class AtlasNativeBridge(
             return
         }
 
-        val maxWalkMeters = (call.argument<Number>("maxWalkMeters"))?.toInt() ?: 1500
+        val maxWalkMeters = arguments.numberArg("maxWalkMeters")?.toInt() ?: 1500
         if (maxWalkMeters < 0) {
-            result.error("BAD_INPUT", "maxWalkMeters must not be negative", null)
+            reply.error("BAD_INPUT", "maxWalkMeters must not be negative", null)
             return
         }
 
-        val departAtUtcMs = (call.argument<Number>("departAtUtcMs"))?.toLong() ?: System.currentTimeMillis()
-        val arriveBeforeUtcMs = (call.argument<Number>("arriveBeforeUtcMs"))?.toLong()
+        val departAtUtcMs = arguments.numberArg("departAtUtcMs")?.toLong() ?: clock().toEpochMilliseconds()
+        val arriveBeforeUtcMs = arguments.numberArg("arriveBeforeUtcMs")?.toLong()
+        val timeoutMs = (arguments.numberArg("timeoutMs")?.toLong() ?: DEFAULT_PLAN_TIMEOUT_MS)
+            .coerceIn(1L, MAX_PLAN_TIMEOUT_MS)
 
-        val job = scope.launch(Dispatchers.Default) {
-            try {
+        val entry = InFlightRequest()
+        val job = scope.launch(plannerDispatcher, start = CoroutineStart.LAZY) {
+            executePlanJourney(
+                requestId = requestId,
+                meetingId = meetingId,
+                originLat = originLat,
+                originLon = originLon,
+                destLat = destLat,
+                destLon = destLon,
+                maxWalkMeters = maxWalkMeters,
+                departAtUtcMs = departAtUtcMs,
+                arriveBeforeUtcMs = arriveBeforeUtcMs,
+                timeoutMs = timeoutMs,
+                entry = entry,
+                reply = reply,
+            )
+        }
+        entry.job = job
+
+        var duplicateInFlight = false
+        var canceledBeforeStart = false
+        synchronized(requestLock) {
+            when {
+                inFlight.containsKey(requestId) -> duplicateInFlight = true
+                preCanceled.remove(requestId) -> {
+                    recordTerminalLocked(requestId)
+                    canceledBeforeStart = true
+                }
+                else -> inFlight[requestId] = entry
+            }
+        }
+
+        if (duplicateInFlight) {
+            job.cancel()
+            reply.error("BAD_INPUT", "requestId is already in flight", mapOf("requestId" to requestId))
+            return
+        }
+        if (canceledBeforeStart) {
+            job.cancel()
+            reply.error(
+                "CANCELED",
+                "Journey request was canceled",
+                mapOf("requestId" to requestId),
+            )
+            return
+        }
+
+        job.invokeOnCompletion {
+            synchronized(requestLock) {
+                if (inFlight[requestId] === entry) {
+                    inFlight.remove(requestId)
+                }
+                recordTerminalLocked(requestId)
+            }
+        }
+        logInfo("planJourney start reqHash=${reqHash(requestId)} timeoutMs=$timeoutMs")
+        job.start()
+    }
+
+    private suspend fun executePlanJourney(
+        requestId: String,
+        meetingId: String,
+        originLat: Double,
+        originLon: Double,
+        destLat: Double,
+        destLon: Double,
+        maxWalkMeters: Int,
+        departAtUtcMs: Long,
+        arriveBeforeUtcMs: Long?,
+        timeoutMs: Long,
+        entry: InFlightRequest,
+        reply: BridgeResult,
+    ) {
+        val startedAtMs = System.nanoTime() / 1_000_000L
+        fun elapsedMs(): Long = (System.nanoTime() / 1_000_000L) - startedAtMs
+        val reqTag = reqHash(requestId)
+        try {
+            withTimeout(timeoutMs) {
+                coroutineContext.ensureActive()
                 val engine = ensureEngine(feedId)
                 val network = routingNetwork
                 if (engine == null || network == null) {
+                    logInfo("planJourney missing_feed reqHash=$reqTag elapsedMs=${elapsedMs()}")
                     sendError(
-                        result,
+                        reply,
                         "MISSING_FEED",
                         "Atlas static network is not ready: ${initFailure ?: "unknown"}",
-                        mapOf("meetingId" to meetingId, "isSynthetic" to false),
+                        mapOf("requestId" to requestId, "meetingId" to meetingId, "isSynthetic" to false),
                     )
-                    return@launch
+                    return@withTimeout
                 }
 
                 val metadata = network.metadata
+                val now = clock()
                 val departAt = Instant.fromEpochMilliseconds(departAtUtcMs)
                 val arriveBy = arriveBeforeUtcMs?.let { Instant.fromEpochMilliseconds(it) }
                 val effectiveDepartAt = if (arriveBy != null) {
@@ -283,20 +475,22 @@ internal class AtlasNativeBridge(
                     departAt
                 }
 
-                if (isFeedExpired(metadata, Clock.System.now()) || isFeedExpired(metadata, effectiveDepartAt)) {
+                if (isFeedExpired(metadata, now) || isFeedExpired(metadata, effectiveDepartAt)) {
+                    logInfo("planJourney feed_expired reqHash=$reqTag elapsedMs=${elapsedMs()}")
                     sendError(
-                        result,
+                        reply,
                         "FEED_EXPIRED",
-                        "The bundled Metro Transit schedule expired on ${metadata.validTo}. " +
-                            "Journey planning is disabled until a newer feed is bundled.",
+                        "The Metro Transit schedule expired on ${metadata.validTo}. " +
+                            "Refresh the static schedule in Settings or use external directions.",
                         mapOf(
+                            "requestId" to requestId,
                             "meetingId" to meetingId,
                             "isSynthetic" to false,
                             "feedId" to feedId.value,
                             "validTo" to metadata.validTo?.toString(),
                         ),
                     )
-                    return@launch
+                    return@withTimeout
                 }
 
                 fun buildPlanRequest(transfers: Int) = TripPlanRequest(
@@ -308,32 +502,49 @@ internal class AtlasNativeBridge(
                     maxWalkMeters = maxWalkMeters.toDouble(),
                 )
 
+                coroutineContext.ensureActive()
                 val primaryOutcome = engine.planJourney(buildPlanRequest(1))
-                val outcome = if (primaryOutcome is JourneyOutcome.Unavailable ||
-                    (primaryOutcome is JourneyOutcome.Planned && primaryOutcome.journeys.isEmpty())
-                ) {
+                coroutineContext.ensureActive()
+
+                val primaryMissing = (primaryOutcome as? JourneyOutcome.Unavailable)?.missing.orEmpty()
+                val noStopsWithinWalkLimit = primaryMissing.any { it in NO_STOP_COVERAGE_REASONS }
+                val shouldRetryWithSecondTransfer = !noStopsWithinWalkLimit && (
+                    primaryOutcome is JourneyOutcome.Unavailable ||
+                        (primaryOutcome is JourneyOutcome.Planned && primaryOutcome.journeys.isEmpty())
+                    )
+
+                val outcome = if (shouldRetryWithSecondTransfer) {
+                    coroutineContext.ensureActive()
+                    logInfo("planJourney pass2 reqHash=$reqTag elapsedMs=${elapsedMs()}")
                     engine.planJourney(buildPlanRequest(2))
                 } else {
                     primaryOutcome
                 }
 
+                coroutineContext.ensureActive()
                 when (outcome) {
                     is JourneyOutcome.Planned -> {
                         if (outcome.journeys.isEmpty()) {
+                            logInfo("planJourney no_itinerary_empty reqHash=$reqTag elapsedMs=${elapsedMs()}")
                             sendError(
-                                result,
+                                reply,
                                 "NO_ITINERARY",
                                 "No transit route found between locations for the requested departure time",
-                                mapOf("requestId" to requestId, "meetingId" to meetingId),
+                                mapOf(
+                                    "requestId" to requestId,
+                                    "meetingId" to meetingId,
+                                    "missingReasons" to emptyList<String>(),
+                                ),
                             )
-                            return@launch
+                            return@withTimeout
                         }
 
                         val options = outcome.journeys.map { journey ->
                             serializeJourney(journey, network)
                         }
+                        logInfo("planJourney planned reqHash=$reqTag options=${options.size} elapsedMs=${elapsedMs()}")
                         sendSuccess(
-                            result,
+                            reply,
                             mapOf(
                                 "version" to AtlasChannelAdapter.CURRENT_API_VERSION,
                                 "requestId" to requestId,
@@ -342,52 +553,194 @@ internal class AtlasNativeBridge(
                                 "dataSource" to "static_gtfs",
                                 "isSynthetic" to false,
                                 "fetchedAtUtcMs" to metadata.fetchedAt.toEpochMilliseconds(),
-                                "freshness" to freshness(metadata, Clock.System.now()),
+                                "freshness" to freshness(metadata, clock()),
                                 "options" to options,
                             ),
                         )
                     }
 
-                    is JourneyOutcome.Unavailable -> sendError(
-                        result,
-                        "NO_ITINERARY",
-                        outcome.reason,
-                        mapOf("requestId" to requestId, "meetingId" to meetingId),
-                    )
+                    is JourneyOutcome.Unavailable -> {
+                        if ("timeout" in outcome.missing) {
+                            logInfo("planJourney planner_timeout reqHash=$reqTag elapsedMs=${elapsedMs()}")
+                            sendError(
+                                reply,
+                                "TIMEOUT",
+                                "Transit schedule is still initializing or route calculation timed out",
+                                mapOf(
+                                    "requestId" to requestId,
+                                    "meetingId" to meetingId,
+                                    "timeoutMs" to timeoutMs,
+                                ),
+                            )
+                        } else {
+                            logInfo("planJourney no_itinerary reqHash=$reqTag reasons=${outcome.missing} elapsedMs=${elapsedMs()}")
+                            sendError(
+                                reply,
+                                "NO_ITINERARY",
+                                outcome.reason,
+                                mapOf(
+                                    "requestId" to requestId,
+                                    "meetingId" to meetingId,
+                                    "missingReasons" to outcome.missing,
+                                ),
+                            )
+                        }
+                    }
                 }
-            } catch (e: CancellationException) {
-                sendCancelled(result, requestId)
-                throw e
-            } catch (e: Exception) {
+            }
+        } catch (e: TimeoutCancellationException) {
+            logInfo(
+                "planJourney timeout_exception reqHash=$reqTag " +
+                    "canceledByCaller=${entry.canceledByCaller.get()} elapsedMs=${elapsedMs()}",
+            )
+            if (entry.canceledByCaller.get()) {
+                sendCancelled(reply, requestId)
+                throw CancellationException("Journey request $requestId canceled during timeout", e)
+            } else {
                 sendError(
-                    result,
-                    "NATIVE_FAILURE",
-                    "Journey planning failed: ${e.message}",
-                    mapOf("requestId" to requestId, "meetingId" to meetingId),
+                    reply,
+                    "TIMEOUT",
+                    "Transit schedule is still initializing or route calculation timed out",
+                    mapOf(
+                        "requestId" to requestId,
+                        "meetingId" to meetingId,
+                        "timeoutMs" to timeoutMs,
+                    ),
                 )
+            }
+        } catch (e: CancellationException) {
+            logInfo(
+                "planJourney coroutine_canceled reqHash=$reqTag " +
+                    "canceledByCaller=${entry.canceledByCaller.get()} elapsedMs=${elapsedMs()}",
+            )
+            sendCancelled(reply, requestId)
+            throw e
+        } catch (e: Exception) {
+            logInfo("planJourney error reqHash=$reqTag type=${e::class.java.simpleName} elapsedMs=${elapsedMs()}")
+            sendError(
+                reply,
+                "NATIVE_FAILURE",
+                "Journey planning failed: ${e.message}",
+                mapOf("requestId" to requestId, "meetingId" to meetingId),
+            )
+        }
+    }
+
+    private fun handleCancelRequest(arguments: Map<*, *>?, reply: BridgeResult) {
+        val requestId = arguments.stringArg("requestId")?.trim().orEmpty()
+        if (requestId.isEmpty()) {
+            reply.success(mapOf("cancelRequested" to false, "requestId" to requestId))
+            return
+        }
+
+        val activeEntry: InFlightRequest?
+        synchronized(requestLock) {
+            activeEntry = inFlight.remove(requestId)
+            if (activeEntry != null) {
+                activeEntry.canceledByCaller.set(true)
+                recordTerminalLocked(requestId)
+            } else if (!terminalRequests.contains(requestId)) {
+                markPreCanceledLocked(requestId)
             }
         }
 
-        inFlight[requestId] = job
-        job.invokeOnCompletion { inFlight.remove(requestId, job) }
-    }
-
-    private fun handleCancelRequest(call: MethodCall, result: MethodChannel.Result) {
-        val requestId = call.argument<String>("requestId") ?: ""
-        val job = inFlight.remove(requestId)
-        if (job != null) {
-            job.cancel()
-            result.success(mapOf("cancelRequested" to true, "requestId" to requestId))
+        logInfo("cancelRequest reqHash=${reqHash(requestId)} active=${activeEntry != null}")
+        if (activeEntry != null) {
+            activeEntry.job.cancel()
+            reply.success(mapOf("cancelRequested" to true, "requestId" to requestId))
         } else {
-            // Never report a cancellation that did not happen.
-            result.success(mapOf("cancelRequested" to false, "requestId" to requestId))
+            // Never report an active cancellation when no job was running yet or after completion.
+            reply.success(mapOf("cancelRequested" to false, "requestId" to requestId))
         }
     }
 
-    private fun handleOfflineStatus(call: MethodCall, result: MethodChannel.Result) {
-        val requested = call.argument<String>("feedId")?.takeIf { it.isNotBlank() } ?: "default"
+    private fun handleRefreshStaticFeed(arguments: Map<*, *>?, reply: BridgeResult) {
+        val userConsented = arguments.boolArg("userConsented") == true
+        if (!userConsented) {
+            reply.error(
+                "PERMISSION_REQUIRED",
+                "User consent (transitFeedRefresh) is required before refreshing the transit schedule.",
+                null,
+            )
+            return
+        }
+
+        val requested = arguments.stringArg("feedId")?.takeIf { it.isNotBlank() } ?: DEFAULT_FEED_ID
+        val target = if (requested == "default") feedId else FeedId(requested)
+        if (target != feedId) {
+            reply.error("BAD_INPUT", "Unsupported feedId: $requested", null)
+            return
+        }
+
+        scope.launch(ioDispatcher) {
+            try {
+                val acquirer = GtfsFeedAcquirer(
+                    userAgent = USER_AGENT,
+                    transport = httpTransportFactory?.invoke() ?: com.intellitrip.gtfs.defaultHttpTransport(),
+                )
+                val refresher = StaticFeedRefresher(
+                    feedId = target,
+                    sourceUrl = feedSourceUrl,
+                    acquirer = acquirer,
+                    store = snapshotStore,
+                    clock = clock,
+                    ioDispatcher = ioDispatcher,
+                )
+                when (val outcome = refresher.refresh()) {
+                    is RefreshOutcome.Activated -> {
+                        val network = initMutex.withLock {
+                            val rebuilt = buildNetwork(outcome.feed)
+                            // Warm the lazy StopTimeIndex before releasing the lock so first planJourney avoids cold index load.
+                            val warmStartMs = System.nanoTime() / 1_000_000L
+                            rebuilt.stops.firstOrNull()?.let { rebuilt.tripsServing(it.key) }
+                            logInfo("StopTimeIndex refreshed stops=${rebuilt.stops.size} elapsedMs=${(System.nanoTime() / 1_000_000L) - warmStartMs}")
+                            installNetworkAndEngineLocked(target, outcome.feed, rebuilt)
+                            rebuilt
+                        }
+                        sendSuccess(reply, statusMapForNetwork(network, sourceOverride = "remote_gtfs_refreshed"))
+                    }
+
+                    is RefreshOutcome.NotModified -> {
+                        val engine = ensureEngine(target)
+                        val network = routingNetwork
+                        if (engine == null || network == null) {
+                            sendError(
+                                reply,
+                                "MISSING_FEED",
+                                "Snapshot is not available after 304 Not Modified.",
+                                null,
+                            )
+                        } else {
+                            sendSuccess(reply, statusMapForNetwork(network, sourceOverride = "not_modified"))
+                        }
+                    }
+
+                    is RefreshOutcome.Rejected -> {
+                        sendError(
+                            reply,
+                            "NETWORK_FAILURE",
+                            "Transit schedule refresh failed: ${outcome.reason}",
+                            null,
+                        )
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                sendError(
+                    reply,
+                    "NETWORK_FAILURE",
+                    "Transit schedule refresh failed: ${e.message}",
+                    null,
+                )
+            }
+        }
+    }
+
+    private fun handleOfflineStatus(arguments: Map<*, *>?, reply: BridgeResult) {
+        val requested = arguments.stringArg("feedId")?.takeIf { it.isNotBlank() } ?: "default"
         if (requested != "default" && requested != DEFAULT_FEED_ID) {
-            result.success(
+            reply.success(
                 mapOf(
                     "staticNetwork" to "unavailable",
                     "basemap" to "cached_tiles",
@@ -399,11 +752,11 @@ internal class AtlasNativeBridge(
             return
         }
 
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             try {
-                val now = Clock.System.now()
+                val now = clock()
                 val snapshot = snapshotStore.activeSnapshot(feedId)
-                val metadata = snapshot?.metadata
+                val metadata = snapshot?.metadata ?: routingNetwork?.metadata
                 val ready = atlasEngine != null && routingNetwork != null
                 val expired = metadata != null && isFeedExpired(metadata, now)
                 val dataAgeSeconds = metadata?.let { meta ->
@@ -416,13 +769,13 @@ internal class AtlasNativeBridge(
                 }
                 val routingState = if (ready && !expired) "ready" else "unavailable"
                 val note = when {
-                    expired -> "Bundled schedule expired on ${metadata?.validTo}; " +
-                        "planning is disabled until a newer feed is bundled."
-                    ready -> "Bundled Metro Transit schedule loaded; no live vehicle data."
+                    expired -> "Metro Transit schedule expired on ${metadata.validTo}; " +
+                        "planning is disabled until refreshed in Settings."
+                    ready -> "Metro Transit schedule loaded (valid through ${metadata?.validTo ?: "unknown"}); no live vehicle data."
                     else -> "Bundled schedule is not initialized: ${initFailure ?: "unknown"}."
                 }
                 sendSuccess(
-                    result,
+                    reply,
                     mapOf(
                         "staticNetwork" to staticState,
                         "basemap" to "cached_tiles",
@@ -434,9 +787,39 @@ internal class AtlasNativeBridge(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                sendError(result, "NATIVE_FAILURE", "Failed to read offline status: ${e.message}", null)
+                sendError(reply, "NATIVE_FAILURE", "Failed to read offline status: ${e.message}", null)
             }
         }
+    }
+
+    internal fun installEngineForTesting(engine: AtlasEngine, network: RoutingNetwork) {
+        routingNetwork = network
+        atlasEngine = engine
+        initFailure = null
+    }
+
+    private fun installNetworkAndEngineLocked(
+        target: FeedId,
+        feed: StaticFeed,
+        network: RoutingNetwork,
+    ): AtlasEngine {
+        val planner = StaticNetworkPlanner(
+            network = network,
+            agencyZone = AGENCY_ZONE,
+            providerId = ROUTING_PROVIDER_ID,
+        )
+        val engine = AtlasEngine(
+            feedId = target,
+            providers = AtlasProviders(
+                routing = planner,
+                transitStatic = InMemoryStaticTransitProvider(feed, providerId = "atlas_gtfs_static"),
+            ),
+            offlineAvailable = !isFeedExpired(network.metadata, clock()),
+        )
+        routingNetwork = network
+        atlasEngine = engine
+        initFailure = null
+        return engine
     }
 
     private suspend fun ensureEngine(target: FeedId): AtlasEngine? = initMutex.withLock {
@@ -475,24 +858,11 @@ internal class AtlasNativeBridge(
         }
         if (network == null) return@withLock null
 
-        val planner = StaticNetworkPlanner(
-            network = network,
-            agencyZone = AGENCY_ZONE,
-            providerId = ROUTING_PROVIDER_ID,
-        )
-        val engine = AtlasEngine(
-            feedId = target,
-            providers = AtlasProviders(
-                routing = planner,
-                transitStatic = InMemoryStaticTransitProvider(feed, providerId = "atlas_gtfs_static"),
-            ),
-            offlineAvailable = !isFeedExpired(network.metadata, Clock.System.now()),
-        )
-
-        routingNetwork = network
-        atlasEngine = engine
-        initFailure = null
-        engine
+        // Warm the lazy StopTimeIndex before exposing the engine so the first planJourney call does not pay cold index parse.
+        val warmStartMs = System.nanoTime() / 1_000_000L
+        network.stops.firstOrNull()?.let { network.tripsServing(it.key) }
+        logInfo("StopTimeIndex ensured stops=${network.stops.size} elapsedMs=${(System.nanoTime() / 1_000_000L) - warmStartMs}")
+        installNetworkAndEngineLocked(target, feed, network)
     }
 
     /**
@@ -501,7 +871,8 @@ internal class AtlasNativeBridge(
      * no request leaves the device.
      */
     private fun seedFromBundledAsset(target: FeedId) = try {
-        val payload = context.assets.open(ASSET_PATH).use { it.readBytes() }
+        val payload = bundledAssetOpener?.invoke()
+            ?: requireNotNull(context).assets.open(ASSET_PATH).use { it.readBytes() }
         val etag = "asset-" + GtfsFeedAcquirer.sha256(payload).take(16)
         val transport = GtfsFeedAcquirer.HttpTransport { _ ->
             GtfsFeedAcquirer.HttpResponse(200, payload, mapOf("ETag" to etag))
@@ -510,7 +881,7 @@ internal class AtlasNativeBridge(
             feedId = target,
             sourceUrl = ASSET_SOURCE_URL,
             acquirer = GtfsFeedAcquirer(
-                userAgent = "RecoveryForAll/1.0 (Android; Atlas-Bridge)",
+                userAgent = USER_AGENT,
                 transport = transport,
             ),
             store = snapshotStore,
@@ -713,26 +1084,26 @@ internal class AtlasNativeBridge(
     private fun isValidCoordinate(lat: Double, lon: Double): Boolean =
         lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0
 
-    private suspend fun sendSuccess(result: MethodChannel.Result, value: Any?) {
-        withContext(Dispatchers.Main) { result.success(value) }
+    private suspend fun sendSuccess(result: BridgeResult, value: Any?) {
+        withContext(NonCancellable + mainDispatcher) { result.success(value) }
     }
 
     private suspend fun sendError(
-        result: MethodChannel.Result,
+        result: BridgeResult,
         code: String,
         message: String,
         details: Any?,
     ) {
-        withContext(Dispatchers.Main) { result.error(code, message, details) }
+        withContext(NonCancellable + mainDispatcher) { result.error(code, message, details) }
     }
 
     /**
-     * A cancelled planJourney must still complete its Dart Future; otherwise a
-     * cancellable UI leaves a pending request forever. NonCancellable is
+     * A cancelled planJourney must still complete its Dart Future once; otherwise
+     * a cancellable UI leaves a pending request forever. NonCancellable is
      * required because this coroutine is already cancelled here.
      */
-    private suspend fun sendCancelled(result: MethodChannel.Result, requestId: String) {
-        withContext(NonCancellable + Dispatchers.Main) {
+    private suspend fun sendCancelled(result: BridgeResult, requestId: String) {
+        withContext(NonCancellable + mainDispatcher) {
             result.error(
                 "CANCELED",
                 "Journey request was canceled",

@@ -11,6 +11,7 @@
         android:label="Recovery for All"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:largeHeap="true"
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules">

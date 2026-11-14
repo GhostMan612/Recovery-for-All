@@ -17,6 +17,36 @@ enum JourneyPlanningMode {
   leaveNow,
 }
 
+/// Idempotent cooperative cancellation token for meeting route requests.
+class JourneyCancellationToken {
+  bool _isCanceled = false;
+  final List<VoidCallback> _listeners = <VoidCallback>[];
+
+  bool get isCanceled => _isCanceled;
+
+  void addListener(VoidCallback listener) {
+    if (_isCanceled) {
+      listener();
+    } else {
+      _listeners.add(listener);
+    }
+  }
+
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  void cancel() {
+    if (_isCanceled) return;
+    _isCanceled = true;
+    final snapshot = List<VoidCallback>.from(_listeners);
+    _listeners.clear();
+    for (final listener in snapshot) {
+      listener();
+    }
+  }
+}
+
 @immutable
 class PlannedMeetingJourneyResult {
   final MeetingDestination destination;
@@ -26,6 +56,9 @@ class PlannedMeetingJourneyResult {
   final bool isRouteAvailableInApp;
   final String statusMessage;
   final JourneyPlanningMode planningMode;
+  final AtlasErrorCode? failureCode;
+  final List<String> missingReasons;
+  final bool canChooseManualOrigin;
 
   const PlannedMeetingJourneyResult({
     required this.destination,
@@ -35,14 +68,30 @@ class PlannedMeetingJourneyResult {
     required this.isRouteAvailableInApp,
     required this.statusMessage,
     this.planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+    this.failureCode,
+    this.missingReasons = const [],
+    this.canChooseManualOrigin = false,
   });
+
+  bool get hasTransitOptions =>
+      inAppPreview?.options.any((opt) => !opt.isDirectWalk) ?? false;
 }
 
 class MeetingJourneyPlanner {
   final NavigatorRepository _repository;
+  int _requestSequence = 0;
 
   MeetingJourneyPlanner({NavigatorRepository? repository})
       : _repository = repository ?? NavigatorRepository();
+
+  String allocateRequestId(String sourceMeetingId) {
+    _requestSequence++;
+    return 'req-${DateTime.now().millisecondsSinceEpoch}-$_requestSequence-$sourceMeetingId';
+  }
+
+  Future<bool> cancelRequest(String requestId) {
+    return _repository.cancelJourneyRequest(requestId);
+  }
 
   static double calculateHaversineDistanceMeters(
     double lat1,
@@ -71,7 +120,10 @@ class MeetingJourneyPlanner {
     JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
     bool includeDirectWalk = true,
     Duration planTimeout = const Duration(seconds: 12),
+    String? requestId,
+    JourneyCancellationToken? cancellationToken,
   }) async {
+    final budgetWatch = Stopwatch()..start();
     final schedule = MeetingScheduleResolver.resolveNextOccurrence(
       destination,
       referenceTime: referenceTime,
@@ -124,6 +176,7 @@ class MeetingJourneyPlanner {
         isRouteAvailableInApp: false,
         statusMessage: 'Starting location not set. Enable GPS or choose a starting point to plan transit routes.',
         planningMode: planningMode,
+        canChooseManualOrigin: true,
       );
     }
 
@@ -152,6 +205,7 @@ class MeetingJourneyPlanner {
         isRouteAvailableInApp: false,
         statusMessage: 'Local transit routing unavailable: starting point is outside the Metro Transit regional service area. External navigation available.',
         planningMode: planningMode,
+        canChooseManualOrigin: true,
       );
     }
 
@@ -226,30 +280,144 @@ class MeetingJourneyPlanner {
       }
     }
 
-    final requestId = 'req-${DateTime.now().millisecondsSinceEpoch}-${destination.sourceMeetingId}';
+    final effectiveRequestId = (requestId != null && requestId.trim().isNotEmpty)
+        ? requestId.trim()
+        : allocateRequestId(destination.sourceMeetingId);
+
+    PlannedMeetingJourneyResult buildCanceledResult() {
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: 'Transit route planning was canceled. External navigation remains available.',
+        planningMode: planningMode,
+        failureCode: AtlasErrorCode.canceled,
+      );
+    }
+
+    if (cancellationToken?.isCanceled == true) {
+      unawaited(_repository.cancelJourneyRequest(effectiveRequestId));
+      return buildCanceledResult();
+    }
+
+    final remainingMs = planTimeout.inMilliseconds - budgetWatch.elapsedMilliseconds;
+    if (remainingMs <= 0) {
+      unawaited(_repository.cancelJourneyRequest(effectiveRequestId));
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage:
+            'Local transit routing unavailable: Transit route calculation timed out. External navigation available.',
+        planningMode: planningMode,
+        failureCode: AtlasErrorCode.timeout,
+      );
+    }
+
+    final remainingTimeout = Duration(milliseconds: remainingMs);
+
+    Future<JourneyPreview?> awaitPlanWithCancellation() async {
+      final completer = Completer<JourneyPreview?>();
+      var cancelSent = false;
+
+      Future<void> dispatchNativeCancel() async {
+        if (cancelSent) return;
+        cancelSent = true;
+        await _repository.cancelJourneyRequest(effectiveRequestId);
+      }
+
+      void onTokenCanceled() {
+        unawaited(dispatchNativeCancel());
+        if (!completer.isCompleted) {
+          completer.completeError(
+            const AtlasException(
+              code: AtlasErrorCode.canceled,
+              message: 'Journey request was canceled',
+            ),
+          );
+        }
+      }
+
+      cancellationToken?.addListener(onTokenCanceled);
+
+      final timer = Timer(remainingTimeout, () async {
+        if (cancellationToken?.isCanceled == true) {
+          onTokenCanceled();
+          return;
+        }
+        await dispatchNativeCancel();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            const AtlasException(
+              code: AtlasErrorCode.timeout,
+              message: 'Transit schedule is still initializing or route calculation timed out',
+            ),
+          );
+        }
+      });
+
+      final planFuture = _repository.planMeetingJourney(
+        requestId: effectiveRequestId,
+        meetingId: destination.compositeId,
+        originLat: originLat,
+        originLon: originLon,
+        destinationLat: destination.latitude,
+        destinationLon: destination.longitude,
+        departAtUtcMs: departUtcMs,
+        arriveBeforeUtcMs: arriveBeforeUtcMs,
+        timeoutMs: remainingMs,
+      );
+
+      planFuture.then(
+        (value) {
+          if (cancellationToken?.isCanceled == true) {
+            onTokenCanceled();
+          } else if (!completer.isCompleted) {
+            completer.complete(value);
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (cancellationToken?.isCanceled == true) {
+            onTokenCanceled();
+          } else if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+      );
+
+      try {
+        return await completer.future;
+      } finally {
+        timer.cancel();
+        cancellationToken?.removeListener(onTokenCanceled);
+      }
+    }
+
+    JourneyPreview? directWalkPreview(String freshness) {
+      if (directWalkOption == null) return null;
+      return JourneyPreview(
+        version: 1,
+        requestId: effectiveRequestId,
+        meetingId: destination.compositeId,
+        providerId: 'atlas_pedestrian_fallback',
+        dataSource: 'direct_walk_estimate',
+        isSynthetic: false,
+        fetchedAtUtcMs: DateTime.now().millisecondsSinceEpoch,
+        freshness: freshness,
+        options: [directWalkOption],
+      );
+    }
 
     try {
-      final preview = await _repository
-          .planMeetingJourney(
-            requestId: requestId,
-            meetingId: destination.compositeId,
-            originLat: originLat,
-            originLon: originLon,
-            destinationLat: destination.latitude,
-            destinationLon: destination.longitude,
-            departAtUtcMs: departUtcMs,
-            arriveBeforeUtcMs: arriveBeforeUtcMs,
-          )
-          .timeout(
-            planTimeout,
-            onTimeout: () async {
-              await _repository.cancelJourneyRequest(requestId);
-              throw const AtlasException(
-                code: AtlasErrorCode.timeout,
-                message: 'Transit schedule is still initializing or route calculation timed out',
-              );
-            },
-          );
+      final preview = await awaitPlanWithCancellation();
+
+      if (cancellationToken?.isCanceled == true) {
+        return buildCanceledResult();
+      }
 
       final returnedOptions = preview?.options ?? const <JourneyOption>[];
       final repairedAndDedupedTransit = _repairAndDeduplicateOptions(
@@ -272,9 +440,10 @@ class MeetingJourneyPlanner {
 
         final rankedPreview = JourneyPreview(
           version: preview?.version ?? 1,
-          requestId: preview?.requestId ?? requestId,
+          requestId: preview?.requestId ?? effectiveRequestId,
           meetingId: preview?.meetingId ?? destination.compositeId,
-          providerId: preview?.providerId ?? (directWalkOption != null ? 'atlas_pedestrian_planner' : 'atlas_static_planner'),
+          providerId: preview?.providerId ??
+              (directWalkOption != null ? 'atlas_pedestrian_planner' : 'atlas_static_planner'),
           dataSource: preview?.dataSource ?? 'direct_walk_estimate',
           isSynthetic: preview?.isSynthetic ?? false,
           fetchedAtUtcMs: preview?.fetchedAtUtcMs ?? DateTime.now().millisecondsSinceEpoch,
@@ -293,17 +462,24 @@ class MeetingJourneyPlanner {
         );
       }
     } on AtlasException catch (e) {
-      if (e.code == AtlasErrorCode.noItinerary && directWalkOption != null) {
-        debugPrint(
-          'MeetingJourneyPlanner: No transit itinerary ($e); falling back to direct walk estimate.',
-        );
-      } else {
-        debugPrint('MeetingJourneyPlanner: Atlas routing unavailable: $e');
-        final String failureMessage;
-        if (e.code == AtlasErrorCode.sdkNotInstalled) {
-          failureMessage = 'Local transit routing unavailable: Atlas engine not installed. External navigation available.';
-        } else {
-          failureMessage = 'Local transit routing unavailable: ${e.message}. External navigation available.';
+      if (e.code == AtlasErrorCode.canceled) {
+        return buildCanceledResult();
+      }
+
+      if (e.code == AtlasErrorCode.feedExpired) {
+        final walkFallback = directWalkPreview('expired');
+        if (walkFallback != null) {
+          return PlannedMeetingJourneyResult(
+            destination: destination,
+            schedule: schedule,
+            inAppPreview: walkFallback,
+            fallbackExternalDirectionsUrl: fallbackUrl,
+            isRouteAvailableInApp: true,
+            statusMessage:
+                'Metro Transit schedule expired — transit routing is disabled until refreshed in Settings. Showing estimated direct walk distance only.',
+            planningMode: planningMode,
+            failureCode: AtlasErrorCode.feedExpired,
+          );
         }
         return PlannedMeetingJourneyResult(
           destination: destination,
@@ -311,10 +487,86 @@ class MeetingJourneyPlanner {
           inAppPreview: null,
           fallbackExternalDirectionsUrl: fallbackUrl,
           isRouteAvailableInApp: false,
-          statusMessage: failureMessage,
+          statusMessage:
+              'Local transit routing unavailable: ${e.message} External navigation available.',
           planningMode: planningMode,
+          failureCode: AtlasErrorCode.feedExpired,
         );
       }
+
+      if (e.code == AtlasErrorCode.noItinerary) {
+        final missing = e.missingReasons;
+        final missingOrigin = missing.contains('no-origin-stops-within-walk-limit');
+        final missingDest = missing.contains('no-destination-stops-within-walk-limit');
+        final genericStopLimit = missing.contains('stops-within-walk-limit');
+        final canChooseOrigin =
+            missingOrigin || (genericStopLimit && !missingDest);
+
+        final String coverageMessage;
+        if (missingOrigin && missingDest) {
+          coverageMessage =
+              'No covered Metro Transit stops found within 1.5 km of your starting point or this meeting.';
+        } else if (missingDest) {
+          coverageMessage =
+              'No covered Metro Transit stop found within 1.5 km of this meeting.';
+        } else if (missingOrigin || genericStopLimit) {
+          coverageMessage =
+              'No covered Metro Transit stop found within 1.5 km of your starting point.';
+        } else {
+          coverageMessage = 'No scheduled transit route found for this time.';
+        }
+
+        final walkFallback = directWalkPreview('fresh');
+        if (walkFallback != null) {
+          return PlannedMeetingJourneyResult(
+            destination: destination,
+            schedule: schedule,
+            inAppPreview: walkFallback,
+            fallbackExternalDirectionsUrl: fallbackUrl,
+            isRouteAvailableInApp: true,
+            statusMessage:
+                '$coverageMessage Showing estimated direct walk distance only — this is not a transit itinerary. External navigation recommended for street directions.',
+            planningMode: planningMode,
+            failureCode: AtlasErrorCode.noItinerary,
+            missingReasons: missing,
+            canChooseManualOrigin: canChooseOrigin,
+          );
+        }
+
+        return PlannedMeetingJourneyResult(
+          destination: destination,
+          schedule: schedule,
+          inAppPreview: null,
+          fallbackExternalDirectionsUrl: fallbackUrl,
+          isRouteAvailableInApp: false,
+          statusMessage: '$coverageMessage External navigation available.',
+          planningMode: planningMode,
+          failureCode: AtlasErrorCode.noItinerary,
+          missingReasons: missing,
+          canChooseManualOrigin: canChooseOrigin,
+        );
+      }
+
+      debugPrint('MeetingJourneyPlanner: Atlas routing unavailable: $e');
+      final String failureMessage;
+      if (e.code == AtlasErrorCode.sdkNotInstalled) {
+        failureMessage =
+            'Local transit routing unavailable: Atlas engine not installed. External navigation available.';
+      } else {
+        failureMessage =
+            'Local transit routing unavailable: ${e.message}. External navigation available.';
+      }
+      return PlannedMeetingJourneyResult(
+        destination: destination,
+        schedule: schedule,
+        inAppPreview: null,
+        fallbackExternalDirectionsUrl: fallbackUrl,
+        isRouteAvailableInApp: false,
+        statusMessage: failureMessage,
+        planningMode: planningMode,
+        failureCode: e.code,
+        missingReasons: e.missingReasons,
+      );
     } catch (e) {
       debugPrint('MeetingJourneyPlanner: Unexpected routing failure: $e');
       return PlannedMeetingJourneyResult(
@@ -325,29 +577,21 @@ class MeetingJourneyPlanner {
         isRouteAvailableInApp: false,
         statusMessage: 'Unexpected routing failure. External navigation available.',
         planningMode: planningMode,
+        failureCode: AtlasErrorCode.nativeFailure,
       );
     }
 
     // Direct walk fallback if no transit options returned from operational provider
-    if (directWalkOption != null) {
-      final walkPreview = JourneyPreview(
-        version: 1,
-        requestId: requestId,
-        meetingId: destination.compositeId,
-        providerId: 'atlas_pedestrian_fallback',
-        dataSource: 'direct_walk_estimate',
-        isSynthetic: false,
-        fetchedAtUtcMs: DateTime.now().millisecondsSinceEpoch,
-        freshness: 'fresh',
-        options: [directWalkOption],
-      );
+    final walkFallback = directWalkPreview('fresh');
+    if (walkFallback != null) {
       return PlannedMeetingJourneyResult(
         destination: destination,
         schedule: schedule,
-        inAppPreview: walkPreview,
+        inAppPreview: walkFallback,
         fallbackExternalDirectionsUrl: fallbackUrl,
         isRouteAvailableInApp: true,
-        statusMessage: 'Estimated direct distance available. No scheduled transit route found for this time. External navigation recommended for street directions.',
+        statusMessage:
+            'Estimated direct distance available. No scheduled transit route found for this time. External navigation recommended for street directions.',
         planningMode: planningMode,
       );
     }
@@ -360,6 +604,7 @@ class MeetingJourneyPlanner {
       isRouteAvailableInApp: false,
       statusMessage: 'No scheduled transit route found for this time. External navigation available.',
       planningMode: planningMode,
+      failureCode: AtlasErrorCode.noItinerary,
     );
   }
 
