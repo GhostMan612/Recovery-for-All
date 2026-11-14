@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Cold-Start Entry Point
 
-**Last updated:** 2026-11-13 — 20 open PRs merged into `main`, checkout clean and pruned, and the only remaining open PR (#4) is held by its own security/device-validation conditions. See §3 and §7.
+**Last updated:** 2026-11-13 — the merge train is complete, and the journal (#37) and RPG (#38) slices are shipped independently on `main`. The only remaining open PR (#4) is held by its own security/device-validation conditions. `blueprints/SPEC_IMPLEMENTATION_LEDGER.md` is now the status source of truth: merged docs are not delivery. See §3 and §7.
 
 **Remote CI toolchain note (2026-11-11):** A fresh PR run resolved moving `stable` to Flutter 3.50.0 (Dart 3.14.0) and `flutter analyze` reported 97 `deprecated_member_use` diagnostics for existing `package:flutter/material.dart` imports; the last verified clean CI run on 2026-10-14 used Flutter 3.47.7 (Dart 3.13.5). The CI workflow is pinned back to 3.47.7 pending a separate Material/Cupertino package migration. CI outcome for this toolchain PR is pending; do not claim a verified green run until GitHub Actions finishes.
 
@@ -291,10 +291,12 @@ resume without losing progress. Update it at every session end.
 2. `CLAUDE.md` §1–§5 — token conservation + build boundary details
 3. `RULES.md` — technical laws learned the hard way
 4. **This file** — current state, environment facts, next moves
-5. `blueprints/UI-UX-themes-plan.md` — the UI/UX program, **all 17 phases
+5. `blueprints/SPEC_IMPLEMENTATION_LEDGER.md` — what is actually shipped,
+   in progress, verified, or merely planned. **Status source of truth.**
+6. `blueprints/UI-UX-themes-plan.md` — the UI/UX program, **all 17 phases
    complete**. Its "Resume Here" block records the final verification state
    and the one caveat about the last test run.
-6. `blueprints/roadmap-v2.md` — feature status source of truth
+7. `blueprints/roadmap-v2.md` — feature queue; the ledger carries status
 
 ## 2 · Hard rules (never violate)
 
@@ -348,7 +350,9 @@ resume without losing progress. Update it at every session end.
 
 ## 3 · Where things stand
 
-**2026-11-13 — merge train complete.** #36 (MF-01/MF-02 street routing) merged first, then 20 audit/fix/plan PRs (#16–#35, excluding #4) were rebased and merged. All merged branches and superseded worktrees were deleted/pruned; the checkout is clean on `main`. The only remaining open PR is **#4**, intentionally held because its own body requires trusted-recipient/retention design, opt-in review, emulator results, and Android device validation before it can leave draft. Do not merge it to satisfy a count. The only unshipped local work is parked on the local-only branch **`wip/local-unshipped-20261113`** in four commits: native Atlas channel/GTFS/Gradle, RPG game sprites and art tools, journal presentation formatter, and next-release planning docs. Scratch screenshots/video were archived to `C:\rfa-local-archive\scratch-20261113.zip` and removed from the repo. The Atlas native stream still depends on the external `C:/Metro IntelliTrip/build/atlas-maven` artifact and cannot build from a clean clone until it is published or vendored.
+**2026-11-13 — merge train complete.** #36 (MF-01/MF-02 street routing) merged first, then 20 audit/fix/plan PRs (#16–#35, excluding #4) were rebased and merged. All merged branches and superseded worktrees were deleted/pruned; the checkout is clean on `main`. The only remaining open PR is **#4**, intentionally held because its own body requires trusted-recipient/retention design, opt-in review, emulator results, and Android device validation before it can leave draft. Do not merge it to satisfy a count. The local-only branch **`wip/local-unshipped-20261113`** remains the archive of four preservation commits: native Atlas channel/GTFS/Gradle, RPG game sprites and art tools, journal presentation formatter, and next-release planning docs. Its journal and RPG content was extracted to PRs #37 and #38 and is now shipped on `main`; the Atlas stream and next-release docs remain unshipped. The branch is backed up at `C:\rfa-local-archive\rfa-unshipped-20261113.bundle` (verified, 430.5 MB). Scratch screenshots/video were archived to `C:\rfa-local-archive\scratch-20261113.zip` and removed from the repo. The Atlas native stream still depends on the external `C:/Metro IntelliTrip/build/atlas-maven` artifact and cannot build from a clean clone until it is published or vendored.
+
+**2026-11-13 — journal and RPG shipped independently.** #37 (journal presentation) merged as `46b6fa0`; #38 (RPG sprite atlases) merged as `6c9dc33`. Both passed their PR gates and the full suite; see `blueprints/SPEC_IMPLEMENTATION_LEDGER.md` for the evidence and for the rows that remain planned.
 
 **2026-11-11 remote GGUF integrity candidate (MERGED 2026-11-13 in #26):** The four shipped GGUF catalog entries previously set `sha256Hex: null`, bypassing their existing streaming checksum verifier. A standalone PR now pins the exact SHA-256 digests published on the corresponding Hugging Face `.gguf` file pages (Gemma 270M, Qwen3.5 0.8B, SmolLM2 1.7B, Phi-4 Mini) and adds a catalog regression test. **Source metadata verified; model binaries themselves were not downloaded, hashed locally, installed, or device-tested.** Previously cached files remain outside this new-download integrity check. Future replacement of upstream `main` artifacts may intentionally fail verification until a reviewed digest update.
 
@@ -610,7 +614,7 @@ that requires a human with a phone and a Play account.
 
 ## 7 · Next moves (current)
 
-**2026-11-13 — open-PR queue drained.** The merge train is complete: #36 plus 20 audit/fix/plan PRs are on `main`; only #4 remains open, and it must not be merged until its trusted-recipient/retention design, opt-in review, emulator matrix, and Android device validation are recorded. Next work is the unshipped local streams on `wip/local-unshipped-20261113`: publish or vendor the Atlas Maven artifact and remove the hardcoded fallback first, then split the RPG/game-art and journal-presentation commits into their own PRs from current `main`. After that, return to #4's design/device gates. Do not reopen merged PRs or re-add the deleted worktrees.
+**2026-11-13 — journal and RPG extracted and shipped.** The merge train (#36 plus 20 audit/fix/plan PRs) is complete, and the two independently reproducible slices from the WIP branch are now on `main`: #37 (journal presentation, `46b6fa0`) and #38 (RPG sprite atlases, `6c9dc33`). Only #4 remains open; it must not be merged until its trusted-recipient/retention design, opt-in review, emulator matrix, and Android device validation are recorded. Next: publish or vendor the Atlas Maven artifact and remove the hardcoded fallback, then implement #24/#25/#28/#30 as work orders, then return to #4's design/device gates. Do not reopen merged PRs or re-add the deleted worktrees.
 
 **Resource Viewer:** GitHub Actions host gates passed for implementation commit `90394b3f1a5992a3f3b090238ebe8172e0c74a7d` and current source-unchanged commit `e968dc1de49e63e61984f6a1ee33fd72123846b7`. All twelve aa.org candidates yielded PDF-format live responses, but full status/redirect/final-host and Step N content verification is still required. Review current AA viewing terms; complete Moto G 2025/BLU View 5 and current release-artifact/signing checks. Do not mark acceptance green or claim the feature shipped before those observations. The pre-change Git/toolchain/device snapshot was not recorded contemporaneously, so do not backfill it from memory.
 
