@@ -97,7 +97,9 @@ jobs:
             "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
           fi
       - name: Generate Flutter Android configuration
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter build apk --debug --no-pub --config-only
       - name: Run Android Atlas bridge JVM unit tests (remote Maven only)
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest --refresh-dependencies --console=plain
