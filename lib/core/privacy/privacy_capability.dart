@@ -19,7 +19,8 @@ enum PrivacyCapability {
   directoryRefresh,
   onlineTiles,
   externalNavigation,
-  remoteRouting;
+  remoteRouting,
+  transitFeedRefresh;
 
   PrivacyDisclosure get disclosure => PrivacyCapabilityState.disclosures[this]!;
 }
@@ -186,6 +187,16 @@ class PrivacyCapabilityState {
       recipient: 'HeiGIT OpenRouteService (api.heigit.org)',
       fallback:
           'Meeting addresses and direct estimates remain visible; Google Maps external directions available.',
+    ),
+    PrivacyCapability.transitFeedRefresh: PrivacyDisclosure(
+      title: 'Transit Schedule Updates',
+      description:
+          'Downloads the latest Metro Transit static GTFS schedule snapshot when explicitly requested.',
+      transmittedData:
+          'HTTP request metadata only (no user location or selected meeting sent)',
+      recipient: 'Metro Transit (svc.metrotransit.org)',
+      fallback:
+          'Bundled offline transit schedule remains usable until expiration, with direct walk estimates and external navigation available.',
     ),
   };
 }

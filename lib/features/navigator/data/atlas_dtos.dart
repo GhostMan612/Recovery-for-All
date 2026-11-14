@@ -61,6 +61,12 @@ class AtlasException implements Exception {
     this.details,
   });
 
+  List<String> get missingReasons =>
+      (details?['missingReasons'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ??
+      const [];
+
   @override
   String toString() => 'AtlasException($code, message: $message)';
 }

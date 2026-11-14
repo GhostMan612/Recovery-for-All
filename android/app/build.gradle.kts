@@ -13,6 +13,10 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Pinned SDK coordinates. The version lives in android/gradle.properties so the
+// Atlas repository and the app cannot drift; never use a range or SNAPSHOT here.
+val atlasVersion = providers.gradleProperty("atlasVersion").get()
+
 // Did THIS invocation ask for a release variant? Checked from the requested
 // task names rather than assumed, so a debug build is never blocked by an
 // absent keystore (release keys are gitignored, so a fresh clone legitimately
@@ -131,6 +135,27 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+
+    // Atlas SDK (published from Metro-IntelliTrip). The adapter is API-26
+    // gated; devices below that keep the typed SDK_NOT_INSTALLED fallback and
+    // never load these classes.
+    implementation("com.intellitrip.atlas:atlas-engine:$atlasVersion") {
+        // The bridge uses only the static planner. atlas-gtfs-realtime pulls
+        // org.mobilitydata:gtfs-realtime-bindings, which brings full
+        // protobuf-java and collides with Firebase's protobuf-javalite on the
+        // runtime classpath. Realtime is disabled in this build by design;
+        // excluding the module keeps one protobuf implementation.
+        exclude(group = "com.intellitrip.atlas", module = "atlas-gtfs-realtime")
+        exclude(group = "com.intellitrip.atlas", module = "atlas-gtfs-realtime-jvm")
+    }
+    implementation("com.intellitrip.atlas:atlas-gtfs-static:$atlasVersion")
+    implementation("com.intellitrip.atlas:atlas-offline:$atlasVersion")
+    implementation("com.intellitrip.atlas:atlas-routing:$atlasVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
 
 // 16 KB page-size compliance (Play policy for targetSdk 35+): force the

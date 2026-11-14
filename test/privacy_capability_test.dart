@@ -633,5 +633,17 @@ void main() {
       expect(state.getPersistedPreference(PrivacyCapability.cloudSync), equals(ConsentState.granted),
           reason: 'Failed revocation write must not be represented as durably saved in state');
     });
+
+    test('Upgrading from pre-WO-2B persisted grants never auto-grants transitFeedRefresh', () async {
+      SharedPreferences.setMockInitialValues({
+        'privacy_consent_v1_remoteWeather': 'granted',
+        'privacy_consent_v1_directoryRefresh': 'granted',
+      });
+
+      final loaded = await PrivacyCapabilityService.loadState();
+      expect(loaded.isGranted(PrivacyCapability.transitFeedRefresh), isFalse);
+      expect(loaded.getConsent(PrivacyCapability.transitFeedRefresh), equals(ConsentState.denied));
+      expect(loaded.getPersistedPreference(PrivacyCapability.transitFeedRefresh), equals(ConsentState.unknown));
+    });
   });
 }

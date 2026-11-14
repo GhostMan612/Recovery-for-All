@@ -70,5 +70,41 @@ jobs:
           npx -y firebase-tools setup:emulators:firestore
           npx -y firebase-tools emulators:exec --config firebase.emulator.json --only firestore "npm --prefix test/rules test"
 
+  android-atlas:
+    name: Clean-clone Android Atlas SDK resolution, JVM tests, and debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Install Flutter (stable channel)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - name: Ensure Android SDK 36 components
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+          fi
+      - name: Generate Flutter Android configuration
+        run: |
+          flutter pub get
+          flutter build apk --debug --no-pub --config-only
+      - name: Run Android Atlas bridge JVM unit tests (remote Maven only)
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --refresh-dependencies --console=plain
+      - name: Build debug APK (portable Atlas resolution)
+        run: flutter build apk --debug --no-pub
+
 # This CI does not build a signed release, deploy Firestore rules, or prove
 # on-device behavior. It may expose pre-existing Linux/dependency failures.

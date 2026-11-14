@@ -34,9 +34,18 @@
 # tree. Reintroducing a `-keep class <package>.** { *; }` here silently undoes the
 # entire optimization.
 
-# No -keep rules are required. Flutter (io.flutter.**, plugins.flutter.io.**),
+# No blanket -keep rules are required. Flutter (io.flutter.**, plugins.flutter.io.**),
 # Firebase (com.google.firebase.**) and Play Services (com.google.android.gms.**)
 # all ship consumer rules that are merged with this file.
+#
+# The two Atlas classes are deliberately kept separate. AtlasChannelAdapter is
+# loaded on every API level and must not acquire a hard reference to the Atlas
+# SDK through R8 vertical merging: AtlasNativeBridge reaches the file-backed
+# gtfs-static stack, which is API 26+. Keeping the factory and the bridge also
+# stops R8 inlining the factory call into the adapter, where class verification
+# on API 24/25 could try to resolve the bridge before the SDK_INT check runs.
+-keep class com.recoveryforall.atlas.AtlasBridgeFactory { *; }
+-keep class com.recoveryforall.atlas.AtlasNativeBridge { *; }
 
 # Keep suppressions only. `-dontwarn` stops R8 failing the build over optional
 # references it cannot resolve in the engine and in the Firebase SDK; it does not

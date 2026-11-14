@@ -74,6 +74,7 @@ class AtlasBridge {
     int maxWalkMeters = 1500,
     bool allowRemote = false,
     List<String> transitModes = const ['bus', 'rail'],
+    int? timeoutMs,
     int apiVersion = currentApiVersion,
   }) async {
     // Coordinate validation per BRIDGE_API_CONTRACT.md
@@ -101,6 +102,7 @@ class AtlasBridge {
           'maxWalkMeters': maxWalkMeters,
           'allowRemote': allowRemote,
           'transitModes': transitModes,
+          'timeoutMs': ?timeoutMs,
         },
       );
 
@@ -147,6 +149,40 @@ class AtlasBridge {
         );
       }
       return AtlasOfflineStatus.fromMap(Map<String, dynamic>.from(res));
+    } on PlatformException catch (e) {
+      throw _mapPlatformException(e);
+    }
+  }
+
+  /// Explicitly downloads and validates a fresh Metro Transit static GTFS
+  /// snapshot. Fails closed unless [userConsented] is explicitly true.
+  Future<AtlasStaticNetworkStatus> refreshStaticFeed({
+    String feedId = 'default',
+    bool userConsented = false,
+    int apiVersion = currentApiVersion,
+  }) async {
+    if (!userConsented) {
+      throw const AtlasException(
+        code: AtlasErrorCode.permissionRequired,
+        message: 'User consent is required before refreshing transit schedule data.',
+      );
+    }
+    try {
+      final res = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'refreshStaticFeed',
+        {
+          'apiVersion': apiVersion,
+          'feedId': feedId,
+          'userConsented': true,
+        },
+      );
+      if (res == null) {
+        throw const AtlasException(
+          code: AtlasErrorCode.nativeFailure,
+          message: 'Received null response from native refreshStaticFeed',
+        );
+      }
+      return AtlasStaticNetworkStatus.fromMap(Map<String, dynamic>.from(res));
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     }

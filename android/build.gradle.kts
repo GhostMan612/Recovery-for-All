@@ -7,6 +7,18 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // The Atlas SDK is published by Metro-IntelliTrip to an append-only
+        // branch, not to Maven Central. Override -PatlasMavenUrl with a file
+        // URI when testing a staged publication; the default is the same
+        // immutable repository CI resolves. The content filter keeps Gradle
+        // from asking this repository for unrelated dependencies.
+        val atlasMavenUrl = providers.gradleProperty("atlasMavenUrl").orNull
+            ?: "https://raw.githubusercontent.com/GhostMan612/Metro-IntelliTrip/atlas-maven"
+        maven {
+            name = "atlas"
+            url = uri(atlasMavenUrl)
+            content { includeGroup("com.intellitrip.atlas") }
+        }
     }
 }
 

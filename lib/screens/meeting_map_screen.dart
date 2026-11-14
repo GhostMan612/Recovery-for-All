@@ -33,6 +33,7 @@ import '../features/navigator/ui/meeting_search_delegate.dart';
 import '../features/navigator/domain/street_route.dart';
 import '../features/navigator/application/street_route_provider.dart';
 import '../features/navigator/ui/widgets/street_route_preview_sheet.dart';
+import 'settings_screen.dart';
 
 /// Meeting finder — keyless OSM map (flutter_map) with Sovereign-grade
 /// controls: layer switcher (dark/light/satellite/topo), radius slider,
@@ -47,12 +48,16 @@ class MeetingMapScreen extends ConsumerStatefulWidget {
   final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
   final StreetRouteProvider? streetRouteProvider;
+  final MeetingJourneyPlanner? journeyPlanner;
+  final (double, double)? initialUserPosition;
 
   const MeetingMapScreen({
     super.key,
     required this.initialMeetings,
     this.database,
     this.streetRouteProvider,
+    this.journeyPlanner,
+    this.initialUserPosition,
   });
 
   @override
@@ -83,6 +88,10 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
   StreetRoute? _selectedStreetRoute;
   late StreetRouteProvider _streetRouteProvider =
       widget.streetRouteProvider ?? const OfflineStreetRouteProvider();
+  late final MeetingJourneyPlanner _journeyPlanner =
+      widget.journeyPlanner ?? MeetingJourneyPlanner();
+  String? _activeJourneyRequestId;
+  JourneyCancellationToken? _activeCancellationToken;
   RecoveryMeeting? _selectedMeeting;
   (double, double)? _manualOrigin;
 
@@ -131,11 +140,32 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
     _initialize();
   }
 
+  @override
+  void dispose() {
+    _cancelActiveJourney();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  void _cancelActiveJourney() {
+    _activeCancellationToken?.cancel();
+    _activeCancellationToken = null;
+    _activeJourneyRequestId = null;
+  }
+
   // ------------------------------------------------------------------
   // Init + location
   // ------------------------------------------------------------------
 
   Future<void> _initialize() async {
+    if (widget.initialUserPosition != null) {
+      _currentPosition = widget.initialUserPosition;
+      if (widget.initialMeetings.isNotEmpty) {
+        _base = List.of(widget.initialMeetings);
+        _isLoading = false;
+        return;
+      }
+    }
     if (widget.streetRouteProvider != null) {
       _streetRouteProvider = widget.streetRouteProvider!;
     } else {
@@ -454,7 +484,10 @@ class _MeetingMapScreenState extends ConsumerState<MeetingMapScreen> {
     // Explicit recenter = fresh GPS fix, never the stale cache.
     final pos = await _resolveLocation(forceFresh: true);
     if (pos != null) {
-      setState(() => _currentPosition = pos);
+      setState(() {
+        _currentPosition = pos;
+        _manualOrigin = null;
+      });
       _rebuildMarkers(); // user pin + distances recompute
       _mapController.move(ll.LatLng(pos.$1, pos.$2), 14);
     }
@@ -647,18 +680,25 @@ final proceed = await showDialog<bool>(
       return proceed == true;
   }
 
-  Future<void> _openDirections(
+  Future<({PlannedMeetingJourneyResult planResult, JourneyWeatherData? weatherData})>
+  _prepareDirections(
     RecoveryMeeting meeting, {
-    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+    required JourneyPlanningMode planningMode,
+    required String requestId,
+    required JourneyCancellationToken cancellationToken,
   }) async {
-
-    // Weather context (optional, non-blocking)
-    JourneyWeatherData? weatherData;
-    if (meeting.hasLocation && ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather)) {
+    Future<JourneyWeatherData?> loadWeather() async {
+      if (!meeting.hasLocation ||
+          !ref.read(privacyCapabilityProvider).isGranted(PrivacyCapability.remoteWeather)) {
+        return null;
+      }
       try {
-        final weatherResult = await WeatherService.fetchWeather(lat: meeting.latitude, lng: meeting.longitude);
+        final weatherResult = await WeatherService.fetchWeather(
+          lat: meeting.latitude,
+          lng: meeting.longitude,
+        ).timeout(const Duration(seconds: 4));
         if (weatherResult.isAvailable) {
-          weatherData = JourneyWeatherData(
+          return JourneyWeatherData(
             temperatureFahrenheit: weatherResult.temperatureF,
             conditionSummary: weatherResult.summary ?? 'Forecast available',
             source: 'Open-Meteo',
@@ -667,80 +707,254 @@ final proceed = await showDialog<bool>(
           );
         }
       } catch (_) {}
+      return null;
     }
 
-    final isStale = await MeetingFinderService().isCacheStale();
+    Future<bool> checkStale() async {
+      try {
+        return await MeetingFinderService().isCacheStale();
+      } catch (_) {
+        return false;
+      }
+    }
+
+    final weatherFuture = loadWeather();
+    final staleFuture = checkStale();
+
+    final isStale = await staleFuture;
     final destination = MeetingDestinationAdapter.fromRecoveryMeeting(
       meeting,
       freshness: isStale ? 'stale' : 'fresh',
     );
-    final originLat = _currentPosition?.$1 ?? _manualOrigin?.$1;
-    final originLon = _currentPosition?.$2 ?? _manualOrigin?.$2;
-    final planner = MeetingJourneyPlanner();
-    final planResult = await planner.planJourneyForMeeting(
+    // An explicit manual starting point selected by the user overrides GPS
+    // (critical when device GPS is out-of-coverage or >1.5 km from any stop).
+    final originLat = _manualOrigin?.$1 ?? _currentPosition?.$1;
+    final originLon = _manualOrigin?.$2 ?? _currentPosition?.$2;
+
+    final planResult = await _journeyPlanner.planJourneyForMeeting(
       destination: destination,
       originLat: originLat,
       originLon: originLon,
       planningMode: planningMode,
+      requestId: requestId,
+      cancellationToken: cancellationToken,
     );
+    final weatherData = cancellationToken.isCanceled ? null : await weatherFuture;
+    return (planResult: planResult, weatherData: weatherData);
+  }
 
+  Future<void> _openDirections(
+    RecoveryMeeting meeting, {
+    JourneyPlanningMode planningMode = JourneyPlanningMode.arriveBeforeMeeting,
+  }) async {
     if (!mounted) return;
+    _cancelActiveJourney();
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => SafeArea(
-        child: JourneySheet(
-          planResult: planResult,
-          weather: weatherData,
-          selectedJourneyId: _selectedJourneyOption?.journeyId,
-          onTogglePlanningMode: (newMode) {
-            Navigator.pop(sheetCtx);
-            _openDirections(meeting, planningMode: newMode);
-          },
-          onSelectOption: (option) {
-            Navigator.pop(sheetCtx);
-            setState(() {
-              _selectedJourneyOption = option;
-              _selectedStreetRoute = null;
-              _selectedMeeting = meeting;
-              _showMapView = true;
-            });
-            if (meeting.hasLocation) {
-              _mapController.move(ll.LatLng(meeting.latitude, meeting.longitude), 13.0);
-            }
-          },
-          onSelectManualOrigin: () {
-            Navigator.pop(sheetCtx);
-            _promptManualOrigin(meeting);
-          },
-          onLaunchExternalDirections: () async {
-            Navigator.pop(sheetCtx);
-            await _launchExternalDirections(meeting, travelMode: 'walking');
-          },
-          onLaunchModeDirections: (mode) async {
-            Navigator.pop(sheetCtx);
-            if (mode == 'walking' || mode == 'driving') {
-              await _requestStreetRoute(
-                meeting,
-                mode: mode == 'walking' ? StreetRouteMode.walking : StreetRouteMode.driving,
+    final requestId = _journeyPlanner.allocateRequestId(meeting.id);
+    final token = JourneyCancellationToken();
+    _activeJourneyRequestId = requestId;
+    _activeCancellationToken = token;
+
+    var planCompleted = false;
+    var cancelDispatched = false;
+    void cancelIfInFlight() {
+      if (cancelDispatched || planCompleted) return;
+      cancelDispatched = true;
+      token.cancel();
+      if (_activeJourneyRequestId == requestId) {
+        _activeJourneyRequestId = null;
+        _activeCancellationToken = null;
+      }
+    }
+
+    final directionsFuture = _prepareDirections(
+      meeting,
+      planningMode: planningMode,
+      requestId: requestId,
+      cancellationToken: token,
+    ).whenComplete(() {
+      planCompleted = true;
+      if (_activeJourneyRequestId == requestId) {
+        _activeJourneyRequestId = null;
+        _activeCancellationToken = null;
+      }
+    });
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetCtx) => FutureBuilder<
+          ({PlannedMeetingJourneyResult planResult, JourneyWeatherData? weatherData})
+        >(
+          future: directionsFuture,
+          builder: (_, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done ||
+                !snapshot.hasData) {
+              final colorScheme = Theme.of(sheetCtx).colorScheme;
+              final textTheme = Theme.of(sheetCtx).textTheme;
+              return SafeArea(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                meeting.name,
+                                style: textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              tooltip: 'Close',
+                              onPressed: () {
+                                cancelIfInFlight();
+                                Navigator.pop(sheetCtx);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (snapshot.hasError)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Text(
+                              'Unable to prepare transit directions right now.',
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.error,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        else
+                          const AppLoadingState(
+                            message: 'Planning transit route…',
+                          ),
+                        if (meeting.hasLocation) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              cancelIfInFlight();
+                              Navigator.pop(sheetCtx);
+                              await _launchExternalDirections(
+                                meeting,
+                                travelMode: 'walking',
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
+                            ),
+                            icon: const Icon(Icons.directions),
+                            label: const Text(
+                              'Open External Directions (Google Maps)',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               );
-            } else {
-              await _launchExternalDirections(meeting, travelMode: mode);
             }
+
+            final data = snapshot.data!;
+            return SafeArea(
+              child: JourneySheet(
+                planResult: data.planResult,
+                weather: data.weatherData,
+                selectedJourneyId: _selectedJourneyOption?.journeyId,
+                onTogglePlanningMode: (newMode) {
+                  Navigator.pop(sheetCtx);
+                  _openDirections(meeting, planningMode: newMode);
+                },
+                onSelectOption: (option) {
+                  Navigator.pop(sheetCtx);
+                  if (!mounted) return;
+                  setState(() {
+                    _selectedJourneyOption = option;
+                    _selectedStreetRoute = null;
+                    _selectedMeeting = meeting;
+                    _showMapView = true;
+                  });
+                  if (meeting.hasLocation) {
+                    _mapController.move(
+                      ll.LatLng(meeting.latitude, meeting.longitude),
+                      13.0,
+                    );
+                  }
+                },
+                onSelectManualOrigin: () {
+                  Navigator.pop(sheetCtx);
+                  _promptManualOrigin(meeting);
+                },
+                onOpenFeedSettings: widget.database == null
+                    ? null
+                    : () {
+                        Navigator.pop(sheetCtx);
+                        if (!mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SettingsScreen(database: widget.database!),
+                          ),
+                        );
+                      },
+                onLaunchExternalDirections: () async {
+                  Navigator.pop(sheetCtx);
+                  await _launchExternalDirections(meeting, travelMode: 'walking');
+                },
+                onLaunchModeDirections: (mode) async {
+                  Navigator.pop(sheetCtx);
+                  if (mode == 'walking' || mode == 'driving') {
+                    await _requestStreetRoute(
+                      meeting,
+                      mode: mode == 'walking'
+                          ? StreetRouteMode.walking
+                          : StreetRouteMode.driving,
+                    );
+                  } else {
+                    await _launchExternalDirections(meeting, travelMode: mode);
+                  }
+                },
+              ),
+            );
           },
         ),
-      ),
-    );
+      );
+    } finally {
+      cancelIfInFlight();
+    }
   }
 
   Future<void> _requestStreetRoute(
     RecoveryMeeting meeting, {
     required StreetRouteMode mode,
   }) async {
-    final originLat = _currentPosition?.$1 ?? _manualOrigin?.$1;
-    final originLon = _currentPosition?.$2 ?? _manualOrigin?.$2;
+    // An explicit manual starting point selected by the user overrides GPS
+    // (critical when device GPS is out-of-coverage or >1.5 km from any stop).
+    final originLat = _manualOrigin?.$1 ?? _currentPosition?.$1;
+    final originLon = _manualOrigin?.$2 ?? _currentPosition?.$2;
 
     if (originLat == null || originLon == null) {
       await _promptManualOrigin(meeting);

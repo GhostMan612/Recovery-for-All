@@ -16,6 +16,7 @@ class JourneySheet extends StatelessWidget {
   final void Function(String travelMode)? onLaunchModeDirections;
   final ValueChanged<JourneyOption>? onSelectOption;
   final VoidCallback? onSelectManualOrigin;
+  final VoidCallback? onOpenFeedSettings;
   final ValueChanged<JourneyPlanningMode>? onTogglePlanningMode;
   final String? selectedJourneyId;
 
@@ -27,9 +28,23 @@ class JourneySheet extends StatelessWidget {
     this.onLaunchModeDirections,
     this.onSelectOption,
     this.onSelectManualOrigin,
+    this.onOpenFeedSettings,
     this.onTogglePlanningMode,
     this.selectedJourneyId,
   });
+
+  IconData _statusIcon(AtlasErrorCode? failureCode) {
+    switch (failureCode) {
+      case AtlasErrorCode.canceled:
+        return Icons.cancel_outlined;
+      case AtlasErrorCode.timeout:
+        return Icons.timer_off_outlined;
+      case AtlasErrorCode.feedExpired:
+        return Icons.event_busy_outlined;
+      default:
+        return Icons.info_outline;
+    }
+  }
 
   String _formatTime(int utcMs) {
     final dt = DateTime.fromMillisecondsSinceEpoch(utcMs).toLocal();
@@ -173,13 +188,74 @@ class JourneySheet extends StatelessWidget {
             const SizedBox(height: 16),
 
             if (planResult.isRouteAvailableInApp && planResult.inAppPreview != null) ...[
+              if (!planResult.hasTransitOptions &&
+                  (planResult.failureCode != null || planResult.canChooseManualOrigin)) ...[
+                Card(
+                  color: colorScheme.surfaceContainerHigh,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              _statusIcon(planResult.failureCode),
+                              color: colorScheme.tertiary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                planResult.statusMessage,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (onSelectManualOrigin != null &&
+                            planResult.canChooseManualOrigin) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              side: BorderSide(color: colorScheme.primary),
+                            ),
+                            icon: const Icon(Icons.place_outlined, size: 18),
+                            label: const Text('Choose Starting Point'),
+                            onPressed: onSelectManualOrigin,
+                          ),
+                        ],
+                        if (onOpenFeedSettings != null &&
+                            planResult.failureCode == AtlasErrorCode.feedExpired) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              side: BorderSide(color: colorScheme.primary),
+                            ),
+                            icon: const Icon(Icons.sync_outlined, size: 18),
+                            label: const Text('Refresh Schedule in Settings'),
+                            onPressed: onOpenFeedSettings,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    planResult.inAppPreview!.options.any((o) => !o.isDirectWalk)
+                    planResult.hasTransitOptions
                         ? 'Available Transit Routes'
-                        : 'Available Routes',
+                        : 'Available Routes (Walk Only)',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontSize: 14,
@@ -409,7 +485,13 @@ class JourneySheet extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      Icon(Icons.info_outline, color: colorScheme.tertiary, size: 28),
+                      Icon(
+                        _statusIcon(planResult.failureCode),
+                        color: planResult.failureCode == AtlasErrorCode.timeout
+                            ? colorScheme.error
+                            : colorScheme.tertiary,
+                        size: 28,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         planResult.statusMessage,
@@ -420,7 +502,8 @@ class JourneySheet extends StatelessWidget {
                         ),
                       ),
                       if (onSelectManualOrigin != null &&
-                          planResult.statusMessage.contains('Starting location not set')) ...[
+                          (planResult.canChooseManualOrigin ||
+                              planResult.statusMessage.contains('Starting location not set'))) ...[
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -430,6 +513,19 @@ class JourneySheet extends StatelessWidget {
                           icon: const Icon(Icons.place_outlined),
                           label: const Text('Choose Starting Point'),
                           onPressed: onSelectManualOrigin,
+                        ),
+                      ],
+                      if (onOpenFeedSettings != null &&
+                          planResult.failureCode == AtlasErrorCode.feedExpired) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.primary,
+                            side: BorderSide(color: colorScheme.primary),
+                          ),
+                          icon: const Icon(Icons.sync_outlined),
+                          label: const Text('Refresh Schedule in Settings'),
+                          onPressed: onOpenFeedSettings,
                         ),
                       ],
                     ],
