@@ -138,9 +138,7 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             theme: ThemeData.dark(useMaterial3: true),
-            home: MeetingMapScreen(
-              initialMeetings: [sampleMeeting],
-            ),
+            home: MeetingMapScreen(),
           ),
         ),
       );

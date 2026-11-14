@@ -328,7 +328,6 @@ $text
           context,
           MaterialPageRoute(
             builder: (context) => MeetingMapScreen(
-              initialMeetings: const [],
               database: widget.database,
             ),
           ),

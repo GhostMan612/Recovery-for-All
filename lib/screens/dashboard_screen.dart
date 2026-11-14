@@ -76,11 +76,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  // Minnesota-first: when location permission is denied, the meeting finder
-  // still reflects the state this app is built for (Twin Cities metro).
-  static const _defaultCenter = (44.9778, -93.2650);
-
-
   // Constellation crown — the user's path, visible on open.
   List<ConstellationNode3D>? _skyNodes;
 
@@ -119,9 +114,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// Acquires one location fix on dashboard load so the radius filter can run.
 ///
 /// The "within 2 mi" meeting card is a shipped feature with a long-press
-/// control, and it could not work on a fresh install: `_resolveLocation()` was
-/// only ever called from a tile tap, the locate-me button, and the meeting map.
-/// Nothing acquired a fix at startup, so `meetingRadiusProvider.lat` stayed
+/// control, and it could not work on a fresh install: nothing acquired a
+/// fix at startup, so `meetingRadiusProvider.lat` stayed
 /// null, `hasFix` was false, and the card listed the whole state forever — with
 /// no label explaining why. A tester filed precisely that.
 ///
@@ -134,13 +128,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 /// honest state. The card's own label is the user-facing surface for this.
 /// Asks the platform for a real fix, or null when it cannot provide one.
 ///
-/// Returns null — never the neutral fallback — because this feeds the radius
-/// filter. `_resolveLocation` deliberately returns Twin Cities when permission
-/// is denied (correct for centering a map), but persisting that as the user's
-/// location would make every radius query measure from Minneapolis regardless of
-/// where the user actually is, and the card would then confidently report
-/// "within 2 mi" about the wrong city. Separating the two is the only way to
-/// tell "denied" from "genuinely in Minneapolis".
+/// Returns null — never the Twin Cities fallback — because this feeds the
+/// radius filter. Persisting the fallback as the user's location would make
+/// every radius query measure from Minneapolis regardless of where the user
+/// actually is, and the card would then confidently report "within 2 mi"
+/// about the wrong city. Returning null is the only way to tell "denied"
+/// from "genuinely in Minneapolis".
 Future<(double, double)?> _tryAcquireFix() async {
   try {
     var permission = await Geolocator.checkPermission();
@@ -224,28 +217,6 @@ bool _showFirstRunTutorial = false;
     if (paths.contains('Recovery Dharma')) set.add('Dharma');
     if (paths.contains('Wellbriety')) set.add('Wellbriety');
     return set.isEmpty ? null : set;
-  }
-
-  /// Real device location when permitted; neutral fallback otherwise.
-  Future<(double, double)> _resolveLocation() async {
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return _defaultCenter;
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(const Duration(seconds: 8));
-      unawaited(cacheLocation(pos.latitude, pos.longitude));
-      return (pos.latitude, pos.longitude);
-    } catch (_) {
-      return _defaultCenter;
-    }
   }
 
   Future<void> _refreshPet() async {
@@ -621,15 +592,16 @@ Future<void> _handleWalk() async {
     return cards;
   }
 
-  Future<void> _openMeetings() async {
-    final (lat, lng) = await _resolveLocation();
-    var meetings = await _meetingFinder.findNearbyMeetings(lat, lng,
-        fellowships: _allowedFellowships());
-    if (meetings.isEmpty) {
-      meetings = await _meetingFinder.findNearbyMeetings(lat, lng);
-    }
-    if (!mounted) return;
-    _push(MeetingMapScreen(initialMeetings: meetings, database: widget.database));
+  void _openMeetings() {
+    // Navigate instantly. MeetingMapScreen resolves its own location and
+    // loads the directory behind its staged loading view ("Finding you…" /
+    // "Fetching meetings…"), so there is nothing to wait for here. The old
+    // version awaited a GPS fix (up to 8 s) plus a full directory fetch
+    // first, so the tap sat dead for ~5 s and then the screen suddenly
+    // switched — and the fetched list was thrown away, because the map
+    // screen never read it. Going through _push also gives the instant
+    // haptic tick and the 600 ms double-tap guard.
+    _push(MeetingMapScreen(database: widget.database));
   }
 
   /// Route push with tap acknowledgment + double-tap guard: a haptic tick
@@ -824,19 +796,12 @@ Future<void> _handleWalk() async {
                         color: Theme.of(context).colorScheme.primary,
                         title: 'Nearest Meetings',
                         subtitle: 'Three rooms close to you',
-                        onTap: () async {
+                        onTap: () {
                           Navigator.pop(sheetContext);
-                          final (lat, lng) = await _resolveLocation();
-                          final fellowships = _allowedFellowships();
-                          var all = await _meetingFinder
-                              .findNearbyMeetings(lat, lng, fellowships: fellowships);
-                          if (all.isEmpty) {
-                            all = await _meetingFinder.findNearbyMeetings(lat, lng);
-                          }
-                          if (!mounted) return;
-                          _push(MeetingMapScreen(
-                              initialMeetings: all.take(3).toList(),
-                              database: widget.database));
+                          // Instant navigation, same fix as _openMeetings:
+                          // the map screen loads location + directory behind
+                          // its own staged loading view.
+                          _push(MeetingMapScreen(database: widget.database));
                         },
                       ),
                     ),
@@ -1339,21 +1304,11 @@ Future<void> _handleWalk() async {
     );
   }
 
-  Future<void> _openMeetingMap() async {
-    final (lat, lng) = await _resolveLocation();
-    var all =
-        await _meetingFinder.findNearbyMeetings(lat, lng, fellowships: _allowedFellowships());
-    if (all.isEmpty) {
-      all = await _meetingFinder.findNearbyMeetings(lat, lng);
-    }
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MeetingMapScreen(
-            initialMeetings: all, database: widget.database),
-      ),
-    );
+  void _openMeetingMap() {
+    // Instant navigation, same fix as _openMeetings. This route also used
+    // to bypass _push entirely, so it had neither the haptic tick nor the
+    // double-tap guard.
+    _push(MeetingMapScreen(database: widget.database));
   }
 
   /// Resource cards live in Library, never in the Path toolbox.

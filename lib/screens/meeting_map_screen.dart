@@ -22,6 +22,7 @@ import '../services/map_tile_cache.dart';
 import '../services/weather_service.dart';
 import '../services/journal_crypto_service.dart';
 import '../widgets/app_primitives.dart';
+import '../widgets/footprint_trail.dart';
 import '../features/navigator/application/meeting_journey_planner.dart';
 import '../features/navigator/data/meeting_destination_adapter.dart';
 import '../features/navigator/ui/widgets/journey_sheet.dart';
@@ -44,13 +45,11 @@ import '../features/navigator/ui/widgets/street_route_preview_sheet.dart';
 /// same value. While this was a local field, the two surfaces could not agree
 /// and the card quietly showed statewide meetings during a 2-mile search.
 class MeetingMapScreen extends ConsumerStatefulWidget {
-  final List<RecoveryMeeting> initialMeetings;
   final RecoveryDatabase? database;
   final StreetRouteProvider? streetRouteProvider;
 
   const MeetingMapScreen({
     super.key,
-    required this.initialMeetings,
     this.database,
     this.streetRouteProvider,
   });
@@ -1705,8 +1704,10 @@ final proceed = await showDialog<bool>(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.explore_outlined,
-              color: Theme.of(context).colorScheme.primary, size: 44),
+          // Footprints walking to the meeting: the tap already landed the
+          // user here, so the wait should feel like going somewhere, not
+          // like nothing happened.
+          const FootprintTrail(),
           const SizedBox(height: 16),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
