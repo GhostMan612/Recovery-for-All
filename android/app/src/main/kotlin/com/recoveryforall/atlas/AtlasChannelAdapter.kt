@@ -1,3 +1,4 @@
+// android/app/src/main/kotlin/com/recoveryforall/atlas/AtlasChannelAdapter.kt
 // ============================================================
 // As Above, So Below. As Within, So Without.
 // The Future Dictates the Past and the Past is Always Present.
@@ -6,20 +7,40 @@
 package com.recoveryforall.atlas
 
 import android.content.Context
+import android.os.Build
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
-class AtlasChannelAdapter private constructor(private val context: Context) : MethodChannel.MethodCallHandler {
+/**
+ * The single `recoveryforall/atlas_v1` channel.
+ *
+ * The Atlas SDK is a separate Maven artifact. Its file-backed static-feed
+ * stack needs Android 8.0 (API 26); the app still serves API 24/25. This class
+ * therefore contains no Atlas imports: on API 26+ it delegates to
+ * [AtlasNativeBridge] through [AtlasBridgeFactory], and on older devices it
+ * keeps the typed SDK_NOT_INSTALLED fallback without ever loading an Atlas
+ * class.
+ */
+class AtlasChannelAdapter private constructor(
+    private val delegate: Delegate?,
+) : MethodChannel.MethodCallHandler {
+
+    internal interface Delegate : MethodChannel.MethodCallHandler
 
     companion object {
         const val CHANNEL_NAME = "recoveryforall/atlas_v1"
         const val CURRENT_API_VERSION = 1
+        const val MIN_ATLAS_API = 26
 
         fun setup(context: Context, messenger: BinaryMessenger): AtlasChannelAdapter {
-            val adapter = AtlasChannelAdapter(context)
-            val channel = MethodChannel(messenger, CHANNEL_NAME)
-            channel.setMethodCallHandler(adapter)
+            val delegate = if (Build.VERSION.SDK_INT >= MIN_ATLAS_API) {
+                AtlasBridgeFactory.create(context.applicationContext)
+            } else {
+                null
+            }
+            val adapter = AtlasChannelAdapter(delegate)
+            MethodChannel(messenger, CHANNEL_NAME).setMethodCallHandler(adapter)
             return adapter
         }
     }
@@ -27,41 +48,52 @@ class AtlasChannelAdapter private constructor(private val context: Context) : Me
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         val apiVersion = call.argument<Int>("apiVersion") ?: CURRENT_API_VERSION
         if (apiVersion != CURRENT_API_VERSION) {
-            result.error("UNSUPPORTED_VERSION", "API version $apiVersion is not supported (expected $CURRENT_API_VERSION)", null)
+            result.error(
+                "UNSUPPORTED_VERSION",
+                "API version $apiVersion is not supported (expected $CURRENT_API_VERSION)",
+                null,
+            )
             return
         }
 
+        val active = delegate
+        if (active != null) {
+            active.onMethodCall(call, result)
+        } else {
+            fallback(call, result)
+        }
+    }
+
+    /**
+     * Truthful fallback for devices that cannot load the Atlas SDK. It never
+     * reports a capability or cancellation that did not happen.
+     */
+    private fun fallback(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "getCapabilities" -> {
-                val capabilities = mapOf(
+            "getCapabilities" -> result.success(
+                mapOf(
                     "version" to CURRENT_API_VERSION,
                     "staticTransit" to false,
                     "localRouting" to false,
                     "realtime" to false,
                     "weather" to false,
                     "offlineSnapshot" to false,
-                    "providerIds" to emptyList<String>()
-                )
-                result.success(capabilities)
-            }
+                    "providerIds" to emptyList<String>(),
+                ),
+            )
 
-            "loadStaticNetwork" -> {
-                val feedId = call.argument<String>("feedId") ?: "unknown"
-                val fromCacheOnly = call.argument<Boolean>("fromCacheOnly") ?: true
-                val response = mapOf(
+            "loadStaticNetwork" -> result.success(
+                mapOf(
                     "state" to "missing",
                     "feedHash" to null,
                     "fetchedAt" to null,
                     "expiresAt" to null,
                     "stopCount" to 0,
-                    "source" to "unlinked_sdk"
-                )
-                result.success(response)
-            }
+                    "source" to "unsupported_android_version",
+                ),
+            )
 
             "planJourney" -> {
-                // When external Atlas SDK binary artifact is unlinked, return clean typed error
-                // allowing Flutter layer to gracefully engage fallback directions.
                 val meetingId = call.argument<String>("meetingId") ?: ""
                 val origin = call.argument<Map<String, Any?>>("origin")
                 val destination = call.argument<Map<String, Any?>>("destination")
@@ -73,36 +105,38 @@ class AtlasChannelAdapter private constructor(private val context: Context) : Me
 
                 result.error(
                     "SDK_NOT_INSTALLED",
-                    "Atlas engine artifact is not linked. Graceful external directions fallback active.",
-                    mapOf("meetingId" to meetingId, "isSynthetic" to false)
+                    "Atlas navigation requires Android 8.0 (API 26) or newer on this build. " +
+                        "Graceful external directions fallback active.",
+                    mapOf(
+                        "meetingId" to meetingId,
+                        "isSynthetic" to false,
+                        "apiLevel" to Build.VERSION.SDK_INT,
+                        "minApi" to MIN_ATLAS_API,
+                    ),
                 )
             }
 
             "cancelRequest" -> {
                 val requestId = call.argument<String>("requestId") ?: ""
-                // The Atlas SDK is not linked, so no native journey exists to
-                // cancel. Never report a cancellation that did not happen.
+                // No native journey can exist here, so never report a
+                // cancellation that did not happen.
                 result.success(mapOf("cancelRequested" to false, "requestId" to requestId))
             }
 
-            "getOfflineStatus" -> {
-                val feedId = call.argument<String>("feedId") ?: "default"
-                result.success(mapOf(
+            "getOfflineStatus" -> result.success(
+                mapOf(
                     "staticNetwork" to "unavailable",
                     "basemap" to "cached_tiles",
                     "routing" to "unavailable",
                     "dataAgeSeconds" to null,
-                    "notes" to "Atlas SDK engine not linked in local environment"
-                ))
-            }
+                    "notes" to "Atlas navigation requires Android 8.0 (API 26) or newer; " +
+                        "this device keeps the external-directions fallback.",
+                ),
+            )
 
-            "getWeather" -> {
-                result.success(mapOf("status" to "unsupported"))
-            }
+            "getWeather" -> result.success(mapOf("status" to "unsupported"))
 
-            else -> {
-                result.notImplemented()
-            }
+            else -> result.notImplemented()
         }
     }
 }

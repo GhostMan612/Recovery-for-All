@@ -42,6 +42,46 @@ class NavigatorRepository {
     }
   }
 
+  Future<AtlasStaticNetworkStatus?> loadStaticNetwork({
+    String feedId = 'default',
+    bool fromCacheOnly = true,
+  }) async {
+    try {
+      return await _bridge.loadStaticNetwork(
+        requestId: 'status-${DateTime.now().millisecondsSinceEpoch}',
+        feedId: feedId,
+        fromCacheOnly: fromCacheOnly,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AtlasStaticNetworkStatus> refreshStaticFeed({
+    String feedId = 'default',
+    required bool userConsented,
+  }) async {
+    if (!userConsented) {
+      throw const AtlasException(
+        code: AtlasErrorCode.permissionRequired,
+        message: 'User consent is required before refreshing the transit schedule.',
+      );
+    }
+    try {
+      return await _bridge.refreshStaticFeed(
+        feedId: feedId,
+        userConsented: true,
+      );
+    } on AtlasException {
+      rethrow;
+    } catch (e) {
+      throw AtlasException(
+        code: AtlasErrorCode.nativeFailure,
+        message: 'Failed to refresh static transit schedule: $e',
+      );
+    }
+  }
+
   Future<JourneyPreview?> planMeetingJourney({
     required String requestId,
     required String meetingId,
@@ -52,6 +92,7 @@ class NavigatorRepository {
     required int departAtUtcMs,
     int? arriveBeforeUtcMs,
     int maxWalkMeters = 1500,
+    int? timeoutMs,
   }) async {
     try {
       return await _bridge.planJourney(
@@ -65,6 +106,7 @@ class NavigatorRepository {
         arriveBeforeUtcMs: arriveBeforeUtcMs,
         maxWalkMeters: maxWalkMeters,
         allowRemote: false,
+        timeoutMs: timeoutMs,
       );
     } on AtlasException {
       rethrow;
@@ -73,6 +115,14 @@ class NavigatorRepository {
         code: AtlasErrorCode.nativeFailure,
         message: 'Failed to plan meeting journey: $e',
       );
+    }
+  }
+
+  Future<bool> cancelJourneyRequest(String requestId) async {
+    try {
+      return await _bridge.cancelRequest(requestId: requestId);
+    } catch (_) {
+      return false;
     }
   }
 }

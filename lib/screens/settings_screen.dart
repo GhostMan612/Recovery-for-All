@@ -24,6 +24,8 @@ import '../services/gentle_reminder_service.dart';
 import '../services/journal_crypto_service.dart';
 import '../services/resource_link_health.dart';
 import '../services/meeting_finder_service.dart';
+import '../features/navigator/data/atlas_dtos.dart';
+import '../features/navigator/data/navigator_repository.dart';
 import '../services/data_export_service.dart';
 import '../services/sponsor_link_service.dart';
 import 'seventh_tradition_screen.dart';
@@ -68,12 +70,17 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   SponsorIdentity? _registeredSponsor;
 
   final MeetingFinderService _meetingFinder = MeetingFinderService();
+  final NavigatorRepository _navigatorRepo = NavigatorRepository();
+  AtlasStaticNetworkStatus? _transitFeedStatus;
+  AtlasOfflineStatus? _transitOfflineStatus;
+  bool _refreshingTransitFeed = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _loadMeetingSources();
+    _loadTransitFeedStatus();
   }
 
   /// Re-reads persisted state.
@@ -88,6 +95,7 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
   void refreshState() {
     if (!mounted) return;
     _loadProfile();
+    _loadTransitFeedStatus();
   }
 
   @override
@@ -459,6 +467,67 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     _loadMeetingSources();
+  }
+
+  Future<void> _loadTransitFeedStatus() async {
+    final feed = await _navigatorRepo.loadStaticNetwork(fromCacheOnly: true);
+    final offline = await _navigatorRepo.getOfflineStatus();
+    if (!mounted) return;
+    setState(() {
+      _transitFeedStatus = feed;
+      _transitOfflineStatus = offline;
+    });
+  }
+
+  Future<void> _refreshTransitSchedule() async {
+    final isAllowed = ref.read(privacyCapabilityProvider).isGranted(
+      PrivacyCapability.transitFeedRefresh,
+    );
+    if (!isAllowed) {
+      final consented = await _promptCapability(
+        PrivacyCapability.transitFeedRefresh,
+      );
+      if (!consented || !mounted) return;
+    }
+    setState(() => _refreshingTransitFeed = true);
+    String message;
+    try {
+      final status = await _navigatorRepo.refreshStaticFeed(userConsented: true);
+      final stopsLabel =
+          status.stopCount > 0 ? ' · ${status.stopCount} stops' : '';
+      message = status.state == 'expired'
+          ? 'Transit schedule refreshed, but its validity window is expired$stopsLabel.'
+          : 'Metro Transit schedule updated (${status.source ?? status.state}$stopsLabel)';
+    } on AtlasException catch (e) {
+      message = e.message;
+    } catch (_) {
+      message = 'Transit schedule refresh failed — bundled schedule unchanged.';
+    }
+    if (!mounted) return;
+    setState(() => _refreshingTransitFeed = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        content: Text(message),
+      ),
+    );
+    await _loadTransitFeedStatus();
+  }
+
+  String _transitScheduleSummary() {
+    final feed = _transitFeedStatus;
+    final offline = _transitOfflineStatus;
+    if (feed != null && feed.expiresAt != null) {
+      final exp = MaterialLocalizations.of(context).formatFullDate(
+        DateTime.fromMillisecondsSinceEpoch(feed.expiresAt!).toLocal(),
+      );
+      final stops = feed.stopCount > 0 ? ' · ${feed.stopCount} stops' : '';
+      return 'Status: ${feed.state}$stops · Valid through $exp';
+    }
+    if (offline?.notes != null && offline!.notes!.isNotEmpty) {
+      return offline.notes!;
+    }
+    return 'Uses bundled Metro Transit static schedule until refreshed.';
   }
 
   Future<bool> _promptCapability(PrivacyCapability cap) async {
@@ -1247,6 +1316,37 @@ class SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              const AppSectionHeader(
+                title: 'Transit Schedule Feed',
+              ),
+              Text(
+                _transitScheduleSummary(),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
+                icon: _refreshingTransitFeed
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      )
+                    : const Icon(Icons.sync_outlined, size: 18),
+                label: const Text('Refresh Transit Schedule'),
+                onPressed: _refreshingTransitFeed ? null : _refreshTransitSchedule,
               ),
               const SizedBox(height: 24),
 

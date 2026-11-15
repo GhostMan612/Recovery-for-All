@@ -236,4 +236,93 @@ void main() {
     expect(find.textContaining('68°F'), findsOneWidget);
     expect(find.textContaining('Open-Meteo'), findsOneWidget);
   });
+
+  testWidgets('JourneySheet surfaces Choose Starting Point on stop-coverage walk fallback and Settings button on FEED_EXPIRED', (tester) async {
+    final walkOnlyOption = JourneyOption(
+      journeyId: 'direct-walk',
+      departUtcMs: 1791750000000,
+      arriveUtcMs: 1791750900000,
+      walkMeters: 900,
+      transferCount: 0,
+      transferConfidence: 'direct_walk',
+      legs: const [
+        JourneyLeg(
+          mode: 'walk',
+          fromLabel: 'Starting Point',
+          toLabel: 'Minneapolis Alano Club',
+          startUtcMs: 1791750000000,
+          endUtcMs: 1791750900000,
+          distanceMeters: 900,
+        ),
+      ],
+    );
+
+    final coverageWalkResult = PlannedMeetingJourneyResult(
+      destination: sampleDestination,
+      schedule: sampleSchedule,
+      inAppPreview: JourneyPreview(
+        version: 1,
+        requestId: 'req-cov-1',
+        meetingId: sampleDestination.compositeId,
+        providerId: 'atlas_pedestrian_fallback',
+        dataSource: 'direct_walk_estimate',
+        isSynthetic: false,
+        fetchedAtUtcMs: 1791750000000,
+        freshness: 'fresh',
+        options: [walkOnlyOption],
+      ),
+      fallbackExternalDirectionsUrl: 'https://www.google.com/maps/dir/?api=1&destination=44.9606,-93.2778',
+      isRouteAvailableInApp: true,
+      statusMessage: 'No covered Metro Transit stop found within 1.5 km of your starting point. Showing estimated direct walk distance only — this is not a transit itinerary.',
+      failureCode: AtlasErrorCode.noItinerary,
+      canChooseManualOrigin: true,
+    );
+
+    var choseOrigin = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(useMaterial3: true),
+        home: Scaffold(
+          body: JourneySheet(
+            planResult: coverageWalkResult,
+            onSelectManualOrigin: () => choseOrigin = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Available Routes (Walk Only)'), findsOneWidget);
+    expect(find.textContaining('within 1.5 km'), findsOneWidget);
+    expect(find.text('Choose Starting Point'), findsOneWidget);
+    await tester.tap(find.text('Choose Starting Point'));
+    expect(choseOrigin, isTrue);
+
+    final expiredResult = PlannedMeetingJourneyResult(
+      destination: sampleDestination,
+      schedule: sampleSchedule,
+      inAppPreview: null,
+      fallbackExternalDirectionsUrl: 'https://www.google.com/maps/dir/?api=1&destination=44.9606,-93.2778',
+      isRouteAvailableInApp: false,
+      statusMessage: 'The Metro Transit schedule expired on 2026-11-27. External navigation available.',
+      failureCode: AtlasErrorCode.feedExpired,
+    );
+
+    var openedSettings = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(useMaterial3: true),
+        home: Scaffold(
+          body: JourneySheet(
+            planResult: expiredResult,
+            onOpenFeedSettings: () => openedSettings = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.event_busy_outlined), findsOneWidget);
+    expect(find.text('Refresh Schedule in Settings'), findsOneWidget);
+    await tester.tap(find.text('Refresh Schedule in Settings'));
+    expect(openedSettings, isTrue);
+  });
 }

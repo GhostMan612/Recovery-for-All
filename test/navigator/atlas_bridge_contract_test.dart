@@ -112,6 +112,22 @@ void main() {
               'notes': 'Offline routing operational',
             };
 
+          case 'refreshStaticFeed':
+            if (methodCall.arguments['userConsented'] != true) {
+              throw PlatformException(
+                code: 'PERMISSION_REQUIRED',
+                message: 'User consent required',
+              );
+            }
+            return <String, dynamic>{
+              'state': 'ready',
+              'feedHash': 'sha256:refreshed99',
+              'fetchedAt': 1791754000000,
+              'expiresAt': 1799999999000,
+              'stopCount': 8545,
+              'source': 'remote_gtfs_refreshed',
+            };
+
           default:
             return null;
         }
@@ -277,6 +293,64 @@ void main() {
 
       final offline = await repository.getOfflineStatus();
       expect(offline.routing, 'unavailable');
+    });
+
+    test('refreshStaticFeed fails closed without user consent and forwards consented refresh', () async {
+      await expectLater(
+        () => bridge.refreshStaticFeed(userConsented: false),
+        throwsA(isA<AtlasException>().having(
+          (e) => e.code,
+          'code',
+          AtlasErrorCode.permissionRequired,
+        )),
+      );
+      expect(log.where((c) => c.method == 'refreshStaticFeed'), isEmpty);
+
+      final refreshed = await repository.refreshStaticFeed(userConsented: true);
+      expect(refreshed.state, 'ready');
+      expect(refreshed.stopCount, 8545);
+      expect(refreshed.source, 'remote_gtfs_refreshed');
+    });
+
+    test('planJourney forwards timeoutMs and preserves missingReasons on NO_ITINERARY', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel(AtlasBridge.channelName),
+        (MethodCall call) async {
+          log.add(call);
+          throw PlatformException(
+            code: 'NO_ITINERARY',
+            message: 'No transit stops within walk limit',
+            details: <String, dynamic>{
+              'requestId': 'req-missing',
+              'missingReasons': ['stops-within-walk-limit', 'no-origin-stops-within-walk-limit'],
+            },
+          );
+        },
+      );
+
+      await expectLater(
+        () => bridge.planJourney(
+          requestId: 'req-missing',
+          meetingId: 'meet-1',
+          originLat: 44.9778,
+          originLon: -93.2650,
+          destinationLat: 44.9800,
+          destinationLon: -93.2700,
+          departAtUtcMs: 1791751200000,
+          timeoutMs: 8500,
+        ),
+        throwsA(
+          isA<AtlasException>()
+              .having((e) => e.code, 'code', AtlasErrorCode.noItinerary)
+              .having(
+                (e) => e.missingReasons,
+                'missingReasons',
+                containsAll(['stops-within-walk-limit', 'no-origin-stops-within-walk-limit']),
+              ),
+        ),
+      );
+      expect(log.single.arguments['timeoutMs'], 8500);
     });
   });
 }

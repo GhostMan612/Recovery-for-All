@@ -27,3 +27,37 @@ If SDK unavailable/missing artifact/older Android/broken permissions: keep RFA m
 ## Gate
 
 Locally build native bridge; show one **synthetic** scheduled route fixture transferred Kotlin→Flutter and rendered correctly with legs; show null/permission/network-disabled errors; verify no HTTP from local-only plan using a network spy. Human Android Studio build, device smoke and Gradle dependency list must be attached. See tests in `ACCEPTANCE_AND_TESTS.md`.
+
+## Implementation record (2026-11-13)
+
+**Owner authorization supersedes the local-only publication constraint in step 1.** The owner directed publication of the producer artifacts from Metro-IntelliTrip so a clean clone can resolve them. Producer work was done in the separate Metro repository and merged there; RFA consumed only the immutable published coordinates.
+
+- **Producer:** Metro-IntelliTrip PR #19 merged to `master` as `781af81`; tag `atlas-v0.2.0`; publish workflow run `43554954525`; append-only `atlas-maven` branch at `d1aae736f08fdbecd8e3c65bc6fdf6e20d3d5045`. The remote POM `https://raw.githubusercontent.com/GhostMan612/Metro-IntelliTrip/atlas-maven/com/intellitrip/atlas/atlas-engine/0.2.0/atlas-engine-0.2.0.pom` returned HTTP 200 from a clean environment.
+- **Consumer branch:** `feat/atlas-sdk-integration`, cut from `main`. The preserved WIP branch was not modified.
+- **Coordinates:** `com.intellitrip.atlas:atlas-engine:0.2.0`, `atlas-gtfs-static`, `atlas-offline`, `atlas-routing`. The version is pinned once in `android/gradle.properties` (`atlasVersion=0.2.0`); no ranges, `+`, or SNAPSHOT. `android/build.gradle.kts` resolves the append-only branch, supports an `atlasMavenUrl` override for a staged repository, and applies a `com.intellitrip.atlas` content filter.
+- `atlas-gtfs-realtime` is excluded: it pulls full `protobuf-java`, which collides with Firebase's `protobuf-javalite`. Realtime is disabled in this build.
+- **API gate:** `AtlasChannelAdapter` contains no Atlas imports. On API 26+ it delegates through `AtlasBridgeFactory` to `AtlasNativeBridge`; API 24/25 keeps the typed `SDK_NOT_INSTALLED` fallback, so `minSdk` is unchanged. Narrow R8 keeps cover the factory and bridge.
+- **Static feed:** `assets/gtfs/metro_transit_regional.zip` (948,264 bytes, SHA-256 `0164765858d353001f42d66a40430d2ed6b2085cb859e0574df08b6a5ddbe2d6`) plus `PROVENANCE.txt`. It is seeded through `StaticFeedRefresher` with an in-memory `HttpTransport`; no network request leaves the device. The snapshot's `fetchedAt` is the capture time, not app launch time.
+- **Boundary note:** the current engine API does not expose static-feed loading or offline providers, so the app depends directly on `atlas-gtfs-static`, `atlas-offline`, and `atlas-routing`. This is a documented SDK boundary follow-up, not a claim that `atlas-engine` alone is sufficient.
+- `fromCacheOnly=false` reports `remote_disabled` because no remote acquisition path exists. It does not download.
+
+### Verified
+
+- **Branch implementation & latency/fallback fixes (2026-11-14):**
+  - `meeting_map_screen.dart` opens the modal bottom sheet immediately via `_openDirections` + `_prepareDirections` + `FutureBuilder`, rendering a themed loading state (`AppLoadingState`) and immediate Google Maps fallback button while route computation runs, plus a 4 s timeout on optional weather lookup.
+  - `AtlasNativeBridge.kt` avoids double-parsing the bundled GTFS feed during `ensureEngine` (`seedFromBundledAsset` returns the activated `StaticFeed` directly and re-seeds when `active.metadata.fetchedAt < BUNDLED_FEED_CAPTURED_AT`), checks expiry against both `Clock.System.now()` and `effectiveDepartAt`, and plans with `maxTransfers = 1` first before falling back to `maxTransfers = 2` only when empty/unavailable.
+  - `MeetingJourneyPlanner` enforces a cancellable `planTimeout` (12 s default calling `NavigatorRepository.cancelJourneyRequest`) and lets `AtlasErrorCode.noItinerary` fall through to the in-app direct-walk estimate when within range (`<= 5 km`), covered by unit tests in `test/navigator/meeting_journey_planner_test.dart`.
+- **Earlier 2026-11-13 device checks (pre-fix APK):** Debug APK built against the remote repository and contained `assets/gtfs/metro_transit_regional.zip`, `PROVENANCE.txt`, `AtlasNativeBridge`, `atlas_static_planner`, and `metro-transit-regional`. On API 34 (LG B160V), the bundled feed seeded snapshot, `stop-times.dat`/`.idx`, and `static-feed.cache` under `files/metro-transit-regional`.
+
+### Not verified / release blockers
+
+- **API 24/25 fallback is not device-tested on this branch.** Attached devices are API 34 and 36. PR #42 adds API < 26 fallback correctness and records an API 24 AVD run; this branch's source contract tests cover the fallback shape only.
+- **Journey UI is device-verified on API 34 (2026-11-14).** The refreshed debug build rendered 5 transit itineraries in 3,691 ms; in-flight Close and KEYCODE_BACK both cancelled natively; offline routing fell back without a crash. The earlier 2026-11-13 pre-fix APK timeout is retained above as history.
+- **Feed expiry:** the refreshed bundled feed has 8,545 stops and is valid through **2027-01-01**. The earlier 2026-10-10–2026-11-27 window applies only to the 2026-11-13 snapshot. A live post-2027-01-01 refresh is still covered by deterministic injected-clock tests rather than a calendar-rollover device run.
+- Debug APK only. This is not a release artifact and not a Play distribution.
+
+### Later increments (2026-11-14)
+
+The 0.2.0 record above is the original bridge landing and is retained as history. The producer subsequently published `atlas-v0.3.1` (PR #21, `af69792`, publish run `43601348105`) and `atlas-v0.3.3` (PR #23, `55eb754`, publish run `43633406068`); `atlas-maven` serves 0.2.0 through 0.3.3, and the 0.3.3 POM resolves HTTP 200. Consumer PR #41 moves the pin to 0.3.1 and adds request-ID cancellation, the immediate loading sheet, the 12 s timeout with walk fallback, and the refreshed 8,545-stop feed valid through 2027-01-01 with consent-gated refresh. Stacked PR #42 moves the pin to 0.3.3, adds Gradle dependency-verification checksums, Pass-2 budget/shape-free cache/index transcode hardening, and API < 26 `refreshStaticFeed` fallback correctness.
+
+The earlier **2026-11-27** feed-expiry note is superseded by the refreshed feed; it remains accurate for the 2026-11-13 snapshot only. The remaining expiry gap is the live post-2027-01-01 refresh, covered by deterministic injected-clock tests.
