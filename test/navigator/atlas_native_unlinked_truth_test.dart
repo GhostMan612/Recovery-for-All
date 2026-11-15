@@ -25,5 +25,6 @@ void main() {
     expect(block, contains('"cancelRequested" to false'));
     expect(block, isNot(contains('"cancelRequested" to true')));
     expect(native, contains('"SDK_NOT_INSTALLED"'));
+    expect(native, contains('"refreshStaticFeed"'));
   });
 }

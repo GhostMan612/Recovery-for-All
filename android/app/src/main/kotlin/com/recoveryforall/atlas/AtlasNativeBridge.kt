@@ -124,6 +124,7 @@ internal class AtlasNativeBridge internal constructor(
         const val ROUTING_PROVIDER_ID = "atlas_static_planner"
         const val DEFAULT_PLAN_TIMEOUT_MS = 12_000L
         const val MAX_PLAN_TIMEOUT_MS = 60_000L
+        const val MIN_PASS2_BUDGET_MS = 3_500L
         const val MAX_TRACKED_REQUEST_IDS = 512
 
         val NO_STOP_COVERAGE_REASONS = setOf(
@@ -513,9 +514,17 @@ internal class AtlasNativeBridge internal constructor(
                         (primaryOutcome is JourneyOutcome.Planned && primaryOutcome.journeys.isEmpty())
                     )
 
-                val outcome = if (shouldRetryWithSecondTransfer) {
+                val remainingBudgetMs = timeoutMs - elapsedMs()
+                val hasPass2Budget = remainingBudgetMs >= MIN_PASS2_BUDGET_MS
+                if (shouldRetryWithSecondTransfer && !hasPass2Budget) {
+                    logInfo(
+                        "planJourney pass2_skipped_low_budget reqHash=$reqTag " +
+                            "remainingMs=$remainingBudgetMs elapsedMs=${elapsedMs()}",
+                    )
+                }
+                val outcome = if (shouldRetryWithSecondTransfer && hasPass2Budget) {
                     coroutineContext.ensureActive()
-                    logInfo("planJourney pass2 reqHash=$reqTag elapsedMs=${elapsedMs()}")
+                    logInfo("planJourney pass2 reqHash=$reqTag remainingMs=$remainingBudgetMs elapsedMs=${elapsedMs()}")
                     engine.planJourney(buildPlanRequest(2))
                 } else {
                     primaryOutcome
@@ -689,12 +698,13 @@ internal class AtlasNativeBridge internal constructor(
                 when (val outcome = refresher.refresh()) {
                     is RefreshOutcome.Activated -> {
                         val network = initMutex.withLock {
-                            val rebuilt = buildNetwork(outcome.feed)
-                            // Warm the lazy StopTimeIndex before releasing the lock so first planJourney avoids cold index load.
-                            val warmStartMs = System.nanoTime() / 1_000_000L
-                            rebuilt.stops.firstOrNull()?.let { rebuilt.tripsServing(it.key) }
-                            logInfo("StopTimeIndex refreshed stops=${rebuilt.stops.size} elapsedMs=${(System.nanoTime() / 1_000_000L) - warmStartMs}")
-                            installNetworkAndEngineLocked(target, outcome.feed, rebuilt)
+                            if (snapshotStore.cachePath(target) == null) {
+                                runCatching { snapshotStore.writeCache(target, outcome.feed) }
+                            }
+                            val routingFeed = outcome.feed.copy(shapes = emptyList())
+                            val rebuilt = buildNetwork(routingFeed)
+                            warmStopTimeIndex(rebuilt, "StopTimeIndex refreshed")
+                            installNetworkAndEngineLocked(target, routingFeed, rebuilt)
                             rebuilt
                         }
                         sendSuccess(reply, statusMapForNetwork(network, sourceOverride = "remote_gtfs_refreshed"))
@@ -822,6 +832,24 @@ internal class AtlasNativeBridge internal constructor(
         return engine
     }
 
+    private fun monotonicNowMs(): Long = System.nanoTime() / 1_000_000L
+
+    private fun warmStopTimeIndex(network: RoutingNetwork, label: String): Long {
+        val warmStartMs = monotonicNowMs()
+        var warmedTrip: TripKey? = null
+        for (stop in network.stops) {
+            val trip = network.tripsServing(stop.key).firstOrNull()
+            if (trip != null) {
+                warmedTrip = trip.key
+                break
+            }
+        }
+        warmedTrip?.let { network.stopTimesFor(it) }
+        val elapsedMs = monotonicNowMs() - warmStartMs
+        logInfo("$label stops=${network.stops.size} warmedTrip=${warmedTrip != null} elapsedMs=$elapsedMs")
+        return elapsedMs
+    }
+
     private suspend fun ensureEngine(target: FeedId): AtlasEngine? = initMutex.withLock {
         if (target != feedId) {
             initFailure = "unsupported_feed"
@@ -829,13 +857,29 @@ internal class AtlasNativeBridge internal constructor(
         }
         atlasEngine?.let { return@withLock it }
 
+        val totalStartMs = monotonicNowMs()
         val active = snapshotStore.activeSnapshot(target)
         val needsSeed = active == null || active.metadata.fetchedAt < BUNDLED_FEED_CAPTURED_AT
+        var reindexMs = 0L
+        if (!needsSeed && !snapshotStore.hasCurrentStopTimeIndex(target)) {
+            val reindexStartMs = monotonicNowMs()
+            val reindexed = try {
+                snapshotStore.reindexStopTimes(target)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            reindexMs = monotonicNowMs() - reindexStartMs
+            logInfo("StopTimeIndex reindexed feed=${target.value} ok=$reindexed elapsedMs=$reindexMs")
+        }
+
+        val feedStartMs = monotonicNowMs()
         val feed = try {
             if (needsSeed) {
                 seedFromBundledAsset(target)
             } else {
-                offlineRegistry.loadStaticFeed(target)
+                offlineRegistry.loadStaticFeed(target, includeShapes = false)
             }
         } catch (e: CancellationException) {
             throw e
@@ -843,11 +887,13 @@ internal class AtlasNativeBridge internal constructor(
             initFailure = "parse_failure"
             null
         }
+        val feedMs = monotonicNowMs() - feedStartMs
         if (feed == null) {
             initFailure = initFailure ?: "parse_failure"
             return@withLock null
         }
 
+        val networkStartMs = monotonicNowMs()
         val network = try {
             buildNetwork(feed)
         } catch (e: CancellationException) {
@@ -856,13 +902,18 @@ internal class AtlasNativeBridge internal constructor(
             initFailure = "network_failed"
             null
         }
+        val networkMs = monotonicNowMs() - networkStartMs
         if (network == null) return@withLock null
 
-        // Warm the lazy StopTimeIndex before exposing the engine so the first planJourney call does not pay cold index parse.
-        val warmStartMs = System.nanoTime() / 1_000_000L
-        network.stops.firstOrNull()?.let { network.tripsServing(it.key) }
-        logInfo("StopTimeIndex ensured stops=${network.stops.size} elapsedMs=${(System.nanoTime() / 1_000_000L) - warmStartMs}")
-        installNetworkAndEngineLocked(target, feed, network)
+        val indexMs = warmStopTimeIndex(network, "StopTimeIndex ensured")
+        val engine = installNetworkAndEngineLocked(target, feed, network)
+        val totalMs = monotonicNowMs() - totalStartMs
+        logInfo(
+            "Atlas engine ready feed=${target.value} seed=$needsSeed " +
+                "reindexMs=$reindexMs feedMs=$feedMs networkMs=$networkMs " +
+                "indexMs=$indexMs totalMs=$totalMs stops=${network.stops.size}",
+        )
+        engine
     }
 
     /**
@@ -888,8 +939,13 @@ internal class AtlasNativeBridge internal constructor(
             clock = { BUNDLED_FEED_CAPTURED_AT },
         )
         when (val outcome = refresher.refreshBlocking()) {
-            is RefreshOutcome.Activated -> outcome.feed
-            is RefreshOutcome.NotModified -> offlineRegistry.loadStaticFeed(target)
+            is RefreshOutcome.Activated -> {
+                if (snapshotStore.cachePath(target) == null) {
+                    runCatching { snapshotStore.writeCache(target, outcome.feed) }
+                }
+                outcome.feed.copy(shapes = emptyList())
+            }
+            is RefreshOutcome.NotModified -> offlineRegistry.loadStaticFeed(target, includeShapes = false)
             is RefreshOutcome.Rejected -> {
                 initFailure = "asset_rejected"
                 null

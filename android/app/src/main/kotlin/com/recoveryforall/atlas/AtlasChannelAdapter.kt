@@ -24,6 +24,7 @@ import io.flutter.plugin.common.MethodChannel
  */
 class AtlasChannelAdapter private constructor(
     private val delegate: Delegate?,
+    private val sdkIntProvider: () -> Int = { Build.VERSION.SDK_INT },
 ) : MethodChannel.MethodCallHandler {
 
     internal interface Delegate : MethodChannel.MethodCallHandler
@@ -43,6 +44,9 @@ class AtlasChannelAdapter private constructor(
             MethodChannel(messenger, CHANNEL_NAME).setMethodCallHandler(adapter)
             return adapter
         }
+
+        internal fun fallbackForTesting(sdkIntProvider: () -> Int): AtlasChannelAdapter =
+            AtlasChannelAdapter(delegate = null, sdkIntProvider = sdkIntProvider)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -69,8 +73,25 @@ class AtlasChannelAdapter private constructor(
      * reports a capability or cancellation that did not happen.
      */
     private fun fallback(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "getCapabilities" -> result.success(
+        dispatchFallback(
+            method = call.method,
+            arguments = call.arguments as? Map<*, *>,
+            onSuccess = result::success,
+            onError = result::error,
+            onNotImplemented = result::notImplemented,
+        )
+    }
+
+    internal fun dispatchFallback(
+        method: String,
+        arguments: Map<*, *>?,
+        onSuccess: (Any?) -> Unit,
+        onError: (String, String?, Any?) -> Unit,
+        onNotImplemented: () -> Unit,
+    ) {
+        val sdkInt = sdkIntProvider()
+        when (method) {
+            "getCapabilities" -> onSuccess(
                 mapOf(
                     "version" to CURRENT_API_VERSION,
                     "staticTransit" to false,
@@ -82,7 +103,7 @@ class AtlasChannelAdapter private constructor(
                 ),
             )
 
-            "loadStaticNetwork" -> result.success(
+            "loadStaticNetwork" -> onSuccess(
                 mapOf(
                     "state" to "missing",
                     "feedHash" to null,
@@ -93,37 +114,58 @@ class AtlasChannelAdapter private constructor(
                 ),
             )
 
+            "refreshStaticFeed" -> {
+                val userConsented = arguments?.get("userConsented") == true
+                if (!userConsented) {
+                    onError(
+                        "PERMISSION_REQUIRED",
+                        "User consent (transitFeedRefresh) is required before refreshing the transit schedule.",
+                        null,
+                    )
+                    return
+                }
+                onError(
+                    "SDK_NOT_INSTALLED",
+                    "Atlas navigation requires Android 8.0 (API 26) or newer on this build; " +
+                        "transit schedule refresh is unavailable on API $sdkInt.",
+                    mapOf(
+                        "apiLevel" to sdkInt,
+                        "minApi" to MIN_ATLAS_API,
+                    ),
+                )
+            }
+
             "planJourney" -> {
-                val meetingId = call.argument<String>("meetingId") ?: ""
-                val origin = call.argument<Map<String, Any?>>("origin")
-                val destination = call.argument<Map<String, Any?>>("destination")
+                val meetingId = arguments?.get("meetingId") as? String ?: ""
+                val origin = arguments?.get("origin") as? Map<*, *>
+                val destination = arguments?.get("destination") as? Map<*, *>
 
                 if (origin == null || destination == null) {
-                    result.error("BAD_INPUT", "Missing origin or destination coordinates", null)
+                    onError("BAD_INPUT", "Missing origin or destination coordinates", null)
                     return
                 }
 
-                result.error(
+                onError(
                     "SDK_NOT_INSTALLED",
                     "Atlas navigation requires Android 8.0 (API 26) or newer on this build. " +
                         "Graceful external directions fallback active.",
                     mapOf(
                         "meetingId" to meetingId,
                         "isSynthetic" to false,
-                        "apiLevel" to Build.VERSION.SDK_INT,
+                        "apiLevel" to sdkInt,
                         "minApi" to MIN_ATLAS_API,
                     ),
                 )
             }
 
             "cancelRequest" -> {
-                val requestId = call.argument<String>("requestId") ?: ""
+                val requestId = arguments?.get("requestId") as? String ?: ""
                 // No native journey can exist here, so never report a
                 // cancellation that did not happen.
-                result.success(mapOf("cancelRequested" to false, "requestId" to requestId))
+                onSuccess(mapOf("cancelRequested" to false, "requestId" to requestId))
             }
 
-            "getOfflineStatus" -> result.success(
+            "getOfflineStatus" -> onSuccess(
                 mapOf(
                     "staticNetwork" to "unavailable",
                     "basemap" to "cached_tiles",
@@ -134,9 +176,9 @@ class AtlasChannelAdapter private constructor(
                 ),
             )
 
-            "getWeather" -> result.success(mapOf("status" to "unsupported"))
+            "getWeather" -> onSuccess(mapOf("status" to "unsupported"))
 
-            else -> result.notImplemented()
+            else -> onNotImplemented()
         }
     }
 }
