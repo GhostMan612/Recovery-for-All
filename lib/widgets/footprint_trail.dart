@@ -23,6 +23,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/motion/app_motion.dart';
+
 class FootprintTrail extends StatefulWidget {
   const FootprintTrail({
     super.key,
@@ -54,7 +56,10 @@ class _FootprintTrailState extends State<FootprintTrail>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
+    // Reduced motion is read through AppMotion, the single source of truth
+    // (invariant 6): reading the platform setting here directly fails
+    // the gate.
+    if (AppMotion.reduceMotionOf(context)) {
       _controller.stop();
     } else if (!_controller.isAnimating) {
       _controller.repeat();
@@ -78,7 +83,7 @@ class _FootprintTrailState extends State<FootprintTrail>
   @override
   Widget build(BuildContext context) {
     final color = widget.color ?? Theme.of(context).colorScheme.primary;
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final reduceMotion = AppMotion.reduceMotionOf(context);
     // The stage label below this trail already announces the load state
     // ("Finding you…", "Fetching meetings…"), so the decoration itself
     // stays out of the semantics tree.
